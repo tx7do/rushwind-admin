@@ -17,7 +17,7 @@
 2. **搭建开发环境**
 
    - Rust stable（workspace `rust-version = 1.81`，含 rustfmt / clippy 组件）
-   - protoc（Linux：`apt install protobuf-compiler`；Windows：`choco install protoc`）
+   - buf（`curl -fsSL https://buf.build/install.sh | sh`，或 GitHub releases 单二进制；构建期注解闭包编译）
    - bash（Windows 推荐 Git Bash，用于同步与台架脚本）
 
 3. **创建分支**
@@ -49,7 +49,7 @@ bash backend/api/sync-protos.sh --check  # 校验门（与 CI 一致）
 
 | 产物 | 来源 | 说明 |
 |------|------|------|
-| 路由面 / 绑定计划 / 服务 trait / 挂载胶水 | `rushwind-gen-http`（构建期，rushwind 仓） | 从 protoc 注解描述符确定性生成，落位 `backend/api/admin-api/` |
+| 路由面 / 绑定计划 / 服务 trait / 挂载胶水 | `rushwind-gen-http`（构建期，rushwind 仓） | 从 buf 注解描述符确定性生成，落位 `backend/api/admin-api/` |
 | proto 类型与 protojson serde | `backend/api/admin-api/build.rs` | prost + pbjson，从 `backend/api/protos/` 编译 |
 | 免鉴权白名单表 | `backend/api/admin-api/src/auth_free.rs` | 免鉴权端点白名单，单源维护 |
 

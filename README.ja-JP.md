@@ -85,7 +85,7 @@
 <table>
 <tr><th>レイヤー</th><th>技術</th></tr>
 <tr><td><strong>バックエンド</strong></td><td><code>Rust</code>（edition 2021 / MSRV 1.81） · <code>RushWind</code> フレームワーク · <code>axum 0.8</code> · <code>tokio</code></td></tr>
-<tr><td><strong>契約パイプライン</strong></td><td><code>Protobuf</code> · <code>protoc + protox</code> · <code>prost / prost-reflect / pbjson</code> · <code>rushwind-gen-http</code>（ルート生成）</td></tr>
+<tr><td><strong>契約パイプライン</strong></td><td><code>Protobuf</code> · <code>buf + protox</code> · <code>prost / prost-reflect / pbjson</code> · <code>rushwind-gen-http</code>（ルート生成）</td></tr>
 <tr><td><strong>ストレージ</strong></td><td><code>SeaORM</code> · <code>PostgreSQL</code> · <code>Redis</code>（接続中）</td></tr>
 <tr><td><strong>認可・認証</strong></td><td><code>JWT RS256</code>（rushwind-authn-jwt） · <code>RBAC</code>（計画中）</td></tr>
 <tr><td><strong>Vue Vben 版</strong></td><td><code>Vue 3</code> · <code>TypeScript</code> · <code>Vite</code> · <code>Ant Design Vue</code> · <code>Vben Admin</code></td></tr>
@@ -141,7 +141,7 @@
 | ツール | バージョン |
 |------|------|
 | Rust | stable（ワークスペース `rust-version = 1.81`） |
-| protoc | 比較的新しいバージョン（Linux：`apt install protobuf-compiler`、Windows：`choco install protoc`） |
+| buf | 最新版（`curl -fsSL https://buf.build/install.sh | sh`、または [GitHub releases](https://github.com/bufbuild/buf/releases) の単一バイナリ）；`cargo build` 時に PATH 必須（アノテーションクロージャのコンパイル） |
 | bash | 同期・台スクリプトの実行（Windows は Git Bash 推奨） |
 | Docker | 20.0+（ローカルミドルウェア / 差分テスト台） |
 | Node.js + pnpm | 各フロントエンドの `package.json` `engines` に準拠（現在の制約交集 ≥ 20.19.0）、pnpm >= 10.0.0 |

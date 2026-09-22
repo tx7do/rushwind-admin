@@ -7,11 +7,11 @@
 //!
 //! * the annotated descriptor set — the FULL compile closure including the
 //!   annotation declarations (google.api.http, errors.code, redact,
-//!   validate, gnostic) — produced by `protoc`, NOT protox: protox's
-//!   serializer drops custom-option bytes, which are the entire point of
-//!   this set. `admin-gen` parses it for routes/error tables/binding plans;
-//!   the runtime pool decodes it as the schema surface for protojson
-//!   serialization and form binding. Requires `protoc` on PATH.
+//!   validate, gnostic) — produced by `buf build` (api/buf.yaml workspace),
+//!   NOT protox: protox's serializer drops custom-option bytes, which are
+//!   the entire point of this set. `admin-gen` parses it for routes/error
+//!   tables/binding plans; the runtime pool decodes it as the schema surface
+//!   for protojson serialization and form binding. Requires `buf` on PATH.
 //! * the Rust types — prost + pbjson, from a FILTERED descriptor set built
 //!   by protox: only data-carrying files (the admin contract files, the
 //!   pagination messages, the well-known types referenced as field
@@ -71,9 +71,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Canonical input order: directory enumeration order is filesystem-defined
-    // (NTFS yields name order, ext4 hash order), and protoc's descriptor set —
-    // hence the generated ROUTES table — follows the CLI file order, so an
-    // unsorted walk makes route indices platform-dependent.
+    // (NTFS yields name order, ext4 hash order); the sort keeps the protox
+    // types face deterministic across platforms. (The annotated closure no
+    // longer depends on this list at all — buf build emits the whole
+    // workspace in its own sorted order.)
     compile_files.sort();
 
     // The admin contract tree's own top-level modules — derived from the
@@ -100,23 +101,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let includes = [proto_root.as_path(), third_party_root.as_path()];
 
-    // 1. The annotated full closure via protoc (option bytes preserved) —
-    //    the generator and runtime-pool input.
+    // 1. The annotated full closure via buf build (option bytes preserved,
+    //    imports resolved through the api/buf.yaml workspace — same shape as
+    //    the protoc closure it replaces: the contract tree plus its imported
+    //    vendored annotations; buf also embeds the well-known types). Output
+    //    ordering is buf-determined (sorted), keeping the generated ROUTES
+    //    table platform-independent.
     let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     let annotated_path = out_dir.join("annotated_descriptor.bin");
-    let mut cmd = Command::new("protoc");
-    cmd.arg("--include_imports")
-        .arg(format!("--descriptor_set_out={}", annotated_path.display()))
-        .arg("-I")
-        .arg(&proto_root)
-        .arg("-I")
-        .arg(&third_party_root);
-    for input in &compile_files {
-        cmd.arg(input);
-    }
-    let output = cmd.output().map_err(|e| format!("protoc: {e}"))?;
+    let mut cmd = Command::new("buf");
+    cmd.current_dir(backend_root.join("api"))
+        .args(["build", "--exclude-source-info", "--output"])
+        .arg(&annotated_path);
+    let output = cmd.output().map_err(|e| format!("buf: {e}"))?;
     if !output.status.success() {
-        return Err(format!("protoc failed: {}", String::from_utf8_lossy(&output.stderr)).into());
+        return Err(format!(
+            "buf build failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )
+        .into());
     }
     let annotated_size = fs::metadata(&annotated_path).map(|m| m.len()).unwrap_or(0);
 
@@ -151,7 +154,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     eprintln!(
-        "[admin-proto] annotated closure: {annotated_size} bytes (protoc); types set: {} files (annotation declarations dropped)",
+        "[admin-proto] annotated closure: {annotated_size} bytes (buf build); types set: {} files (annotation declarations dropped)",
         types_fds.file.len()
     );
 

@@ -3,7 +3,7 @@
 //!
 //! * [`proto`] — the types: prost structs + pbjson protojson serde.
 //! * [`DESCRIPTOR_BYTES`] / [`pool`] — the annotated full compile closure:
-//!   protoc-produced (protox's serializer would drop the custom-option
+//!   buf-produced (protox's serializer would drop the custom-option
 //!   bytes — google.api.http / errors.code — which are the point), decoded
 //!   once into the immutable process-global pool. The schema surface for
 //!   protojson serialization and form binding, per `docs/binding-spec.md`.

@@ -85,7 +85,7 @@ The backend serves its own API documentation (the `enable_swagger` / `enable_red
 <table>
 <tr><th>Layer</th><th>Technology</th></tr>
 <tr><td><strong>Backend framework</strong></td><td><code>Rust</code> (edition 2021 / MSRV 1.81) · <code>RushWind</code> framework · <code>axum 0.8</code> · <code>tokio</code></td></tr>
-<tr><td><strong>Contract pipeline</strong></td><td><code>Protobuf</code> · <code>protoc + protox</code> · <code>prost / prost-reflect / pbjson</code> · <code>rushwind-gen-http</code> (route generation)</td></tr>
+<tr><td><strong>Contract pipeline</strong></td><td><code>Protobuf</code> · <code>buf + protox</code> · <code>prost / prost-reflect / pbjson</code> · <code>rushwind-gen-http</code> (route generation)</td></tr>
 <tr><td><strong>Storage</strong></td><td><code>SeaORM</code> · <code>PostgreSQL</code> · <code>Redis</code> (in progress)</td></tr>
 <tr><td><strong>Auth</strong></td><td><code>JWT RS256</code> (rushwind-authn-jwt) · <code>RBAC</code> (planned)</td></tr>
 <tr><td><strong>Vue Vben edition</strong></td><td><code>Vue 3</code> · <code>TypeScript</code> · <code>Vite</code> · <code>Ant Design Vue</code> · <code>Vben Admin</code></td></tr>
@@ -141,7 +141,7 @@ The project advances through the phases defined in [docs/development-plan.md](./
 | Tool | Version |
 |------|------|
 | Rust | stable (workspace `rust-version = 1.81`) |
-| protoc | a recent version (Linux: `apt install protobuf-compiler`; Windows: `choco install protoc`) |
+| buf | latest (`curl -fsSL https://buf.build/install.sh | sh`, or a single binary from [GitHub releases](https://github.com/bufbuild/buf/releases)); must be on PATH for `cargo build` (annotated closure) |
 | bash | for sync / rig scripts (Git Bash recommended on Windows) |
 | Docker | 20.0+ (local middleware / differential test rig) |
 | Node.js + pnpm | per each frontend's `package.json` `engines` (current intersection ≥ 20.19.0), pnpm >= 10.0.0 |

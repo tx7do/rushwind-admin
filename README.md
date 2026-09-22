@@ -85,7 +85,7 @@
 <table>
 <tr><th>层级</th><th>技术</th></tr>
 <tr><td><strong>后端框架</strong></td><td><code>Rust</code>（edition 2021 / MSRV 1.81） · <code>RushWind</code> 框架 · <code>axum 0.8</code> · <code>tokio</code></td></tr>
-<tr><td><strong>契约链</strong></td><td><code>Protobuf</code> · <code>protoc + protox</code> · <code>prost / prost-reflect / pbjson</code> · <code>rushwind-gen-http</code>（路由生成）</td></tr>
+<tr><td><strong>契约链</strong></td><td><code>Protobuf</code> · <code>buf + protox</code> · <code>prost / prost-reflect / pbjson</code> · <code>rushwind-gen-http</code>（路由生成）</td></tr>
 <tr><td><strong>存储层</strong></td><td><code>SeaORM</code> · <code>PostgreSQL</code> · <code>Redis</code>（接入中）</td></tr>
 <tr><td><strong>认证授权</strong></td><td><code>JWT RS256</code>（rushwind-authn-jwt） · <code>RBAC</code>（规划）</td></tr>
 <tr><td><strong>Vue Vben 版</strong></td><td><code>Vue 3</code> · <code>TypeScript</code> · <code>Vite</code> · <code>Ant Design Vue</code> · <code>Vben Admin</code></td></tr>
@@ -141,7 +141,7 @@
 | 工具 | 版本 |
 |------|------|
 | Rust | stable（workspace `rust-version = 1.81`） |
-| protoc | 较新版本（Linux：`apt install protobuf-compiler`；Windows：`choco install protoc`） |
+| buf | 最新版（`curl -fsSL https://buf.build/install.sh | sh`，或 [GitHub releases](https://github.com/bufbuild/buf/releases) 单二进制）；`cargo build` 时需在 PATH（注解闭包编译） |
 | bash | 运行同步 / 台架脚本（Windows 推荐 Git Bash） |
 | Docker | 20.0+（本地中间件 / 差分台架） |
 | Node.js + pnpm | 以各前端 `package.json` 的 `engines` 为准（当前约束交集 ≥ 20.19.0），pnpm >= 10.0.0 |

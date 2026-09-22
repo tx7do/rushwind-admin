@@ -36,15 +36,13 @@ jobs:
         with:
           workspaces: backend
 
-      # admin-proto's build script (and the framework generator's fixture
-      # test) invoke a real `protoc` — protox drops custom option bytes.
-      - name: Install protoc (ubuntu)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
-      - name: Install protoc (windows)
-        if: runner.os == 'Windows'
-        run: choco install protoc -y --no-progress
-        shell: pwsh
+      # admin-proto's build script compiles the annotated closure through
+      # `buf build` (backend/api/buf.yaml workspace) — buf preserves the
+      # custom-option bytes (google.api.http / errors.code / gnostic / redact)
+      # that protox's serializer drops, replacing the former protoc dependency.
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: "1.73.0"
 
       # Vendored protos must match MANIFEST.sha256 (anti-tamper gate).
       # The go source repo is absent on CI, so the upstream-drift
@@ -61,6 +59,15 @@ jobs:
           bash ../frontend/admin/sync-frontend.sh react --check
           bash ../frontend/admin/sync-frontend.sh vue-element --check
           bash ../frontend/admin/sync-frontend.sh vue-vben --check
+
+      # Report, not a gate: the vendored Kratos-style contract violates buf
+      # STANDARD naming lints wholesale (snapshots are byte-frozen; findings
+      # belong upstream). Surfaced to catch NEW violation classes on re-sync.
+      - name: Buf lint (report)
+        if: runner.os == 'Linux'
+        continue-on-error: true
+        working-directory: backend/api
+        run: buf lint
 
       # Scoped to THIS repo's packages: `cargo fmt --all` would also
       # enforce on the framework path-deps, which the framework repo's

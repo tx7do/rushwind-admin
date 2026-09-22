@@ -12,6 +12,11 @@
 #
 # 依据 docs/development-plan.md §7 Phase 0：proto 是唯一契约；本仓持有同步副本 +
 # checksum 门，上游漂移必须在同步时显式接受（重新生成 MANIFEST 并走差分回归）。
+#
+# 再同步接受新 vintage 时，建议先跑契约演进检查（api/buf.yaml 工作区）：
+#   cd backend/api && buf breaking --against "../../.git#branch=main,subdir=backend/api"
+# 工作区对工作区比较，报告相对 main 基线的 breaking 差异；
+# FILE 规则下仅【删除/改型】算破坏，纯新增不算。
 set -euo pipefail
 
 MODE="${1:-sync}"

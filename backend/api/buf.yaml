@@ -1,0 +1,33 @@
+# buf 工作区（本地、无 BSR 依赖）——把既有同步/vendoring 模型显式化给 buf CLI：
+#
+#   cd backend/api
+#   buf lint                              # 样式报告（仅契约树；快照禁手改，
+#                                         #   发现的问题回上游 go-wind-admin 修）
+#   buf build -o /tmp/api-image.binpb     # 编译全工作区（含注解闭包，选项字节保真）
+#   buf breaking --against "../../.git#branch=main,subdir=backend/api"
+#                                         # 再同步接受新 vintage 前的契约演进检查
+#                                         #   （工作区对工作区；基线要求 buf.yaml
+#                                         #    已入库；FILE 规则下仅删除/改型算破坏）
+#
+# 契约源与第三方注解都来自上游 go-wind-admin 的字节同步（api/sync-protos.sh +
+# third_party/PROVENANCE.md），因此这里【不做】buf format（会砸字节清单门）、
+# 【不挂】BSR deps（上游 buf.lock 是唯一版本事实源；本地直接把 vendored 子树
+# 声明为 workspace 模块，import 跨模块自动解析）。
+version: v2
+
+modules:
+  # 契约树：112 个 proto，字节同步快照（api/MANIFEST.sha256 门）。
+  - path: protos
+    lint:
+      use:
+        - STANDARD
+  # 手工 vendored 的第三方注解声明（见 third_party/PROVENANCE.md——上游
+  # buf.lock 锁定的六个 BSR 模块的本地投影）。整个子树声明为一个模块：
+  # 契约里的 import 全部以 third_party/ 为根（google/api/...、gnostic/...、
+  # pagination/...），与 build.rs 的 `-I third_party` 同构；google/protobuf
+  # 由 buf 内置 WKT 解析。
+  - path: third_party
+
+breaking:
+  use:
+    - FILE

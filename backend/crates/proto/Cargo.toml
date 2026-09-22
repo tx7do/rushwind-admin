@@ -1,6 +1,6 @@
 [package]
 name = "proto"
-description = "The admin API contract crate: the synced api/protos tree compiled to prost types with pbjson protojson serde, the protoc-produced annotated descriptor pool, and the rushwind-gen-http-generated route/binding/trait/mount surface (the deployment's auth-free set rides here as AUTH_FREE). Wire semantics are pinned by docs/binding-spec.md."
+description = "The admin API contract crate: the synced api/protos tree compiled to prost types with pbjson protojson serde, the buf-produced annotated descriptor pool, and the rushwind-gen-http-generated route/binding/trait/mount surface (the deployment's auth-free set rides here as AUTH_FREE). Wire semantics are pinned by docs/binding-spec.md."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
