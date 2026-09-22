@@ -1,0 +1,17 @@
+{
+  "moduleName": "File",
+  "fileName": "File Name",
+  "saveFileName": "Saved File Name",
+  "fileDirectory": "File Directory",
+  "size": "File Size",
+  "provider": "Storage Provider",
+  "createdAt": "Created At",
+  "remark": "Remark",
+  "button": {
+    "upload": "Upload File"
+  },
+  "notification": {
+    "upload_success": "Upload successful",
+    "upload_failed": "Upload failed"
+  }
+}

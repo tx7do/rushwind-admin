@@ -1,0 +1,26 @@
+{
+  "moduleName": "Menu",
+  "sync": "Sync Menus",
+  "syncConfirm": "Menus from the current frontend routes will be merged into the server: missing menus are added and existing ones updated in place (menu IDs and role-menu assignments are preserved); extra menus on the server are kept. Continue?",
+  "name": "Name",
+  "type": "Type",
+  "title": "Title",
+  "parentId": "Parent ID",
+  "order": "Order",
+  "icon": "Icon",
+  "path": "Path",
+  "component": "Component",
+  "authority": "Authority",
+  "advancedSettings": "Advanced Settings",
+  "keepAlive": "Keep Alive",
+  "affixTab": "Affix Tab",
+  "hideInMenu": "Hide in Menu",
+  "hideChildrenInMenu": "Hide Children in Menu",
+  "hideInBreadcrumb": "Hide in Breadcrumb",
+  "hideInTab": "Hide in Tab",
+  "createdAt": "Created At",
+  "button": {
+    "create": "Create",
+    "update": "Update"
+  }
+}

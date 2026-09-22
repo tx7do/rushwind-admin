@@ -1,0 +1,10 @@
+{
+  "moduleName": "Config",
+  "name": "Name",
+  "key": "Key",
+  "value": "Value",
+  "valueType": "Value Type",
+  "isBuiltIn": "Built-in",
+  "builtInTag": "Built-in",
+  "customTag": "Custom"
+}

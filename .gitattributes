@@ -8,3 +8,9 @@ backend/api/MANIFEST.sha256 -text
 frontend/admin/react/** -text
 frontend/admin/react.MANIFEST.sha256 -text
 frontend/admin/react.UPSTREAM.sha256 -text
+frontend/admin/vue-element/** -text
+frontend/admin/vue-element.MANIFEST.sha256 -text
+frontend/admin/vue-element.UPSTREAM.sha256 -text
+frontend/admin/vue-vben/** -text
+frontend/admin/vue-vben.MANIFEST.sha256 -text
+frontend/admin/vue-vben.UPSTREAM.sha256 -text

@@ -1,0 +1,26 @@
+{
+  "moduleName": "菜单",
+  "sync": "同步菜单",
+  "syncConfirm": "将把当前前端路由增量合并到后端菜单：按路径新增缺失菜单、原位更新已有菜单（保留菜单 ID 与角色授权）；后端多出的菜单会保留。确定继续？",
+  "name": "名称",
+  "type": "类型",
+  "title": "标题",
+  "parentId": "父级ID",
+  "order": "排序",
+  "icon": "图标",
+  "path": "路径",
+  "component": "组件",
+  "authority": "权限标识",
+  "advancedSettings": "高级设置",
+  "keepAlive": "缓存页面",
+  "affixTab": "固定在标签页",
+  "hideInMenu": "隐藏于菜单",
+  "hideChildrenInMenu": "隐藏子菜单",
+  "hideInBreadcrumb": "隐藏于面包屑",
+  "hideInTab": "隐藏于标签页",
+  "createdAt": "创建时间",
+  "button": {
+    "create": "创建",
+    "update": "更新"
+  }
+}

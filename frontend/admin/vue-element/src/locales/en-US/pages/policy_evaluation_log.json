@@ -1,0 +1,19 @@
+{
+  "moduleName": "Policy Evaluation Log",
+  "result": "Result",
+  "requestMethod": "Request Method",
+  "requestPath": "Request Path",
+  "userId": "User ID",
+  "permissionId": "Permission ID",
+  "policyId": "Policy ID",
+  "membershipId": "Membership ID",
+  "tenantId": "Tenant ID",
+  "ipAddress": "IP Address",
+  "traceId": "Trace ID",
+  "createdAt": "Created At",
+  "evaluationContext": "Evaluation Context",
+  "effectDetails": "Effect Details",
+  "scopeSql": "Scope SQL",
+  "logHash": "Log Hash",
+  "signature": "Signature"
+}

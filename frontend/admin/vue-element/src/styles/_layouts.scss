@@ -1,0 +1,411 @@
+/**
+ * 布局相关样式
+ */
+
+// ============================================
+// 通用容器
+// ============================================
+
+.app-container {
+  padding: 16px;
+}
+
+// ============================================
+// 进度条
+// ============================================
+
+#nprogress .bar {
+  background-color: var(--el-color-primary);
+}
+
+// ============================================
+// 弹出菜单
+// ============================================
+
+.el-menu--popup {
+  --el-menu-bg-color: var(--menu-background);
+  --el-menu-text-color: var(--menu-text);
+  --el-menu-active-color: var(--menu-active-text);
+  --el-menu-hover-bg-color: var(--menu-hover);
+
+  background-color: var(--menu-background);
+
+  .el-menu-item,
+  .el-sub-menu__title {
+    color: var(--menu-text) !important;
+    border-radius: 8px;
+  }
+
+  .el-menu-item:hover,
+  .el-sub-menu__title:hover {
+    color: var(--menu-active-text) !important;
+    background-color: var(--menu-hover) !important;
+  }
+
+  // 选中：主色实底药丸 + 白字（react antd Menu 基准，design-language.md §4）
+  .el-menu-item.is-active {
+    background-color: var(--el-color-primary) !important;
+    color: #fff !important;
+
+    .el-icon {
+      color: #fff !important;
+    }
+  }
+}
+
+// 混合布局左侧菜单 hover/active 样式
+// 颜色统一使用 Element Plus 主题变量（含 dark/css-vars.css），亮/暗模式自动切换，
+// 不再用硬编码 rgba/#hex 双分支。
+.layout-mix .layout__sidebar--left .el-menu {
+  .el-menu-item:hover,
+  .el-sub-menu__title:hover {
+    background-color: var(--el-menu-hover-bg-color) !important;
+    color: var(--el-menu-hover-text-color) !important;
+  }
+
+  // 选中：主色实底药丸 + 白字（react antd Menu 基准，design-language.md §4）
+  .el-menu-item.is-active {
+    background-color: var(--el-color-primary) !important;
+    color: #fff !important;
+
+    .el-icon {
+      color: #fff !important;
+    }
+  }
+}
+
+// 深蓝色侧边栏
+html.sidebar-color-blue .layout-mix .layout__sidebar--left .el-menu {
+  .el-menu-item,
+  .el-sub-menu__title {
+    &:hover {
+      background-color: var(--menu-hover) !important;
+    }
+  }
+}
+
+// ============================================
+// 顶部布局菜单
+// ============================================
+
+.layout-top .layout__header-left .el-menu--horizontal,
+.layout-mix .layout__header-menu .el-menu--horizontal {
+  display: flex;
+  flex: 1 1 0% !important;
+  align-items: center;
+  width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden;
+}
+
+// 窄屏隐藏菜单文字，仅保留图标
+.hideSidebar {
+  &.layout-top .layout__header .el-menu--horizontal,
+  &.layout-mix .layout__header .el-menu--horizontal {
+    .el-menu-item,
+    .el-sub-menu__title {
+      .menu-title,
+      span:not([class*="i-svg"]):not(.el-icon) {
+        display: none !important;
+      }
+    }
+  }
+
+  &.layout-mix .layout__sidebar--left .el-menu {
+    .el-menu-item,
+    .el-sub-menu__title {
+      .menu-title,
+      span:not([class*="i-svg"]):not(.el-icon) {
+        display: none !important;
+      }
+    }
+  }
+}
+
+// ============================================
+// 全局筛选区域
+// ============================================
+
+.filter-section {
+  padding: 8px 12px 0;
+  margin-bottom: 8px;
+  background-color: var(--el-bg-color-overlay);
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 4px;
+
+  .search-buttons {
+    margin-right: 0;
+  }
+
+  .el-form-item {
+    margin-bottom: 8px;
+  }
+}
+
+// ============================================
+// 表格区域
+// ============================================
+
+.table-section {
+  margin-bottom: 12px;
+
+  &__toolbar {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+
+    &--actions,
+    &--tools {
+      display: flex;
+      gap: 4px;
+    }
+  }
+
+  &__content {
+    margin: 8px 0;
+  }
+
+  .el-pagination {
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+}
+
+// ============================================
+// collapse-show-title 模式：隐藏 Element Plus 菜单折叠时的 tooltip
+// ============================================
+
+.collapse-show-title-popper {
+  display: none !important;
+}
+
+// ============================================
+// 表格 Icon Button 全局统一规范
+// ============================================
+
+.table-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  transition: all 0.2s ease;
+  vertical-align: middle;
+
+  // ---- Primary（编辑/查看/下载/重启） ----
+  &--primary {
+    color: var(--el-color-primary) !important;
+
+    svg,
+    i,
+    .iconify {
+      color: inherit !important;
+      fill: currentColor !important;
+    }
+
+    &:hover {
+      background-color: var(--el-color-primary-light-9);
+    }
+  }
+
+  // ---- Danger（删除/停止） ----
+  &--danger {
+    color: var(--el-color-danger) !important;
+
+    svg,
+    i,
+    .iconify {
+      color: inherit !important;
+      fill: currentColor !important;
+    }
+
+    &:hover {
+      background-color: var(--el-color-danger-light-9);
+    }
+  }
+
+  // ---- Success（启动） ----
+  &--success {
+    color: var(--el-color-success) !important;
+
+    svg,
+    i,
+    .iconify {
+      color: inherit !important;
+      fill: currentColor !important;
+    }
+
+    &:hover {
+      background-color: var(--el-color-success-light-9);
+    }
+  }
+
+  // ---- Warning ----
+  &--warning {
+    color: var(--el-color-warning) !important;
+
+    svg,
+    i,
+    .iconify {
+      color: inherit !important;
+      fill: currentColor !important;
+    }
+
+    &:hover {
+      background-color: var(--el-color-warning-light-9);
+    }
+  }
+  
+  // 默认颜色（无修饰符类时）
+  &:not([class*="--"]) {
+    color: var(--el-text-color-regular) !important;
+    
+    svg,
+    i,
+    .iconify {
+      color: inherit !important;
+      fill: currentColor !important;
+    }
+
+    &:hover {
+      background-color: var(--el-fill-color-light);
+      color: var(--el-text-color-primary) !important;
+    }
+  }
+
+  // 按钮之间间距 12px（防误触安全间距）
+  & + .table-icon-btn {
+    margin-left: 12px;
+  }
+}
+
+// ---- 暗色模式适配 ----
+// hover 背景使用 Element Plus 主题填充变量，亮/暗模式自动切换。
+html.dark .table-icon-btn {
+  &:hover {
+    background-color: var(--el-fill-color-light);
+  }
+
+  &--primary {
+    color: var(--el-color-primary-light-3) !important;
+
+    &:hover {
+      background-color: var(--el-color-primary-light-9);
+    }
+  }
+
+  &--danger {
+    color: var(--el-color-danger-light-3) !important;
+
+    &:hover {
+      background-color: var(--el-color-danger-light-9);
+    }
+  }
+
+  &--success {
+    color: var(--el-color-success-light-3) !important;
+
+    &:hover {
+      background-color: var(--el-color-success-light-9);
+    }
+  }
+
+  &--warning {
+    color: var(--el-color-warning-light-3) !important;
+
+    &:hover {
+      background-color: var(--el-color-warning-light-9);
+    }
+  }
+}
+
+// ============================================
+// vxe-table 全局选中行样式（明暗模式通用）
+// 注意：选中行/hover/斑马纹的完整覆盖已移至 _vxe-table.scss 统一管理
+// ============================================
+
+// ============================================
+// 页面背景层级感（亮色模式）
+// 将 ProPage 区域设为淡灰色底色，让白色搜索栏和内容卡片「浮」起来
+// ============================================
+
+.pro-page {
+  background-color: var(--el-bg-color-page);
+}
+
+// ============================================
+// 面包屑垂直间距呼吸感
+// ============================================
+
+.breadcrumb {
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+// 暗色模式下，面包屑与筛选区保持相同间距（不单独加）
+// html.dark .breadcrumb {
+//   margin-bottom: 20px;
+// }
+
+// 搜索栏卡片化：样式已在 ProSearch scoped 中统一设置
+// 白色背景 + 边框 + 圆角 + 淡投影，与内容卡片风格一致
+
+// ============================================
+// 状态标签文字对比度增强（亮色模式 WCAG AA）
+// ============================================
+
+// 信息态标签：文字色使用 Element Plus 主题 info 色（亮/暗模式自动切换）
+.el-tag--plain.el-tag--info {
+  --el-tag-text-color: var(--el-color-info);
+}
+
+// 成功态标签：文字色使用 Element Plus 主题 success 色（亮/暗模式自动切换）
+.el-tag--plain.el-tag--success {
+  --el-tag-text-color: var(--el-color-success);
+}
+
+// 主色调标签：文字加深至 primary-dark-2，自适应主题色
+.el-tag--plain.el-tag--primary {
+  --el-tag-text-color: var(--el-color-primary-dark-2);
+}
+
+// ============================================
+// vxe-table 行悬停淡出动画
+// ============================================
+
+.vxe-table--render-default .vxe-body--row > .vxe-body--column {
+  transition: background-color 0.2s ease;
+}
+
+// ============================================
+// 分页器禁用状态增强
+// ============================================
+
+.el-pagination .btn-prev.is-disabled,
+.el-pagination .btn-next.is-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+// ============================================
+// Tiptap Editor disabled 状态（全局，明暗双模式）
+// scoped :deep() 对 ProseMirror DOM 的 [contenteditable] 属性选择器匹配不稳定
+// 因此将 disabled 样式移至全局样式表
+// ============================================
+
+.tiptap-editor-wrapper .ProseMirror[contenteditable="false"] {
+  cursor: not-allowed;
+}
+
+.tiptap-editor-wrapper .ProseMirror[contenteditable="false"] * {
+  opacity: 0.7;
+}
+
+.tiptap-editor-wrapper .ProseMirror[contenteditable="true"] {
+  cursor: text;
+}

@@ -1,0 +1,14 @@
+{
+  "moduleName": "Position",
+  "name": "Position Name",
+  "code": "Position Code",
+  "type": "Position Type",
+  "orgUnit": "Organization Unit",
+  "orgUnitName": "Organization Unit",
+  "headcount": "Headcount",
+  "sortOrder": "Sort Order",
+  "status": "Status",
+  "description": "Description",
+  "remark": "Remark",
+  "createdAt": "Created At"
+}

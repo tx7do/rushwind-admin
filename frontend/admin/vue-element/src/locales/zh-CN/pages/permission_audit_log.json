@@ -1,0 +1,21 @@
+{
+  "moduleName": "权限审计日志",
+  "targetType": "目标类型",
+  "operatorName": "操作人",
+  "action": "操作类型",
+  "ipAddress": "IP地址",
+  "createdAt": "创建时间",
+  "targetName": "目标名称",
+  "reason": "原因",
+  "geoLocation": "地理位置",
+  "operatorId": "操作人ID",
+  "targetId": "目标ID",
+  "oldValue": "原值",
+  "newValue": "新值",
+  "requestId": "请求ID",
+  "tenantId": "租户ID",
+  "logHash": "日志哈希",
+  "signature": "签名",
+  "province": "省份",
+  "city": "城市"
+}

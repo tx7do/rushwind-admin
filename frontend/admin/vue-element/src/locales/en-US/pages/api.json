@@ -1,0 +1,17 @@
+{
+  "moduleName": "API",
+  "description": "Description",
+  "module": "Module",
+  "moduleDescription": "Module Description",
+  "path": "Path",
+  "method": "HTTP Method",
+  "createdAt": "Created At",
+  "button": {
+    "create": "Create",
+    "sync": "Sync API"
+  },
+  "notification": {
+    "sync_success": "Sync successful",
+    "sync_failed": "Sync failed"
+  }
+}

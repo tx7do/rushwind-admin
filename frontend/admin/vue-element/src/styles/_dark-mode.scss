@@ -1,0 +1,972 @@
+/**
+ * 暗黑模式专项优化样式
+ * 
+ * 说明：
+ * - 本文件专门针对暗黑模式下的表单、Drawer、输入框等组件进行优化
+ * - 不会影响其他组件的样式
+ * - 使用 CSS 变量实现，便于维护和调整
+ */
+
+
+html.dark {
+  // ============================================
+  // CSS 变量定义（暗色模式专用）
+  // ============================================
+  
+  // ---- 字体渲染优化：暗黑模式字重提粗 + 文字色柔化 ----
+  // 暗黑正文500：深色底会吃掉细笔画，必须加粗避免发虚
+  --el-font-weight-primary: 500 !important;
+  --el-font-weight-bold: 600 !important;
+  // 暗黑文字色：放弃纯白#fff，用柔和灰白显厚重
+  --el-text-color-primary: #F8FAFC !important;     // 主要文字（标题、正文）
+  // 常规文字降一档（design-language.md §2.3：主 #F8FAFC / 表单标签 #DCE3ED / 次 #8B949E），
+  // 避免 Label/正文/标题全部同亮导致层次拉平
+  --el-text-color-regular: #DCE3ED !important;     // 常规文字（表单 Label、表格正文）
+  --el-text-color-secondary: #8B949E !important;   // 次要文字（冷调灰，对齐规范）
+  --el-text-color-placeholder: #9CA3AF !important; // 占位符文字（对齐 vben：提亮至 gray-400）
+  
+  // 暗黑模式下给文本增加极微小的字间距，强迫 Windows 浏览器重新对齐像素点
+  // 移除：与亮色模式不一致，且 letter-spacing 差异会导致宽度偏移
+  // letter-spacing: 0.02em !important;
+  
+  // 1. 核心对比度优化(先解决”看得见”的问题)
+  --dark-bg-primary: #111827;      // 页面主背景(微压暗基底,暗黑质感更高级)
+  --dark-bg-page: #0B0F19;          // 内容区画布底色(比侧边栏亮 2 个灰度层级，拉开视觉层次)
+  --dark-bg-table: #111827;         // 表格容器/输入框背景(与画布底色一致，保持统一)
+  --dark-bg-input: #111827;        // 输入类控件底（与表面同层，仅靠边框区分，对齐 vben）
+  --dark-bg-hover: rgba(255, 255, 255, 0.08);         // 悬浮态/展开态/表头/行 hover(hover 态微高亮,给用户明确的交互反馈)
+  --dark-border: rgba(255, 255, 255, 0.1);           // 输入框边框/分割线/表格边框(柔化降燥——旧值 #3a3f4a 过硬,纯黑背景下显得粗糙刺眼)
+    
+  // Drawer 专属层级（design-language.md §2.3：输入控件与表面同层，仅靠边框区分；
+  // 原「凹入 + 提亮」L2 方案已废弃，避免抽屉输入框与页面输入框两套形态）
+  --dark-bg-drawer: #111827;         // Drawer 主背景（L1 表面）
+  --dark-bg-drawer-header: #111827;  // Drawer Header 背景
+  --dark-bg-drawer-footer: #111827;  // Drawer Footer 背景
+  --dark-bg-drawer-input: #111827;   // Drawer 内输入框背景（与表面同层）
+  --dark-drawer-border: rgba(255, 255, 255, 0.08); // Drawer 分割线（§2.3 分隔线 α）
+  --dark-drawer-input-border: rgba(255, 255, 255, 0.1); // 输入框边框（§2.3 输入类 α 方案）
+  --dark-drawer-shadow: 
+    -8px 0 32px rgba(0, 0, 0, 0.5),          // 主投影：左侧深黑阴影
+    -2px 0 8px rgba(0, 0, 0, 0.3),            // 近投影：贴近边缘的紧凑阴影
+    -1px 0 1px rgba(100, 120, 200, 0.08);     // 环境光：极淡蓝紫微光，赋予空间深度
+  
+  // 奇偶行斑马纹（§2.3 填充 α 方案；--dark-row-odd/even 旧变量已废弃删除）
+  --dark-header: #1F2937;           // 表头背景(微提亮,和数据行层级更清晰)
+
+  // 文本色层级体系（design-language.md §2.3）
+  --dark-text-primary: #F8FAFC;       // 一级文本：表头主文本/选中菜单项/核心标题
+  --dark-text-secondary: #8B949E;     // 二级文本：未选中菜单项/面包屑非当前页/辅助说明（冷调灰，WCAG 4.5:1）
+  --dark-text-placeholder: #9ca3af;   // 三级文本：占位符/时间戳/辅助说明
+  --dark-text-data: #CFD3DC;          // 数据文本：表格数据行主体（柔和灰白，避免纯白光晕效应）
+
+  // 2. 色彩体系（跟随用户主题色）
+  --dark-primary: var(--el-color-primary);       // 主色（跟随主题）
+  --dark-secondary: #36CFC9;                     // 辅助色：青绿
+  --dark-accent: var(--el-color-warning);         // 强调色（跟随主题）
+  --dark-error: var(--el-color-danger);           // 错误态（跟随主题）
+  --dark-success: var(--el-color-success);        // 成功态（跟随主题）
+
+  // 3. Element Plus 组件变量覆盖
+  --el-bg-color: var(--dark-bg-primary);
+  --el-bg-color-page: var(--dark-bg-page);
+  --el-bg-color-overlay: #1C2128;
+  --el-fill-color-blank: var(--dark-bg-table);
+  --el-border-color: var(--dark-border);
+  --el-border-color-light: var(--dark-border);
+
+  // 填充色四阶 → §2.3 α 白方案（EP 暗色默认是中性灰 hex，与蓝黑底冷暖打架；
+  // 影响 hover/禁用/占位等所有 fill 消费者，含个人中心头像占位圆）
+  --el-fill-color-dark: rgba(255, 255, 255, 0.14);
+  --el-fill-color: rgba(255, 255, 255, 0.09);
+  --el-fill-color-light: rgba(255, 255, 255, 0.05);
+  --el-fill-color-lighter: rgba(255, 255, 255, 0.03);
+  --el-fill-color-extra-light: rgba(255, 255, 255, 0.02);
+
+  // 弱边框两档 → α 白（EP 暗色默认 #363637/#2b2b2c 中性灰，同底不同温）
+  --el-border-color-lighter: rgba(255, 255, 255, 0.06);
+  --el-border-color-extra-light: rgba(255, 255, 255, 0.04);
+
+  // 卡片内部背景变量归位：EP dark 有 html.dark .el-card { --el-fill-color-blank:
+  // var(--el-card-bg-color) }，而 --el-card-bg-color 暗色下 = 浮层色 #1C2128，
+  // 导致卡片内所有 select/输入类控件发灰（用户管理树面板、租户列表下拉实测）。
+  // 需直接在 .el-card 上覆盖（元素级定义会压过 html.dark 继承）。
+  .el-card {
+    --el-card-bg-color: var(--el-bg-color);
+    --el-fill-color-blank: var(--el-bg-color);
+  }
+
+  // ============================================
+  // 卡片表面色修正（design-language.md §2.3）
+  // EP 暗色把 el-card 背景映射到 --el-bg-color-overlay（浮层色 #1C2128，中性灰调），
+  // 导致个人中心等 is-always-shadow 卡片呈「死灰大面板」，与全站表面 #111827 冷调
+  // 打架。卡片/容器 = L1 表面，不是浮层；浮层语义（下拉/弹窗/Popover）走 el-popper 系。
+  // 不带 !important：组件 scoped 样式仍可按需覆盖。
+  // ============================================
+  .el-card {
+    background-color: var(--el-bg-color);
+    // 暗色分层：EP dark 的 --el-box-shadow 是 72% 黑晕（窄间距卡片间叠出「黑缝」），
+    // 但完全无投影又会因卡片(9%L)与画布(7%L)色差过小而边界感塌陷、缝隙成「黑沟」。
+    // 取静默态轻投影，保持克制不发光（§2.2 投影精神的暗色对应）。
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.36);
+  }
+
+  // 描述表（el-descriptions，bordered）body 同理归位表面色：
+  // EP 暗色默认浮层色 #1C2128 会让用户详情等页的信息表在卡片上呈「灰块」，
+  // label/值格的 §2.3 α 白在表面色上才能均匀浮起
+  .el-descriptions__body {
+    background-color: var(--el-bg-color);
+  }
+
+  // ============================================
+  // 全局暗色滚动条（浏览器默认亮灰滚动条在暗底上刺眼）
+  // 与 Drawer 内滚动条（6px 细条）保持同一形态
+  // ============================================
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.25);
+    }
+  }
+
+  // ============================================
+  // 表单和 Drawer 专项优化
+  // ============================================
+
+  // 搜索区域样式修复
+  .el-card {
+    &.el-card--shadow-never {
+      background-color: var(--dark-bg-table) !important;
+      border-color: var(--dark-border) !important;
+      
+      .el-card__body {
+        background-color: var(--dark-bg-table) !important;
+        padding: 16px !important;
+      }
+    }
+  }
+
+  // ProSearch 搜索栏：暗色模式卡片样式已由组件 scoped 样式自动适配
+  // （通过 var(--el-bg-color) 等语义变量）
+
+  // 搜索表单样式
+  .el-form--inline {
+    background-color: transparent !important;
+
+    .el-form-item {
+      background-color: transparent !important;
+      border-color: transparent !important;
+
+      .el-form-item__label {
+        color: var(--dark-text-secondary) !important; // 柔和次要文字色，避免纯白过亮
+        font-weight: 500 !important; // 与 EP --el-font-weight-primary 对齐
+      }
+
+      // 输入框和选择器
+      .el-input,
+      .el-select,
+      .el-date-editor {
+        .el-input__wrapper {
+          background-color: var(--dark-bg-input) !important;
+          border-color: var(--dark-border) !important;
+          box-shadow: 0 0 0 1px var(--dark-border) inset !important;
+
+          &:hover {
+            border-color: var(--dark-primary) !important;
+          }
+
+          &.is-focus {
+            border-color: var(--dark-primary) !important;
+            box-shadow: 0 0 0 1px var(--dark-primary) inset !important;
+          }
+        }
+      }
+    }
+
+    // 按钮组
+    .button-group {
+      .el-button {
+        // 搜索按钮（主色）
+        &.el-button--primary {
+          background-color: var(--dark-primary) !important;
+          border-color: var(--dark-primary) !important;
+
+          &:hover {
+            filter: brightness(1.15);
+          }
+        }
+
+        // 重置按钮（默认）
+        &:not(.el-button--primary) {
+          background-color: var(--dark-bg-table) !important;
+          border-color: var(--dark-border) !important;
+          color: var(--dark-text-primary) !important;
+
+          &:hover {
+            background-color: var(--dark-bg-hover) !important;
+            border-color: var(--dark-primary) !important;
+            color: var(--dark-primary) !important;
+          }
+        }
+      }
+
+      // 展开/收起链接
+      .el-link.el-link--primary {
+        color: var(--dark-primary) !important;
+
+        &:hover {
+          filter: brightness(1.15);
+        }
+      }
+    }
+  }
+
+  // Drawer/Dialog — 现代高质感暗黑模式
+  .el-drawer {
+    // 暗黑模式去掉左侧边框，由 box-shadow 提供层级分离（避免白线刺眼）
+    border-left: none !important;
+    // 主背景使用专属层级变量，拉开与页面底色的距离
+    background-color: var(--dark-bg-drawer) !important;
+    // 环境光投影：多层级阴影，赋予空间深度
+    box-shadow: var(--dark-drawer-shadow) !important;
+
+    .el-drawer__header {
+      background-color: var(--dark-bg-drawer-header) !important;
+      border-bottom: 1px solid var(--dark-border) !important;
+      // 微弱底部分割线渐变，增强边界柔和感
+      background-image: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.15)) !important;
+      
+      .el-drawer__title {
+        color: var(--dark-text-primary) !important;
+        font-size: 18px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.01em !important;
+      }
+
+      // 关闭按钮
+      .el-drawer__close-btn {
+        color: var(--dark-text-secondary) !important;
+
+        &:hover {
+          color: var(--dark-text-primary) !important;
+          background-color: rgba(255, 255, 255, 0.06) !important;
+        }
+      }
+    }
+
+    .el-drawer__body {
+      background-color: var(--dark-bg-drawer) !important;
+
+
+      // 暗黑模式下 Drawer body 滚动条优化
+      &::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+
+        &:hover {
+          background: rgba(255, 255, 255, 0.18);
+        }
+      }
+    }
+
+    .el-drawer__footer {
+      background-color: var(--dark-bg-drawer-footer) !important;
+      border-top: 1px solid var(--dark-border) !important;
+      // 与亮色模式统一的内边距，确保按钮区与表单内容有足够间距
+      padding: 16px 20px !important;
+      // 微弱顶部分割线渐变，增强边界柔和感
+      background-image: linear-gradient(to top, transparent, rgba(0, 0, 0, 0.15)) !important;
+    }
+  }
+
+  .el-dialog {
+    background-color: var(--dark-bg-drawer) !important;
+    box-shadow: 
+      0 12px 40px rgba(0, 0, 0, 0.5),
+      0 4px 12px rgba(0, 0, 0, 0.3),
+      0 0 1px rgba(100, 120, 200, 0.1) !important;
+    border: 1px solid var(--dark-drawer-border) !important;
+
+    .el-dialog__header {
+      background-color: var(--dark-bg-drawer-header) !important;
+      border-bottom: 1px solid var(--dark-border) !important;
+
+      .el-dialog__title {
+        color: var(--dark-text-primary) !important;
+        font-size: 18px !important;
+        font-weight: 600 !important;
+      }
+    }
+
+    .el-dialog__body {
+      background-color: var(--dark-bg-drawer) !important;
+    }
+
+    .el-dialog__footer {
+      background-color: var(--dark-bg-drawer-footer) !important;
+      border-top: 1px solid var(--dark-border) !important;
+    }
+  }
+
+  // 表单容器（仅针对 Drawer/Dialog 内的表单）
+  .el-drawer .el-form,
+  .el-dialog .el-form {
+    background-color: transparent !important;
+
+    // 表单标签
+    .el-form-item__label {
+      color: var(--dark-text-secondary) !important; // 柔和次要文字色，避免纯白过亮
+      font-weight: 500 !important; // 与 EP --el-font-weight-primary 对齐
+
+      // 必填项标签增加轻微高亮，强化核心字段的视觉权重
+      &.is-required::before {
+        color: var(--dark-error) !important;
+      }
+    }
+
+    // 表单项间距与亮色模式统一（--gowind-form-item-margin-bottom: 24px）
+    .el-form-item {
+      margin-bottom: 24px !important;
+    }
+  }
+
+  // Drawer/Dialog 内的 ElDivider 分隔线适配
+  .el-drawer .el-divider,
+  .el-dialog .el-divider {
+    border-color: var(--dark-drawer-border) !important;
+
+    .el-divider__text {
+      color: var(--dark-text-secondary) !important;
+      background-color: var(--dark-bg-drawer) !important;
+      font-size: 13px !important;
+      font-weight: 500 !important;
+      letter-spacing: 0.02em !important;
+    }
+  }
+
+  // ============================================
+  // Drawer/Dialog 内专属输入控件覆盖
+  // 与页面输入控件同形态：同层背景 + §2.3 α 边框 + 主色聚焦
+  // ============================================
+  .el-drawer .el-form,
+  .el-dialog .el-form {
+    // 输入框 & 文本域 — 与表面同层，仅靠边框区分
+    .el-input__wrapper,
+    .el-textarea__inner {
+      background-color: var(--dark-bg-drawer-input) !important;
+      border-color: var(--dark-drawer-input-border) !important;
+      box-shadow: 0 0 0 1px var(--dark-drawer-input-border) inset !important;
+      border-radius: 8px !important;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease !important;
+
+      // 占位符
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--dark-text-placeholder) !important;
+      }
+
+      // hover 态：边框微亮
+      &:hover {
+        border-color: rgba(255, 255, 255, 0.2) !important;
+      }
+
+      // 聚焦态：主色边框 + §2.3 主色柔光
+      &.is-focus {
+        border-color: var(--dark-primary) !important;
+        box-shadow: 0 0 0 1px var(--dark-primary) inset,
+                    0 0 0 3px rgba(0, 107, 230, 0.12) !important;
+      }
+
+      // 错误态
+      &.is-error {
+        border-color: var(--dark-error) !important;
+        box-shadow: 0 0 0 1px var(--dark-error) inset !important;
+      }
+    }
+
+    // Select 组件
+    .el-select {
+      .el-input__wrapper {
+        background-color: var(--dark-bg-drawer-input) !important;
+        border-color: var(--dark-drawer-input-border) !important;
+        box-shadow: 0 0 0 1px var(--dark-drawer-input-border) inset !important;
+        border-radius: 8px !important;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+      }
+
+      &:hover .el-input__wrapper {
+        border-color: rgba(255, 255, 255, 0.2) !important;
+      }
+
+      &.is-focus .el-input__wrapper,
+      .el-input__wrapper.is-focus {
+        border-color: var(--dark-primary) !important;
+        box-shadow: 0 0 0 1px var(--dark-primary) inset,
+                    0 0 0 3px rgba(0, 107, 230, 0.12) !important;
+      }
+    }
+
+    // InputNumber / DatePicker / TreeSelect / Cascader
+    .el-input-number .el-input__wrapper,
+    .el-date-editor .el-input__wrapper,
+    .el-tree-select .el-input__wrapper,
+    .el-cascader .el-input__wrapper {
+      background-color: var(--dark-bg-drawer-input) !important;
+      border-color: var(--dark-drawer-input-border) !important;
+      box-shadow: 0 0 0 1px var(--dark-drawer-input-border) inset !important;
+    }
+  }
+
+  // 输入框专项优化
+  .el-input,
+  .el-select,
+  .el-textarea,
+  .el-date-editor {
+    .el-input__wrapper,
+    .el-textarea__inner {
+      background-color: var(--dark-bg-input) !important; // 输入框与表面同层（§2.3）
+      border-color: var(--dark-border) !important;       // 加深边框
+      box-shadow: 0 0 0 1px var(--dark-border) inset, 
+                  inset 0 1px 2px rgba(255, 255, 255, 0.05) !important; // 1px 内阴影，替代纯边框，更有“浮起”的层级感
+      color: var(--dark-text-primary) !important;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease, background-color 0.25s ease !important; // 平滑过渡动画
+  
+      // 占位符文本
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--dark-text-placeholder) !important;
+      }
+  
+      // hover 态：背景色微亮，提升交互反馈
+      &:hover {
+        border-color: rgba(255, 255, 255, 0.15) !important;
+        background-color: var(--dark-bg-hover) !important;
+      }
+  
+      // 聚焦态：边框用主色高亮 + 外发光，给用户明确的操作反馈
+      &.is-focus {
+        border-color: var(--dark-primary) !important;
+        box-shadow: 0 0 0 1px var(--dark-primary) inset,
+                    0 0 0 3px rgba(0, 107, 230, 0.12) !important;
+        background-color: var(--dark-bg-hover) !important;
+      }
+  
+      // 校验错误态：高饱和红
+      &.is-error {
+        border-color: var(--dark-error) !important;
+        box-shadow: 0 0 0 1px var(--dark-error) inset !important;
+      }
+  
+      // 校验成功态：高饱和绿
+      &.is-success {
+        border-color: var(--dark-success) !important;
+        box-shadow: 0 0 0 1px var(--dark-success) inset !important;
+      }
+    }
+  
+    // 输入框后缀图标
+    .el-input__suffix,
+    .el-input__prefix {
+      color: var(--dark-text-secondary) !important;
+    }
+  }
+  
+  // select 组件专项优化（确保与 input 背景色一致）
+  .el-select {
+    // select 容器本身
+    background-color: transparent !important;
+    
+    // select 内部的所有可能背景元素
+    .el-input__wrapper {
+      background-color: var(--dark-bg-input) !important;
+      border-color: var(--dark-border) !important;
+      box-shadow: 0 0 0 1px var(--dark-border) inset, 
+                  inset 0 1px 2px rgba(255, 255, 255, 0.05) !important;
+    }
+
+    // select 的输入框
+    .el-input__inner {
+      background-color: transparent !important;
+    }
+
+    // select 的后缀图标区域
+    .el-select__caret,
+    .el-select__suffix {
+      background-color: transparent !important;
+      color: var(--dark-text-secondary) !important;
+    }
+
+    // hover 态
+    &:hover .el-input__wrapper {
+      border-color: var(--dark-primary) !important;
+      background-color: var(--dark-bg-hover) !important;
+    }
+
+    // 聚焦态
+    &.is-focus .el-input__wrapper,
+    .el-input__wrapper.is-focus {
+      border-color: var(--dark-primary) !important;
+      box-shadow: 0 0 0 1px var(--dark-primary) inset,
+                  0 0 0 3px var(--el-color-primary-light-8) !important;
+      background-color: var(--dark-bg-hover) !important;
+    }
+  }
+
+  // 其他表单组件统一背景色
+  .el-input-number,
+  .el-date-editor,
+  .el-tree-select,
+  .el-cascader {
+    .el-input__wrapper {
+      background-color: var(--dark-bg-input) !important;
+    }
+  }
+
+ // ---- 输入框文字渲染优化 ----
+  // 继承全局 --el-font-weight-primary: 500，不再单独设 450（与全局矛盾会导致变形）
+  .el-input__inner,
+  .el-textarea__inner,
+  .tiptap {
+    -webkit-font-smoothing: antialiased !important;
+    // font-weight 由全局 --el-font-weight-primary 控制，无需显式覆盖
+  }
+
+  // 下拉选择框展开态
+  .el-select-dropdown {
+    // 浮层底色 = §2.3 bgElevated（实底，不透出下层内容）；
+    // 旧值 --dark-bg-hover（半透明白 8%）是 hover 语义，叠在浮层上会发灰且透底
+    background-color: var(--el-bg-color-overlay) !important;
+    border-color: var(--dark-border) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+
+    .el-select-dropdown__item {
+      color: var(--dark-text-primary) !important;
+
+      &.hover,
+      &:hover {
+        background-color: var(--dark-bg-hover) !important;
+      }
+
+      &.selected {
+        color: var(--dark-primary) !important;
+        // 选中项 = §2.3 主色 15% α（light-9 在暗色浮层上是近黑条，与主色无关）
+        background-color: rgba(0, 107, 230, 0.15) !important;
+        font-weight: 500 !important;
+      }
+    }
+  }
+
+  // 单选框/复选框
+  .el-radio,
+  .el-checkbox {
+    .el-radio__label,
+    .el-checkbox__label {
+      color: var(--dark-text-primary) !important;
+    }
+
+    .el-radio__inner,
+    .el-checkbox__inner {
+      background-color: var(--dark-bg-table) !important;
+      border-color: var(--dark-border) !important;
+    }
+
+    &.is-checked {
+      .el-radio__inner,
+      .el-checkbox__inner {
+        background-color: var(--dark-primary) !important;
+        border-color: var(--dark-primary) !important;
+      }
+
+      .el-radio__label,
+      .el-checkbox__label {
+        color: var(--dark-primary) !important;
+        font-weight: 500 !important; // 选中态增加字重
+      }
+    }
+  }
+
+  // 按钮样式优化（Pro 组件区域单独处理，不覆盖其柔和风格）
+  // 注意：is-link / is-text 是 Element Plus 的弱化按钮（透明背景、主色文字），
+  // 实心样式会破坏其语义，故用 :not() 排除，交由 Element Plus 内置样式接管。
+  .el-button:not(.pro-toolbar .el-button):not(.pro-search__actions .el-button) {
+    // 主按钮
+    &.el-button--primary:not(.is-link):not(.is-text) {
+      background-color: var(--dark-primary) !important;
+      border-color: var(--dark-primary) !important;
+      color: #fff !important;
+
+      // hover 态：亮度微增，强化主操作的交互感
+      &:hover {
+        filter: brightness(1.15);
+      }
+    }
+
+    // 成功按钮
+    &.el-button--success:not(.is-link):not(.is-text) {
+      background-color: var(--dark-success) !important;
+      border-color: var(--dark-success) !important;
+      color: #fff !important;
+
+      &:hover {
+        filter: brightness(1.15);
+      }
+    }
+
+    // 警告按钮
+    &.el-button--warning:not(.is-link):not(.is-text) {
+      background-color: var(--dark-accent) !important;
+      border-color: var(--dark-accent) !important;
+      color: #fff !important;
+
+      &:hover {
+        filter: brightness(1.15);
+      }
+    }
+
+    // 危险按钮
+    &.el-button--danger:not(.is-link):not(.is-text) {
+      background-color: var(--dark-error) !important;
+      border-color: var(--dark-error) !important;
+      color: #fff !important;
+
+      &:hover {
+        filter: brightness(1.15);
+      }
+    }
+  }
+
+  // ============================================
+  // 表格暗色模式专项适配
+  // ============================================
+
+  // 表格容器
+  .el-table {
+    // 内容区背景色，和整体深色主题对齐
+    --el-table-bg-color: #111827 !important;
+    --el-table-tr-bg-color: #111827 !important;
+    // 表头背景色：比内容区亮一阶，形成结构锚点（与 vxe-table 表头 #1F2937 对齐）。
+    // 旧值 #12151a 比表体还暗，导致表头与表体/空态区融合、边界消失。
+    --el-table-header-bg-color: #1F2937 !important;
+    // 表头文字：加粗、提高对比度，标题感拉满
+    --el-table-header-text-color: #e5eaf3 !important;
+    // 表头分割线：跟随全局边框变量，保持可见轮廓
+    --el-table-header-border-color: var(--dark-border) !important;
+    // 内容区 hover 态：和表头形成柔和过渡
+    --el-table-row-hover-bg-color: rgba(0, 107, 230, 0.08) !important;
+    --el-table-border-color: var(--dark-border) !important;
+    --el-table-text-color: var(--dark-text-data) !important;
+
+    background-color: #111827 !important;
+    border-color: var(--dark-border) !important;
+
+    // 表头样式优化：固定表头，增加字重，用高亮色突出。
+    // 背景跟随 --el-table-header-bg-color 变量（表头锚点色），不再硬编码。
+    .el-table__header-wrapper {
+      background-color: var(--el-table-header-bg-color) !important;
+
+      th.el-table__cell {
+        background-color: var(--el-table-header-bg-color) !important;
+        color: #e5eaf3 !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        padding-top: 10px !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid var(--dark-border) !important;
+      }
+    }
+
+    // 表格数据行
+    .el-table__body-wrapper {
+      .el-table__row {
+        // 奇数行背景
+        &:nth-child(odd) {
+          background-color: #111827 !important;
+
+          td {
+            color: var(--dark-text-data) !important;
+            background-color: #111827 !important;
+            border-color: var(--dark-border) !important;
+            padding-top: 8px !important;
+            padding-bottom: 8px !important;
+          }
+        }
+
+        // 偶数行背景
+        &:nth-child(even) {
+          background-color: rgba(255, 255, 255, 0.03) !important;
+
+          td {
+            color: var(--dark-text-data) !important;
+            background-color: rgba(255, 255, 255, 0.03) !important;
+            border-color: var(--dark-border) !important;
+            padding-top: 8px !important;
+            padding-bottom: 8px !important;
+          }
+        }
+
+        // hover 态
+        &:hover {
+          background-color: rgba(0, 107, 230, 0.08) !important;
+
+          > td {
+            background-color: rgba(0, 107, 230, 0.08) !important;
+            color: var(--dark-text-primary) !important;
+          }
+        }
+
+        // 选中行
+        &.current-row {
+          background-color: rgba(0, 107, 230, 0.08) !important;
+          outline: 1px solid var(--dark-primary) !important;
+
+          > td {
+            background-color: rgba(0, 107, 230, 0.08) !important;
+            color: var(--dark-text-primary) !important;
+          }
+        }
+
+        td.el-table__cell--description {
+          color: var(--dark-text-secondary) !important;
+        }
+      }
+    }
+
+    // vxe-table 数据行文字色（覆盖 ProTable scoped 样式的 var(--el-text-color-regular)）
+    // 使用柔和灰白，避免纯白的光晕效应
+    .vxe-body--column .vxe-cell {
+      color: var(--dark-text-data) !important;
+    }
+    
+    // 固定列样式
+    .el-table__fixed,
+    .el-table__fixed-right {
+      background-color: #111827 !important;
+      box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3) !important;
+
+      .el-table__row {
+        &:nth-child(odd) > td {
+          background-color: #111827 !important;
+        }
+
+        &:nth-child(even) > td {
+          background-color: rgba(255, 255, 255, 0.03) !important;
+        }
+
+        &:hover > td {
+          background-color: rgba(0, 107, 230, 0.08) !important;
+        }
+
+        &.current-row > td {
+          background-color: rgba(0, 107, 230, 0.08) !important;
+        }
+      }
+    }
+  }
+
+  // 分页器优化
+  .pro-pagination,
+  .pagination-container {
+    background-color: var(--dark-bg-table) !important; // 和表格容器统一，避免模块割裂
+    border-top-color: var(--dark-border) !important;
+    padding: 12px 0 !important;
+  }
+
+  .el-pagination {
+    background-color: transparent !important; // 分页器本身透明，由容器控制背景色
+    padding: 0 !important;
+    border: none !important;
+
+    // 分页文字
+    .el-pagination__total,
+    .el-pagination__jump {
+      color: var(--dark-text-primary) !important;
+      font-weight: 500 !important;
+    }
+
+    // "xx 条/页" 下拉选单文字
+    .el-pagination__sizes {
+      color: var(--dark-text-primary) !important;
+
+      .el-input__inner {
+        color: var(--dark-text-primary) !important;
+      }
+    }
+
+    // 分页按钮
+    .el-pager li {
+      background-color: var(--dark-bg-table) !important;
+      color: var(--dark-text-primary) !important;
+      border-color: var(--dark-border) !important;
+      min-width: 32px !important; // 增加固定宽度，避免文字挤压重叠
+
+      &:hover {
+        color: var(--dark-primary) !important;
+        background-color: var(--dark-bg-hover) !important;
+        border-color: var(--dark-primary) !important;
+      }
+
+      &.is-active {
+        background-color: var(--dark-primary) !important;
+        color: #fff !important;
+        border-color: var(--dark-primary) !important;
+      }
+    }
+
+    // 上一页/下一页按钮
+    .btn-prev,
+    .btn-next {
+      background-color: var(--dark-bg-table) !important;
+      color: var(--dark-text-primary) !important;
+      border-color: var(--dark-border) !important;
+
+      &:hover {
+        color: var(--dark-primary) !important;
+        border-color: var(--dark-primary) !important;
+      }
+
+      &.is-disabled {
+        color: var(--dark-text-secondary) !important;
+        opacity: 0.5;
+      }
+    }
+  }
+
+  // 操作列按钮 hover 态优化
+  .el-table__body-wrapper {
+    .el-button {
+      // 编辑/删除等操作按钮
+      &.el-button--text {
+        color: var(--dark-text-primary) !important;
+
+        &:hover {
+          color: var(--dark-primary) !important; // 文字颜色高亮，提升交互体验
+        }
+      }
+
+      // 删除按钮
+      &.el-button--danger {
+        color: var(--dark-error) !important;
+
+        &:hover {
+          filter: brightness(1.15);
+        }
+      }
+    }
+  }
+
+  // 状态标签颜色优化
+  // Tag 和操作按钮视觉分离：Tag 更扁更柔、无交互感；按钮有边框有 hover
+  // 覆盖所有 effect（light/plain/dark），确保暗色模式下统一为语义色 α 底 + 亮色文字。
+  // 色值跟随 design-language.md §2.1 语义色（随主色/语义色迁移联动，禁止再回旧 tailwind 色板）。
+  .el-tag {
+    border-radius: 3px !important; // 暗黑模式再小一点，和按钮的 6px 明显区分
+    cursor: default !important; // 不可点击，和按钮区分
+    // Tag 文字字重提粗：暗黑底上 450 偏细，500 厚实
+    font-weight: 500 !important;
+
+    // 主色调（§2.1 主色 hsl(212 100% 45%) 的 α 衍生；文字提亮至 L65% 保证暗底可读）
+    &.el-tag--primary {
+      background-color: rgba(0, 107, 230, 0.15) !important;
+      border-color: rgba(0, 107, 230, 0.35) !important;
+      color: hsl(212, 100%, 65%) !important;
+    }
+
+    // 成功态（§2.1 success hsl(144 57% 58%)）
+    &.el-tag--success {
+      background-color: rgba(87, 209, 136, 0.12) !important;
+      border-color: rgba(87, 209, 136, 0.3) !important;
+      color: #57d188 !important;
+    }
+
+    // 警告态（§2.1 warning hsl(42 84% 61%)）
+    &.el-tag--warning {
+      background-color: rgba(239, 189, 72, 0.12) !important;
+      border-color: rgba(239, 189, 72, 0.3) !important;
+      color: #efbd48 !important;
+    }
+
+    // 危险态（§2.1 destructive hsl(348 100% 61%)）
+    &.el-tag--danger {
+      background-color: rgba(255, 56, 96, 0.12) !important;
+      border-color: rgba(255, 56, 96, 0.3) !important;
+      color: #ff3860 !important;
+    }
+
+    // 信息态（石板灰，§2.2 灰阶 slate 族）
+    &.el-tag--info {
+      background-color: rgba(148, 163, 184, 0.12) !important;
+      border-color: rgba(148, 163, 184, 0.3) !important;
+      color: #94a3b8 !important;
+    }
+  }
+
+  // ---- 下拉框展开态优化（和暗黑模系统一） ----
+  .el-select-dropdown {
+    // 同上：浮层实底 + hover 语义仅用于列表项
+    background-color: var(--el-bg-color-overlay) !important;
+    border-color: var(--dark-border) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+
+    .el-select-dropdown__item {
+      color: var(--dark-text-primary) !important; // 文字对比度提升
+
+      &.hover,
+      &:hover {
+        background-color: var(--dark-bg-hover) !important;
+      }
+
+      &.selected {
+        color: var(--dark-primary) !important;
+        background-color: rgba(0, 107, 230, 0.15) !important;
+        font-weight: 500 !important;
+      }
+    }
+  }
+
+  // ============================================
+  // 全页面全局 UI 审计重构
+  // ============================================
+
+  // ---- 3. 表头视觉统治力重塑（vxe-table 暗色模式） ----
+  // 表头背景需比表体亮一阶以形成结构层级（表体 #111827，表头 #1F2937），
+  // 与 _vxe-table.scss 暗色块保持一致（含表头文字色 #e5eaf3，两处必须一致）。
+  [data-vxe-ui-theme="dark"] {
+    --vxe-ui-table-header-background-color: #1F2937 !important;
+    --vxe-ui-table-header-font-color: #e5eaf3 !important;
+    --vxe-ui-table-header-border-color: var(--dark-border) !important;
+    // vxe-table v3 兼容
+    --vxe-table-header-background-color: #1F2937 !important;
+    --vxe-table-header-font-color: #e5eaf3 !important;
+  }
+
+  // 表头文字增加 letter-spacing，增强高级感
+  .vxe-table--render-default .vxe-table--header-wrapper .vxe-header--column .vxe-cell {
+    letter-spacing: 0.03em !important;
+  }
+
+  // ---- 5. vxe-table 行 hover 微亮呼吸反馈 ----
+  .vxe-table--render-default .vxe-body--row.row--hover > .vxe-body--column {
+    transition: background-color 0.2s ease;
+  }
+
+  // ---- 7. Tiptap Editor disabled 状态 ----
+  // 已移至全局 _layouts.scss（明暗双模式通用），此处不再重复
+}

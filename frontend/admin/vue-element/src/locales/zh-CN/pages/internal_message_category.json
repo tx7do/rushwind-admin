@@ -1,0 +1,12 @@
+{
+  "moduleName": "消息分类",
+  "name": "分类名称",
+  "code": "分类编码",
+  "sortOrder": "排序",
+  "isEnabled": "状态",
+  "remark": "备注",
+  "createdAt": "创建时间",
+  "button": {
+    "create": "新建分类"
+  }
+}

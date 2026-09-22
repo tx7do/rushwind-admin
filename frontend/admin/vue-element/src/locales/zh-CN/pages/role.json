@@ -1,0 +1,28 @@
+{
+  "moduleName": "角色",
+  "name": "角色名称",
+  "code": "角色编码",
+  "tenantName": "所属租户",
+  "permissions": "权限配置",
+  "sortOrder": "排序",
+  "status": "状态",
+  "description": "描述",
+  "remark": "备注",
+  "createdAt": "创建时间",
+  "dataScope": "数据权限范围",
+  "orgUnits": "授权组织单元",
+  "noOrgUnitData": "暂无组织单元数据",
+  "fieldPerm": {
+    "title": "字段权限",
+    "hint": "勾选的字段对该角色用户不可见：列表/详情不再显示，且不能通过创建/编辑写入（重新登录后生效）。",
+    "field": {
+      "email": "邮箱",
+      "mobile": "手机号",
+      "telephone": "固定电话",
+      "address": "地址",
+      "region": "区域",
+      "lastLoginAt": "最后登录时间",
+      "lastLoginIp": "最后登录 IP"
+    }
+  }
+}

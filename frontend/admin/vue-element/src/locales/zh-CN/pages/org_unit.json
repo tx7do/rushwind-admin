@@ -1,0 +1,19 @@
+{
+  "moduleName": "组织单位",
+  "name": "组织名称",
+  "code": "组织编码",
+  "parentId": "上级组织",
+  "leaderId": "负责人",
+  "leaderName": "负责人姓名",
+  "type": "组织类型",
+  "sortOrder": "排序",
+  "status": "状态",
+  "isLegalEntity": "是否法人实体",
+  "registrationNumber": "注册号",
+  "taxId": "税号",
+  "address": "地址",
+  "description": "描述",
+  "remark": "备注",
+  "createdAt": "创建时间",
+  "legalEntity": "法人实体信息"
+}

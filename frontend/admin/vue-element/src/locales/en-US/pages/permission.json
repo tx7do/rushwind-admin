@@ -1,0 +1,9 @@
+{
+  "moduleName": "Permission Management",
+  "name": "Permission Name",
+  "code": "Permission Code",
+  "groupId": "Group",
+  "groupName": "Group Name",
+  "menuIds": "Linked Menus",
+  "apiIds": "Linked APIs"
+}

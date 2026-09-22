@@ -196,19 +196,29 @@ CI（ubuntu + windows マトリクス）は同じ 4 ゲートを実行します�
 
 ### フロントエンド起動
 
-フロントエンドとバックエンドは無変更互換契約です：API ベース URL を本バックエンド（REST :7788）に向けるだけで、フロントエンドのコードは一切変更不要です。React 版は本リポジトリに同期スナップショットとして同梱（`frontend/admin/react`、RushWind ブランドオーバーレイ + `react.MANIFEST.sha256` 検証ゲートで手編集を防止）され、dev プロキシは既定で :7788 を向いています。Vue Element / Vue Vben 版はまだ同梱していません：
+フロントエンドとバックエンドは無変更互換契約です：API ベース URL を本バックエンド（REST :7788）に向けるだけで、フロントエンドのコードは一切変更不要です。三つのフロントエンドすべて本リポジトリに同期スナップショットとして同梱（RushWind ブランドオーバーレイ + 双マニフェスト検証ゲートで手編集を防止）され、dev プロキシは既定で :7788 を向いています：
 
 | フロントエンド | ディレクトリ | 状態 | 起動コマンド | ポート |
 |---------|------|------|---------|------|
 | React | `frontend/admin/react` | ✅ 同梱スナップショット + ブランドオーバーレイ | `pnpm dev` | 5888 |
-| Vue Element | 上流フロントエンドソース | 未同梱 | `pnpm dev` | 5777 |
-| Vue Vben | 上流フロントエンドソース | 未同梱 | `pnpm dev:antd` | 5666 |
+| Vue Element | `frontend/admin/vue-element` | ✅ 同梱スナップショット + ブランドオーバーレイ | `pnpm dev` | 5777 |
+| Vue Vben | `frontend/admin/vue-vben` | ✅ 同梱スナップショット + ブランドオーバーレイ | `pnpm dev:antd` | 5666 |
 
 ```shell
 # React版（本リポジトリ frontend/admin/react）
 cd frontend/admin/react
 pnpm install
 pnpm dev            # :5888、REST :7788 へプロキシ
+
+# Vue Element版（本リポジトリ frontend/admin/vue-element）
+cd frontend/admin/vue-element
+pnpm install
+pnpm dev            # :5777、REST :7788 へプロキシ
+
+# Vue Vben版（本リポジトリ frontend/admin/vue-vben、モノレポ、ルートで実行）
+cd frontend/admin/vue-vben
+pnpm install
+pnpm dev:antd       # :5666、REST :7788 へプロキシ
 ```
 
 ---
@@ -285,7 +295,7 @@ rushwind-admin/
 │   ├── services/
 │   │   └── admin-api/              # Admin 服务 crate（src/ 模块树 + assets/ 内嵌资源）
 │   └── testbed/                    # 差分回归台架（compose + admin-diff sweep）
-├── frontend/                       # React版 同期スナップショット（sync-react.sh + 双マニフェストゲート + RushWind ブランドオーバーレイ）、他版はプレースホルダ
+├── frontend/                       # 3 フロントエンド同期スナップショット（sync-frontend.sh + 双マニフェストゲート + RushWind ブランドオーバーレイ）
 ├── docs/                           # プロジェクトドキュメント（binding-spec / development-plan / operator-matrix / screenshots）
 └── .github/workflows/              # CI（fmt / clippy / test / 契約同期ゲート）
 ```

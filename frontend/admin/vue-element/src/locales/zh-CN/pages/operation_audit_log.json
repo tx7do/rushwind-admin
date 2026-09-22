@@ -1,0 +1,23 @@
+{
+  "moduleName": "操作审计日志",
+  "username": "用户名",
+  "resourceType": "资源类型",
+  "action": "操作类型",
+  "ipAddress": "IP地址",
+  "success": "是否成功",
+  "createdAt": "创建时间",
+  "resourceId": "资源ID",
+  "requestId": "请求ID",
+  "geoLocation": "地理位置",
+  "beforeData": "变更前数据",
+  "afterData": "变更后数据",
+  "failureReason": "失败原因",
+  "sensitiveLevel": "敏感等级",
+  "traceId": "链路ID",
+  "tenantName": "租户名称",
+  "userId": "用户ID",
+  "logHash": "日志哈希",
+  "signature": "签名",
+  "province": "省份",
+  "city": "城市"
+}

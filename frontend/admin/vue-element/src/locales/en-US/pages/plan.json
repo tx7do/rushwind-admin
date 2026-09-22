@@ -1,0 +1,13 @@
+{
+  "moduleName": "Subscription Plan",
+  "quotaName": "Plan Quota",
+  "name": "Plan Name",
+  "version": "Plan Version",
+  "expiryPolicy": "Expiry Policy",
+  "dataRetentionDays": "Data Retention Days",
+  "planId": "Parent Plan",
+  "quotaType": "Quota Type",
+  "quotaValue": "Quota Value",
+  "moduleWhitelist": "Module Whitelist",
+  "moduleWhitelistPlaceholder": "Please select allowed modules"
+}

@@ -1,0 +1,14 @@
+{
+  "moduleName": "职位",
+  "name": "职位名称",
+  "code": "职位编码",
+  "type": "职位类型",
+  "orgUnit": "所属组织",
+  "orgUnitName": "所属组织",
+  "headcount": "编制人数",
+  "sortOrder": "排序",
+  "status": "状态",
+  "description": "职位描述",
+  "remark": "备注",
+  "createdAt": "创建时间"
+}

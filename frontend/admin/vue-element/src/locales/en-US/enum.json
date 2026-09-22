@@ -1,0 +1,281 @@
+{
+  "enable": {
+    "true": "Enabled",
+    "false": "Disabled"
+  },
+  "successStatus": {
+    "success": "Success",
+    "failed": "Failed"
+  },
+  "status": {
+    "ON": "On",
+    "OFF": "Off"
+  },
+  "config": {
+    "valueType": {
+      "STRING": "String",
+      "BOOL": "Bool",
+      "INT": "Int"
+    }
+  },
+  "dataAccessAuditLog": {
+    "accessType": {
+      "SELECT": "Select",
+      "INSERT": "Insert",
+      "UPDATE": "Update",
+      "DELETE": "Delete",
+      "VIEW": "View",
+      "BULK_READ": "Bulk Read",
+      "EXPORT": "Export",
+      "IMPORT": "Import",
+      "DDL_CREATE": "DDL Create",
+      "DDL_ALTER": "DDL Alter",
+      "DDL_DROP": "DDL Drop",
+      "METADATA_READ": "Metadata Read",
+      "SCAN": "Scan",
+      "ADMIN_OPERATION": "Admin Operation",
+      "OTHER": "Other"
+    },
+    "dataCategory": {
+      "USER_DATA": "User Data",
+      "ORG_DATA": "Org Data",
+      "ACCESS_CONTROL": "Access Control",
+      "TENANT_DATA": "Tenant Data",
+      "MESSAGE_DATA": "Messages",
+      "AUDIT_LOG": "Audit Logs",
+      "SYSTEM_CONFIG": "System Config",
+      "UNKNOWN": "Other"
+    }
+  },
+  "ossProvider": {
+    "LOCAL": "Local Storage",
+    "MINIO": "MinIO",
+    "ALIYUN": "Alibaba Cloud OSS",
+    "QINIU": "Qiniu Cloud",
+    "TENCENT": "Tencent Cloud COS",
+    "BAIDU": "Baidu Cloud BOS",
+    "HUAWEI": "Huawei Cloud OBS",
+    "AWS": "Amazon S3",
+    "AZURE": "Azure Blob Storage",
+    "GOOGLE": "Google Cloud Storage"
+  },
+  "tenant": {
+    "type": {
+      "TRIAL": "Trial Tenant",
+      "PAID": "Paid Tenant",
+      "INTERNAL": "Internal Tenant",
+      "PARTNER": "Partner Tenant",
+      "CUSTOM": "Custom Tenant"
+    },
+    "status": {
+      "ON": "Active",
+      "OFF": "Disabled",
+      "EXPIRED": "Expired",
+      "FREEZE": "Frozen"
+    },
+    "auditStatus": {
+      "PENDING": "Pending Review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected"
+    }
+  },
+  "orgUnit": {
+    "type": {
+      "COMPANY": "Group",
+      "DIVISION": "Division",
+      "DEPARTMENT": "Department",
+      "TEAM": "Team",
+      "PROJECT": "Project Team",
+      "COMMITTEE": "Committee",
+      "REGION": "Regional Center",
+      "SUBSIDIARY": "Subsidiary",
+      "BRANCH": "Branch",
+      "OTHER": "Other"
+    }
+  },
+  "position": {
+    "type": {
+      "REGULAR": "Regular Employee",
+      "LEADER": "Leader",
+      "MANAGER": "Manager",
+      "INTERN": "Intern",
+      "CONTRACT": "Contract Worker",
+      "OTHER": "Other"
+    }
+  },
+  "loginPolicy": {
+    "type": {
+      "BLACKLIST": "Blacklist",
+      "WHITELIST": "Whitelist"
+    },
+    "method": {
+      "IP": "IP Address",
+      "MAC": "MAC Address",
+      "REGION": "Region",
+      "TIME": "Time",
+      "DEVICE": "Device"
+    }
+  },
+  "menu": {
+    "type": {
+      "CATALOG": "Catalog",
+      "MENU": "Menu",
+      "BUTTON": "Button",
+      "EMBEDDED": "Embedded",
+      "LINK": "Link"
+    }
+  },
+  "task": {
+    "type": {
+      "Periodic": "Periodic Task",
+      "Delay": "Delay Task",
+      "WaitResult": "Wait Result Task"
+    }
+  },
+  "loginAuditLog": {
+    "status": {
+      "SUCCESS": "Success",
+      "FAILED": "Failed",
+      "PARTIAL": "Partial Success",
+      "LOCKED": "Locked"
+    },
+    "actionType": {
+      "LOGIN": "Login",
+      "LOGOUT": "Logout",
+      "SESSION_EXPIRED": "Session Expired",
+      "KICKED_OUT": "Kicked Out",
+      "PASSWORD_RESET": "Password Reset"
+    },
+    "riskLevel": {
+      "LOW": "Low Risk",
+      "MEDIUM": "Medium Risk",
+      "HIGH": "High Risk"
+    }
+  },
+  "operationAuditLog": {
+    "action": {
+      "CREATE": "Create",
+      "UPDATE": "Update",
+      "DELETE": "Delete",
+      "READ": "Read",
+      "ASSIGN": "Assign",
+      "UNASSIGN": "Unassign",
+      "EXPORT": "Export",
+      "IMPORT": "Import",
+      "OTHER": "Other"
+    }
+  },
+  "permissionAuditLog": {
+    "action": {
+      "GRANT": "Grant",
+      "REVOKE": "Revoke",
+      "UPDATE": "Update",
+      "RESET": "Reset",
+      "CREATE": "Create",
+      "DELETE": "Delete",
+      "ASSIGN": "Assign",
+      "UNASSIGN": "Unassign",
+      "BULK_GRANT": "Bulk Grant",
+      "BULK_REVOKE": "Bulk Revoke",
+      "EXPIRE": "Expire",
+      "SUSPEND": "Suspend",
+      "RESUME": "Resume",
+      "ROLLBACK": "Rollback",
+      "OTHER": "Other"
+    }
+  },
+  "internalMessage": {
+    "status": {
+      "DRAFT": "Draft",
+      "PUBLISHED": "Published",
+      "SCHEDULED": "Scheduled",
+      "REVOKED": "Revoked",
+      "ARCHIVED": "Archived",
+      "DELETED": "Deleted"
+    },
+    "type": {
+      "NOTIFICATION": "Notification",
+      "PRIVATE": "Private",
+      "GROUP": "Group"
+    }
+  },
+  "internalMessageRecipient": {
+    "status": {
+      "SENT": "Sent",
+      "RECEIVED": "Received",
+      "READ": "Read",
+      "REVOKED": "Revoked",
+      "DELETED": "Deleted"
+    }
+  },
+  "user": {
+    "status": {
+      "NORMAL": "Normal",
+      "DISABLED": "Disabled",
+      "PENDING": "Pending",
+      "LOCKED": "Locked",
+      "EXPIRED": "Expired",
+      "CLOSED": "Closed"
+    }
+  },
+  "gender": {
+    "SECRET": "Secret",
+    "MALE": "Male",
+    "FEMALE": "Female"
+  },
+  "sensitiveLevel": {
+    "PUBLIC": "Public",
+    "INTERNAL": "Internal",
+    "CONFIDENTIAL": "Confidential",
+    "SECRET": "Secret"
+  },
+  "loginMethod": {
+    "PASSWORD": "Password",
+    "SMS_CODE": "SMS Code",
+    "QR_CODE": "QR Code",
+    "OIDC_SOCIAL": "OIDC/Social",
+    "FIDO2": "FIDO2",
+    "BIOMETRIC": "Biometric"
+  },
+  "plan": {
+    "version": {
+      "FREE": "Free",
+      "STANDARD": "Standard",
+      "ENTERPRISE": "Enterprise",
+      "PLAN_VERSION_UNSPECIFIED": "Unspecified"
+    },
+    "expiryPolicy": {
+      "BLOCK_LOGIN": "Block Login",
+      "FREEZE": "Freeze",
+      "READONLY": "Read Only",
+      "PLAN_EXPIRY_POLICY_UNSPECIFIED": "Unspecified"
+    },
+    "quotaType": {
+      "API_CALL": "API Call Count",
+      "STORAGE": "Storage Capacity",
+      "USER_LIMIT": "User Limit",
+      "PLAN_QUOTA_TYPE_UNSPECIFIED": "Unspecified"
+    }
+  },
+  "module": {
+    "DASHBOARD": "Dashboard",
+    "OPM": "Org & Personnel",
+    "SYSTEM": "System Config",
+    "DICT": "Dictionary",
+    "TENANT": "Tenant Management",
+    "PERMISSION": "Permission",
+    "LOG": "Audit Log",
+    "INTERNAL_MESSAGE": "Internal Message",
+    "FILE": "File Management",
+    "TASK": "Task Scheduler"
+  },
+  "role": {
+    "dataScope": {
+      "ALL": "All",
+      "SELECTED_UNITS": "Custom",
+      "UNIT_AND_CHILD": "Department and Subordinates",
+      "UNIT_ONLY": "Department Only",
+      "SELF": "Self Only"
+    }
+  }
+}

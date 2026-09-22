@@ -1,0 +1,14 @@
+{
+  "moduleName": "Language",
+  "languageName": "Language Name",
+  "languageCode": "Language Code",
+  "nativeName": "Native Name",
+  "isEnabled": "Is Enabled",
+  "isDefault": "Is Default",
+  "sortOrder": "Sort Order",
+  "createdAt": "Created At",
+  "button": {
+    "create": "Create",
+    "update": "Update"
+  }
+}

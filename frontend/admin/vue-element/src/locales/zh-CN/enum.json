@@ -1,0 +1,281 @@
+{
+  "enable": {
+    "true": "启用",
+    "false": "禁用"
+  },
+  "successStatus": {
+    "success": "成功",
+    "failed": "失败"
+  },
+  "status": {
+    "ON": "开启",
+    "OFF": "关闭"
+  },
+  "config": {
+    "valueType": {
+      "STRING": "字符串",
+      "BOOL": "布尔",
+      "INT": "整数"
+    }
+  },
+  "dataAccessAuditLog": {
+    "accessType": {
+      "SELECT": "查询",
+      "INSERT": "插入",
+      "UPDATE": "更新",
+      "DELETE": "删除",
+      "VIEW": "查看",
+      "BULK_READ": "批量读取",
+      "EXPORT": "导出",
+      "IMPORT": "导入",
+      "DDL_CREATE": "创建表结构",
+      "DDL_ALTER": "修改表结构",
+      "DDL_DROP": "删除表结构",
+      "METADATA_READ": "读取元数据",
+      "SCAN": "扫描",
+      "ADMIN_OPERATION": "管理员操作",
+      "OTHER": "其他"
+    },
+    "dataCategory": {
+      "USER_DATA": "用户数据",
+      "ORG_DATA": "组织数据",
+      "ACCESS_CONTROL": "权限配置",
+      "TENANT_DATA": "租户数据",
+      "MESSAGE_DATA": "消息数据",
+      "AUDIT_LOG": "审计日志",
+      "SYSTEM_CONFIG": "系统配置",
+      "UNKNOWN": "其他"
+    }
+  },
+  "ossProvider": {
+    "LOCAL": "本地存储",
+    "MINIO": "MinIO",
+    "ALIYUN": "阿里云 OSS",
+    "QINIU": "七牛云",
+    "TENCENT": "腾讯云 COS",
+    "BAIDU": "百度云 BOS",
+    "HUAWEI": "华为云 OBS",
+    "AWS": "Amazon S3",
+    "AZURE": "Azure Blob",
+    "GOOGLE": "Google Cloud Storage"
+  },
+  "tenant": {
+    "type": {
+      "TRIAL": "试用租户",
+      "PAID": "付费租户",
+      "INTERNAL": "内部租户",
+      "PARTNER": "合作伙伴租户",
+      "CUSTOM": "定制租户"
+    },
+    "status": {
+      "ON": "正常",
+      "OFF": "禁用",
+      "EXPIRED": "过期",
+      "FREEZE": "冻结"
+    },
+    "auditStatus": {
+      "PENDING": "待审核",
+      "APPROVED": "已批准",
+      "REJECTED": "已拒绝"
+    }
+  },
+  "orgUnit": {
+    "type": {
+      "COMPANY": "集团",
+      "DIVISION": "事业部",
+      "DEPARTMENT": "部门",
+      "TEAM": "团队",
+      "PROJECT": "项目组",
+      "COMMITTEE": "委员会",
+      "REGION": "区域中心",
+      "SUBSIDIARY": "子公司",
+      "BRANCH": "分公司",
+      "OTHER": "其他"
+    }
+  },
+  "position": {
+    "type": {
+      "REGULAR": "普通员工",
+      "LEADER": "领导",
+      "MANAGER": "经理",
+      "INTERN": "实习生",
+      "CONTRACT": "合同工",
+      "OTHER": "其他"
+    }
+  },
+  "loginPolicy": {
+    "type": {
+      "BLACKLIST": "黑名单",
+      "WHITELIST": "白名单"
+    },
+    "method": {
+      "IP": "IP地址",
+      "MAC": "MAC地址",
+      "REGION": "地区",
+      "TIME": "时间",
+      "DEVICE": "设备"
+    }
+  },
+  "menu": {
+    "type": {
+      "CATALOG": "目录",
+      "MENU": "菜单",
+      "BUTTON": "按钮",
+      "EMBEDDED": "内嵌",
+      "LINK": "链接"
+    }
+  },
+  "task": {
+    "type": {
+      "Periodic": "周期性任务",
+      "Delay": "延迟任务",
+      "WaitResult": "等待结果任务"
+    }
+  },
+  "loginAuditLog": {
+    "status": {
+      "SUCCESS": "成功",
+      "FAILED": "失败",
+      "PARTIAL": "部分成功",
+      "LOCKED": "已锁定"
+    },
+    "actionType": {
+      "LOGIN": "登录",
+      "LOGOUT": "登出",
+      "SESSION_EXPIRED": "会话过期",
+      "KICKED_OUT": "被踢出",
+      "PASSWORD_RESET": "密码重置"
+    },
+    "riskLevel": {
+      "LOW": "低风险",
+      "MEDIUM": "中风险",
+      "HIGH": "高风险"
+    }
+  },
+  "operationAuditLog": {
+    "action": {
+      "CREATE": "创建",
+      "UPDATE": "更新",
+      "DELETE": "删除",
+      "READ": "读取",
+      "ASSIGN": "分配",
+      "UNASSIGN": "取消分配",
+      "EXPORT": "导出",
+      "IMPORT": "导入",
+      "OTHER": "其他"
+    }
+  },
+  "permissionAuditLog": {
+    "action": {
+      "GRANT": "授予",
+      "REVOKE": "撤销",
+      "UPDATE": "更新",
+      "RESET": "重置",
+      "CREATE": "创建",
+      "DELETE": "删除",
+      "ASSIGN": "分配",
+      "UNASSIGN": "取消分配",
+      "BULK_GRANT": "批量授予",
+      "BULK_REVOKE": "批量撤销",
+      "EXPIRE": "过期",
+      "SUSPEND": "冻结",
+      "RESUME": "恢复",
+      "ROLLBACK": "回滚",
+      "OTHER": "其他"
+    }
+  },
+  "internalMessage": {
+    "status": {
+      "DRAFT": "草稿",
+      "PUBLISHED": "已发布",
+      "SCHEDULED": "计划发送",
+      "REVOKED": "已撤回",
+      "ARCHIVED": "已归档",
+      "DELETED": "已删除"
+    },
+    "type": {
+      "NOTIFICATION": "通知",
+      "PRIVATE": "私信",
+      "GROUP": "群聊"
+    }
+  },
+  "internalMessageRecipient": {
+    "status": {
+      "SENT": "已发送",
+      "RECEIVED": "已接收",
+      "READ": "已读",
+      "REVOKED": "已撤回",
+      "DELETED": "已删除"
+    }
+  },
+  "user": {
+    "status": {
+      "NORMAL": "正常",
+      "DISABLED": "禁用",
+      "PENDING": "待审核",
+      "LOCKED": "锁定",
+      "EXPIRED": "过期",
+      "CLOSED": "关闭"
+    }
+  },
+  "gender": {
+    "SECRET": "保密",
+    "MALE": "男",
+    "FEMALE": "女"
+  },
+  "sensitiveLevel": {
+    "PUBLIC": "公开",
+    "INTERNAL": "内部",
+    "CONFIDENTIAL": "机密",
+    "SECRET": "绝密"
+  },
+  "loginMethod": {
+    "PASSWORD": "密码",
+    "SMS_CODE": "短信验证码",
+    "QR_CODE": "扫码",
+    "OIDC_SOCIAL": "OIDC/社交登录",
+    "FIDO2": "FIDO2",
+    "BIOMETRIC": "生物识别"
+  },
+  "plan": {
+    "version": {
+      "FREE": "免费版",
+      "STANDARD": "标准版",
+      "ENTERPRISE": "企业版",
+      "PLAN_VERSION_UNSPECIFIED": "未指定"
+    },
+    "expiryPolicy": {
+      "BLOCK_LOGIN": "阻止登录",
+      "FREEZE": "冻结",
+      "READONLY": "只读",
+      "PLAN_EXPIRY_POLICY_UNSPECIFIED": "未指定"
+    },
+    "quotaType": {
+      "API_CALL": "API 调用次数",
+      "STORAGE": "存储容量",
+      "USER_LIMIT": "用户数量上限",
+      "PLAN_QUOTA_TYPE_UNSPECIFIED": "未指定"
+    }
+  },
+  "module": {
+    "DASHBOARD": "仪表盘",
+    "OPM": "组织与人员",
+    "SYSTEM": "系统配置",
+    "DICT": "字典管理",
+    "TENANT": "租户管理",
+    "PERMISSION": "权限管理",
+    "LOG": "审计日志",
+    "INTERNAL_MESSAGE": "站内消息",
+    "FILE": "文件管理",
+    "TASK": "任务调度"
+  },
+  "role": {
+    "dataScope": {
+      "ALL": "全部",
+      "SELECTED_UNITS": "自定义",
+      "UNIT_AND_CHILD": "本部门及以下",
+      "UNIT_ONLY": "本部门",
+      "SELF": "仅本人"
+    }
+  }
+}

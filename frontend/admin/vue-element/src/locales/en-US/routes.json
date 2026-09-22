@@ -1,0 +1,58 @@
+{
+  "dashboard": {
+    "title": "Overview",
+    "analytics": "Analytics"
+  },
+  "opm": {
+    "moduleName": "Organization & Personnel",
+    "orgUnit": "Organization Structure",
+    "position": "Position Management",
+    "user": "User Management",
+    "userDetail": "User Details"
+  },
+  "permission": {
+    "moduleName": "Permission Management",
+    "code": "Permission Codes",
+    "role": "Role Management",
+    "menu": "Menu Management",
+    "api": "API Management"
+  },
+  "internalMessage": {
+    "moduleName": "Internal Messages",
+    "internalMessage": "Message Management",
+    "internalMessageCategory": "Message Categories"
+  },
+  "log": {
+    "moduleName": "Audit Logs",
+    "loginAuditLog": "Login Logs",
+    "apiAuditLog": "API Logs",
+    "operationAuditLog": "Operation Logs",
+    "dataAccessAuditLog": "Data Logs",
+    "permissionAuditLog": "Permission Logs",
+    "policyEvaluationLog": "Policy Evaluation Logs",
+    "redisCacheMonitor": "Redis Cache Monitor"
+  },
+  "system": {
+    "moduleName": "System Management",
+    "dict": "Dictionary Management",
+    "file": "File Management",
+    "task": "Task Management",
+    "loginPolicy": "Login Policy",
+    "language": "Language Management",
+    "onlineSessions": "Online Users",
+    "serverMonitor": "Server Monitor",
+    "notificationChannels": "Notification Channels",
+    "scripts": "Scripts",
+    "config": "Config Management",
+    "accessKeys": "OpenAPI Credentials"
+  },
+  "tenant": {
+    "moduleName": "Tenant Management",
+    "member": "Tenant List",
+    "plan": "Subscription Plans"
+  },
+  "profile": {
+    "settings": "Profile Center",
+    "internalMessage": "Inbox"
+  }
+}

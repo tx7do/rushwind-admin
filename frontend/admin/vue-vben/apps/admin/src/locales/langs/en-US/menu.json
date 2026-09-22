@@ -1,0 +1,67 @@
+{
+  "dashboard": {
+    "index": "Data Center",
+    "dashboard": "Dashboard",
+    "analysis": "Analysis",
+    "workbench": "Workbench",
+    "about": "About"
+  },
+  "profile": {
+    "moduleName": "Personal Center",
+    "profile": "Personal Information",
+    "settings": "Profile Center",
+    "security": "Security Settings",
+    "customize": "Interface Customization",
+    "notification": "Notifications",
+    "internalMessage": "Inbox"
+  },
+  "permission": {
+    "moduleName": "Permission Management",
+    "role": "Role Management",
+    "permission": "Permission Codes",
+    "menu": "Menu Management",
+    "api": "API Management"
+  },
+  "opm": {
+    "moduleName": "Organization & Personnel",
+    "orgUnit": "Organization Structure",
+    "position": "Position Management",
+    "user": "User Management",
+    "userDetail": "User Details"
+  },
+  "tenant": {
+    "moduleName": "Tenant Management",
+    "member": "Tenant List",
+    "plan": "Subscription Plans"
+  },
+  "system": {
+    "moduleName": "System Management",
+    "dict": "Dictionary Management",
+    "task": "Task Management",
+    "file": "File Management",
+    "loginPolicy": "Login Policy",
+    "language": "Language Management",
+    "onlineSessions": "Online Users",
+    "serverMonitor": "Server Monitor",
+    "notificationChannels": "Notification Channels",
+    "scripts": "Scripts",
+    "config": "Config Management",
+    "accessKeys": "OpenAPI Credentials"
+  },
+  "log": {
+    "moduleName": "Audit Logs",
+    "loginAuditLog": "Login Logs",
+    "apiAuditLog": "API Logs",
+    "dataAccessAuditLog": "Data Logs",
+    "operationAuditLog": "Operation Logs",
+    "permissionAuditLog": "Permission Logs",
+    "policyEvaluationLog": "Policy Evaluation Logs",
+    "redisCacheMonitor": "Redis Cache Monitor"
+  },
+  "internalMessage": {
+    "moduleName": "Internal Messages",
+    "internalMessage": "Message Management",
+    "internalMessageCategory": "Message Categories",
+    "inbox": "Inbox"
+  }
+}

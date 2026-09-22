@@ -1,0 +1,33 @@
+{
+  "moduleName": "Task",
+  "type": "Task Type",
+  "typeName": "Task Name",
+  "taskPayload": "Task Payload",
+  "cronSpec": "Cron Expression",
+  "enable": "Enabled",
+  "createdAt": "Created At",
+  "remark": "Remark",
+  "taskOptionsMaxRetry": "Max Retry",
+  "taskOptionsTimeout": "Timeout",
+  "taskOptionsDeadline": "Deadline",
+  "taskOptionsProcessIn": "Process In",
+  "taskOptionsProcessAt": "Process At",
+  "button": {
+    "create": "Create",
+    "update": "Update",
+    "startAll": "Start All",
+    "stopAll": "Stop All",
+    "restartAll": "Restart All",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart"
+  },
+  "text": {
+    "do_you_want_start_all_task": "Are you sure you want to start all {moduleName}?",
+    "do_you_want_stop_all_task": "Are you sure you want to stop all {moduleName}?",
+    "do_you_want_restart_all_task": "Are you sure you want to restart all {moduleName}?",
+    "do_you_want_start_task": "Are you sure you want to start this {moduleName}?",
+    "do_you_want_stop_task": "Are you sure you want to stop this {moduleName}?",
+    "do_you_want_restart_task": "Are you sure you want to restart this {moduleName}?"
+  }
+}

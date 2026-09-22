@@ -1,0 +1,19 @@
+{
+  "moduleName": "Organization Unit",
+  "name": "Organization Name",
+  "code": "Organization Code",
+  "parentId": "Parent Organization",
+  "leaderId": "Leader",
+  "leaderName": "Leader Name",
+  "type": "Organization Type",
+  "sortOrder": "Sort Order",
+  "status": "Status",
+  "isLegalEntity": "Is Legal Entity",
+  "registrationNumber": "Registration Number",
+  "taxId": "Tax ID",
+  "address": "Address",
+  "description": "Description",
+  "remark": "Remark",
+  "createdAt": "Created At",
+  "legalEntity": "Legal Entity Information"
+}

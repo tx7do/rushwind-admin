@@ -27,7 +27,6 @@ DARK_BG, LIGHT_BG = (11, 15, 25), (255, 255, 255)  # 与侧边栏 dark/light 底
 
 def main() -> None:
     here = Path(__file__).resolve().parent
-    out = here.parent / "overlay" / "public" / "logo.png"
 
     mark = _mod.gradient_rgba(_mod.draw_mark(bold=1.22, full_detail=False))
     x0, y0, x1, y1 = mark.getbbox()
@@ -37,8 +36,13 @@ def main() -> None:
     square = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     square.paste(mark.crop((x0, y0, x1, y1)), ((side - w) // 2, (side - h) // 2), mark.crop((x0, y0, x1, y1)))
     logo = _mod.downsize(square, SIZE)
-    logo.save(out, format="PNG")
-    print(f"wrote {out}")
+
+    # 三个随仓前端的 overlay 各落一份（字节相同；几何改动后重跑即全量刷新）
+    for fe in ("react", "vue-element", "vue-vben"):
+        out = here.parent / "overlay" / fe / "public" / "logo.png"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        logo.save(out, format="PNG")
+        print(f"wrote {out}")
 
     # 预览：上暗下浅两半，每半 = 32px 实际展示尺寸（nearest 放大 6× 便于检查）+ 200px 原图
     zoom = _mod.downsize(square, 32).resize((32 * 6, 32 * 6), Image.NEAREST)

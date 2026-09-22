@@ -1,0 +1,121 @@
+{
+  "moduleName": "User Management",
+  "profile": {
+    "tab": {
+      "editPassword": "Edit Password",
+      "basicSettings": "Basic Settings",
+      "securitySettings": "Security Settings",
+      "accountBind": "Account Bind",
+      "activeSessions": "Active Sessions"
+    }
+  },
+  "detail": {
+    "title": "User {userId} Details",
+    "tab": {
+      "basicInfo": "Basic Info",
+      "apiAuditLog": "API Audit Log",
+      "internalMessage": "Internal Message"
+    },
+    "desc": {
+      "username": "Username",
+      "realname": "Real Name",
+      "nickname": "Nickname",
+      "gender": "Gender",
+      "roleNames": "Roles",
+      "mobile": "Mobile",
+      "email": "Email",
+      "region": "Region",
+      "address": "Address",
+      "tenantName": "Tenant",
+      "orgUnitName": "Organization",
+      "positionName": "Position",
+      "lastLoginAt": "Last Login Time",
+      "lastLoginIp": "Last Login IP",
+      "createdAt": "Created At"
+    }
+  },
+  "form": {
+    "username": "Username",
+    "realname": "Real Name",
+    "mobile": "Mobile",
+    "status": "Status",
+    "role": "Role",
+    "position": "Position",
+    "orgUnit": "Organization"
+  },
+  "table": {
+    "username": "Username",
+    "realname": "Real Name",
+    "nickname": "Nickname",
+    "email": "Email",
+    "mobile": "Mobile",
+    "telephone": "Telephone",
+    "password": "Password",
+    "gender": "Gender",
+    "orgUnitId": "Organization",
+    "positionId": "Position",
+    "roleId": "Role",
+    "status": "Status",
+    "lastLoginAt": "Last Login Time",
+    "region": "Region",
+    "address": "Address",
+    "description": "Description",
+    "avatar": "Avatar"
+  },
+  "button": {
+    "updatePassword": "Update Password",
+    "updateUserInfo": "Update User Info",
+    "editPassword": "Edit Password",
+    "banAccount": "Ban Account"
+  },
+  "secureSetting": {
+    "accountPassword": "Login Password",
+    "accountPasswordDesc": "Change your password regularly and pair it with MFA for better security",
+    "modify": "Modify",
+    "mfaDevice": "MFA Device (TOTP)",
+    "mfaDeviceDesc": "No TOTP authenticator bound. After binding, a verification code will be required on every login.",
+    "mfaBoundDesc": "TOTP authenticator is bound. A verification code is required on every login.",
+    "mfaStartBind": "Bind Authenticator",
+    "mfaUnbind": "Unbind",
+    "mfaBindTitle": "Bind TOTP Authenticator",
+    "mfaScanQr": "Scan this QR code with your authenticator app",
+    "mfaManualEntry": "Or enter this secret manually",
+    "mfaEnterCode": "Enter the 6-digit code shown in your authenticator",
+    "mfaCodePlaceholder": "6-digit code",
+    "mfaConfirmBind": "Confirm Bind",
+    "mfaBindSuccess": "TOTP bound successfully",
+    "mfaBindFailed": "Failed to bind TOTP",
+    "mfaEnrollStartFailed": "Failed to start enrollment",
+    "mfaUnbindSuccess": "TOTP unbound successfully",
+    "mfaUnbindFailed": "Failed to unbind TOTP",
+    "mfaUnbindConfirmTitle": "Unbind TOTP?",
+    "mfaUnbindConfirmContent": "After unbinding, login will no longer require a verification code. This reduces account security."
+  },
+  "accountBind": {
+    "email": "Email Account",
+    "phone": "Phone Number",
+    "bound": "Bound: {value}",
+    "unbound": "Not bound; fill it in Basic Settings",
+    "modify": "Modify",
+    "bindNow": "Bind Now",
+    "rebind": "Rebind",
+    "bindEmailTitle": "Bind Email",
+    "newEmail": "New Email",
+    "newEmailPlaceholder": "Enter new email address",
+    "vcode": "Code",
+    "vcodePlaceholder": "Enter the email code",
+    "sendVcode": "Send Code",
+    "codeSent": "Sent, please check inbox",
+    "vcodeSendFailed": "Failed to send code",
+    "newEmailRequired": "New email is required",
+    "vcodeRequired": "Code is required",
+    "confirmBind": "Confirm",
+    "bindSuccess": "Email bound successfully",
+    "bindFailed": "Failed to bind"
+  },
+  "resetMfa": "Reset MFA",
+  "resetMfaConfirmTitle": "Reset MFA for this user?",
+  "resetMfaConfirmDesc": "This will remove their TOTP binding. Next login will skip MFA until re-enrolled.",
+  "resetMfaSuccess": "MFA reset successfully",
+  "resetMfaFailed": "Failed to reset MFA"
+}

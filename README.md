@@ -196,19 +196,29 @@ CI（ubuntu + windows 矩阵）执行同样的四道门：fmt / clippy / test / 
 
 ### 前端启动
 
-前端与后端是零改动兼容契约：API 基址指向本仓后端（REST :7788）即可，无需改动任何前端代码。React 版随本仓同步（同步快照 + RushWind 品牌覆写层 + `react.MANIFEST.sha256` 校验门防手改），dev 代理默认已指向 :7788；Vue Element / Vue Vben 两版暂不随仓：
+前端与后端是零改动兼容契约：API 基址指向本仓后端（REST :7788）即可，无需改动任何前端代码。三套前端均随本仓同步（同步快照 + RushWind 品牌覆写层 + 双清单校验门防手改），dev 代理默认已指向 :7788：
 
 | 前端版本 | 目录 | 状态 | 启动命令 | 端口 |
 |---------|------|------|---------|------|
 | React | `frontend/admin/react` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev` | 5888 |
-| Vue Element | 上游前端源 | 暂不随仓 | `pnpm dev` | 5777 |
-| Vue Vben | 上游前端源 | 暂不随仓 | `pnpm dev:antd` | 5666 |
+| Vue Element | `frontend/admin/vue-element` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev` | 5777 |
+| Vue Vben | `frontend/admin/vue-vben` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev:antd` | 5666 |
 
 ```shell
 # React 版（本仓 frontend/admin/react）
 cd frontend/admin/react
 pnpm install
 pnpm dev            # :5888，代理转发至 REST :7788
+
+# Vue Element 版（本仓 frontend/admin/vue-element）
+cd frontend/admin/vue-element
+pnpm install
+pnpm dev            # :5777，代理转发至 REST :7788
+
+# Vue Vben 版（本仓 frontend/admin/vue-vben，monorepo，在仓库根执行）
+cd frontend/admin/vue-vben
+pnpm install
+pnpm dev:antd       # :5666，代理转发至 REST :7788
 ```
 
 ---
@@ -285,7 +295,7 @@ rushwind-admin/
 │   ├── services/
 │   │   └── admin-api/              # Admin 服务 crate（src/ 模块树 + assets/ 内嵌资源）
 │   └── testbed/                    # 差分回归台架（compose + admin-diff sweep）
-├── frontend/                       # React 版同步快照（sync-react.sh + 双清单门 + RushWind 品牌覆写），其余版本占位
+├── frontend/                       # 三套前端同步快照（sync-frontend.sh + 双清单门 + RushWind 品牌覆写）
 ├── docs/                           # 项目文档（binding-spec / development-plan / operator-matrix / screenshots）
 └── .github/workflows/              # CI（fmt / clippy / test / 契约同步门）
 ```

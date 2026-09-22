@@ -1,0 +1,28 @@
+{
+  "moduleName": "Role",
+  "name": "Role Name",
+  "code": "Role Code",
+  "tenantName": "Tenant",
+  "permissions": "Permissions",
+  "sortOrder": "Sort Order",
+  "status": "Status",
+  "description": "Description",
+  "remark": "Remark",
+  "createdAt": "Created At",
+  "dataScope": "Data Scope",
+  "orgUnits": "Authorized Org Units",
+  "noOrgUnitData": "No org unit data",
+  "fieldPerm": {
+    "title": "Field Permissions",
+    "hint": "Checked fields are hidden for users with this role: removed from list/detail views and stripped from create/update payloads (takes effect after re-login).",
+    "field": {
+      "email": "Email",
+      "mobile": "Mobile",
+      "telephone": "Telephone",
+      "address": "Address",
+      "region": "Region",
+      "lastLoginAt": "Last Login At",
+      "lastLoginIp": "Last Login IP"
+    }
+  }
+}

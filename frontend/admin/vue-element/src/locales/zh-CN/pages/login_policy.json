@@ -1,0 +1,13 @@
+{
+  "moduleName": "登录策略",
+  "targetId": "目标ID",
+  "type": "策略类型",
+  "method": "策略方法",
+  "value": "策略值",
+  "reason": "原因",
+  "createdAt": "创建时间",
+  "button": {
+    "create": "创建",
+    "update": "更新"
+  }
+}

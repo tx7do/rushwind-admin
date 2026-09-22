@@ -1,0 +1,33 @@
+{
+  "moduleName": "任务",
+  "type": "任务类型",
+  "typeName": "任务名称",
+  "taskPayload": "任务参数",
+  "cronSpec": "Cron表达式",
+  "enable": "是否启用",
+  "createdAt": "创建时间",
+  "remark": "备注",
+  "taskOptionsMaxRetry": "最大重试次数",
+  "taskOptionsTimeout": "超时时间",
+  "taskOptionsDeadline": "截止时间",
+  "taskOptionsProcessIn": "处理延迟",
+  "taskOptionsProcessAt": "处理时间",
+  "button": {
+    "create": "创建",
+    "update": "更新",
+    "startAll": "启动所有",
+    "stopAll": "停止所有",
+    "restartAll": "重启所有",
+    "start": "启动",
+    "stop": "停止",
+    "restart": "重启"
+  },
+  "text": {
+    "do_you_want_start_all_task": "确定要启动所有{moduleName}吗？",
+    "do_you_want_stop_all_task": "确定要停止所有{moduleName}吗？",
+    "do_you_want_restart_all_task": "确定要重启所有{moduleName}吗？",
+    "do_you_want_start_task": "确定要启动该{moduleName}吗？",
+    "do_you_want_stop_task": "确定要停止该{moduleName}吗？",
+    "do_you_want_restart_task": "确定要重启该{moduleName}吗？"
+  }
+}

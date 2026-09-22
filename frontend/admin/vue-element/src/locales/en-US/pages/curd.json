@@ -1,0 +1,80 @@
+{
+  "toolbar": {
+    "filter": "Filter Columns",
+    "filterAll": "All",
+    "filterReset": "Reset",
+    "refresh": "Refresh",
+    "search": "Search",
+    "batchImport": "Batch Import",
+    "batchExport": "Batch Export"
+  },
+  "search": {
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
+  "tableSelect": {
+    "placeholder": "Please select",
+    "clear": "Clear",
+    "selectedCount": "{count} selected",
+    "pleaseSelectData": "Please select data"
+  },
+  "export": {
+    "title": "Export Data",
+    "filename": "Filename",
+    "filenamePlaceholder": "Please enter filename",
+    "fileType": "Save as Type",
+    "dataScope": "Select Data",
+    "fields": "Select Fields",
+    "allFields": "All Fields",
+    "export": "Export",
+    "params": "Parameters",
+    "paramsOptions": {
+      "header": "Header",
+      "footer": "Footer",
+      "rawData": "Raw Data",
+      "groupHeader": "Group Header",
+      "mergeCells": "Merge",
+      "style": "Style"
+    },
+    "originOptions": {
+      "current": "Current Data (current page data)",
+      "selected": "Selected Data (selected data on current page)",
+      "all": "All Data (current filters)"
+    },
+    "fileTypeOptions": {
+      "csv": "CSV (Comma Separated)(*.csv)",
+      "html": "Web Page(*.html)",
+      "xml": "XML Data(*.xml)",
+      "txt": "Text File(Tab Delimited)(*.txt)",
+      "xlsx": "Excel Workbook(*.xlsx)"
+    }
+  },
+  "import": {
+    "title": "Import Data",
+    "file": "File",
+    "dragText": "Drop file here, or ",
+    "clickText": "click to upload",
+    "fileTypeTip": "*.xlsx / *.xls format files",
+    "downloadTemplate": "Download Import Template"
+  },
+  "message": {
+    "selectDeleteItems": "Please select items to delete",
+    "confirmDelete": "Confirm Delete?",
+    "deleteSuccess": "Delete successful",
+    "noDeleteAction": "deleteAction not configured",
+    "selectFields": "Please select fields",
+    "selectOrigin": "Please select data source",
+    "noExportsAction": "exportsAction not configured",
+    "selectFile": "Please select file",
+    "noImportTemplate": "importTemplate not configured",
+    "importSuccess": "Import successful",
+    "noImportAction": "importAction not configured",
+    "noImportsAction": "importsAction not configured",
+    "noDataParsed": "No data parsed",
+    "readFileFailed": "Failed to read file",
+    "importFailed": "Import failed",
+    "noModifyAction": "modifyAction not configured",
+    "noExportAction": "exportAction not configured",
+    "operationSuccess": "Operation successful"
+  }
+}

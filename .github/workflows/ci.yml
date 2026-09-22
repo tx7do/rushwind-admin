@@ -53,11 +53,14 @@ jobs:
       - name: Proto contract gate (MANIFEST consistency)
         run: bash api/sync-protos.sh --check
 
-      # Frontend snapshot must match react.MANIFEST.sha256 (anti-tamper
-      # gate). The upstream source repo is absent on CI, so the drift
+      # Frontend snapshots must match <frontend>.MANIFEST.sha256 (anti-tamper
+      # gates). The upstream source repo is absent on CI, so the drift
       # comparison self-skips inside the script, same as the proto gate.
       - name: Frontend snapshot gate (MANIFEST consistency)
-        run: bash ../frontend/admin/sync-react.sh --check
+        run: |
+          bash ../frontend/admin/sync-frontend.sh react --check
+          bash ../frontend/admin/sync-frontend.sh vue-element --check
+          bash ../frontend/admin/sync-frontend.sh vue-vben --check
 
       # Scoped to THIS repo's packages: `cargo fmt --all` would also
       # enforce on the framework path-deps, which the framework repo's

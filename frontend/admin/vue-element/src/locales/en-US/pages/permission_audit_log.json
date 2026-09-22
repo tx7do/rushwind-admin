@@ -1,0 +1,21 @@
+{
+  "moduleName": "Permission Audit Log",
+  "targetType": "Target Type",
+  "operatorName": "Operator",
+  "action": "Action Type",
+  "ipAddress": "IP Address",
+  "createdAt": "Created At",
+  "targetName": "Target Name",
+  "reason": "Reason",
+  "geoLocation": "Geo Location",
+  "operatorId": "Operator ID",
+  "targetId": "Target ID",
+  "oldValue": "Old Value",
+  "newValue": "New Value",
+  "requestId": "Request ID",
+  "tenantId": "Tenant ID",
+  "logHash": "Log Hash",
+  "signature": "Signature",
+  "province": "Province",
+  "city": "City"
+}

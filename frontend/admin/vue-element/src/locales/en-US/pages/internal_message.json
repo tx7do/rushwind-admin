@@ -1,0 +1,25 @@
+{
+  "moduleName": "Internal Message",
+  "title": "Title",
+  "status": "Status",
+  "type": "Type",
+  "categoryId": "Category",
+  "categoryName": "Category Name",
+  "content": "Content",
+  "senderName": "Sender",
+  "createdAt": "Created At",
+  "readAt": "Read At",
+  "recipientUserInbox": "User Inbox",
+  "button": {
+    "create": "New Message"
+  },
+  "drawer": {
+    "create": "New Message",
+    "update": "Edit Message"
+  },
+  "sendScope": "Send To",
+  "sendScopeAll": "All Users",
+  "sendScopeUsers": "Selected Users",
+  "targetUsers": "Recipients",
+  "requiredTargetUsers": "Please select recipients"
+}

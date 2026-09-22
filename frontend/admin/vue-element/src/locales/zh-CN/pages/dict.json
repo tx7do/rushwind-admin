@@ -1,0 +1,14 @@
+{
+  "moduleName": "字典管理",
+  "dictType": "字典类型",
+  "dictEntry": "字典条目",
+  "typeName": "类型名称",
+  "typeCode": "类型编码",
+  "typeId": "所属类型",
+  "entryLabel": "标签",
+  "entryValue": "值",
+  "numericValue": "数值",
+  "i18nConfig": "多语言配置",
+  "languageCode": "语言代码",
+  "languageName": "语言名称"
+}

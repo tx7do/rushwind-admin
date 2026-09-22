@@ -1,0 +1,22 @@
+{
+  "moduleName": "credential",
+  "name": "Credential Name",
+  "namePlaceholder": "Enter credential name (purpose)",
+  "requiredName": "Credential name is required",
+  "accessKey": "Access Key",
+  "status": "Status",
+  "statusMap": {
+    "ON": "Enabled",
+    "OFF": "Disabled"
+  },
+  "expiresAt": "Expires At",
+  "expiresAtHint": "Leave empty for no expiry",
+  "lastUsedAt": "Last Used",
+  "secretDialogTitle": "Save your Secret now",
+  "secretDialogHint": "The secret is shown only once; the server stores only its SHA-256 digest.",
+  "secretCopied": "Secret copied",
+  "resetSecret": "Reset Secret",
+  "resetConfirm": "Generate a new secret? The old secret stops working immediately; already-issued tokens stay valid until they expire.",
+  "resetSuccess": "Secret reset",
+  "resetFailed": "Reset failed"
+}

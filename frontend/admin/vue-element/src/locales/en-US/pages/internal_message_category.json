@@ -1,0 +1,12 @@
+{
+  "moduleName": "Message Category",
+  "name": "Category Name",
+  "code": "Category Code",
+  "sortOrder": "Sort Order",
+  "isEnabled": "Status",
+  "remark": "Remark",
+  "createdAt": "Created At",
+  "button": {
+    "create": "New Category"
+  }
+}

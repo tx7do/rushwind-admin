@@ -1,0 +1,14 @@
+{
+  "moduleName": "Dictionary Management",
+  "dictType": "Dictionary Type",
+  "dictEntry": "Dictionary Entry",
+  "typeName": "Type Name",
+  "typeCode": "Type Code",
+  "typeId": "Type",
+  "entryLabel": "Label",
+  "entryValue": "Value",
+  "numericValue": "Numeric Value",
+  "i18nConfig": "I18n Configuration",
+  "languageCode": "Language Code",
+  "languageName": "Language Name"
+}

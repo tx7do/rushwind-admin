@@ -1,0 +1,181 @@
+{
+  "theme": {
+    "light": "浅色",
+    "dark": "深色",
+    "auto": "自动"
+  },
+  "title": "偏好设置",
+  "subtitle": "自定义你的工作空间",
+  "actions": {
+    "reset": "重置偏好",
+    "close": "关闭",
+    "copySettings": "复制设置",
+    "clearCacheAndLogout": "清除缓存并退出"
+  },
+  "tabs": {
+    "appearance": "外观",
+    "layout": "布局",
+    "shortcut": "快捷键",
+    "general": "通用"
+  },
+  "appearance": {
+    "theme": "主题模式",
+    "lightMode": "浅色",
+    "darkMode": "深色",
+    "followSystem": "跟随系统",
+    "darkSidebar": "深色侧边栏",
+    "darkHeader": "深色顶栏",
+    "builtinThemes": "内置主题",
+    "radius": "圆角",
+    "other": "其他",
+    "colorWeakMode": "色弱模式",
+    "colorGrayMode": "灰色模式",
+    "themes": {
+      "default": "默认蓝",
+      "violet": "紫罗兰",
+      "pink": "粉色",
+      "yellow": "黄色",
+      "skyBlue": "天蓝色",
+      "green": "绿色",
+      "zinc": "锌灰",
+      "deepGreen": "深绿色",
+      "deepBlue": "深蓝色",
+      "orange": "橙色",
+      "rose": "玫红色",
+      "neutral": "中性色",
+      "slate": "石板灰",
+      "gray": "灰色",
+      "red": "红色",
+      "stone": "石灰",
+      "custom": "自定义"
+    }
+  },
+  "general": {
+    "general": "通用",
+    "language": "语言",
+    "dynamicTitle": "动态标题",
+    "watermark": "水印",
+    "checkUpdates": "检查更新",
+    "animation": "动画",
+    "progressBar": "进度条",
+    "loading": "加载动画",
+    "pageTransition": "页面过渡",
+    "transitions": {
+      "fade": "淡入淡出",
+      "fadeDown": "向下淡入",
+      "fadeSlide": "滑动淡入",
+      "fadeUp": "向上淡入"
+    },
+    "languages": {
+      "zhCN": "简体中文",
+      "enUS": "English"
+    }
+  },
+  "shortcut": {
+    "global": "全局快捷键",
+    "shortcutKeys": "快捷键",
+    "globalSearch": "全局搜索",
+    "logout": "退出登录",
+    "lockScreen": "锁屏"
+  },
+  "layout": {
+    "modes": {
+      "title": "布局模式",
+      "sidebarNav": "侧边栏导航",
+      "sidebarMixedNav": "侧边栏混合导航",
+      "headerNav": "顶部导航",
+      "mixedNav": "混合导航",
+      "fullContent": "全屏内容"
+    },
+    "contentModes": {
+      "title": "内容宽度",
+      "wide": "宽屏",
+      "compact": "紧凑"
+    },
+    "sidebar": "侧边栏",
+    "showSidebar": "显示侧边栏",
+    "collapseMenu": "折叠菜单",
+    "collapseShowTitle": "折叠时显示标题",
+    "width": "宽度",
+    "header": "顶栏",
+    "showHeader": "显示顶栏",
+    "mode": "模式",
+    "headerModes": {
+      "fixed": "固定",
+      "auto": "自动",
+      "static": "静态"
+    },
+    "navigationMenu": "导航菜单",
+    "menuStyle": "菜单样式",
+    "menuStyles": {
+      "rounded": "圆润",
+      "plain": "朴素"
+    },
+    "menuSplit": "菜单分割",
+    "accordionMode": "手风琴模式",
+    "breadcrumb": "面包屑",
+    "enableBreadcrumb": "启用面包屑",
+    "hideWhenOnlyOne": "仅一项时隐藏",
+    "showIcon": "显示图标",
+    "showHomeButton": "显示首页按钮",
+    "breadcrumbStyle": "面包屑样式",
+    "breadcrumbStyles": {
+      "normal": "默认",
+      "background": "背景"
+    },
+    "tabbar": "标签栏",
+    "enableTabbar": "启用标签栏",
+    "persistTabs": "持久化标签",
+    "draggableSort": "拖拽排序",
+    "showTabbarIcon": "显示标签图标",
+    "showMoreButton": "显示更多按钮",
+    "showMaximizeButton": "显示最大化按钮",
+    "tabbarStyle": "标签栏样式",
+    "tabbarStyles": {
+      "chrome": "Chrome风格",
+      "card": "卡片",
+      "brisk": "轻快",
+      "plain": "朴素"
+    },
+    "widgets": "小部件",
+    "globalSearch": "全局搜索",
+    "themeToggle": "主题切换",
+    "languageToggle": "语言切换",
+    "fullscreen": "全屏",
+    "notification": "通知",
+    "lockScreen": "锁屏",
+    "sidebarToggle": "侧边栏切换",
+    "refresh": "刷新",
+    "preferencesPosition": "偏好按钮位置",
+    "positions": {
+      "auto": "自动",
+      "fixed": "固定",
+      "hidden": "隐藏"
+    },
+    "footer": "底栏",
+    "showFooter": "显示底栏",
+    "fixedAtBottom": "固定在底部",
+    "copyright": "版权",
+    "enableCopyright": "启用版权",
+    "companyName": "公司名称",
+    "companySite": "公司网址",
+    "date": "日期",
+    "icpNumber": "备案号",
+    "icpLink": "备案链接"
+  },
+  "tabbar": {
+    "contextMenu": {
+      "reload": "刷新",
+      "close": "关闭",
+      "closeOther": "关闭其他",
+      "closeLeft": "关闭左侧",
+      "closeRight": "关闭右侧",
+      "closeAll": "关闭所有",
+      "pin": "固定标签",
+      "unpin": "取消固定",
+      "maximize": "最大化",
+      "restoreMaximize": "退出最大化",
+      "openInNewWindow": "在新窗口打开"
+    }
+  }
+}

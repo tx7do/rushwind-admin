@@ -1,0 +1,72 @@
+@import "tailwindcss";
+
+/* ============================================
+   主题变量 — 从 UnoCSS config 迁移
+   ============================================ */
+
+@theme {
+  /* 颜色：桥接 Element Plus CSS 变量 */
+  --color-primary: var(--el-color-primary);
+  --color-primary-dark: var(--el-color-primary-light-5);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--destructive);
+  --color-foreground: var(--foreground);
+
+  /* 圆角 */
+  --radius-sm: calc(var(--radius) * 0.5);
+  --radius-lg: calc(var(--radius) * 1.5);
+  --radius-default: var(--radius);
+
+  /* 自定义断点 */
+  --breakpoint-sm: 640px;
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+  --breakpoint-xl: 1280px;
+  --breakpoint-2xl: 1536px;
+  --breakpoint-3xl: 1920px;
+  --breakpoint-4xl: 2560px;
+}
+
+/* ============================================
+   自定义工具类 — 从 UnoCSS shortcuts 迁移
+   ============================================ */
+
+@utility wh-full {
+  width: 100%;
+  height: 100%;
+}
+
+@utility flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+@utility flex-x-center {
+  display: flex;
+  justify-content: center;
+}
+
+@utility flex-y-center {
+  display: flex;
+  align-items: center;
+}
+
+@utility flex-x-start {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+@utility flex-x-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+@utility flex-x-end {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}

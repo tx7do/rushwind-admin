@@ -1,0 +1,9 @@
+/**
+ * 第三方库（vendors）样式适配入口
+ *
+ * vendors = 第三方供应商代码
+ * 包含：Element Plus、Vxe Table 等
+ */
+
+@use "./element-plus";
+@use "./vxe-table";

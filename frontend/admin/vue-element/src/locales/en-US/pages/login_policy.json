@@ -1,0 +1,13 @@
+{
+  "moduleName": "Login Policy",
+  "targetId": "Target ID",
+  "type": "Policy Type",
+  "method": "Policy Method",
+  "value": "Policy Value",
+  "reason": "Reason",
+  "createdAt": "Created At",
+  "button": {
+    "create": "Create",
+    "update": "Update"
+  }
+}

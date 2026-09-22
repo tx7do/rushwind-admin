@@ -1,0 +1,7 @@
+{
+  "moduleName": "Permission Group",
+  "name": "Group Name",
+  "module": "Module",
+  "parentId": "Parent Group",
+  "status": "Status"
+}

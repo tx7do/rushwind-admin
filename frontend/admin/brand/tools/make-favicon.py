@@ -98,7 +98,6 @@ def downsize(img: Image.Image, size: int) -> Image.Image:
 
 def main() -> None:
     here = Path(__file__).resolve().parent
-    out = here.parent / "overlay" / "public" / "favicon.ico"
 
     full = gradient_rgba(draw_mark(bold=1.0, full_detail=True))
     bold = gradient_rgba(draw_mark(bold=1.22, full_detail=False))
@@ -107,8 +106,14 @@ def main() -> None:
     f48 = downsize(bold, 48)
     f32 = downsize(bold, 32)
     f16 = downsize(bold, 16)
-    f48.save(out, format="ICO", append_images=[f32, f16], sizes=[(48, 48), (32, 32), (16, 16)])
-    print(f"wrote {out}")
+
+    # 三个随仓前端的 overlay 各落一份（字节相同；几何改动后重跑即全量刷新）
+    out = None
+    for fe in ("react", "vue-element", "vue-vben"):
+        out = here.parent / "overlay" / fe / "public" / "favicon.ico"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        f48.save(out, format="ICO", append_images=[f32, f16], sizes=[(48, 48), (32, 32), (16, 16)])
+        print(f"wrote {out}")
 
     # 预览：深/浅两种标签栏底色上并排看 48/32/16（nearest 放大 6× 便于检查）
     frames = [f48, f32, f16]

@@ -1,0 +1,13 @@
+{
+  "moduleName": "套餐",
+  "quotaName": "套餐配额",
+  "name": "套餐名称",
+  "version": "套餐版本",
+  "expiryPolicy": "到期处置策略",
+  "dataRetentionDays": "数据保留天数",
+  "planId": "所属套餐",
+  "quotaType": "配额类型",
+  "quotaValue": "配额值",
+  "moduleWhitelist": "模块白名单",
+  "moduleWhitelistPlaceholder": "请选择允许的功能模块"
+}

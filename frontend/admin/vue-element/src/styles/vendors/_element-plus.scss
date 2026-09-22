@@ -1,0 +1,461 @@
+/**
+ * Element Plus 变量覆盖和样式适配
+ */
+
+// ============================================
+// 1. 变量覆盖（必须在最前面）
+// ============================================
+
+@forward "element-plus/theme-chalk/src/common/var.scss" with (
+  $colors: (
+    "primary": (
+      // 规范主色 hsl(212 100% 45%)（docs/design-language.md）
+      "base": #006BE6,
+    ),
+    "success": (
+      "base": #57D1A0,
+    ),
+    "warning": (
+      "base": #EF7A48,
+    ),
+    "danger": (
+      "base": #FF3860,
+    ),
+    // info 与主色同值：运行时 utils/theme.ts 同样把 info 映射为主色，
+    // 对齐 react 端 antd colorInfo=主色的三端一致映射（design-language.md §2.1），两处值必须一致
+    "info": (
+      "base": #006BE6,
+    ),
+  ),
+  $bg-color: (
+    "page": #F1F3F6,
+  ),
+  // 圆角 — 现代大圆角
+  $border-radius: (
+    "base": 8px,
+    "small": 6px,
+    "round": 20px,
+    "circle": 100%,
+  ),
+  // 阴影更柔和
+  $box-shadow: (
+    "": (0 4px 12px rgba(0, 0, 0, 0.08)),
+    "light": (0 2px 8px rgba(0, 0, 0, 0.06)),
+    "lighter": (0 1px 4px rgba(0, 0, 0, 0.04)),
+    "dark": (0 6px 16px rgba(0, 0, 0, 0.12)),
+  ),
+  // 表格更清爽
+  $table: (
+    "header-font-color": #1F2937,
+    "header-bg-color": #F0F2F5,
+    "row-hover-bg-color": #F2F3F5,
+    "border-color": #E4E4E7,
+  ),
+  // 填充色优化
+  $fill-color: (
+    "light": #F2F3F5,
+    "lighter": #F7F8FA,
+    "extra-light": #FAFBFC,
+  ),
+);
+
+// ============================================
+// 2. 样式覆盖
+// ============================================
+
+$border: 1px solid var(--el-border-color-light);
+
+/* ---------- 表格变量 ---------- */
+/* 表格的 --el-table-* 变量由 Element Plus 主题系统（含 dark/css-vars.css）
+   按亮/暗模式自动提供，此处不再硬编码覆盖，避免亮/暗覆盖不全导致暗黑下出现
+   浅色表头或边框。 */
+:root {
+  /* ---------- GoWind 全局组件变量 ---------- */
+  --gowind-drawer-width: 480px;
+  --gowind-form-item-margin-bottom: 24px;
+}
+
+/* ---------- el-dialog ---------- */
+.el-dialog {
+  border-radius: 12px;
+  box-shadow: var(--el-box-shadow-dark);
+  overflow: hidden;
+
+  .el-dialog__header {
+    padding: 16px 20px;
+    margin: 0;
+    border-bottom: $border;
+  }
+
+  .el-dialog__body {
+    padding: 20px;
+  }
+
+  .el-dialog__footer {
+    padding: 16px 20px;
+    border-top: $border;
+  }
+}
+
+/* ---------- el-drawer ---------- */
+.el-drawer {
+  // 统一抽屉宽度
+  --el-drawer-width-primary: var(--gowind-drawer-width);
+
+  // Drawer 整体使用 flex 列布局，确保 Header/Footer 固定，Body 滚动
+  display: flex;
+  flex-direction: column;
+
+  // 亮色模式：赋予立体层级感，左侧精细分割线 + 温润漫反射投影
+  border-left: 1px solid var(--el-border-color) !important;
+  box-shadow: var(--el-box-shadow-dark) !important;
+
+  .el-drawer__header {
+    flex-shrink: 0; // 不被压缩
+    padding: 16px 20px;
+    margin: 0;
+    color: inherit;
+    border-bottom: $border;
+    font-weight: 600;
+  }
+
+  .el-drawer__body {
+    flex: 1; // 占据剩余空间
+    min-height: 0; // 允许内容溢出时正确滚动
+    padding: 24px 20px; // 增加上下内边距，提升呼吸感
+    overflow-y: auto; // 独立滚动
+  }
+
+  .el-drawer__footer {
+    flex-shrink: 0; // 不被压缩
+    padding: 16px 20px;
+    border-top: 1px solid var(--el-border-color);
+    background: var(--el-bg-color);
+  }
+}
+
+/* ---------- 抽屉和对话框底部按钮区域 ---------- */
+.dialog-footer {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* ---------- 全局字体锁定 + inline 基线修复 ---------- */
+/* 根因：不同字体的 ascender/descender 度量不同，inline 基线对齐
+ * 导致中/韩/日/俄/西等不同语种文字肉眼高低不齐。
+ * 方案：
+ * 1. 全局锁定 font-family 为 Noto 全系列优先，统一基线度量
+ * 2. 所有图标+文字混排容器统一用 flex + align-items:center 废掉 baseline
+ * 3. line-height: normal 避免子 span 继承过大行高 */
+
+// --- 全局字体锁定（多语种统一基线）---
+:root,
+body,
+.el-button,
+.el-input__inner,
+.el-menu-item,
+.el-sub-menu__title,
+.el-table__cell .cell,
+.el-table__header-cell .cell,
+.vxe-table,
+.vxe-cell,
+.vxe-header--column .vxe-cell,
+.vxe-body--column .vxe-cell {
+  font-family: "Noto Sans SC", "Noto Sans JP", "Noto Sans KR",
+    sans-serif !important;
+}
+
+// --- 菜单：flex 居中，抛弃基线 ---
+.el-menu-item,
+.el-sub-menu__title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  line-height: normal !important;
+}
+
+.el-menu-item .el-icon,
+.el-sub-menu__title .el-icon,
+.el-menu-item .svg-local-icon,
+.el-sub-menu__title .svg-local-icon {
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.el-menu--inline .el-menu-item {
+  padding-left: 36px !important;
+}
+
+// 菜单内文字 span 统一继承 normal 行高
+.el-menu-item .menu-title,
+.el-sub-menu__title .menu-title {
+  line-height: normal !important;
+}
+
+// --- 表格单元格：flex 居中 ---
+.el-table__cell .cell,
+.el-table__header-cell .cell {
+  display: flex !important;
+  align-items: center !important;
+  height: 100%;
+}
+
+// --- 面包屑 ---
+.el-breadcrumb__item {
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.el-breadcrumb__inner,
+.el-breadcrumb__inner a {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px;
+  line-height: normal !important;
+}
+
+// --- 按钮 ---
+.el-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: normal !important;
+}
+
+.el-button .el-icon {
+  display: inline-flex !important;
+}
+
+// --- Tabs ---
+.el-tabs__item {
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: normal !important;
+}
+
+// --- Tag ---
+.el-tag {
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: normal !important;
+}
+
+// --- 下拉菜单选项 ---
+.el-dropdown-menu__item {
+  display: flex !important;
+  align-items: center !important;
+  line-height: normal !important;
+}
+
+// --- Select 选项 ---
+.el-select-dropdown__item {
+  display: flex !important;
+  align-items: center !important;
+  line-height: normal !important;
+}
+
+// --- 表单 label ---
+.el-form-item__label {
+  display: inline-flex !important;
+  align-items: center !important;
+  line-height: normal !important;
+}
+
+/* ---------- 按钮精致化 ---------- */
+.el-button {
+  border-radius: 8px;
+  height: var(--el-button-height, 32px);
+  transition: all 0.25s ease;
+
+  &:hover {
+    box-shadow: var(--el-box-shadow-base);
+  }
+}
+
+/* ---------- 卡片精致化 ---------- */
+.el-card {
+  border-radius: 12px;
+  border: 1px solid var(--el-border-color-lighter);
+  box-shadow: var(--el-box-shadow-light);
+  transition: box-shadow 0.25s ease;
+
+  &:hover {
+    box-shadow: var(--el-box-shadow-base);
+  }
+}
+
+/* ---------- 表格高级感 ---------- */
+/* 表格边框/表头背景/边框使用 Element Plus 主题变量（含 dark/css-vars.css），
+   亮/暗模式自动切换，不再硬编码浅色值。 */
+.el-table {
+  border-radius: 8px;
+  overflow: hidden;
+
+  // 表头紧凑 + 视觉分隔增强
+  .el-table__header-wrapper th.el-table__cell {
+    font-weight: 600;
+    font-size: 13px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    // 表头背景与边框跟随主题变量
+    background-color: var(--el-table-header-bg-color) !important;
+    border-bottom: 1px solid var(--el-table-border-color) !important;
+  }
+
+  // 内容区紧凑
+  td.el-table__cell {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  // 空状态：居中图标 + 文本
+  .el-table__empty-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+  }
+
+  .el-table__empty-text {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    color: var(--el-text-color-placeholder);
+
+    .el-icon {
+      font-size: 48px;
+      color: var(--el-text-color-placeholder);
+      margin-bottom: 8px;
+    }
+  }
+}
+
+/* ---------- 输入框精致化 ---------- */
+.el-input {
+  .el-input__wrapper {
+    border-radius: 8px;
+    transition: box-shadow 0.25s ease;
+
+    // 聚焦态外发光
+    &.is-focus {
+      box-shadow: 0 0 0 1px var(--el-color-primary) inset,
+                  0 0 0 3px var(--el-color-primary-light-8);
+    }
+  }
+}
+
+/* ---------- 抽屉/对话框表单内输入控件统一撑满 ---------- */
+/* ElInput/ElInputNumber 默认带固定宽度（160px/150px），导致抽屉表单中各输入
+   控件长短不一。此处限定 drawer/dialog 内的表单输入控件撑满 content 区，
+   与同表单其他控件宽度一致，消除长短不一。亮暗通用（仅涉 width）。 */
+.el-drawer .el-form .el-input,
+.el-drawer .el-form .el-input-number,
+.el-dialog .el-form .el-input,
+.el-dialog .el-form .el-input-number {
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* ---------- Select / Textarea 聚焦态外发光 ---------- */
+.el-select .el-input__wrapper.is-focus,
+.el-date-editor .el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset,
+              0 0 0 3px var(--el-color-primary-light-8) !important;
+}
+
+.el-textarea__inner:focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset,
+              0 0 0 3px var(--el-color-primary-light-8) !important;
+}
+
+/* ---------- 下拉菜单精致化 ---------- */
+.el-select-dropdown,
+.el-popper.is-light {
+  border-radius: 8px;
+  box-shadow: var(--el-box-shadow-light);
+}
+
+/* ---------- 标签精致化 ---------- */
+/* Tag 和操作按钮视觉分离：Tag 更小更扁、无交互感 */
+.el-tag {
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 4px; /* 比按钮的 6px 更方正 */
+  font-size: 12px;
+  font-weight: 500;
+  cursor: default; /* 不可点击，和按钮区分 */
+}
+
+/* ---------- 消息提示精致化 ---------- */
+.el-message {
+  border-radius: 8px;
+}
+
+/* ---------- 通知精致化 ---------- */
+.el-notification {
+  border-radius: 12px;
+  box-shadow: var(--el-box-shadow-light);
+}
+
+/* ---------- 分页精致化 ---------- */
+.el-pagination {
+  font-size: 14px; // 从默认增大到 14px
+
+  .el-pager li {
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .btn-prev,
+  .btn-next {
+    border-radius: 6px;
+  }
+}
+
+/* ---------- Tabs 精致化 ---------- */
+.el-tabs {
+  .el-tabs__item {
+    transition: color 0.2s ease;
+  }
+}
+
+/* ---------- 表单间距统一 ---------- */
+.el-form--default .el-form-item,
+.el-form .el-form-item {
+  margin-bottom: var(--gowind-form-item-margin-bottom);
+}
+
+/* 表单 Label 跟随 Element Plus 主题变量，亮/暗模式自动切换，避免暗黑下低对比 */
+.el-form-item__label {
+  color: var(--el-text-color-regular) !important;
+  font-weight: 500 !important;
+  font-size: 14px; // 表单标签字号
+}
+
+/* ---------- 消息弹窗精致化 ---------- */
+.el-message-box {
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+/* ---------- 字重巤底：表格/表头/输入框 ---------- */
+/* 确保关键区域的字重跟随全局 --el-font-weight-primary 变量 */
+.el-table {
+  font-size: 14px; // 表格基础字号
+}
+
+.el-table__cell {
+  font-weight: var(--el-font-weight-primary) !important;
+}
+
+.el-table__header th {
+  font-weight: var(--el-font-weight-bold, 600) !important;
+  font-size: 14px !important; // 表头字号
+}
+
+.el-input__inner {
+  font-weight: var(--el-font-weight-primary);
+  font-size: 14px; // 输入框字号
+}

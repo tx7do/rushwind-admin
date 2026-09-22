@@ -1,0 +1,19 @@
+{
+  "moduleName": "策略评估日志",
+  "result": "评估结果",
+  "requestMethod": "请求方法",
+  "requestPath": "请求路径",
+  "userId": "用户ID",
+  "permissionId": "权限ID",
+  "policyId": "策略ID",
+  "membershipId": "成员关系ID",
+  "tenantId": "租户ID",
+  "ipAddress": "IP地址",
+  "traceId": "链路ID",
+  "createdAt": "创建时间",
+  "evaluationContext": "评估上下文",
+  "effectDetails": "生效详情",
+  "scopeSql": "数据范围SQL",
+  "logHash": "日志哈希",
+  "signature": "签名"
+}

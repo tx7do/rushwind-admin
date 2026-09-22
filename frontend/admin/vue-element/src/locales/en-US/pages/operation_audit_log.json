@@ -1,0 +1,23 @@
+{
+  "moduleName": "Operation Audit Log",
+  "username": "Username",
+  "resourceType": "Resource Type",
+  "action": "Action Type",
+  "ipAddress": "IP Address",
+  "success": "Success",
+  "createdAt": "Created At",
+  "resourceId": "Resource ID",
+  "requestId": "Request ID",
+  "geoLocation": "Geo Location",
+  "beforeData": "Before Data",
+  "afterData": "After Data",
+  "failureReason": "Failure Reason",
+  "sensitiveLevel": "Sensitive Level",
+  "traceId": "Trace ID",
+  "tenantName": "Tenant",
+  "userId": "User ID",
+  "logHash": "Log Hash",
+  "signature": "Signature",
+  "province": "Province",
+  "city": "City"
+}

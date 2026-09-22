@@ -1,0 +1,17 @@
+{
+  "moduleName": "文件",
+  "fileName": "文件名",
+  "saveFileName": "保存文件名",
+  "fileDirectory": "文件目录",
+  "size": "文件大小",
+  "provider": "存储提供商",
+  "createdAt": "创建时间",
+  "remark": "备注",
+  "button": {
+    "upload": "上传文件"
+  },
+  "notification": {
+    "upload_success": "上传成功",
+    "upload_failed": "上传失败"
+  }
+}

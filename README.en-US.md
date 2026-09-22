@@ -196,19 +196,29 @@ CI (ubuntu + windows matrix) runs the same four gates: fmt / clippy / test / con
 
 ### Frontend Startup
 
-The frontends and the backend form a zero-change compatibility contract: point the API base URL at this backend (REST :7788) — no frontend code changes required. The React edition ships with this repo as a synced snapshot (`frontend/admin/react`, with a RushWind brand overlay on top, guarded by the `react.MANIFEST.sha256` anti-tamper gate), and its dev proxy already targets :7788; the Vue Element / Vue Vben editions are not in this repo yet:
+The frontends and the backend form a zero-change compatibility contract: point the API base URL at this backend (REST :7788) — no frontend code changes required. All three editions ship with this repo as synced snapshots (with a RushWind brand overlay on top, guarded by dual-manifest anti-tamper gates), and their dev proxies already target :7788:
 
 | Frontend | Directory | Status | Command | Port |
 |---------|------|------|---------|------|
 | React | `frontend/admin/react` | ✅ in-repo snapshot + brand overlay | `pnpm dev` | 5888 |
-| Vue Element | upstream frontend source | not in-repo yet | `pnpm dev` | 5777 |
-| Vue Vben | upstream frontend source | not in-repo yet | `pnpm dev:antd` | 5666 |
+| Vue Element | `frontend/admin/vue-element` | ✅ in-repo snapshot + brand overlay | `pnpm dev` | 5777 |
+| Vue Vben | `frontend/admin/vue-vben` | ✅ in-repo snapshot + brand overlay | `pnpm dev:antd` | 5666 |
 
 ```shell
 # React edition (this repo, frontend/admin/react)
 cd frontend/admin/react
 pnpm install
 pnpm dev            # :5888, proxied to REST :7788
+
+# Vue Element edition (this repo, frontend/admin/vue-element)
+cd frontend/admin/vue-element
+pnpm install
+pnpm dev            # :5777, proxied to REST :7788
+
+# Vue Vben edition (this repo, frontend/admin/vue-vben, monorepo, run at its root)
+cd frontend/admin/vue-vben
+pnpm install
+pnpm dev:antd       # :5666, proxied to REST :7788
 ```
 
 ---
@@ -285,7 +295,7 @@ rushwind-admin/
 │   ├── services/
 │   │   └── admin-api/              # Admin 服务 crate（src/ 模块树 + assets/ 内嵌资源）
 │   └── testbed/                    # 差分回归台架（compose + admin-diff sweep）
-├── frontend/                       # React edition synced snapshot (sync-react.sh + dual manifests + RushWind brand overlay), other editions placeholder
+├── frontend/                       # three synced frontend snapshots (sync-frontend.sh + dual manifests + RushWind brand overlay)
 ├── docs/                           # project docs (binding-spec / development-plan / operator-matrix / screenshots)
 └── .github/workflows/              # CI (fmt / clippy / test / contract sync gates)
 ```
