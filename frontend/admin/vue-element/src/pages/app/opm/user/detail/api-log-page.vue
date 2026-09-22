@@ -3,7 +3,7 @@
     <ProPage ref="pageRef" :config="pageConfig">
       <!-- 成功状态 -->
       <template #success="scope: any">
-        <ElTag size="small" effect="dark" round :color="successToColor(scope.row.success)">
+        <ElTag size="small" round :type="successToType(scope.row.success)">
           {{ successToNameWithStatusCode(scope.row.success, scope.row.statusCode) }}
         </ElTag>
       </template>
@@ -33,7 +33,7 @@ import {
   methodList,
   httpMethodTagTypeMap,
   successStatusList,
-  successToColor,
+  successToType,
   successToNameWithStatusCode,
   fetchListApiAuditLogs,
 } from "@/api/composables";

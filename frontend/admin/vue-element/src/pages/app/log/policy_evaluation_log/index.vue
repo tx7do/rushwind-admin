@@ -3,7 +3,7 @@
     <ProPage ref="pageRef" :config="pageConfig" @operate="handleOperate">
       <!-- 评估结果 -->
       <template #result="scope: any">
-        <ElTag size="small" effect="dark" round :color="successToColor(scope.row.result)">
+        <ElTag size="small" round :type="successToType(scope.row.result)">
           {{ successToName(scope.row.result) }}
         </ElTag>
       </template>
@@ -26,7 +26,7 @@ import PolicyEvaluationLogDetailDrawer from "./detail-drawer.vue";
 import {
   methodList,
   successStatusList,
-  successToColor,
+  successToType,
   successToName,
   fetchListPolicyEvaluationLogs,
   createPagedExportAction,

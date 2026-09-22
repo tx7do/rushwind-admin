@@ -25,6 +25,9 @@ export const GuestGuard = ({
 
   if (isAuthenticated) {
     // 优先使用 URL 中的 redirect 参数，其次使用用户 homePath，最后用默认值
+    // searchParams.get 返回的已是解码值，不能再 decodeURIComponent——二次解码
+    // 会破坏含 % 字面量的路径（如文件名 100%25 → 100% → 再解抛 URIError），且
+    // 无兜底的解码异常会在渲染期直接崩掉路由子树
     const rawRedirect = searchParams.get('redirect') || userInfo?.homePath || redirectPath;
     // 同源校验：redirect 直接来自 URL query，未校验时攻击者可构造
     // ?redirect=https://evil.com 诱导登录后跳转外站（开放重定向）。
@@ -33,7 +36,7 @@ export const GuestGuard = ({
       typeof rawRedirect === 'string' &&
       rawRedirect.startsWith('/') &&
       !rawRedirect.startsWith('//')
-        ? decodeURIComponent(rawRedirect)
+        ? rawRedirect
         : redirectPath;
     return <Navigate to={safeRedirect} replace />;
   }

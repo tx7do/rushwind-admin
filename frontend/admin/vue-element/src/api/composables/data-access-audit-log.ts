@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import { useQuery, type UseQueryOptions } from "@tanstack/vue-query";
 import type {
   auditservicev1_DataAccessAuditLog,
@@ -70,29 +71,29 @@ export const dataAccessAuditLogAccessTypeList = computed(() => [
   { value: "OTHER", label: t("enum.dataAccessAuditLog.accessType.OTHER") },
 ]);
 
-const DATA_ACCESS_AUDIT_LOG_ACCESS_TYPE_COLOR_MAP: Record<string, string> = {
-  SELECT: "#1677FF",
-  INSERT: "#597EF7",
-  UPDATE: "#597EF7",
-  DELETE: "#FF4D4F",
-  VIEW: "#6B7280",
-  BULK_READ: "#6B7280",
-  EXPORT: "#00B42A",
-  IMPORT: "#36CFC9",
-  DDL_CREATE: "#722ED1",
-  DDL_ALTER: "#A855F7",
-  DDL_DROP: "#FF4D4F",
-  METADATA_READ: "#86909C",
-  SCAN: "#86909C",
-  ADMIN_OPERATION: "#722ED1",
-  OTHER: "#86909C",
-  DEFAULT: "#86909C",
+const DATA_ACCESS_AUDIT_LOG_ACCESS_TYPE_TAG_TYPE_MAP: Record<string, TagType> = {
+  SELECT: "primary",
+  INSERT: "success",
+  UPDATE: "warning",
+  DELETE: "danger",
+  VIEW: "info",
+  BULK_READ: "info",
+  EXPORT: "success",
+  IMPORT: "success",
+  DDL_CREATE: "primary",
+  DDL_ALTER: "warning",
+  DDL_DROP: "danger",
+  METADATA_READ: "info",
+  SCAN: "info",
+  ADMIN_OPERATION: "danger",
+  OTHER: "info",
+  DEFAULT: "info",
 };
 
-export function dataAccessAuditLogAccessTypeToColor(accessType: AccessType) {
+export function dataAccessAuditLogAccessTypeToType(accessType: AccessType): TagType {
   return (
-    DATA_ACCESS_AUDIT_LOG_ACCESS_TYPE_COLOR_MAP[accessType as string] ||
-    DATA_ACCESS_AUDIT_LOG_ACCESS_TYPE_COLOR_MAP.DEFAULT
+    DATA_ACCESS_AUDIT_LOG_ACCESS_TYPE_TAG_TYPE_MAP[accessType as string] ||
+    DATA_ACCESS_AUDIT_LOG_ACCESS_TYPE_TAG_TYPE_MAP.DEFAULT
   );
 }
 
@@ -114,22 +115,22 @@ export const dataAccessAuditLogCategoryList = computed(() => [
   { value: "UNKNOWN", label: t("enum.dataAccessAuditLog.dataCategory.UNKNOWN") },
 ]);
 
-const DATA_ACCESS_AUDIT_LOG_CATEGORY_COLOR_MAP: Record<string, string> = {
-  USER_DATA: "#1677FF",
-  ORG_DATA: "#36CFC9",
-  ACCESS_CONTROL: "#722ED1",
-  TENANT_DATA: "#2F54EB",
-  MESSAGE_DATA: "#52C41A",
-  AUDIT_LOG: "#FAAD14",
-  SYSTEM_CONFIG: "#597EF7",
-  UNKNOWN: "#86909C",
-  DEFAULT: "#86909C",
+const DATA_ACCESS_AUDIT_LOG_CATEGORY_TAG_TYPE_MAP: Record<string, TagType> = {
+  USER_DATA: "primary",
+  ORG_DATA: "success",
+  ACCESS_CONTROL: "danger",
+  TENANT_DATA: "warning",
+  MESSAGE_DATA: "success",
+  AUDIT_LOG: "warning",
+  SYSTEM_CONFIG: "primary",
+  UNKNOWN: "info",
+  DEFAULT: "info",
 };
 
-export function dataAccessAuditLogCategoryToColor(category: string) {
+export function dataAccessAuditLogCategoryToType(category: string): TagType {
   return (
-    DATA_ACCESS_AUDIT_LOG_CATEGORY_COLOR_MAP[category] ||
-    DATA_ACCESS_AUDIT_LOG_CATEGORY_COLOR_MAP.DEFAULT
+    DATA_ACCESS_AUDIT_LOG_CATEGORY_TAG_TYPE_MAP[category] ||
+    DATA_ACCESS_AUDIT_LOG_CATEGORY_TAG_TYPE_MAP.DEFAULT
   );
 }
 

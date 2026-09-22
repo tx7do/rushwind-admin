@@ -18,7 +18,7 @@
 
 - **Multi-frontend**: ships with three frontends — `Vue3 Vben` (Ant Design Vue), `Vue3 Element Plus`, and `React19 Antd` — so teams can pick their flavor
 - **Enterprise-grade RBAC**: multi-tenant, multi-role, multi-department, with menu/button/data-level permission control
-- **Contract-driven code generation**: Protobuf is the single API contract — 203 routes, 441 error-status mappings, and 198 service interfaces are deterministically generated at build time with zero hand-written routing; the TypeScript clients for the three frontends are byte-identical
+- **Contract-driven code generation**: Protobuf is the single API contract — 211 routes, 441 error-status mappings, and 206 service interfaces are deterministically generated at build time with zero hand-written routing; the TypeScript clients for the three frontends are byte-identical
 - **Security & MLPS 2.0 compliance**: 180-day audit log retention & archiving, password policy suite, TOTP MFA, application-layer password encryption, dynamic RBAC and multi-tenant isolation — see [Security & Compliance](#security--mlps-20-compliance)
 - **Production-ready foundation**: JWT RS256 auth, unified four-field error envelope, CORS, SSE push (planned), async task scheduling (planned)
 - **Quality gates**: four CI gates (fmt / clippy / test / contract sync) on an ubuntu + windows matrix, plus a differential test rig that sweeps and byte-compares all routes automatically
@@ -121,9 +121,9 @@ The project advances through the phases defined in [docs/development-plan.md](./
 **Landed**
 
 - Contract pipeline: proto sync (MANIFEST gate + drift detection) → annotated descriptor → build-time deterministic generation of routes / error-status table / service interfaces / mount glue
-- REST :7788 assembly: 203 routes, an 8-endpoint auth-free whitelist, JWT RS256 auth gate, CORS, unified four-field error envelope (code / reason / message / metadata)
+- REST :7788 assembly: 211 routes, an 8-endpoint auth-free whitelist, JWT RS256 auth gate, CORS, unified four-field error envelope (code / reason / message / metadata)
 - Codec alignment: protojson request binding and response emission (64-bit integers as strings, presence omission, well-known type semantics), pinned by golden tests
-- Differential test rig: automated sweep of 203 routes + 89 HEAD probes, 4 exemption classes explicitly registered
+- Differential test rig: automated sweep of 211 routes + 93 HEAD probes, 4 exemption classes explicitly registered
 - Real service implementations for part of the system modules (users / roles / tenants / dictionaries / authentication / MFA, etc.); the remaining endpoints return Unknown stubs
 
 **In progress / planned**
@@ -192,7 +192,7 @@ CI (ubuntu + windows matrix) runs the same four gates: fmt / clippy / test / con
 
 ### Differential Test Rig
 
-[backend/testbed](./backend/testbed) brings up the middleware plus the Go and Rust backends via compose; `admin-diff` sweeps 203 routes + 89 HEAD probes automatically and compares responses byte-for-byte, with exemptions registered in `exemptions.json`. See [backend/testbed/README.md](./backend/testbed/README.md) for usage.
+[backend/testbed](./backend/testbed) brings up the middleware plus the Go and Rust backends via compose; `admin-diff` sweeps 211 routes + 93 HEAD probes automatically and compares responses byte-for-byte, with exemptions registered in `exemptions.json`. See [backend/testbed/README.md](./backend/testbed/README.md) for usage.
 
 ### Frontend Startup
 

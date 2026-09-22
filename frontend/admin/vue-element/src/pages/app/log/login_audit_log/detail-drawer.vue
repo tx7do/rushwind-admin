@@ -18,9 +18,8 @@
           <ElTag
             v-if="data?.status"
             size="small"
-            effect="dark"
             round
-            :color="getLoginAuditLogStatusColor(data.status)"
+            :type="loginAuditLogStatusToType(data.status)"
           >
             {{ loginAuditLogStatusToName(data.status) }}
           </ElTag>
@@ -36,9 +35,8 @@
           <ElTag
             v-if="data?.actionType"
             size="small"
-            effect="dark"
             round
-            :color="getLoginAuditLogActionTypeColor(data.actionType)"
+            :type="loginAuditLogActionTypeToType(data.actionType)"
           >
             {{ loginAuditLogActionTypeToName(data.actionType) }}
           </ElTag>
@@ -51,9 +49,8 @@
           <ElTag
             v-if="data?.riskLevel"
             size="small"
-            effect="dark"
             round
-            :color="getLoginAuditLogRiskLevelColor(data.riskLevel)"
+            :type="loginAuditLogRiskLevelToType(data.riskLevel)"
           >
             {{ loginAuditLogRiskLevelToName(data.riskLevel) }}
           </ElTag>
@@ -139,9 +136,9 @@ import ProModal from "@/components/Pro/ProModal/index.vue";
 import { formatDateTime } from "@/utils";
 import { $t } from "@/core/i18n";
 import {
-  getLoginAuditLogStatusColor,
-  getLoginAuditLogActionTypeColor,
-  getLoginAuditLogRiskLevelColor,
+  loginAuditLogStatusToType,
+  loginAuditLogActionTypeToType,
+  loginAuditLogRiskLevelToType,
   loginAuditLogStatusToName,
   loginAuditLogActionTypeToName,
   loginAuditLogRiskLevelToName,

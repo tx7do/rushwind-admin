@@ -3,14 +3,14 @@
     <ProPage ref="pageRef" :config="pageConfig" @add="handleAdd" @edit="handleEdit">
       <!-- 策略类型 -->
       <template #type="scope: any">
-        <ElTag size="small" effect="dark" round :color="loginPolicyTypeToColor(scope.row.type)">
+        <ElTag size="small" round :type="loginPolicyTypeToType(scope.row.type)">
           {{ loginPolicyTypeToName(scope.row.type) }}
         </ElTag>
       </template>
 
       <!-- 策略方法 -->
       <template #method="scope: any">
-        <ElTag size="small" effect="dark" round :color="loginPolicyMethodToColor(scope.row.method)">
+        <ElTag size="small" round :type="loginPolicyMethodToType(scope.row.method)">
           {{ loginPolicyMethodToName(scope.row.method) }}
         </ElTag>
       </template>
@@ -31,10 +31,10 @@ import LoginPolicyDrawer from "./login-policy-drawer.vue";
 
 import {
   loginPolicyMethodList,
-  loginPolicyMethodToColor,
+  loginPolicyMethodToType,
   loginPolicyMethodToName,
   loginPolicyTypeList,
-  loginPolicyTypeToColor,
+  loginPolicyTypeToType,
   loginPolicyTypeToName,
   fetchListLoginPolicies,
   useDeleteLoginPolicy,

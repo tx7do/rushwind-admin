@@ -28,12 +28,17 @@ export const transformRoutesToMenu = (
 ): NonNullable<ProLayoutProps['route']>['routes'] => {
   const menus = routes
     .filter((route) => {
-      // 过滤掉隐藏菜单或没有权限的路由
+      // 过滤隐藏菜单
       if (route.meta?.hideInMenu) return false;
 
       const meta = route.meta;
-      // 如果有权限要求且用户不在权限列表中，则过滤
-      return !(meta?.authority?.length && !meta.authority.some((code: string) => permissions.includes(code)));
+      // 权限过滤与路由闸（generate-routes-frontend.hasPermission）同语义：
+      // 无权限要求=保留；持有任一权限码=保留；两者皆否但声明了
+      // menuVisibleWithForbidden 的路由保留进菜单（点击后由路由侧渲染 403），
+      // 对齐 vue-vben / vue-element 的"菜单可见但禁止访问"
+      if (!meta?.authority?.length) return true;
+      if (meta.authority.some((code: string) => permissions.includes(code))) return true;
+      return meta?.menuVisibleWithForbidden === true;
     })
     .map((route) => {
       // 处理路径：将相对路径转换为绝对路径

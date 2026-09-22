@@ -3,7 +3,7 @@
     <ProPage ref="pageRef" :config="pageConfig" @add="handleAdd" @edit="handleEdit">
       <!-- 配额类型 -->
       <template #quotaType="scope: any">
-        <ElTag size="small" effect="dark" round :color="planQuotaTypeToColor(scope.row.quotaType)">
+        <ElTag size="small" round :type="planQuotaTypeToType(scope.row.quotaType)">
           {{ planQuotaTypeToName(scope.row.quotaType) }}
         </ElTag>
       </template>
@@ -24,7 +24,7 @@ import { useProModal } from "@/components/Pro";
 import PlanQuotaDrawer from "./plan-quota-drawer.vue";
 
 import {
-  planQuotaTypeToColor,
+  planQuotaTypeToType,
   planQuotaTypeToName,
   useDeletePlanQuota,
   createPagedExportAction,

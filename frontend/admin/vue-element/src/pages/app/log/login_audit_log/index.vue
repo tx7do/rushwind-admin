@@ -5,9 +5,8 @@
       <template #status="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="getLoginAuditLogStatusColor(scope.row.status)"
+          :type="loginAuditLogStatusToType(scope.row.status)"
         >
           {{ loginAuditLogStatusToName(scope.row.status) }}
         </ElTag>
@@ -17,9 +16,8 @@
       <template #actionType="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="getLoginAuditLogActionTypeColor(scope.row.actionType)"
+          :type="loginAuditLogActionTypeToType(scope.row.actionType)"
         >
           {{ loginAuditLogActionTypeToName(scope.row.actionType) }}
         </ElTag>
@@ -29,9 +27,8 @@
       <template #riskLevel="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="getLoginAuditLogRiskLevelColor(scope.row.riskLevel)"
+          :type="loginAuditLogRiskLevelToType(scope.row.riskLevel)"
         >
           {{ loginAuditLogRiskLevelToName(scope.row.riskLevel) }}
         </ElTag>
@@ -63,9 +60,9 @@ import type { ProPageConfig } from "@/components/Pro/ProPage/types";
 import LoginAuditLogDetailDrawer from "./detail-drawer.vue";
 
 import {
-  getLoginAuditLogActionTypeColor,
-  getLoginAuditLogRiskLevelColor,
-  getLoginAuditLogStatusColor,
+  loginAuditLogActionTypeToType,
+  loginAuditLogRiskLevelToType,
+  loginAuditLogStatusToType,
   loginAuditLogActionTypeList,
   loginAuditLogActionTypeToName,
   loginAuditLogRiskLevelList,

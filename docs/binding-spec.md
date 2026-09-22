@@ -46,7 +46,7 @@ r.<METHOD>("<path>", _<Svc>_<Method><N>_HTTP_Handler(srv))   // 逐条注册，�
 - `N`：同名方法去重编号（跨 service 累计计数，`methodSets`）。
 - `sd.Methods`（含 additional_bindings 展开）逐条注册；`sd.MethodSets`（同名去重、**后注册者覆盖**）生成接口与 operation 常量。
 
-### 1.2 路径模板形态（实测全量扫描，203 条）
+### 1.2 路径模板形态（实测全量扫描，211 条）
 
 - 字面段 + 普通变量段 `{name}`（80 条含变量）。
 - **无** `{name:regex}`、**无** `*`/`**` 通配、**无**点路径变量。
@@ -205,7 +205,7 @@ Rust 侧：`services/admin-api/src/server/sse.rs`——`events_preflight`（OPTI
 
 | 类别 | 断言 |
 |---|---|
-| 路由 | 203 条 (method, pathTemplate) 全集对齐；任一请求路径两后端命中同一模板或同返 404/405 |
+| 路由 | 211 条 (method, pathTemplate) 全集对齐；任一请求路径两后端命中同一模板或同返 404/405 |
 | 绑定 | 每方法一组金样：query 全字段、嵌套点路径、map 双语法、`[]`、FieldMask 逗号、Timestamp、空值跳过、未知键忽略、类型错误 → 400/CODEC |
 | 响应 | 每响应消息类型一组 EmitUnpopulated 金样（含空消息 `{}`、null 消息字段、默认标量、枚举名字符串、64 位整数字符串化） |
 | 错误 | 每 reason 一条金样（status + envelope 字节）；未知 reason 场景 → 500/空 reason |

@@ -1,4 +1,5 @@
 <template>
+  <div class="app-container h-full flex flex-1 flex-col">
   <ProPage ref="pageRef" :config="pageConfig" @add="handleAdd" @edit="handleEdit" @operate="handleOperate">
     <!-- 状态 -->
     <template #status="scope: any">
@@ -32,6 +33,7 @@
       </ElButton>
     </template>
   </ElDialog>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -130,7 +132,7 @@ const pageConfig = computed<ProPageConfig>(() => ({
         cellType: "tool",
         buttons: [
           { name: "edit", label: t("common.button.edit"), icon: "lucide:pen-line" },
-          { name: "reset", label: t("resetSecret"), icon: "lucide:key-round" },
+          { name: "reset", label: t("pages.access_key.resetSecret"), icon: "lucide:key-round" },
           {
             name: "delete",
             label: t("common.button.delete"),
@@ -170,7 +172,7 @@ function handleSecretClosed() {
 async function handleOperate(data: { name: string; row: any }) {
   if (data.name !== "reset") return;
   try {
-    await ElMessageBox.confirm(t("resetConfirm"), t("resetSecret"), {
+    await ElMessageBox.confirm(t("pages.access_key.resetConfirm"), t("pages.access_key.resetSecret"), {
       type: "warning",
     });
   } catch {
@@ -180,10 +182,10 @@ async function handleOperate(data: { name: string; row: any }) {
     const resp = await resetAccessKeySecret(data.row.id);
     createdSecret.value = resp.secret ?? "";
     secretVisible.value = true;
-    ElMessage.success(t("resetSuccess"));
+    ElMessage.success(t("pages.access_key.resetSuccess"));
   } catch (err: any) {
     console.error("reset secret failed:", err);
-    ElMessage.error(err?.message || t("resetFailed"));
+    ElMessage.error(err?.message || t("pages.access_key.resetFailed"));
   }
 }
 </script>
@@ -195,6 +197,13 @@ async function handleOperate(data: { name: string; row: any }) {
 </style>
 
 <style lang="scss" scoped>
+.app-container {
+  padding: 20px;
+  width: 100%;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
 .secret-input {
   margin-top: 12px;
 }

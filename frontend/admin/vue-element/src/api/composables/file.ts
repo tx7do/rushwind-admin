@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import {
   useMutation,
   type UseMutationOptions,
@@ -108,20 +109,21 @@ export function ossProviderLabel(value: OSSProvider): string {
   return matchedItem ? matchedItem.label : "";
 }
 
-const OSS_PROVIDER_COLOR_MAP: Record<string, string> = {
-  LOCAL: "#36D399",
-  MINIO: "#2563EB",
-  QINIU: "#722ED1",
-  ALIYUN: "#FF6A00",
-  TENCENT: "#12B7F5",
-  BAIDU: "#4080FF",
-  HUAWEI: "#E64340",
-  AWS: "#FF9900",
-  AZURE: "#0078D4",
-  GOOGLE: "#4285F4",
-  DEFAULT: "#C9CDD4",
+// OSS 供应商 → tag 语义 type：自建=success/primary，云厂商中性 info（品牌彩虹在语义色板下无法承载）
+const OSS_PROVIDER_TAG_TYPE_MAP: Record<string, TagType> = {
+  LOCAL: "success",
+  MINIO: "primary",
+  QINIU: "info",
+  ALIYUN: "warning",
+  TENCENT: "primary",
+  BAIDU: "info",
+  HUAWEI: "danger",
+  AWS: "warning",
+  AZURE: "primary",
+  GOOGLE: "info",
+  DEFAULT: "info",
 };
 
-export function ossProviderColor(type: OSSProvider): string {
-  return OSS_PROVIDER_COLOR_MAP[type as string] || OSS_PROVIDER_COLOR_MAP.DEFAULT;
+export function ossProviderToType(type: OSSProvider): TagType {
+  return OSS_PROVIDER_TAG_TYPE_MAP[type as string] || OSS_PROVIDER_TAG_TYPE_MAP.DEFAULT;
 }

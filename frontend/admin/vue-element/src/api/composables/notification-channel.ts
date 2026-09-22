@@ -1,102 +1,59 @@
-import {
-  useMutation,
-  type UseMutationOptions,
-} from "@tanstack/vue-query";
-import type {
-  notification_channelservicev1_CreateNotificationChannelRequest,
-  notification_channelservicev1_NotificationChannel,
-  notification_channelservicev1_DeleteNotificationChannelRequest,
-  notification_channelservicev1_ListNotificationChannelResponse,
-  notification_channelservicev1_SendTestEmailRequest,
-  notification_channelservicev1_UpdateNotificationChannelRequest,
-} from "@/api/generated/admin/service/v1";
 import { apiClient } from "@/api/client";
-import { queryClient } from "@/plugins/vue-query";
+import { PaginationQuery } from "@/core/transport/rest";
 
 // ==============================
 // 通知渠道（平台级配置）
 // ==============================
 
-const LIST_KEY = "listNotificationChannels";
+/** 分页查询通知渠道 */
+export async function fetchListNotificationChannels(query: PaginationQuery) {
+  return apiClient.notificationChannelService.ListNotificationChannel(query.toRawParams());
+}
 
-export async function fetchListNotificationChannels(params: {
-  page?: number;
-  pageSize?: number;
-}) {
-  return queryClient.fetchQuery({
-    queryKey: [LIST_KEY, params],
-    queryFn: () =>
-      apiClient.notificationChannelService.ListNotificationChannel({
-        page: params.page,
-        pageSize: params.pageSize,
-        sorting: undefined,
-      }),
-    staleTime: 0,
-    retry: 0,
+/**
+ * 创建通知渠道。
+ *
+ * 两处密钥都是**请求级**字段、不进 data：读视图只有 hasPassword / hasWebhookSecret 两个布尔，
+ * 所以它们也绝不出现在 updateMask 里。服务端加密存储、不落日志。
+ */
+export async function createNotificationChannel(
+  data: Record<string, any>,
+  password?: string,
+  webhookSecret?: string,
+) {
+  return apiClient.notificationChannelService.CreateNotificationChannel({
+    data: data as any,
+    password: password || undefined,
+    webhookSecret: webhookSecret || undefined,
   });
 }
 
-export function useCreateNotificationChannel(
-  options?: UseMutationOptions<
-    notification_channelservicev1_NotificationChannel,
-    Error,
-    notification_channelservicev1_CreateNotificationChannelRequest
-  >
+/**
+ * 更新通知渠道：password / webhookSecret 留空表示不修改已存值；
+ * updateMask 显式列举业务字段（与 react 基准一致），避免 password 等敏感字段混入。
+ */
+export async function updateNotificationChannel(
+  id: number,
+  values: Record<string, any>,
+  password?: string,
+  webhookSecret?: string,
 ) {
-  return useMutation({
-    mutationFn: (req: notification_channelservicev1_CreateNotificationChannelRequest) =>
-      apiClient.notificationChannelService.CreateNotificationChannel(req),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-    },
-    ...options,
+  return apiClient.notificationChannelService.UpdateNotificationChannel({
+    id,
+    data: values as any,
+    password: password || undefined,
+    webhookSecret: webhookSecret || undefined,
+    updateMask:
+      "name,type,smtpHost,smtpPort,smtpUsername,smtpFrom,smtpTls,webhookUrl,webhookSignStyle,webhookPayloadTemplate,enabled,remark",
   });
 }
 
-export function useUpdateNotificationChannel(
-  options?: UseMutationOptions<
-    {},
-    Error,
-    notification_channelservicev1_UpdateNotificationChannelRequest
-  >
-) {
-  return useMutation({
-    mutationFn: (req: notification_channelservicev1_UpdateNotificationChannelRequest) =>
-      apiClient.notificationChannelService.UpdateNotificationChannel(req),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-    },
-    ...options,
-  });
+/** 删除通知渠道 */
+export async function deleteNotificationChannel(id: number) {
+  return apiClient.notificationChannelService.DeleteNotificationChannel({ id });
 }
 
-export function useDeleteNotificationChannel(
-  options?: UseMutationOptions<
-    {},
-    Error,
-    notification_channelservicev1_DeleteNotificationChannelRequest
-  >
-) {
-  return useMutation({
-    mutationFn: (req: notification_channelservicev1_DeleteNotificationChannelRequest) =>
-      apiClient.notificationChannelService.DeleteNotificationChannel(req),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [LIST_KEY] });
-    },
-    ...options,
-  });
-}
-
-export function useSendTestEmail(
-  options?: UseMutationOptions<
-    {},
-    Error,
-    notification_channelservicev1_SendTestEmailRequest
-  >
-) {
-  return useMutation({
-    mutationFn: (req: notification_channelservicev1_SendTestEmailRequest) =>
-      apiClient.notificationChannelService.SendTestEmail(req),
-    ...options,
-  });
+/** 向指定渠道发送测试邮件 */
+export async function sendTestEmail(id: number, recipient: string) {
+  return apiClient.notificationChannelService.SendTestEmail({ id, recipient });
 }

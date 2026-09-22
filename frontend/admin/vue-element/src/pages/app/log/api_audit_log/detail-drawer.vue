@@ -18,9 +18,8 @@
           <ElTag
             v-if="data?.success !== undefined && data?.success !== null"
             size="small"
-            effect="dark"
             round
-            :color="successToColor(data.success)"
+            :type="successToType(data.success)"
           >
             {{ successToNameWithStatusCode(data.success, data?.statusCode ?? 0) }}
           </ElTag>
@@ -33,7 +32,7 @@
           {{ data?.userId ?? "-" }}
         </ElDescriptionsItem>
         <ElDescriptionsItem :label="$t('pages.api_audit_log.httpMethod')">
-          <ElTag v-if="data?.httpMethod" size="small" effect="dark" round>
+          <ElTag v-if="data?.httpMethod" size="small" round :type="httpMethodTagTypeMap[data.httpMethod] ?? 'primary'">
             {{ data.httpMethod }}
           </ElTag>
           <span v-else>-</span>
@@ -139,7 +138,7 @@ import { ElDivider, ElDescriptions, ElDescriptionsItem, ElTag } from "element-pl
 import ProModal from "@/components/Pro/ProModal/index.vue";
 import { formatDateTime } from "@/utils";
 import { $t } from "@/core/i18n";
-import { successToColor, successToNameWithStatusCode } from "@/api/composables";
+import { successToType, successToNameWithStatusCode, httpMethodTagTypeMap } from "@/api/composables";
 import type { auditservicev1_ApiAuditLog } from "@/api/generated/admin/service/v1";
 
 const visible = ref(false);

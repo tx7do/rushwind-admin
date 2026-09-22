@@ -212,6 +212,23 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
         (mount_user_service, UserService),
     );
 
+    // 上游 notification 契约新增的两个服务(rule / delivery 台账)Rust 侧尚无
+    // 真实实现:挂生成器的 null 桩(每个方法应答 Unknown 错误形态),与差分
+    // 台架"公开路由 null 桩"的验收语义一致;真实出站/台账移植落地时换成
+    // 带 state 的服务结构体并并入上方宏表。
+    (router_pub, router_gate) = proto::gen::mounts::mount_notification_rule_service(
+        router_pub,
+        router_gate,
+        proto::gen::nulls::null_notification_rule_service(),
+        &wrap,
+    );
+    (router_pub, router_gate) = proto::gen::mounts::mount_notification_service(
+        router_pub,
+        router_gate,
+        proto::gen::nulls::null_notification_service(),
+        &wrap,
+    );
+
     let mut app = router_pub.merge(router_gate);
 
     // The docs surface (Swagger UI / Redoc / raw spec), switched by

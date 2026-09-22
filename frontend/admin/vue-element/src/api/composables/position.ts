@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import {
   useMutation,
   type UseMutationOptions,
@@ -105,23 +106,6 @@ export function membershipPositionStatusToName(status: any) {
   return matchedItem ? matchedItem.label : "";
 }
 
-const MEMBERSHIP_POSITION_STATUS_COLOR_MAP: Record<string, string> = {
-  PROBATION: "#4096FF",
-  ACTIVE: "#00B42A",
-  LEAVE: "#FF9A2E",
-  RESIGNED: "#F56C6C",
-  TERMINATED: "#F53F3F",
-  EXPIRED: "#909399",
-  DEFAULT: "#C9CDD4",
-};
-
-export function membershipPositionStatusToColor(status: Position_Status) {
-  return (
-    MEMBERSHIP_POSITION_STATUS_COLOR_MAP[status as string] ||
-    MEMBERSHIP_POSITION_STATUS_COLOR_MAP.DEFAULT
-  );
-}
-
 export const positionTypeList = computed(() => [
   { value: "REGULAR", label: t("enum.position.type.REGULAR") },
   { value: "LEADER", label: t("enum.position.type.LEADER") },
@@ -137,31 +121,17 @@ export function positionTypeToName(status: Position_Status) {
   return matchedItem ? matchedItem.label : "";
 }
 
-const POSITION_TYPE_COLOR_THEME: Record<string, Record<string, string>> = {
-  light: {
-    REGULAR: "#006BE6",
-    LEADER: "#722ED1",
-    MANAGER: "#FF7D00",
-    INTERN: "#52C41A",
-    CONTRACT: "#14C9C9",
-    OTHER: "#86909C",
-    DEFAULT: "#C9CDD4",
-  },
-  dark: {
-    REGULAR: "#2F77FF",
-    LEADER: "#8542E7",
-    MANAGER: "#FF9529",
-    INTERN: "#67E037",
-    CONTRACT: "#20E0E0",
-    OTHER: "#9BA3AD",
-    DEFAULT: "#DCE0E6",
-  },
+// 职位类型 → tag 语义 type（主题分化交由组件库 token：亮色 dark-2 文字、暗色 _dark-mode 柔化）
+const POSITION_TYPE_TAG_TYPE_MAP: Record<string, TagType> = {
+  REGULAR: "primary",
+  LEADER: "warning",
+  MANAGER: "success",
+  INTERN: "info",
+  CONTRACT: "info",
+  OTHER: "info",
+  DEFAULT: "info",
 };
 
-export function positionTypeToColor(
-  positionType: Position_Type,
-  theme: "dark" | "light" = "light"
-): string {
-  const colorMap = POSITION_TYPE_COLOR_THEME[theme];
-  return colorMap[positionType as string] || colorMap.DEFAULT;
+export function positionTypeToType(positionType: Position_Type): TagType {
+  return POSITION_TYPE_TAG_TYPE_MAP[positionType as string] || POSITION_TYPE_TAG_TYPE_MAP.DEFAULT;
 }

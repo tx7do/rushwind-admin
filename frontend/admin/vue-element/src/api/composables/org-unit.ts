@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import {
   useMutation,
   type UseMutationOptions,
@@ -100,19 +101,8 @@ export function orgUnitStatusToName(status: OrgUnit_Status) {
   return matchedItem ? matchedItem.label : "";
 }
 
-export function orgUnitStatusToColor(status: OrgUnit_Status) {
-  switch (status) {
-    case "OFF":
-      return "#8C8C8C";
-    case "ON":
-      return "#52C41A";
-    default:
-      return "#C9CDD4";
-  }
-}
-
 // 启用/禁用 → tag type，与 statusToType 同理
-export function orgUnitStatusToType(status: OrgUnit_Status): "success" | "info" {
+export function orgUnitStatusToType(status: OrgUnit_Status): TagType {
   return status === "ON" ? "success" : "info";
 }
 
@@ -155,22 +145,24 @@ export function orgUnitTypeToName(orgUnitType: OrgUnit_Type) {
   return matchedItem ? matchedItem.label : "";
 }
 
-const ORG_UNIT_COLOR_MAP: Record<string, string> = {
-  BRANCH: "#4096FF",
-  COMMITTEE: "#00B42A",
-  COMPANY: "#006BE6",
-  DEPARTMENT: "#722ED1",
-  DIVISION: "#FF7D00",
-  OTHER: "#86909C",
-  PROJECT: "#F53F3F",
-  REGION: "#14C9C9",
-  SUBSIDIARY: "#6B778C",
-  TEAM: "#FFC53D",
-  DEFAULT: "#C9CDD4",
+// 组织类型 → tag 语义 type：按层级分组着色（公司系=primary、区划系=warning、
+// 执行单元=success、特殊形态=danger/info）
+const ORG_UNIT_TAG_TYPE_MAP: Record<string, TagType> = {
+  BRANCH: "primary",
+  COMMITTEE: "info",
+  COMPANY: "primary",
+  DEPARTMENT: "success",
+  DIVISION: "warning",
+  OTHER: "info",
+  PROJECT: "danger",
+  REGION: "warning",
+  SUBSIDIARY: "primary",
+  TEAM: "success",
+  DEFAULT: "info",
 };
 
-export function orgUnitTypeToColor(orgUnitType: OrgUnit_Type) {
-  return ORG_UNIT_COLOR_MAP[orgUnitType as string] || ORG_UNIT_COLOR_MAP.DEFAULT;
+export function orgUnitTypeToType(orgUnitType: OrgUnit_Type): TagType {
+  return ORG_UNIT_TAG_TYPE_MAP[orgUnitType as string] || ORG_UNIT_TAG_TYPE_MAP.DEFAULT;
 }
 
 export const findOrgUnit = (list: OrgUnit[], id: number): null | OrgUnit | undefined => {

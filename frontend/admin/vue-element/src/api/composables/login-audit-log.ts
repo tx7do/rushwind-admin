@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import { useQuery, type UseQueryOptions } from "@tanstack/vue-query";
 import type {
   auditservicev1_GetLoginAuditLogRequest,
@@ -54,48 +55,40 @@ export function useGetLoginAuditLog(
 // 登录审计日志枚举与工具函数
 // ==============================
 
-const COLORS = {
-  neutral: "#86909C",
-  success: "#1F7A34",
-  warning: "#FA8C16",
-  danger: "#D32F2F",
-  info: "#1890FF",
+const LOGIN_AUDIT_LOG_STATUS_TAG_TYPE_MAP: Record<string, TagType> = {
+  STATUS_UNSPECIFIED: "info",
+  SUCCESS: "success",
+  FAILED: "danger",
+  PARTIAL: "warning",
+  LOCKED: "warning",
 };
 
-const LOGIN_AUDIT_LOG_STATUS_COLOR_MAP: Record<string, string> = {
-  STATUS_UNSPECIFIED: COLORS.neutral,
-  SUCCESS: COLORS.success,
-  FAILED: COLORS.danger,
-  PARTIAL: COLORS.warning,
-  LOCKED: COLORS.warning,
+const LOGIN_AUDIT_LOG_ACTION_TYPE_TAG_TYPE_MAP: Record<string, TagType> = {
+  ACTION_TYPE_UNSPECIFIED: "info",
+  LOGIN: "success",
+  LOGOUT: "info",
+  SESSION_EXPIRED: "warning",
+  KICKED_OUT: "danger",
+  PASSWORD_RESET: "warning",
 };
 
-const LOGIN_AUDIT_LOG_ACTION_TYPE_COLOR_MAP: Record<string, string> = {
-  ACTION_TYPE_UNSPECIFIED: COLORS.neutral,
-  LOGIN: COLORS.success,
-  LOGOUT: COLORS.info,
-  SESSION_EXPIRED: COLORS.warning,
-  KICKED_OUT: COLORS.warning,
-  PASSWORD_RESET: COLORS.warning,
+const LOGIN_AUDIT_LOG_RISK_LEVEL_TAG_TYPE_MAP: Record<string, TagType> = {
+  RISK_LEVEL_UNSPECIFIED: "info",
+  LOW: "success",
+  MEDIUM: "warning",
+  HIGH: "danger",
 };
 
-const LOGIN_AUDIT_LOG_RISK_LEVEL_COLOR_MAP: Record<string, string> = {
-  RISK_LEVEL_UNSPECIFIED: COLORS.neutral,
-  LOW: COLORS.success,
-  MEDIUM: COLORS.warning,
-  HIGH: COLORS.danger,
-};
-
-export function getLoginAuditLogStatusColor(status: LoginAuditLog_Status): string {
-  return LOGIN_AUDIT_LOG_STATUS_COLOR_MAP[status as string] || COLORS.neutral;
+export function loginAuditLogStatusToType(status: LoginAuditLog_Status): TagType {
+  return LOGIN_AUDIT_LOG_STATUS_TAG_TYPE_MAP[status as string] || "info";
 }
 
-export function getLoginAuditLogActionTypeColor(actionType: LoginAuditLog_ActionType): string {
-  return LOGIN_AUDIT_LOG_ACTION_TYPE_COLOR_MAP[actionType as string] || COLORS.neutral;
+export function loginAuditLogActionTypeToType(actionType: LoginAuditLog_ActionType): TagType {
+  return LOGIN_AUDIT_LOG_ACTION_TYPE_TAG_TYPE_MAP[actionType as string] || "info";
 }
 
-export function getLoginAuditLogRiskLevelColor(riskLevel: LoginAuditLog_RiskLevel): string {
-  return LOGIN_AUDIT_LOG_RISK_LEVEL_COLOR_MAP[riskLevel as string] || COLORS.neutral;
+export function loginAuditLogRiskLevelToType(riskLevel: LoginAuditLog_RiskLevel): TagType {
+  return LOGIN_AUDIT_LOG_RISK_LEVEL_TAG_TYPE_MAP[riskLevel as string] || "info";
 }
 
 export function loginAuditLogStatusToName(status: LoginAuditLog_Status) {

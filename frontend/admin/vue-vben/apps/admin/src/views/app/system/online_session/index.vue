@@ -104,7 +104,7 @@ const gridOptions: VxeGridProps<OnlineSession> = {
       field: 'action',
       fixed: 'right',
       slots: { default: 'action' },
-      width: 110,
+      width: 130,
     },
   ],
 };
@@ -173,7 +173,15 @@ async function handleForceLogout(row: OnlineSession) {
           "
           @confirm="handleForceLogout(row)"
         >
-          <a-button danger type="link" size="small" :icon="h(LucideLogOut)">
+          <!-- Tailwind Preflight 把 svg 设为 display:block，块级 icon 必然独占一行，
+               nowrap 拦不住，必须把按钮内 svg 收回行内并与文本垂直居中 -->
+          <a-button
+            danger
+            type="link"
+            size="small"
+            class="whitespace-nowrap [&>svg]:inline-block [&>svg]:align-middle"
+            :icon="h(LucideLogOut)"
+          >
             {{ $t('page.onlineSession.forceLogout') }}
           </a-button>
         </a-popconfirm>

@@ -100,18 +100,6 @@ const system: RouteRecordRaw[] = [
       },
 
       {
-        path: "notification-channels",
-        name: "NotificationChannelManagement",
-        meta: {
-          order: 10,
-          icon: "lucide:mail",
-          title: "routes.system.notificationChannels",
-          authority: ["sys:platform_admin"],
-        },
-        component: () => import("@/pages/app/system/notification_channel/index.vue"),
-      },
-
-      {
         path: "scripts",
         name: "ScriptManagement",
         meta: {

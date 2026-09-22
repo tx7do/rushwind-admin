@@ -16,7 +16,7 @@
 
 ## 语料与判定契约
 
-sweep 从 `admin-gen` 的路由表（203 条，与 Go 注册一一对应）自动生成，
+sweep 从 `admin-gen` 的路由表（211 条，与 Go 注册一一对应）自动生成，
 分类按序短路（先生者生效）：
 
 - **遮蔽路由**（恰 1 条：route 16 `GET /admin/v1/apis/walk-route`，`router-shadow`

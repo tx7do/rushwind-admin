@@ -28,7 +28,7 @@
 
       <!-- 类型 -->
       <template #type="scope: any">
-        <ElTag size="small" effect="dark" round :color="menuTypeToColor(scope.row.type)">
+        <ElTag size="small" round :type="menuTypeToType(scope.row.type)">
           {{ menuTypeToName(scope.row.type) }}
         </ElTag>
       </template>
@@ -74,7 +74,7 @@ import MenuDrawer from "./menu-drawer.vue";
 import {
   buildMenuTree,
   buildSyncMenusRequest,
-  menuTypeToColor,
+  menuTypeToType,
   menuTypeToName,
   statusList,
   statusToType,

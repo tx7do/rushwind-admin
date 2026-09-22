@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 import { ConfigProvider, Watermark, theme as antdTheme, type ThemeConfig } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
@@ -74,7 +74,10 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
   }, [effectiveMode, appPrefs.compact, themePrefs]);
 
   // 4. 同步根背景色和文本颜色（解决暗黑模式白色闪烁）
-  useEffect(() => {
+  // 用 useLayoutEffect：主题切换走 startThemeViewTransition 时，flushSync 提交
+  // 阶段就会同步执行 layout effect，保证 data-theme/根背景色在过渡新快照
+  // 截取前落地（View Transition 的 update 阶段不跑 rAF，不能靠等帧）。
+  useLayoutEffect(() => {
     const root = document.documentElement;
     const body = document.body;
 
@@ -97,6 +100,16 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
       root.removeAttribute('data-theme');
     };
   }, [effectiveMode]);
+
+  // 4.1 主色锚点变量：错误页插画等自定义 CSS 的取色源（随偏好主色联动）。
+  // 写在 <html> 上——antd v6 的 --ant-* cssVar 只注入在包裹层内，<html> 作用域引用会落空。
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--app-color-primary', themePrefs.colorPrimary);
+    return () => {
+      root.style.removeProperty('--app-color-primary');
+    };
+  }, [themePrefs.colorPrimary]);
 
   // 5. 应用 CSS 滤镜（色弱 / 灰色模式）
   useEffect(() => {

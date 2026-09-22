@@ -15,22 +15,22 @@
       label-width="120px"
       class="drawer-form"
     >
-      <ElFormItem :label="t('name')" prop="name">
+      <ElFormItem :label="t('pages.access_key.name')" prop="name">
         <ElInput
           v-model="drawer.formData.name"
-          :placeholder="t('namePlaceholder')"
+          :placeholder="t('pages.access_key.namePlaceholder')"
           clearable
         />
       </ElFormItem>
 
-      <ElFormItem v-if="!isCreate" :label="t('status')" prop="status">
+      <ElFormItem v-if="!isCreate" :label="t('pages.access_key.status')" prop="status">
         <ElRadioGroup v-model="drawer.formData.status">
           <ElRadio value="ON">{{ t("pages.access_key.statusMap.ON") }}</ElRadio>
           <ElRadio value="OFF">{{ t("pages.access_key.statusMap.OFF") }}</ElRadio>
         </ElRadioGroup>
       </ElFormItem>
 
-      <ElFormItem :label="t('expiresAt')" prop="expiresAt">
+      <ElFormItem :label="t('pages.access_key.expiresAt')" prop="expiresAt">
         <ElDatePicker
           v-model="drawer.formData.expiresAt"
           type="datetime"
@@ -58,13 +58,13 @@
   <!-- 一次性 Secret 展示：独立于抽屉，抽屉关闭后仍需可见 -->
   <ElDialog
     v-model="secretVisible"
-    :title="t('secretDialogTitle')"
+    :title="t('pages.access_key.secretDialogTitle')"
     width="560px"
     align-center
     :close-on-click-modal="false"
     @closed="handleSecretClosed"
   >
-    <ElAlert type="warning" :closable="false" :title="t('secretDialogHint')" />
+    <ElAlert type="warning" :closable="false" :title="t('pages.access_key.secretDialogHint')" />
     <ElInput :model-value="createdSecret" readonly class="secret-input">
       <template #append>
         <ElButton @click="copySecret">{{ t("pages.access_key.secretCopied") }}</ElButton>
@@ -101,7 +101,7 @@ const secretVisible = ref(false);
 const isCreate = ref(true);
 
 const drawer = useDrawerForm({
-  moduleKey: "page.accessKey.moduleName",
+  moduleKey: "pages.access_key.moduleName",
   defaults: {
     name: "",
     status: "ON",
@@ -120,10 +120,17 @@ const formRules = {
   name: [{ required: true, message: t("pages.access_key.requiredName"), trigger: "blur" }],
 };
 
-// 包装 open 以追踪创建/编辑模式（切换状态字段的显隐）
+// 包装 open 以追踪创建/编辑模式（切换状态字段的显隐），并在编辑时显式回填
+// 行数据（useDrawerForm 不做默认填充）。
 function open(options: { create: boolean; row?: any }) {
   isCreate.value = options.create;
-  drawer.open(options);
+  drawer.open(options, (row: any) => {
+    Object.assign(drawer.formData, {
+      name: row.name || "",
+      status: row.status || "ON",
+      expiresAt: row.expiresAt || undefined,
+    });
+  });
 }
 
 defineExpose({ open });

@@ -3,7 +3,7 @@
     <ProPage ref="pageRef" :config="pageConfig" @operate="handleOperate">
       <!-- 是否成功 -->
       <template #success="scope: any">
-        <ElTag size="small" effect="dark" round :color="successToColor(scope.row.success)">
+        <ElTag size="small" round :type="successToType(scope.row.success)">
           {{ successToNameWithStatusCode(scope.row.success, scope.row.statusCode) }}
         </ElTag>
       </template>
@@ -37,7 +37,7 @@ import {
   methodList,
   httpMethodTagTypeMap,
   successStatusList,
-  successToColor,
+  successToType,
   successToNameWithStatusCode,
   fetchListApiAuditLogs,
   createPagedExportAction,

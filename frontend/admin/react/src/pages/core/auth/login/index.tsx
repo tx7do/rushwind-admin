@@ -66,6 +66,18 @@ const Login: React.FC = () => {
     captcha?: string;
   }) => {
     try {
+      // 跳转目标：redirect 参数 → 用户 homePath → 首页。
+      // 同源相对路径校验保留，防开放重定向（如 ?redirect=https://evil.com 或 //evil.com）
+      const resolveSafeRedirect = () => {
+        const rawRedirect =
+          searchParams.get('redirect') || useAuthStore.getState().userInfo?.homePath || '/';
+        return typeof rawRedirect === 'string' &&
+          rawRedirect.startsWith('/') &&
+          !rawRedirect.startsWith('//')
+          ? rawRedirect
+          : '/';
+      };
+
       await login(
         {
           username: values.username,
@@ -73,24 +85,16 @@ const Login: React.FC = () => {
           tenant_code: values.tenant_code,
           grant_type: 'password',
         },
-        undefined,
+        // 传 onSuccess 后 store 跳过 window.location.href 整页跳转。必须在此同步
+        // 导航、赶在 router 重建读取地址之前：isAuthenticated 翻转会让 AppRouter
+        // effect 重建 createBrowserRouter（以当时 window.location 为初始地址），
+        // 若像旧实现那样 setTimeout 后用旧 router 实例 navigate，只剩一次无感知的
+        // pushState——地址栏落在 redirect、页面却渲染 homePath，两边劈叉。
+        () => navigate(resolveSafeRedirect()),
         { id: captchaId, value: values.captcha ?? '' },
       );
 
       message.success(t('loginSuccess'));
-
-      // 跳转到重定向页面或首页
-      // 校验 redirect 必须为同源相对路径，防止开放重定向（如 ?redirect=https://evil.com 或 //evil.com）
-      const rawRedirect = searchParams.get('redirect') || '/';
-      const safeRedirect =
-        typeof rawRedirect === 'string' &&
-        rawRedirect.startsWith('/') &&
-        !rawRedirect.startsWith('//')
-          ? rawRedirect
-          : '/';
-      setTimeout(() => {
-        navigate(safeRedirect);
-      }, 300);
     } catch (error: any) {
       // 登录失败后刷新验证码
       refreshCaptcha();

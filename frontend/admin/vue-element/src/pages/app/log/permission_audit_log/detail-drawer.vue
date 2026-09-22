@@ -18,9 +18,8 @@
           <ElTag
             v-if="data?.action"
             size="small"
-            effect="dark"
             round
-            :color="permissionAuditLogActionToColor(data.action)"
+            :type="permissionAuditLogActionToType(data.action)"
           >
             {{ permissionAuditLogActionToName(data.action) }}
           </ElTag>
@@ -88,7 +87,7 @@ import { ElDivider, ElDescriptions, ElDescriptionsItem, ElTag } from "element-pl
 import ProModal from "@/components/Pro/ProModal/index.vue";
 import { formatDateTime } from "@/utils";
 import { $t } from "@/core/i18n";
-import { permissionAuditLogActionToColor, permissionAuditLogActionToName } from "@/api/composables";
+import { permissionAuditLogActionToType, permissionAuditLogActionToName } from "@/api/composables";
 import type { auditservicev1_PermissionAuditLog } from "@/api/generated/admin/service/v1";
 
 const visible = ref(false);

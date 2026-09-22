@@ -5,9 +5,8 @@
       <template #action="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="permissionAuditLogActionToColor(scope.row.action)"
+          :type="permissionAuditLogActionToType(scope.row.action)"
         >
           {{ permissionAuditLogActionToName(scope.row.action) }}
         </ElTag>
@@ -35,7 +34,7 @@ import PermissionAuditLogDetailDrawer from "./detail-drawer.vue";
 
 import {
   permissionAuditLogActionList,
-  permissionAuditLogActionToColor,
+  permissionAuditLogActionToType,
   permissionAuditLogActionToName,
   fetchListPermissionAuditLogs,
   createPagedExportAction,

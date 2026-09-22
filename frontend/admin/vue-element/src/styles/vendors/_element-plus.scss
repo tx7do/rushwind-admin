@@ -388,6 +388,26 @@ body,
   cursor: default; /* 不可点击，和按钮区分 */
 }
 
+/* 亮色 Tag 文字对比度（design-language.md §2.1 语义色偏浅，直接作 light 底上的
+   文字不达 WCAG AA）：向黑混 40% 压深文字。注意不能用 dark-2——运行时主题生成器
+   （utils/theme.ts）在亮色下把 dark-N 重定义为向白混，越「dark」越浅。
+   :not(.el-tag--plain) 抬到 (0,3,0)——EP 的 tag 组件样式经 resolver 按需注入在应用样式
+   之后，同特异性必被压回，必须靠特异性取胜；plain 变体沿用 _layouts.scss 的既有校准。
+   primary 基色对白 ≈4.9:1 已达标，保持品牌色不动；暗色模式由 _dark-mode.scss
+   按语义色 !important 接管 color，不受此 var 影响。 */
+.el-tag.el-tag--success:not(.el-tag--plain) {
+  --el-tag-text-color: color-mix(in srgb, var(--el-color-success) 60%, black);
+}
+.el-tag.el-tag--warning:not(.el-tag--plain) {
+  --el-tag-text-color: color-mix(in srgb, var(--el-color-warning) 60%, black);
+}
+.el-tag.el-tag--danger:not(.el-tag--plain) {
+  --el-tag-text-color: color-mix(in srgb, var(--el-color-danger) 60%, black);
+}
+.el-tag.el-tag--info:not(.el-tag--plain) {
+  --el-tag-text-color: color-mix(in srgb, var(--el-color-info) 60%, black);
+}
+
 /* ---------- 消息提示精致化 ---------- */
 .el-message {
   border-radius: 8px;

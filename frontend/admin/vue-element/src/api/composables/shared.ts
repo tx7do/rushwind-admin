@@ -22,27 +22,8 @@ export const successStatusList = computed(() => [
   { value: false, label: $t("enum.successStatus.failed") },
 ]);
 
-export function enableBoolToColor(
-  enable: "false" | "FALSE" | "False" | "true" | "TRUE" | "True" | boolean
-) {
-  switch (enable) {
-    case false:
-    case "false":
-    case "FALSE":
-    case "False": {
-      return "#8C8C8C";
-    }
-    case true:
-    case "true":
-    case "TRUE":
-    case "True": {
-      return "#52C41A";
-    }
-    default: {
-      return "#C9CDD4";
-    }
-  }
-}
+/** Element Plus tag 的 type 取值域，全仓「枚举 → tag 语义色」映射统一用它 */
+export type TagType = "primary" | "success" | "warning" | "danger" | "info";
 
 export function enableBoolToName(
   enable: "false" | "FALSE" | "False" | "true" | "TRUE" | "True" | boolean
@@ -68,11 +49,8 @@ export const methodList = [
   { value: "DELETE", label: "DELETE" },
 ];
 
-// HTTP 方法对应的 Tag 颜色类型
-export const httpMethodTagTypeMap: Record<
-  string,
-  "success" | "primary" | "warning" | "danger" | "info"
-> = {
+// HTTP 方法对应的 Tag 语义色
+export const httpMethodTagTypeMap: Record<string, TagType> = {
   GET: "success",
   POST: "primary",
   PUT: "warning",
@@ -93,20 +71,6 @@ export function statusToName(status: "OFF" | "ON" | undefined) {
   return matchedItem ? matchedItem.label : "";
 }
 
-export function statusToColor(status: "OFF" | "ON" | undefined) {
-  switch (status) {
-    case "OFF": {
-      return "#8C8C8C";
-    }
-    case "ON": {
-      return "#52C41A";
-    }
-    default: {
-      return "#C9CDD4";
-    }
-  }
-}
-
 // 启用/禁用 → Element Plus tag type
 // 启用（ON）映射 success（经暗色柔化），禁用（OFF/缺省）统一映射 info（灰色柔化），
 // 避免与启用态混淆。配合 effect="plain" 走 _dark-mode.scss 的半透明柔化路径。
@@ -118,8 +82,9 @@ export function statusToType(status: "OFF" | "ON" | undefined): "success" | "inf
 // 成功/失败状态
 // ==============================
 
-export function successToColor(success: boolean) {
-  return success ? "limegreen" : "crimson";
+// 成功/失败 → tag 语义 type（列表/抽屉的「成功/失败」标签统一走它）
+export function successToType(success: boolean): TagType {
+  return success ? "success" : "danger";
 }
 
 export function successToName(success: boolean) {

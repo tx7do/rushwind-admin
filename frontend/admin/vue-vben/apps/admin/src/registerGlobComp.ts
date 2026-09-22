@@ -22,6 +22,7 @@ import {
   Tag,
   Tooltip,
   Tree,
+  Upload,
 } from 'ant-design-vue';
 
 /**
@@ -54,5 +55,7 @@ export function registerGlobComp(app: App) {
     .use(Tooltip)
     .use(Alert)
     .use(Descriptions)
-    .use(Table);
+    .use(Table)
+    // Upload 的 install 同时注册 AUpload 与 AUploadDragger（Excel 导入弹窗用 a-upload-dragger）
+    .use(Upload);
 }

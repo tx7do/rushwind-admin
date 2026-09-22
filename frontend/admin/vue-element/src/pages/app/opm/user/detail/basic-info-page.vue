@@ -29,7 +29,7 @@
           {{ data?.nickname }}
         </ElDescriptionsItem>
         <ElDescriptionsItem :label="$t('pages.user.detail.desc.gender')">
-          <ElTag :color="genderToColor(data?.gender)" effect="dark" round>
+          <ElTag :type="genderToType(data?.gender)" round>
             {{ genderToName(data?.gender) }}
           </ElTag>
         </ElDescriptionsItem>
@@ -114,7 +114,7 @@ import { isFieldHidden as isFieldHiddenBase } from "@/core/access";
 import { useAccessStore } from "@/stores";
 
 import { type identityservicev1_User as User } from "@/api/generated/admin/service/v1";
-import { genderToColor, genderToName, fetchUser } from "@/api/composables";
+import { genderToType, genderToName, fetchUser } from "@/api/composables";
 import { getCharColor, getRandomColor } from "@/utils/color";
 
 const props = defineProps({

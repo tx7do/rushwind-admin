@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import { useQuery, type UseQueryOptions } from "@tanstack/vue-query";
 import type {
   auditservicev1_GetPermissionAuditLogRequest,
@@ -70,29 +71,29 @@ export const permissionAuditLogActionList = computed(() => [
   { value: "OTHER", label: t("enum.permissionAuditLog.action.OTHER") },
 ]);
 
-const PERMISSION_AUDIT_LOG_ACTION_COLOR_MAP: Record<string, string> = {
-  GRANT: "#1677FF",
-  REVOKE: "#FF4D4F",
-  UPDATE: "#597EF7",
-  RESET: "#6B7280",
-  CREATE: "#722ED1",
-  DELETE: "#FF4D4F",
-  ASSIGN: "#00B42A",
-  UNASSIGN: "#FF7875",
-  BULK_GRANT: "#36CFC9",
-  BULK_REVOKE: "#FFC0C2",
-  EXPIRE: "#FF4D4F",
-  SUSPEND: "#FF4D4F",
-  RESUME: "#00B42A",
-  ROLLBACK: "#597EF7",
-  OTHER: "#86909C",
-  DEFAULT: "#86909C",
+const PERMISSION_AUDIT_LOG_ACTION_TAG_TYPE_MAP: Record<string, TagType> = {
+  GRANT: "success",
+  REVOKE: "danger",
+  UPDATE: "primary",
+  RESET: "warning",
+  CREATE: "primary",
+  DELETE: "danger",
+  ASSIGN: "success",
+  UNASSIGN: "danger",
+  BULK_GRANT: "success",
+  BULK_REVOKE: "danger",
+  EXPIRE: "danger",
+  SUSPEND: "danger",
+  RESUME: "success",
+  ROLLBACK: "warning",
+  OTHER: "info",
+  DEFAULT: "info",
 };
 
-export function permissionAuditLogActionToColor(action: PermissionAuditActionType) {
+export function permissionAuditLogActionToType(action: PermissionAuditActionType): TagType {
   return (
-    PERMISSION_AUDIT_LOG_ACTION_COLOR_MAP[action as string] ||
-    PERMISSION_AUDIT_LOG_ACTION_COLOR_MAP.DEFAULT
+    PERMISSION_AUDIT_LOG_ACTION_TAG_TYPE_MAP[action as string] ||
+    PERMISSION_AUDIT_LOG_ACTION_TAG_TYPE_MAP.DEFAULT
   );
 }
 

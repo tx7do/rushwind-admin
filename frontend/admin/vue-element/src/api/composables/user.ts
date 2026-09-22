@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import {
   useMutation,
   type UseMutationOptions,
@@ -187,23 +188,8 @@ export const userStatusList = computed(() => [
   { value: "CLOSED", label: t("enum.user.status.CLOSED") },
 ]);
 
-const USER_STATUS_COLOR_MAP: Record<string, string> = {
-  NORMAL: "#4096FF",
-  DISABLED: "#909399",
-  PENDING: "#FF9A2E",
-  LOCKED: "#F56C6C",
-  TERMINATED: "#F53F3F",
-  EXPIRED: "#C9CDD4",
-  CLOSED: "#86909C",
-  DEFAULT: "#86909C",
-};
-
-export function userStatusToColor(status: User_Status) {
-  return USER_STATUS_COLOR_MAP[status as string] || USER_STATUS_COLOR_MAP.DEFAULT;
-}
-
 // 启用/禁用 → tag type，NORMAL 为启用（success），其余统一为 info
-export function userStatusToType(status: User_Status): "success" | "info" {
+export function userStatusToType(status: User_Status): TagType {
   return status === "NORMAL" ? "success" : "info";
 }
 
@@ -225,15 +211,15 @@ export function genderToName(gender?: User_Gender) {
   return matchedItem ? matchedItem.label : "";
 }
 
-export function genderToColor(gender?: User_Gender) {
+export function genderToType(gender?: User_Gender): TagType {
   switch (gender) {
     case "FEMALE":
-      return "#F77272";
+      return "danger";
     case "MALE":
-      return "#4096FF";
+      return "primary";
     case "SECRET":
-      return "#86909C";
+      return "info";
     default:
-      return "#C9CDD4";
+      return "info";
   }
 }

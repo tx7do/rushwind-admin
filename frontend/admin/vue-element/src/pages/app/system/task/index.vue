@@ -21,7 +21,7 @@
 
       <!-- 任务类型 -->
       <template #type="scope: any">
-        <ElTag size="small" effect="dark" round :color="taskTypeToColor(scope.row.type)">
+        <ElTag size="small" round :type="taskTypeToType(scope.row.type)">
           {{ taskTypeToName(scope.row.type) }}
         </ElTag>
       </template>
@@ -43,7 +43,7 @@ import TaskDrawer from "./task-drawer.vue";
 import {
   enableList,
   taskTypeList,
-  taskTypeToColor,
+  taskTypeToType,
   taskTypeToName,
   fetchListTasks,
   useDeleteTask,

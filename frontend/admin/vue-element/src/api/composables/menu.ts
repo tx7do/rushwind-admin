@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import type { RouteRecordRaw } from "vue-router";
 import type {
   permissionservicev1_DeleteMenuRequest,
@@ -193,20 +194,19 @@ export function menuTypeToName(menuType: any): string {
   return matchedItem ? matchedItem.label : "";
 }
 
-export function menuTypeToColor(menuType: Menu_Type) {
+export function menuTypeToType(menuType: Menu_Type): TagType {
   switch (menuType) {
     case "BUTTON":
-      return "#F56C6C";
+      return "danger";
     case "CATALOG":
-      return "#27AE60";
+      return "success";
     case "EMBEDDED":
-      return "#4096FF";
-    case "LINK":
-      return "#9B59B6";
     case "MENU":
-      return "#006BE6";
+      return "primary";
+    case "LINK":
+      return "warning";
     default:
-      return "#86909C";
+      return "info";
   }
 }
 

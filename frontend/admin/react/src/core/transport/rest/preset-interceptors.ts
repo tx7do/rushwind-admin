@@ -4,6 +4,9 @@ import type { RequestClient } from './request-client';
 import type { MakeErrorMessageFn, ResponseInterceptorConfig } from './types';
 import { getDefaultErrorMsg } from './utils';
 
+/** 排队等待刷新的超时兜底：刷新请求自身有 10s 客户端超时，此值仅防异常挂起 */
+const REFRESH_QUEUE_TIMEOUT_MS = 30_000;
+
 /**
  * 认证响应拦截器：处理 401 错误，支持自动刷新 token 和重新认证
  * @param client 请求客户端实例
@@ -55,13 +58,39 @@ export const authenticateResponseInterceptor = ({
         });
       }
 
-      // 如果正在刷新 token，则将请求加入队列，等待刷新完成
+      // 如果正在刷新 token，则将请求加入队列，等待刷新完成。
+      // 两道防挂死兜底（历史故障：队列无超时无 reject，刷新链路一旦挂起，
+      // 全部数据页渐进进入永久 loading，只能重登恢复）：
+      // 1. 排队重试带 __isRetryRequest——重试再 401 不再入刷，防循环；
+      // 2. 排队条目 30s 超时摘除并拒绝——刷新链路异常挂起时请求快速失败。
       if (client.isRefreshing) {
-        return new Promise((resolve) => {
-          client.refreshTokenQueue.push((newToken: string) => {
+        config.__isRetryRequest = true;
+        return new Promise((resolve, reject) => {
+          const callback = (newToken: string) => {
+            clearTimeout(timer);
+            // 刷新失败时队列会以空串唤醒：重发注定再吃 401，直接以已处理的
+            // 认证错误拒绝，交由调用方与 doReAuthenticate 收尾
+            if (!newToken) {
+              reject(
+                Object.assign(new Error('Authentication required'), {
+                  __handledByAuthInterceptor: true,
+                }),
+              );
+              return;
+            }
             config.headers.Authorization = formatToken(newToken);
             resolve(client.request(config.url, { ...config }));
-          });
+          };
+          const timer = setTimeout(() => {
+            client.refreshTokenQueue = client.refreshTokenQueue.filter((cb) => cb !== callback);
+            console.warn('[Auth] 刷新等待超时，排队请求快速失败:', config.url);
+            reject(
+              Object.assign(new Error('Authentication refresh wait timeout'), {
+                __handledByAuthInterceptor: true,
+              }),
+            );
+          }, REFRESH_QUEUE_TIMEOUT_MS);
+          client.refreshTokenQueue.push(callback);
         });
       }
 

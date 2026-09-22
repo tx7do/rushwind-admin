@@ -3,7 +3,7 @@
     <ProPage ref="pageRef" :config="pageConfig" @toolbar="handleToolbar" @operate="handleOperate">
       <!-- 存储提供商 -->
       <template #provider="scope: any">
-        <ElTag size="small" effect="dark" round :color="ossProviderColor(scope.row.provider)">
+        <ElTag size="small" round :type="ossProviderToType(scope.row.provider)">
           {{ ossProviderLabel(scope.row.provider) }}
         </ElTag>
       </template>
@@ -26,7 +26,7 @@ import type { ProPageConfig, ToolsButton } from "@/components/Pro/ProPage/types"
 import FileDrawer from "./file-drawer.vue";
 
 import {
-  ossProviderColor,
+  ossProviderToType,
   ossProviderLabel,
   fetchListFiles,
   useDeleteFile,

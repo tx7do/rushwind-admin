@@ -43,6 +43,12 @@ fn channel_proto(r: crate::data::sys_notification_channels::Model) -> Notificati
         updated_by: r.updated_by,
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
+        // WEBHOOK 出站四联(上游 N 契约新增)——Rust 侧实体尚无对应列,真实
+        // 出站移植(签名风格/载荷模板/密文)落地前一律应答 None。
+        webhook_url: None,
+        has_webhook_secret: None,
+        webhook_sign_style: None,
+        webhook_payload_template: None,
     }
 }
 

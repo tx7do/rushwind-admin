@@ -18,29 +18,17 @@ export interface BackendRoute extends Omit<AppRouteObject, 'element' | 'children
     children?: BackendRoute[];
 }
 
+/**
+ * generateRoutesByBackend 的选项。只声明后端生成器实际消费的字段——
+ * 此前这里的 staticRoutes/mode 等字段从未被消费，形成"传了也没用"的误导性签名。
+ */
 export interface GenerateRoutesOptions {
-    // 必填
-    staticRoutes: AppRouteObject[];
-    mode: AccessModeType;
-
-    // 权限
-    permissions?: string[];
-    roles?: string[];
-
-    // 后端模式
+    /** 从后端拉取菜单路由树（component 为字符串路径） */
     fetchMenuListAsync?: () => Promise<BackendRoute[]>;
+    /** 布局组件映射（component 字符串 → React 组件） */
     layoutMap?: ComponentRecord;
+    /** 页面组件映射（view 路径 → React 组件） */
     pageMap?: ComponentRecord;
-
-    // 前端模式
-    forbiddenElement?: React.ReactNode;
-
-    // 可选增强
-    autoInjectRedirect?: boolean;
-    autoSort?: boolean;
-    filterHidden?: boolean;
-    onRoutesGenerated?: (routes: AppRouteObject[]) => void;
-    onMenusGenerated?: (menus: AppMenu[]) => void;
 }
 
 export interface GenerateRoutesResult {

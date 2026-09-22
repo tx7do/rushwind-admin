@@ -3,6 +3,7 @@ import { Segmented, Switch } from 'antd';
 import { BulbOutlined, LaptopOutlined, MoonOutlined, BgColorsOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { usePreferencesStore } from '../../store';
+import { startThemeViewTransition } from '../../theme-transition';
 import type { BuiltinThemeType, ThemeModeType } from '../../types';
 import './AppearancePanel.style.less';
 
@@ -38,9 +39,16 @@ export const AppearancePanel: React.FC = () => {
   const { preferences, setPreferences } = usePreferencesStore();
   const { t } = useTranslation('preferences');
 
-  // 主题模式切换
-  const handleThemeModeChange = (mode: ThemeModeType) => {
-    setPreferences({ theme: { mode } });
+  // 主题模式切换（light/dark 带圆形扩散动效；auto 跟随系统无确定方向，直接切换）
+  const handleThemeModeChange = (mode: ThemeModeType, event?: React.MouseEvent<HTMLElement>) => {
+    if (mode === 'auto') {
+      setPreferences({ theme: { mode } });
+      return;
+    }
+    startThemeViewTransition({
+      origin: event ? { x: event.clientX, y: event.clientY } : undefined,
+      update: () => setPreferences({ theme: { mode } }),
+    });
   };
 
   // 内置主题切换
@@ -62,7 +70,7 @@ export const AppearancePanel: React.FC = () => {
       <section className="appearance-section">
         <h3 className="section-title">{t('appearance.theme')}</h3>
         <div className="theme-mode-options">
-          <div className="theme-mode-wrapper" onClick={() => handleThemeModeChange('light')}>
+          <div className="theme-mode-wrapper" onClick={(e) => handleThemeModeChange('light', e)}>
             <div
               className={`theme-mode-item ${preferences.theme.mode === 'light' ? 'active' : ''}`}
             >
@@ -70,7 +78,7 @@ export const AppearancePanel: React.FC = () => {
             </div>
             <span className="theme-mode-label">{t('appearance.lightMode')}</span>
           </div>
-          <div className="theme-mode-wrapper" onClick={() => handleThemeModeChange('dark')}>
+          <div className="theme-mode-wrapper" onClick={(e) => handleThemeModeChange('dark', e)}>
             <div className={`theme-mode-item ${preferences.theme.mode === 'dark' ? 'active' : ''}`}>
               <MoonOutlined className="theme-icon" />
             </div>

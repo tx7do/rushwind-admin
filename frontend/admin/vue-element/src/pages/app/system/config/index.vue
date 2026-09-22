@@ -3,7 +3,7 @@
     <ProPage ref="pageRef" :config="pageConfig" @add="handleAdd" @edit="handleEdit">
       <!-- 值类型 -->
       <template #valueType="scope: any">
-        <ElTag size="small" effect="dark" round :color="configValueTypeToColor(scope.row.valueType)">
+        <ElTag size="small" round :type="configValueTypeToType(scope.row.valueType)">
           {{ configValueTypeToName(scope.row.valueType) }}
         </ElTag>
       </template>
@@ -30,7 +30,7 @@ import type { ProPageConfig } from "@/components/Pro/ProPage/types";
 import ConfigDrawer from "./config-drawer.vue";
 
 import {
-  configValueTypeToColor,
+  configValueTypeToType,
   configValueTypeToName,
   fetchListConfigs,
   useDeleteConfig,

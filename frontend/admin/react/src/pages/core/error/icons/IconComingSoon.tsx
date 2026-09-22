@@ -10,17 +10,17 @@ export const IconComingSoon = () => {
             xmlns="http://www.w3.org/2000/svg"
         >
             {/* Background circle */}
-            <circle cx="300" cy="300" fill="#f5f5f5" r="280" />
+            <circle cx="300" cy="300" fill="var(--fb-mist)" r="280" />
 
             {/* Rocket body */}
             <path
                 d="M300 150 C300 150 250 200 250 280 L250 350 C250 380 270 400 300 400 C330 400 350 380 350 350 L350 280 C350 200 300 150 300 150 Z"
-                fill="#3f3d56"
+                fill="var(--fb-navy)"
             />
 
             {/* Rocket window */}
-            <circle cx="300" cy="280" fill="#fff" r="25" />
-            <circle cx="300" cy="280" fill="#409eff" r="15" />
+            <circle cx="300" cy="280" fill="var(--fb-paper)" r="25" />
+            <circle cx="300" cy="280" fill="var(--fb-primary)" r="15" />
 
             {/* Rocket fins */}
             <path
@@ -56,7 +56,7 @@ export const IconComingSoon = () => {
                 y="520"
                 fontSize="40"
                 fontWeight="bold"
-                fill="#3f3d56"
+                fill="var(--fb-navy)"
                 textAnchor="middle"
                 fontFamily="Arial, sans-serif"
             >

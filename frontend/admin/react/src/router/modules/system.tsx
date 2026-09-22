@@ -95,17 +95,6 @@ export const systemRoutes: AppRouteObject[] = [
         },
       },
       {
-        name: 'notification-channels',
-        path: 'notification-channels', // 相对路径，最终为 /system/notification-channels
-        element: createLazyRoute(() => import('@/pages/app/system/notification-channel')),
-        meta: {
-          title: 'routes:notification-channels',
-          icon: 'lucide:mail', // Iconify 格式
-          order: 10,
-          // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
-        },
-      },
-      {
         name: 'scripts',
         path: 'scripts', // 相对路径，最终为 /system/scripts
         element: createLazyRoute(() => import('@/pages/app/system/script')),

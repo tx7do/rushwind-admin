@@ -3,7 +3,7 @@
     <ProPage ref="pageRef" :config="pageConfig" @add="handleAdd" @edit="handleEdit">
       <!-- 类型 -->
       <template #type="scope: any">
-        <ElTag size="small" effect="dark" round :color="positionTypeToColor(scope.row.type)">
+        <ElTag size="small" round :type="positionTypeToType(scope.row.type)">
           {{ positionTypeToName(scope.row.type) }}
         </ElTag>
       </template>
@@ -31,7 +31,7 @@ import PositionDrawer from "./position-drawer.vue";
 
 import {
   positionTypeList,
-  positionTypeToColor,
+  positionTypeToType,
   positionTypeToName,
   statusList,
   statusToType,

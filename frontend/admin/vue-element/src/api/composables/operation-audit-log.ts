@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import { useQuery, type UseQueryOptions } from "@tanstack/vue-query";
 import type {
   auditservicev1_GetOperationAuditLogRequest,
@@ -64,23 +65,23 @@ export const operationAuditLogActionList = computed(() => [
   { value: "OTHER", label: t("enum.operationAuditLog.action.OTHER") },
 ]);
 
-const OPERATION_AUDIT_LOG_ACTION_COLOR_MAP: Record<string, string> = {
-  CREATE: "#1677FF",
-  UPDATE: "#597EF7",
-  DELETE: "#FF4D4F",
-  READ: "#6B7280",
-  ASSIGN: "#722ED1",
-  UNASSIGN: "#A855F7",
-  EXPORT: "#00B42A",
-  IMPORT: "#36CFC9",
-  OTHER: "#86909C",
-  DEFAULT: "#86909C",
+const OPERATION_AUDIT_LOG_ACTION_TAG_TYPE_MAP: Record<string, TagType> = {
+  CREATE: "success",
+  UPDATE: "primary",
+  DELETE: "danger",
+  READ: "info",
+  ASSIGN: "warning",
+  UNASSIGN: "warning",
+  EXPORT: "success",
+  IMPORT: "primary",
+  OTHER: "info",
+  DEFAULT: "info",
 };
 
-export function operationAuditLogActionToColor(action: OperationActionType) {
+export function operationAuditLogActionToType(action: OperationActionType): TagType {
   return (
-    OPERATION_AUDIT_LOG_ACTION_COLOR_MAP[action as string] ||
-    OPERATION_AUDIT_LOG_ACTION_COLOR_MAP.DEFAULT
+    OPERATION_AUDIT_LOG_ACTION_TAG_TYPE_MAP[action as string] ||
+    OPERATION_AUDIT_LOG_ACTION_TAG_TYPE_MAP.DEFAULT
   );
 }
 

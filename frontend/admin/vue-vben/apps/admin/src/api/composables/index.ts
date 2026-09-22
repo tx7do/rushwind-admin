@@ -56,6 +56,10 @@ export * from './server-monitor';
 
 // 通知渠道
 export * from './notification-channel';
+// 通知投递台账（只读）
+export * from './notification-delivery';
+// 通知路由规则（事件 → 渠道 + 派发方式）
+export * from './notification-rule';
 export * from './role';
 // 通用枚举与工具函数
 export * from './shared';

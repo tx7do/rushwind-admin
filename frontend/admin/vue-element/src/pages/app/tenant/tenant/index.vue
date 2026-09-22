@@ -3,26 +3,21 @@
     <ProPage ref="pageRef" :config="pageConfig" @add="handleAdd" @edit="handleEdit">
       <!-- 类型 -->
       <template #type="scope: any">
-        <ElTag size="small" effect="dark" round :color="tenantTypeToColor(scope.row.type)">
+        <ElTag size="small" round :type="tenantTypeToType(scope.row.type)">
           {{ tenantTypeToName(scope.row.type) }}
         </ElTag>
       </template>
 
       <!-- 审核状态 -->
       <template #auditStatus="scope: any">
-        <ElTag
-          size="small"
-          effect="dark"
-          round
-          :color="tenantAuditStatusToColor(scope.row.auditStatus)"
-        >
+        <ElTag size="small" round :type="tenantAuditStatusToType(scope.row.auditStatus)">
           {{ tenantAuditStatusToName(scope.row.auditStatus) }}
         </ElTag>
       </template>
 
       <!-- 状态 -->
       <template #status="scope: any">
-        <ElTag size="small" effect="plain" round :type="tenantStatusToType(scope.row.status)">
+        <ElTag size="small" round :type="tenantStatusToType(scope.row.status)">
           {{ tenantStatusToName(scope.row.status) }}
         </ElTag>
       </template>
@@ -43,13 +38,13 @@ import TenantDrawer from "./tenant-drawer.vue";
 
 import {
   tenantAuditStatusList,
-  tenantAuditStatusToColor,
+  tenantAuditStatusToType,
   tenantAuditStatusToName,
   tenantStatusList,
   tenantStatusToType,
   tenantStatusToName,
   tenantTypeList,
-  tenantTypeToColor,
+  tenantTypeToType,
   tenantTypeToName,
   fetchListTenants,
   useDeleteTenant,

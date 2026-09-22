@@ -33,7 +33,7 @@ import { fetchListUserInbox, } from '@/api/hooks/internal-message';
 import { apiClient } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { PaginationQuery, queryClient } from '@/core';
-import { globalSSEClient } from '@/core/transport/sse';
+import { globalSSEClient, SSE_EVENT } from '@/core/transport/sse';
 
 dayjs.extend(relativeTime);
 
@@ -54,7 +54,7 @@ interface HeaderContentProps {
   onToggleFullscreen: () => void;
   onLogout: () => void;
   isDark: boolean;
-  onToggleTheme: () => void;
+  onToggleTheme: (event?: React.MouseEvent<HTMLElement>) => void;
   onOpenSettings: () => void;
   widgetConfig: {
     fullscreen: boolean;
@@ -88,6 +88,9 @@ export const HeaderContent = ({
   // 面包屑偏好设置
   const breadcrumbPreferences = usePreferencesStore((state) => state.preferences.breadcrumb);
   const breadcrumbStyleType = breadcrumbPreferences?.styleType ?? 'normal';
+
+  // 默认头像（与 ele/vben 三端统一，取 preferences.app.defaultAvatar）
+  const defaultAvatar = usePreferencesStore((state) => state.preferences.app.defaultAvatar);
 
   // 计算面包屑
   const breadcrumbItems = useMemo(() => {
@@ -266,9 +269,9 @@ export const HeaderContent = ({
       queryClient.invalidateQueries({ queryKey: ['inboxPreview', userInfo?.id] });
       queryClient.invalidateQueries({ queryKey: ['inboxPreviewList', userInfo?.id] });
     };
-    globalSSEClient.on('notification', handler);
+    globalSSEClient.on(SSE_EVENT.Notification, handler);
     return () => {
-      globalSSEClient.off('notification', handler);
+      globalSSEClient.off(SSE_EVENT.Notification, handler);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userInfo?.id]);
@@ -708,7 +711,7 @@ export const HeaderContent = ({
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
-            <Avatar src={userInfo?.avatar || undefined} icon={<UserOutlined />} size="small" />
+            <Avatar src={userInfo?.avatar || defaultAvatar || undefined} icon={<UserOutlined />} size="small" />
             <span
               className="hidden md:inline"
               style={{

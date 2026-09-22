@@ -134,6 +134,24 @@ body {
      列宽比例扩展，重新对齐；
    - 有滚动条：colgroup 里存在 15px 的 gutter <col>，fixed 布局中 <col>
      的 width 优先于单元格宽度，此规则不影响。 */
+/* ===== 主题切换圆形扩散动效（View Transitions API，ele/ThemeSwitch 风格） =====
+   禁用默认交叉淡化，改由 JS（theme-transition.ts）驱动 clip-path 圆形过渡；
+   层级恒定：新画面在上、自圆心扩张覆盖旧画面（切暗时暗色立即从点击点绽开，
+   避免"旧画面收缩"方案在点击点附近久留亮色的初始全白观感）。 */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+    z-index: 1;
+}
+
+::view-transition-new(root) {
+    z-index: 2147483646;
+}
+
 .ant-table-header th.ant-table-cell-scrollbar {
     width: 0 !important;
     min-width: 0 !important;

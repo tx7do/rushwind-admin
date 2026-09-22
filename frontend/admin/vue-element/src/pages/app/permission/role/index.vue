@@ -10,7 +10,7 @@
 
       <!-- 数据权限范围 -->
       <template #dataScope="scope: any">
-        <ElTag size="small" effect="dark" round :color="dataScopeToColor(scope.row.dataScope)">
+        <ElTag size="small" round :type="dataScopeToType(scope.row.dataScope)">
           {{ roleDataScopeToName(scope.row.dataScope) }}
         </ElTag>
       </template>
@@ -33,7 +33,7 @@ import {
   statusList,
   statusToType,
   statusToName,
-  dataScopeToColor,
+  dataScopeToType,
   roleDataScopeToName,
   fetchListRoles,
   useDeleteRole,

@@ -10,33 +10,33 @@ export const IconOffline = () => {
             xmlns="http://www.w3.org/2000/svg"
         >
             {/* Background circle */}
-            <circle cx="300" cy="300" fill="#f5f5f5" r="280" />
+            <circle cx="300" cy="300" fill="var(--fb-mist)" r="280" />
 
             {/* WiFi signal - disconnected */}
             <path
                 d="M200 250 Q300 150 400 250"
                 fill="none"
-                stroke="#e0e0e0"
+                stroke="var(--fb-mist-2)"
                 strokeLinecap="round"
                 strokeWidth="20"
             />
             <path
                 d="M220 280 Q300 200 380 280"
                 fill="none"
-                stroke="#e0e0e0"
+                stroke="var(--fb-mist-2)"
                 strokeLinecap="round"
                 strokeWidth="20"
             />
             <path
                 d="M240 310 Q300 250 360 310"
                 fill="none"
-                stroke="#e0e0e0"
+                stroke="var(--fb-mist-2)"
                 strokeLinecap="round"
                 strokeWidth="20"
             />
 
             {/* WiFi dot */}
-            <circle cx="300" cy="340" fill="#e0e0e0" r="15" />
+            <circle cx="300" cy="340" fill="var(--fb-mist-2)" r="15" />
 
             {/* Cross mark */}
             <line
@@ -60,7 +60,7 @@ export const IconOffline = () => {
 
             {/* Computer/Device */}
             <rect
-                fill="#3f3d56"
+                fill="var(--fb-navy)"
                 height="120"
                 rx="10"
                 ry="10"
@@ -71,7 +71,7 @@ export const IconOffline = () => {
 
             {/* Screen */}
             <rect
-                fill="#fff"
+                fill="var(--fb-paper)"
                 height="90"
                 width="160"
                 x="220"
@@ -80,14 +80,14 @@ export const IconOffline = () => {
 
             {/* Stand */}
             <rect
-                fill="#3f3d56"
+                fill="var(--fb-navy)"
                 height="30"
                 width="40"
                 x="280"
                 y="520"
             />
             <rect
-                fill="#3f3d56"
+                fill="var(--fb-navy)"
                 height="10"
                 width="80"
                 x="260"

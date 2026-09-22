@@ -18,7 +18,7 @@
 
 - **多前端适配**：同时提供 `Vue3 Vben`（Ant Design Vue）、`Vue3 Element Plus`、`React19 Antd` 三套前端，满足不同团队偏好
 - **企业级 RBAC**：支持多租户、多角色、多部门、菜单/按钮/数据级权限控制
-- **契约驱动的代码生成**：Protobuf 是唯一 API 契约——构建期确定性生成 203 条路由、441 条错误状态映射、198 个服务接口，零手写路由；前端 TypeScript 客户端三份字节相同
+- **契约驱动的代码生成**：Protobuf 是唯一 API 契约——构建期确定性生成 211 条路由、441 条错误状态映射、206 个服务接口，零手写路由；前端 TypeScript 客户端三份字节相同
 - **安全与等保合规**：按等保 2.0 技术要求内置 180 天审计日志留存归档、口令策略三件套、TOTP MFA、口令应用层加密、动态 RBAC 与多租户隔离，详见[安全与等保合规](#安全与等保合规)
 - **生产就绪基座**：JWT RS256 鉴权、统一四字段错误信封、CORS、SSE 消息推送（规划）、异步任务调度（规划）
 - **质量门禁**：fmt / clippy / test / 契约同步四道 CI 门（ubuntu + windows 矩阵），外加差分回归台架对全量路由自动 sweep 逐字节比对
@@ -121,9 +121,9 @@
 **已落地**
 
 - 契约流水线：proto 同步（MANIFEST 校验门 + 漂移检测）→ 注解描述符 → 构建期确定性生成路由 / 错误状态表 / 服务接口 / 挂载胶水
-- REST :7788 装配：203 条路由、8 个免鉴权端点白名单、JWT RS256 鉴权门、CORS、统一四字段错误信封（code / reason / message / metadata）
+- REST :7788 装配：211 条路由、8 个免鉴权端点白名单、JWT RS256 鉴权门、CORS、统一四字段错误信封（code / reason / message / metadata）
 - 编解码对齐：protojson 请求绑定与响应发射（64 位整数字符串化、presence 省略、well-known 类型语义），金样测试锁定
-- 差分回归台架：203 条路由 + 89 条 HEAD 自动 sweep，豁免 4 类显式登记
+- 差分回归台架：211 条路由 + 93 条 HEAD 自动 sweep，豁免 4 类显式登记
 - 部分系统模块的真实服务实现（用户 / 角色 / 租户 / 字典 / 认证 / MFA 等），其余端点暂返回 Unknown 桩
 
 **进行中 / 规划**
@@ -192,7 +192,7 @@ CI（ubuntu + windows 矩阵）执行同样的四道门：fmt / clippy / test / 
 
 ### 差分回归台架
 
-[backend/testbed](./backend/testbed) 通过 compose 拉起中间件与 Go / Rust 双栈后端，`admin-diff` 对 203 条路由 + 89 条 HEAD 自动 sweep 并逐字节比对响应，豁免登记于 `exemptions.json`。使用方式见 [backend/testbed/README.md](./backend/testbed/README.md)。
+[backend/testbed](./backend/testbed) 通过 compose 拉起中间件与 Go / Rust 双栈后端，`admin-diff` 对 211 条路由 + 93 条 HEAD 自动 sweep 并逐字节比对响应，豁免登记于 `exemptions.json`。使用方式见 [backend/testbed/README.md](./backend/testbed/README.md)。
 
 ### 前端启动
 

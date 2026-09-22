@@ -112,23 +112,37 @@ export async function uploadFile(
   method: 'post' | 'put' = 'post',
   onUploadProgress?: (progressEvent: any) => void,
 ) {
-  const storageObject = JSON.stringify({
-    bucketName,
-    fileDirectory,
+  // kratos 未注册 form-data codec，multipart 上传是死路径（后端 400
+  // unregister Content-Type，go 参照后端同型）。JSON 形态（bytes 走 base64）
+  // 才是生成客户端定义的活路；手工组 protojson 同形请求体以保留
+  // axios 的 onUploadProgress（生成客户端的 transport.unary 不支持上传进度）。
+  // 响应经 ResponseData 拦截器解包，直接是 UploadFileResponse（含 publicUrl）。
+  const file = await fileToBase64(fileData);
+  const body = {
+    file,
+    mime: fileData.type,
+    size: fileData.size,
+    sourceFileName: fileData.name,
+    storageObject: { bucketName, fileDirectory },
+  };
+  return await RequestClient.getInstance().request('admin/v1/file/upload', {
+    method: method === 'put' ? 'PUT' : 'POST',
+    data: body,
+    onUploadProgress,
   });
+}
 
-  return await RequestClient.getInstance().upload(
-    'admin/v1/file/upload',
-    {
-      file: fileData,
-      storageObject,
-      sourceFileName: fileData.name,
-      mime: fileData.type,
-      size: fileData.size,
-      method,
-    },
-    { onUploadProgress },
-  );
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error ?? new Error('文件读取失败'));
+    reader.onload = () => {
+      const dataUrl = String(reader.result ?? '');
+      const idx = dataUrl.indexOf('base64,');
+      resolve(idx >= 0 ? dataUrl.slice(idx + 'base64,'.length) : '');
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 // -----------------------------------------------------------------------------

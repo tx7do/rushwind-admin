@@ -5,9 +5,8 @@
       <template #status="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="internalMessageRecipientStatusColor(scope.row.status)"
+          :type="internalMessageRecipientStatusToType(scope.row.status)"
         >
           {{ internalMessageRecipientStatusLabel(scope.row.status) }}
         </ElTag>
@@ -25,7 +24,7 @@ import type { ProPageConfig } from "@/components/Pro/ProPage/types";
 
 import { $t } from "@/core/i18n";
 import {
-  internalMessageRecipientStatusColor,
+  internalMessageRecipientStatusToType,
   internalMessageRecipientStatusLabel,
   fetchListUserInbox,
 } from "@/api/composables";

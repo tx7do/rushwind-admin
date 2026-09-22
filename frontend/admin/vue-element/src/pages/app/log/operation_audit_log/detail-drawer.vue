@@ -18,9 +18,8 @@
           <ElTag
             v-if="data?.success !== undefined && data?.success !== null"
             size="small"
-            effect="dark"
             round
-            :color="successToColor(data.success)"
+            :type="successToType(data.success)"
           >
             {{ successToName(data.success) }}
           </ElTag>
@@ -30,9 +29,8 @@
           <ElTag
             v-if="data?.action"
             size="small"
-            effect="dark"
             round
-            :color="operationAuditLogActionToColor(data.action)"
+            :type="operationAuditLogActionToType(data.action)"
           >
             {{ operationAuditLogActionToName(data.action) }}
           </ElTag>
@@ -109,9 +107,9 @@ import ProModal from "@/components/Pro/ProModal/index.vue";
 import { formatDateTime } from "@/utils";
 import { $t } from "@/core/i18n";
 import {
-  successToColor,
+  successToType,
   successToName,
-  operationAuditLogActionToColor,
+  operationAuditLogActionToType,
   operationAuditLogActionToName,
 } from "@/api/composables";
 import type { auditservicev1_OperationAuditLog } from "@/api/generated/admin/service/v1";

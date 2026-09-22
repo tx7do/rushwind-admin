@@ -162,7 +162,6 @@ export const Index = ({
           justifyContent: isCollapsed && !collapsedShowTitle ? 'center' : 'flex-start',
           padding: isCollapsed && !collapsedShowTitle ? '0' : '0 16px',
           gap: 8,
-          borderBottom: '1px solid var(--ant-color-border)',
           cursor: 'pointer',
           flexShrink: 0,
           overflow: 'hidden',

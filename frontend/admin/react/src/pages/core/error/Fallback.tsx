@@ -5,6 +5,7 @@ import {ArrowLeftOutlined, ReloadOutlined} from '@ant-design/icons';
 
 import type {FallbackProps} from './fallback';
 import {useI18n} from '@/core/i18n';
+import {usePreferencesStore} from '@/core/preferences/store';
 
 // 导入图标组件
 import {Icon401} from './icons/Icon401';
@@ -29,6 +30,8 @@ const Fallback = ({
 }: FallbackProps) => {
     const {t} = useI18n('common');
     const navigate = useNavigate();
+    // 全局动效开关（设计语言 §2.7）：关闭时不播进场/悬浮动画
+    const transitionEnabled = usePreferencesStore((state) => state.preferences.transition.enable);
 
     // 计算标题文本
     const titleText = useMemo(() => {
@@ -112,7 +115,10 @@ const Fallback = ({
     };
 
     return (
-        <div className="fallback-container">
+        <div
+            className="fallback-container"
+            data-animate={transitionEnabled ? 'on' : 'off'}
+        >
             {image ? (
                 <img src={image} className="fallback-image" alt="error" />
             ) : fallbackIcon ? (

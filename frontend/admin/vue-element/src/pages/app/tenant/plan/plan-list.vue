@@ -9,7 +9,7 @@
     >
       <!-- 套餐版本 -->
       <template #version="scope: any">
-        <ElTag size="small" effect="dark" round :color="planVersionToColor(scope.row.version)">
+        <ElTag size="small" round :type="planVersionToType(scope.row.version)">
           {{ planVersionToName(scope.row.version) }}
         </ElTag>
       </template>
@@ -18,9 +18,8 @@
       <template #expiryPolicy="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="planExpiryPolicyToColor(scope.row.expiryPolicy)"
+          :type="planExpiryPolicyToType(scope.row.expiryPolicy)"
         >
           {{ planExpiryPolicyToName(scope.row.expiryPolicy) }}
         </ElTag>
@@ -42,9 +41,9 @@ import { useProModal } from "@/components/Pro";
 import PlanDrawer from "./plan-drawer.vue";
 
 import {
-  planExpiryPolicyToColor,
+  planExpiryPolicyToType,
   planExpiryPolicyToName,
-  planVersionToColor,
+  planVersionToType,
   planVersionToName,
   useDeletePlan,
   createPagedExportAction,

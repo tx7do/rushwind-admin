@@ -3,7 +3,7 @@
     <ProPage ref="pageRef" :config="pageConfig" @operate="handleOperate">
       <!-- 是否成功 -->
       <template #success="scope: any">
-        <ElTag size="small" effect="dark" round :color="successToColor(scope.row.success)">
+        <ElTag size="small" round :type="successToType(scope.row.success)">
           {{ successToNameWithStatusCode(scope.row.success, scope.row.statusCode) }}
         </ElTag>
       </template>
@@ -12,9 +12,8 @@
       <template #accessType="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="dataAccessAuditLogAccessTypeToColor(scope.row.accessType)"
+          :type="dataAccessAuditLogAccessTypeToType(scope.row.accessType)"
         >
           {{ dataAccessAuditLogAccessTypeToName(scope.row.accessType) }}
         </ElTag>
@@ -24,9 +23,8 @@
       <template #dataCategory="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="dataAccessAuditLogCategoryToColor(scope.row.dataCategory)"
+          :type="dataAccessAuditLogCategoryToType(scope.row.dataCategory)"
         >
           {{ dataAccessAuditLogCategoryToName(scope.row.dataCategory) }}
         </ElTag>
@@ -54,12 +52,12 @@ import DataAccessAuditLogDetailDrawer from "./detail-drawer.vue";
 
 import {
   dataAccessAuditLogAccessTypeList,
-  dataAccessAuditLogAccessTypeToColor,
+  dataAccessAuditLogAccessTypeToType,
   dataAccessAuditLogAccessTypeToName,
-  dataAccessAuditLogCategoryToColor,
+  dataAccessAuditLogCategoryToType,
   dataAccessAuditLogCategoryToName,
   successStatusList,
-  successToColor,
+  successToType,
   successToNameWithStatusCode,
   fetchListDataAccessAuditLogs,
   createPagedExportAction,

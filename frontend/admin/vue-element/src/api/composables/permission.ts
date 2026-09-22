@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import {
   useMutation,
   type UseMutationOptions,
@@ -96,17 +97,17 @@ export const roleDataScopeList = computed(() => [
   { label: t("enum.role.dataScope.SELF"), value: "SELF" },
 ]);
 
-const DATA_SCOPE_COLOR_MAP: Record<string, string> = {
-  ALL: "#F53F3F",
-  UNIT_AND_CHILD: "#006BE6",
-  UNIT_ONLY: "#FF7D00",
-  SELECTED_UNITS: "#722ED1",
-  SELF: "#86909C",
-  DEFAULT: "#C9CDD4",
+const DATA_SCOPE_TAG_TYPE_MAP: Record<string, TagType> = {
+  ALL: "danger",
+  UNIT_AND_CHILD: "primary",
+  UNIT_ONLY: "warning",
+  SELECTED_UNITS: "success",
+  SELF: "info",
+  DEFAULT: "info",
 };
 
-export function dataScopeToColor(dataScope: any): string {
-  return DATA_SCOPE_COLOR_MAP[dataScope as string] || DATA_SCOPE_COLOR_MAP.DEFAULT;
+export function dataScopeToType(dataScope: any): TagType {
+  return DATA_SCOPE_TAG_TYPE_MAP[dataScope as string] || DATA_SCOPE_TAG_TYPE_MAP.DEFAULT;
 }
 
 export function roleDataScopeToName(dataScope: any) {

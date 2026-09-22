@@ -12,7 +12,7 @@ const props = reactive({
   leftMaxWidth: 75,
   leftMinWidth: 25,
   leftWidth: 45,
-  rightWidth: 60,
+  rightWidth: 55,
   resizable: true,
   splitHandle: true,
   splitLine: true,

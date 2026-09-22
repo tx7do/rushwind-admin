@@ -11,6 +11,7 @@ import { apiClient } from '@/api/client';
 import { useI18n } from '@/core/i18n';
 
 import { Forbidden } from '@/pages/core/error';
+import { AccessibleRoutesContext } from '@/core/router';
 import type { AppRouteObject, ComponentRecordType } from '@/core/router';
 import MainLayout from '@/layouts/MainLayout';
 import { AuthGuard } from '@/router/guards';
@@ -86,7 +87,10 @@ export const allRoutes: AppRouteObject[] = [
 ];
 
 export const AppRouter = () => {
-  const [router, setRouter] = useState<any>(null);
+  const [routerBundle, setRouterBundle] = useState<{
+    router: any;
+    routes: AppRouteObject[];
+  } | null>(null);
   const [loading, setLoading] = useState(true);
 
   const { accessToken } = useAuthStore();
@@ -108,11 +112,8 @@ export const AppRouter = () => {
           try {
             const auth = useAuth();
 
-            // 1. 获取用户权限码（角色 + 权限码，首次会调 API）
+            // 获取用户权限码（角色 + 权限码，首次会调 API）；失败=认证失效走登出
             await auth.getUserPermissionCodes();
-
-            // 2. 预加载字典数据（部分页面依赖字典，未预加载会导致闪烁）
-            await fetchAllDictEntries();
           } catch (authErr) {
             // 认证失败（token 过期/无效）：forceLogout 已在拦截器中被调用
             // 清除 userStore 防止脏数据
@@ -123,13 +124,21 @@ export const AppRouter = () => {
 
             if (stale) return; // 已过期，不继续创建路由
           }
+
+          // 字典预载失败不阻断进入应用：页面退化为未翻译字典码。瞬时接口抖动
+          // 不应触发登出（此前与权限获取同 try，字典一抖就把用户踹回登录页）
+          try {
+            await fetchAllDictEntries();
+          } catch (dictErr) {
+            console.warn('[Router] 字典预加载失败，页面将以未翻译字典码降级渲染:', dictErr);
+          }
         }
 
         // await 之后，通过 useAccess 获取最新合并权限（角色码 + 权限码）
         const freshPermissions = getAccessStatic().getAllPermissions();
 
         // 无论认证是否成功，都生成路由（未认证时 permissions 为空，AuthGuard 会拦截）
-        const appRouter = await createAccessibleRouter(accessMode, {
+        const { router: appRouter, routes: generatedRoutes } = await createAccessibleRouter(accessMode, {
           routes: allRoutes,
           permissions: freshPermissions,
           forbiddenElement: <Forbidden />,
@@ -144,7 +153,7 @@ export const AppRouter = () => {
         });
 
         if (!stale) {
-          setRouter(appRouter);
+          setRouterBundle({ router: appRouter, routes: generatedRoutes });
         }
       } catch (err) {
         console.error('Router init failed:', err);
@@ -163,8 +172,14 @@ export const AppRouter = () => {
     };
   }, [isAuthenticated, accessMode]);
 
-  if (loading || !router)
+  if (loading || !routerBundle)
     return <Loading fullScreen text={t('loading.initializing')} subText={t('loading.loadingRouter')} />;
 
-  return <RouterProvider router={router} />;
+  // 挂载路由树经 Context 下发：侧栏镜像实际挂载路由（后端模式=后端下发，
+  // 前端模式=权限过滤后），避免后端模式侧栏回退静态全量表造成越权观感
+  return (
+    <AccessibleRoutesContext.Provider value={routerBundle.routes}>
+      <RouterProvider router={routerBundle.router} />
+    </AccessibleRoutesContext.Provider>
+  );
 };

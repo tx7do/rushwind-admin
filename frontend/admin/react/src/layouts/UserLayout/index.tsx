@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores';
 import { usePreferencesStore } from '@/core/preferences/store';
 import { useThemeConfig } from '@/core/preferences/hooks/useThemeConfig';
 import { useLocale } from '@/core/preferences/hooks/useLocale';
+import { startThemeViewTransition } from '@/core/preferences/theme-transition';
 
 import SloganIcon from '@/components/bussiness/AuthLayout/icons/SloganIcon';
 
@@ -94,10 +95,16 @@ export const UserLayout = ({ requireAuth = false }: UserLayoutProps) => {
             <Button
               type="text"
               icon={preferences.theme.mode === 'light' ? <MoonOutlined /> : <SunOutlined />}
-              onClick={() => {
-                usePreferencesStore.getState().setPreferences({
-                  theme: {
-                    mode: preferences.theme.mode === 'light' ? 'dark' : 'light',
+              onClick={(event) => {
+                const nextMode = preferences.theme.mode === 'light' ? 'dark' : 'light';
+                startThemeViewTransition({
+                  origin: { x: event.clientX, y: event.clientY },
+                  update: () => {
+                    usePreferencesStore.getState().setPreferences({
+                      theme: {
+                        mode: nextMode,
+                      },
+                    });
                   },
                 });
               }}

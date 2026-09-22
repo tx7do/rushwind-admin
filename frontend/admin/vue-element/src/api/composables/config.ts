@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import {
   useMutation,
   type UseMutationOptions,
@@ -100,13 +101,16 @@ export function configValueTypeToName(valueType: any) {
   return matchedItem ? matchedItem.label : "";
 }
 
-const CONFIG_VALUE_TYPE_COLOR_MAP: Record<string, string> = {
-  STRING: "#4096FF",
-  BOOL: "#722ED1",
-  INT: "#FF9A2E",
-  DEFAULT: "#C9CDD4",
+const CONFIG_VALUE_TYPE_TAG_TYPE_MAP: Record<string, TagType> = {
+  STRING: "primary",
+  BOOL: "success",
+  INT: "warning",
+  DEFAULT: "info",
 };
 
-export function configValueTypeToColor(valueType: any): string {
-  return CONFIG_VALUE_TYPE_COLOR_MAP[valueType as string] || CONFIG_VALUE_TYPE_COLOR_MAP.DEFAULT;
+export function configValueTypeToType(valueType: any): TagType {
+  return (
+    CONFIG_VALUE_TYPE_TAG_TYPE_MAP[valueType as string] ||
+    CONFIG_VALUE_TYPE_TAG_TYPE_MAP.DEFAULT
+  );
 }

@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import {
   useMutation,
   type UseMutationOptions,
@@ -154,15 +155,15 @@ export function taskTypeToName(taskType: Task_Type) {
   return matchedItem ? matchedItem.label : "";
 }
 
-export function taskTypeToColor(taskType: Task_Type) {
+export function taskTypeToType(taskType: Task_Type): TagType {
   switch (taskType) {
     case "DELAY":
-      return "blue";
+      return "primary";
     case "PERIODIC":
-      return "orange";
+      return "warning";
     case "WAIT_RESULT":
-      return "purple";
+      return "success";
     default:
-      return "gray";
+      return "info";
   }
 }

@@ -5,9 +5,8 @@
       <template #status="scope: any">
         <ElTag
           size="small"
-          effect="dark"
           round
-          :color="internalMessageStatusColor(scope.row.status)"
+          :type="internalMessageStatusToType(scope.row.status)"
         >
           {{ internalMessageStatusLabel(scope.row.status) }}
         </ElTag>
@@ -15,7 +14,7 @@
 
       <!-- 类型 -->
       <template #type="scope: any">
-        <ElTag size="small" effect="dark" round :color="internalMessageTypeColor(scope.row.type)">
+        <ElTag size="small" round :type="internalMessageTypeToType(scope.row.type)">
           {{ internalMessageTypeLabel(scope.row.type) }}
         </ElTag>
       </template>
@@ -34,10 +33,10 @@ import ProPage from "@/components/Pro/ProPage/index.vue";
 import type { ProPageConfig } from "@/components/Pro/ProPage/types";
 
 import {
-  internalMessageStatusColor,
+  internalMessageStatusToType,
   internalMessageStatusLabel,
   internalMessageStatusList,
-  internalMessageTypeColor,
+  internalMessageTypeToType,
   internalMessageTypeLabel,
   internalMessageTypeList,
   fetchListInternalMessages,

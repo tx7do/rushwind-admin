@@ -262,19 +262,32 @@
   }
 }
 
-/* ========== 暗色模式：选中 Tab 高亮（各风格统一） ==========
-   颜色一律走 antd 主题变量 --ant-color-primary，不硬编码色值，
-   否则用户切换主题色 / 持久化主色迁移前后会出现"两种蓝"。 */
+/* ========== 暗色模式：选中 Tab（2026-09-16 对齐 vben 温和配方，design-language.md §4） ==========
+   chrome / card：中性灰底 + 正常亮文字，不用主色描边/发光/主色字（用户实测对比度刺眼）；
+   注意 antd 把激活文字色挂在内层 .ant-tabs-tab-btn 上，只覆盖外层 .ant-tabs-tab 不生效；
+   brisk / plain：线型指示风格保留主色文字 + 主色指示条。 */
 [data-theme='dark'] .tabsbar-container .ant-tabs-tab.ant-tabs-tab-active {
-  color: var(--ant-color-primary);
-  font-weight: 500;
+  color: var(--ant-color-text);
 }
-/* chrome / card 风格：主色描边 + 主色调微光底 */
+[data-theme='dark'] .tabsbar-container .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--ant-color-text);
+}
 [data-theme='dark'] .tabsbar-chrome .ant-tabs-tab.ant-tabs-tab-active,
 [data-theme='dark'] .tabsbar-card .ant-tabs-tab.ant-tabs-tab-active {
-  background: color-mix(in srgb, var(--ant-color-primary) 12%, transparent) !important;
-  border-color: color-mix(in srgb, var(--ant-color-primary) 45%, transparent) !important;
-  box-shadow: 0 -2px 8px color-mix(in srgb, var(--ant-color-primary) 18%, transparent);
+  background: var(--ant-color-fill) !important;
+  border-color: transparent !important;
+  box-shadow: none;
+  color: var(--ant-color-text);
+  font-weight: 400;
+}
+[data-theme='dark'] .tabsbar-chrome .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn,
+[data-theme='dark'] .tabsbar-card .ant-tabs-tab.ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--ant-color-text);
+}
+[data-theme='dark'] .tabsbar-brisk .ant-tabs-tab.ant-tabs-tab-active,
+[data-theme='dark'] .tabsbar-plain .ant-tabs-tab.ant-tabs-tab-active {
+  color: var(--ant-color-primary);
+  font-weight: 500;
 }
 /* brisk / plain 风格：底部指示条统一主色 */
 [data-theme='dark'] .tabsbar-container .ant-tabs-ink-bar {

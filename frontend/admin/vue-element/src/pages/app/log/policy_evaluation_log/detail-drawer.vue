@@ -18,9 +18,8 @@
           <ElTag
             v-if="data?.result !== undefined && data?.result !== null"
             size="small"
-            effect="dark"
             round
-            :color="successToColor(data.result)"
+            :type="successToType(data.result)"
           >
             {{ successToName(data.result) }}
           </ElTag>
@@ -94,7 +93,7 @@ import { ElDivider, ElDescriptions, ElDescriptionsItem, ElTag } from "element-pl
 import ProModal from "@/components/Pro/ProModal/index.vue";
 import { formatDateTime } from "@/utils";
 import { $t } from "@/core/i18n";
-import { successToColor, successToName } from "@/api/composables";
+import { successToType, successToName } from "@/api/composables";
 import type { permissionservicev1_PolicyEvaluationLog } from "@/api/generated/admin/service/v1";
 
 const visible = ref(false);

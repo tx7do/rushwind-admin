@@ -5,7 +5,6 @@ import { transformRoutesWithHandle } from './utils/transform-meta-to-handle';
 import type { GenerateMenuAndRoutesOptions, AppRoute, AppRouteObject } from './types';
 import { generateRoutesByBackend, generateRoutesByFrontend } from '@/core/router/generators';
 import type { AccessModeType } from '@/core/preferences';
-import React from 'react';
 
 /**
  * 从路由列表中分离出：
@@ -30,7 +29,7 @@ function separateRoutes(routes: AppRouteObject[]) {
 export const createAccessibleRouter = async (
   mode: AccessModeType,
   options: GenerateMenuAndRoutesOptions,
-) => {
+): Promise<{ router: ReturnType<typeof createBrowserRouter>; routes: AppRouteObject[] }> => {
   let routes: AppRouteObject[] = [...options.routes];
 
   // 根据模式生成路由
@@ -46,12 +45,11 @@ export const createAccessibleRouter = async (
         );
       } else {
         // 分离布局路由与静态路由（auth/error 等不受 AuthGuard 保护）
-        const { layoutRoutes, otherRoutes } = separateRoutes(routes);
+        const { otherRoutes } = separateRoutes(routes);
 
-        // 后端返回的路由树（根节点 component="BasicLayout"，已包含 Layout）
+        // 后端返回的路由树（根节点 component="BasicLayout"，已包含 Layout）。
+        // 注意：后端生成器只消费 fetchMenuListAsync/layoutMap/pageMap
         const backendRoutes = await generateRoutesByBackend({
-          staticRoutes: layoutRoutes,
-          mode,
           fetchMenuListAsync: options.fetchMenuListAsync,
           layoutMap: options.layoutMap,
           pageMap: options.pageMap,
@@ -82,53 +80,11 @@ export const createAccessibleRouter = async (
   // 将 meta 转换为 handle，使 useMatches() 能获取路由元数据
   routes = transformRoutesWithHandle(routes);
 
-  return createBrowserRouter(routes as RouteObject[], {
+  const router = createBrowserRouter(routes as RouteObject[], {
     future: {
       v7_relativeSplatPath: true,
     },
   });
+  // 路由树随 router 一并返回：侧栏（MainLayout→useMenuData）需镜像实际挂载的路由
+  return { router, routes };
 };
-
-/**
- * 根据模式生成路由
- */
-export async function generateRoutes(
-  mode: AccessModeType,
-  options: {
-    routes: AppRouteObject[];
-    permissions: string[];
-    roles: string[];
-    forbiddenElement?: React.ReactNode;
-    fetchMenuListAsync?: () => Promise<any[]>;
-    layoutMap?: Record<string, React.ComponentType<any>>;
-    pageMap?: Record<string, React.ComponentType<any>>;
-  },
-): Promise<AppRouteObject[]> {
-  const { routes, permissions, forbiddenElement, fetchMenuListAsync, layoutMap, pageMap } = options;
-
-  let resultRoutes: AppRouteObject[] = routes;
-
-  switch (mode) {
-    case 'backend': {
-      // 后端模式：从接口获取菜单树，动态转换组件
-      if (!fetchMenuListAsync) {
-        throw new Error('Backend mode requires fetchMenuListAsync');
-      }
-      resultRoutes = await generateRoutesByBackend({
-        staticRoutes: routes,
-        mode,
-        fetchMenuListAsync,
-        layoutMap,
-        pageMap,
-      });
-      break;
-    }
-    case 'frontend': {
-      // 前端模式：基于静态路由 + 权限过滤
-      resultRoutes = await generateRoutesByFrontend(routes, permissions, forbiddenElement);
-      break;
-    }
-  }
-
-  return resultRoutes;
-}

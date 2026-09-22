@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { TagType } from "./shared";
 import {
   useMutation,
   useQuery,
@@ -223,16 +224,16 @@ export function planVersionToName(version: Plan_Version) {
   return matchedItem ? matchedItem.label : "";
 }
 
-export function planVersionToColor(version: Plan_Version) {
+export function planVersionToType(version: Plan_Version): TagType {
   switch (version) {
     case "ENTERPRISE":
-      return "#722ED1";
+      return "warning";
     case "STANDARD":
-      return "#1890FF";
+      return "primary";
     case "FREE":
-      return "#8C8C8C";
+      return "info";
     default:
-      return "#8C8C8C";
+      return "info";
   }
 }
 
@@ -252,16 +253,16 @@ export function planExpiryPolicyToName(expiryPolicy: Plan_ExpiryPolicy) {
   return matchedItem ? matchedItem.label : "";
 }
 
-export function planExpiryPolicyToColor(expiryPolicy: Plan_ExpiryPolicy) {
+export function planExpiryPolicyToType(expiryPolicy: Plan_ExpiryPolicy): TagType {
   switch (expiryPolicy) {
     case "BLOCK_LOGIN":
-      return "#F5222D";
+      return "danger";
     case "FREEZE":
-      return "#FAAD14";
+      return "warning";
     case "READONLY":
-      return "#1890FF";
+      return "primary";
     default:
-      return "#8C8C8C";
+      return "info";
   }
 }
 
@@ -281,15 +282,15 @@ export function planQuotaTypeToName(quotaType: PlanQuota_QuotaType) {
   return matchedItem ? matchedItem.label : "";
 }
 
-export function planQuotaTypeToColor(quotaType: PlanQuota_QuotaType) {
+export function planQuotaTypeToType(quotaType: PlanQuota_QuotaType): TagType {
   switch (quotaType) {
     case "API_CALL":
-      return "#FAAD14";
+      return "warning";
     case "STORAGE":
-      return "#1890FF";
+      return "primary";
     case "USER_LIMIT":
-      return "#722ED1";
+      return "success";
     default:
-      return "#8C8C8C";
+      return "info";
   }
 }
