@@ -43,12 +43,20 @@ fn channel_proto(r: crate::data::sys_notification_channels::Model) -> Notificati
         updated_by: r.updated_by,
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
-        // WEBHOOK 出站四联(上游 N 契约新增)——Rust 侧实体尚无对应列,真实
-        // 出站移植(签名风格/载荷模板/密文)落地前一律应答 None。
-        webhook_url: None,
-        has_webhook_secret: None,
-        webhook_sign_style: None,
-        webhook_payload_template: None,
+        webhook_url: r.webhook_url,
+        has_webhook_secret: r
+            .webhook_secret
+            .as_deref()
+            .is_some_and(|s| !s.is_empty())
+            .then_some(true),
+        webhook_sign_style: r.webhook_sign_style.as_deref().map(|s| match s {
+            "NONE" => 1,
+            "DINGTALK" => 2,
+            "FEISHU" => 3,
+            "WECOM" => 4,
+            _ => 0, // CUSTOM
+        }),
+        webhook_payload_template: r.webhook_payload_template,
     }
 }
 
@@ -108,6 +116,16 @@ impl proto::gen::services::NotificationChannelServiceHandlers for NotificationCh
                 2 => "SSL".to_string(),
                 _ => "START_TLS".to_string(),
             })),
+            webhook_url: Set(data.webhook_url),
+            webhook_secret: Set(None), // secrets write via update with a secret payload
+            webhook_sign_style: Set(data.webhook_sign_style.map(|v| match v {
+                1 => "NONE".to_string(),
+                2 => "DINGTALK".to_string(),
+                3 => "FEISHU".to_string(),
+                4 => "WECOM".to_string(),
+                _ => "CUSTOM".to_string(),
+            })),
+            webhook_payload_template: Set(data.webhook_payload_template),
             status: Set(Some("ON".into())),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::data::now())),
@@ -147,6 +165,21 @@ impl proto::gen::services::NotificationChannelServiceHandlers for NotificationCh
             }
             if let Some(v) = &data.smtp_from {
                 a.smtp_from = Set(Some(v.clone()));
+            }
+            if let Some(v) = &data.webhook_url {
+                a.webhook_url = Set(Some(v.clone()));
+            }
+            if let Some(v) = &data.webhook_payload_template {
+                a.webhook_payload_template = Set(Some(v.clone()));
+            }
+            if let Some(v) = data.webhook_sign_style {
+                a.webhook_sign_style = Set(Some(match v {
+                    1 => "NONE".to_string(),
+                    2 => "DINGTALK".to_string(),
+                    3 => "FEISHU".to_string(),
+                    4 => "WECOM".to_string(),
+                    _ => "CUSTOM".to_string(),
+                }));
             }
             if let Some(v) = data.smtp_tls {
                 a.smtp_tls = Set(Some(match v {

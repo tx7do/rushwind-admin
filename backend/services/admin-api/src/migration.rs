@@ -4,8 +4,10 @@
 //! applied once and tracked, at startup when the `database.migrate` gate
 //! is on.
 
-use rushwind_storage_seaorm_migration::{EntityTables, MigrationTrait, MigratorTrait};
-use sea_orm::DatabaseBackend;
+use rushwind_storage_seaorm_migration::{
+    EntityTables, MigrationName, MigrationTrait, MigratorTrait, SchemaManager,
+};
+use sea_orm::{ConnectionTrait, DatabaseBackend};
 
 use crate::data;
 
@@ -61,7 +63,47 @@ impl MigratorTrait for Migrator {
             .table::<data::sys_role_permissions::Entity>()
             .table::<data::sys_roles::Entity>()
             .build();
-        vec![Box::new(init)]
+        let notification =
+            EntityTables::new("m20250923_000001_notification", DatabaseBackend::Postgres)
+                .table::<data::sys_notification_deliveries::Entity>()
+                .table::<data::sys_notification_rules::Entity>()
+                .build();
+        vec![
+            Box::new(init),
+            Box::new(notification),
+            Box::new(ChannelWebhookColumns),
+        ]
+    }
+}
+
+/// 上游 N/C 契约给渠道表补的 WEBHOOK 出站四列(PG 加列不带默认回填,存量行 NULL
+/// 的语义即"加列之前只有 CUSTOM 一种行为",与上游注释一致)。
+struct ChannelWebhookColumns;
+
+impl MigrationName for ChannelWebhookColumns {
+    fn name(&self) -> &str {
+        "m20250923_000002_channel_webhook"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for ChannelWebhookColumns {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE sys_notification_channels \
+                 ADD COLUMN IF NOT EXISTS webhook_url varchar, \
+                 ADD COLUMN IF NOT EXISTS webhook_secret varchar, \
+                 ADD COLUMN IF NOT EXISTS webhook_sign_style varchar, \
+                 ADD COLUMN IF NOT EXISTS webhook_payload_template varchar",
+            )
+            .await
+            .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
     }
 }
 

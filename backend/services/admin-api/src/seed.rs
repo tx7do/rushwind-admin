@@ -27,6 +27,7 @@ pub async fn run(state: &Arc<AppState>) -> Result<(), String> {
     seed_permission_groups(state).await?;
     seed_permissions(state).await?;
     seed_menus(state).await?;
+    seed_notification_rules(state).await?;
     seed_admin_user(state).await?;
     Ok(())
 }
@@ -270,7 +271,7 @@ async fn seed_menus(state: &Arc<AppState>) -> Result<(), String> {
         &'static str,
         i32,
     );
-    let rows: [MenuSeedRow; 30] = [
+    let rows: [MenuSeedRow; 34] = [
         (
             1,
             0,
@@ -335,6 +336,50 @@ async fn seed_menus(state: &Arc<AppState>) -> Result<(), String> {
             "system/menu/index",
             "SYSTEM",
             "菜单管理",
+            3,
+        ),
+        (
+            74,
+            0,
+            "CATALOG",
+            "/notification",
+            "notification",
+            "notification",
+            "SYSTEM",
+            "通知管理",
+            6,
+        ),
+        (
+            68,
+            74,
+            "MENU",
+            "/notification/channels",
+            "notification-channels",
+            "notification/channel/index",
+            "SYSTEM",
+            "通知渠道",
+            1,
+        ),
+        (
+            73,
+            74,
+            "MENU",
+            "/notification/rules",
+            "notification-rules",
+            "notification/rule/index",
+            "SYSTEM",
+            "通知规则",
+            2,
+        ),
+        (
+            72,
+            74,
+            "MENU",
+            "/notification/deliveries",
+            "notification-deliveries",
+            "notification/delivery/index",
+            "SYSTEM",
+            "投递台账",
             3,
         ),
         (
@@ -614,6 +659,36 @@ async fn seed_menus(state: &Arc<AppState>) -> Result<(), String> {
     Ok(())
 }
 
+/// 上游 eventChannels 静态表的落地播种(四行一一对应,见
+/// docs/notification_domain_design.md §3.5):事件 → 渠道,均同步投递。
+async fn seed_notification_rules(state: &Arc<AppState>) -> Result<(), String> {
+    use crate::data::sys_notification_rules as rules;
+    if rules::Entity::find().count(&state.db).await.unwrap_or(1) > 0 {
+        return Ok(());
+    }
+    let rows = [
+        ("PASSWORD_RESET_CODE", "EMAIL"),
+        ("CONTACT_BIND_CODE", "EMAIL"),
+        ("CHANNEL_TEST_EMAIL", "EMAIL"),
+        ("INTERNAL_MESSAGE", "INTERNAL"),
+    ];
+    for (event_type, channel) in rows {
+        insert_seed!(
+            &state.db,
+            rules::ActiveModel {
+                event_type: Set(Some(event_type.into())),
+                channel: Set(Some(channel.into())),
+                is_async: Set(Some(false)),
+                is_enabled: Set(Some(true)),
+                remark: Set(Some("初始路由".into())),
+                created_at: Set(Some(crate::data::now())),
+                updated_at: Set(Some(crate::data::now())),
+                ..Default::default()
+            }
+        );
+    }
+    Ok(())
+}
 async fn seed_admin_user(state: &Arc<AppState>) -> Result<(), String> {
     use crate::data::sys_user_credentials as credentials;
     use crate::data::sys_user_roles as user_roles;

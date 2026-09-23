@@ -32,7 +32,8 @@ use crate::services::{
     ConfigService, DashboardService, DataAccessAuditLogService, DictEntryService, DictTypeService,
     FileService, FileTransferService, InternalMessageCategoryService,
     InternalMessageRecipientService, InternalMessageService, LanguageService, LoginAuditLogService,
-    LoginPolicyService, MenuService, MfaService, NotificationChannelService, OnlineSessionService,
+    LoginPolicyService, MenuService, MfaService, NotificationChannelService,
+    NotificationDeliveryService, NotificationRuleService, OnlineSessionService,
     OperationAuditLogService, OrgUnitService, PermissionAuditLogService, PermissionGroupService,
     PermissionService, PlanModuleService, PlanQuotaService, PlanService,
     PolicyEvaluationLogService, PositionService, RedisCacheMonitorService, RoleService,
@@ -184,6 +185,8 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
             mount_notification_channel_service,
             NotificationChannelService
         ),
+        (mount_notification_service, NotificationDeliveryService),
+        (mount_notification_rule_service, NotificationRuleService),
         (mount_online_session_service, OnlineSessionService),
         (mount_operation_audit_log_service, OperationAuditLogService),
         (mount_org_unit_service, OrgUnitService),
@@ -210,23 +213,6 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
         (mount_tenant_service, TenantService),
         (mount_user_profile_service, UserProfileService),
         (mount_user_service, UserService),
-    );
-
-    // 上游 notification 契约新增的两个服务(rule / delivery 台账)Rust 侧尚无
-    // 真实实现:挂生成器的 null 桩(每个方法应答 Unknown 错误形态),与差分
-    // 台架"公开路由 null 桩"的验收语义一致;真实出站/台账移植落地时换成
-    // 带 state 的服务结构体并并入上方宏表。
-    (router_pub, router_gate) = proto::gen::mounts::mount_notification_rule_service(
-        router_pub,
-        router_gate,
-        proto::gen::nulls::null_notification_rule_service(),
-        &wrap,
-    );
-    (router_pub, router_gate) = proto::gen::mounts::mount_notification_service(
-        router_pub,
-        router_gate,
-        proto::gen::nulls::null_notification_service(),
-        &wrap,
     );
 
     let mut app = router_pub.merge(router_gate);
