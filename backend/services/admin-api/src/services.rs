@@ -6,6 +6,7 @@ mod admin_portal;
 mod api;
 mod api_audit_log;
 mod authentication;
+mod channel_schemas;
 mod config;
 mod dashboard;
 mod data_access_audit_log;

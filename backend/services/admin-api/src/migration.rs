@@ -80,6 +80,7 @@ impl MigratorTrait for Migrator {
             Box::new(notification),
             Box::new(ChannelWebhookColumns),
             Box::new(notification_preference_template),
+            Box::new(ChannelSettingsSmsColumns),
         ]
     }
 }
@@ -105,6 +106,43 @@ impl MigrationTrait for ChannelWebhookColumns {
                  ADD COLUMN IF NOT EXISTS webhook_secret varchar, \
                  ADD COLUMN IF NOT EXISTS webhook_sign_style varchar, \
                  ADD COLUMN IF NOT EXISTS webhook_payload_template varchar",
+            )
+            .await
+            .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// ce8ab49 vintage 给渠道表补的 EXT settings 整包列与 SMS 出站列、发件人
+/// 显示名列（PG 加列不带默认回填，存量行 NULL 的语义即"该面加列之前不存在"，
+/// 与 webhook 四列的先例一致）。
+struct ChannelSettingsSmsColumns;
+
+impl MigrationName for ChannelSettingsSmsColumns {
+    fn name(&self) -> &str {
+        "m20251105_000002_channel_settings_sms"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for ChannelSettingsSmsColumns {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE sys_notification_channels \
+                 ADD COLUMN IF NOT EXISTS settings text, \
+                 ADD COLUMN IF NOT EXISTS sms_provider varchar, \
+                 ADD COLUMN IF NOT EXISTS sms_access_key_id varchar, \
+                 ADD COLUMN IF NOT EXISTS sms_access_secret varchar, \
+                 ADD COLUMN IF NOT EXISTS sms_sign_name varchar, \
+                 ADD COLUMN IF NOT EXISTS sms_template_code varchar, \
+                 ADD COLUMN IF NOT EXISTS sms_app_id varchar, \
+                 ADD COLUMN IF NOT EXISTS sms_region varchar, \
+                 ADD COLUMN IF NOT EXISTS smtp_from_name varchar",
             )
             .await
             .map(|_| ())

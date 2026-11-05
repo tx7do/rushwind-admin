@@ -24,6 +24,19 @@ pub mod sys_notification_channels {
         /// enum(CUSTOM,NONE,DINGTALK,FEISHU,WECOM).
         pub webhook_sign_style: Option<String>,
         pub webhook_payload_template: Option<String>,
+        /// 扩展渠道（EXT_*）的配置整包（settings JSON）。敏感字段加密落库随
+        /// 出站投递里程碑，存储态暂为 schema 校验后的明文。
+        pub settings: Option<String>,
+        /// 短信服务商：enum(ALIYUN,TENCENT).
+        pub sms_provider: Option<String>,
+        pub sms_access_key_id: Option<String>,
+        /// 敏感：回显只给 has 布尔（与 smtp_password/webhook_secret 同则）。
+        pub sms_access_secret: Option<String>,
+        pub sms_sign_name: Option<String>,
+        pub sms_template_code: Option<String>,
+        pub sms_app_id: Option<String>,
+        pub sms_region: Option<String>,
+        pub smtp_from_name: Option<String>,
         pub remark: Option<String>,
         /// enum(OFF,ON) default ON.
         pub status: Option<String>,
