@@ -111,6 +111,7 @@ impl MigratorTrait for Migrator {
             Box::new(print_template),
             Box::new(ai),
             Box::new(AiChunkVectorColumn),
+            Box::new(AiSearchIndexTable),
         ]
     }
 }
@@ -274,6 +275,42 @@ impl MigrationTrait for AiChunkVectorColumn {
         let _ = conn
             .execute_unprepared(
                 "ALTER TABLE sys_ai_chunks ADD COLUMN IF NOT EXISTS embedding vector(1536)",
+            )
+            .await;
+        Ok(())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// 菜单语义搜索索引表（与上游 buildSearchIndexSQL 同构；embedding 定维
+/// 1536——混维向量会让 <=> 在查询期整体报错，定维把失败提前到写入期）。
+/// 建表依赖 vector 扩展（前一迁移）；扩展缺席时本迁移静默跳过——语义
+/// 检索面降级，SemanticSearch 以空索引回答。
+struct AiSearchIndexTable;
+
+impl MigrationName for AiSearchIndexTable {
+    fn name(&self) -> &str {
+        "m20251105_000010_ai_search_index"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for AiSearchIndexTable {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        let _ = manager
+            .get_connection()
+            .execute_unprepared(
+                "CREATE TABLE IF NOT EXISTS sys_ai_search_index (\
+                 id BIGSERIAL PRIMARY KEY, \
+                 created_at TIMESTAMPTZ DEFAULT NOW(), \
+                 item_type VARCHAR(20) NOT NULL DEFAULT 'menu', \
+                 item_id BIGINT NOT NULL, \
+                 title TEXT NOT NULL, \
+                 route TEXT NOT NULL DEFAULT '', \
+                 embedding vector(1536))",
             )
             .await;
         Ok(())
