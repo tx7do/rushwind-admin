@@ -20,7 +20,7 @@
 version: v2
 
 modules:
-  # 契约树：112 个 proto，字节同步快照（api/MANIFEST.sha256 门）。
+  # 契约树：149 个 proto，字节同步快照（api/MANIFEST.sha256 门）。
   - path: protos
     lint:
       use:

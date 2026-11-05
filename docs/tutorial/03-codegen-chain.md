@@ -1,6 +1,6 @@
 # 03 · 契约与生成链路
 
-> 前置：[02 从零跑起来](./02-get-it-running.md)。读完你会知道：proto 如何变成 211 条路由、441 条错误映射和 206 个服务方法；哪些代码永远不该手改。
+> 前置：[02 从零跑起来](./02-get-it-running.md)。读完你会知道：proto 如何变成 284 条路由、546 条错误映射和 556 个服务方法；哪些代码永远不该手改。
 
 ## 1. 契约树的维护方式：同步 + 校验门
 
@@ -25,9 +25,9 @@ backend/api/protos（+ buf 依赖的注解模块）
         │
         ├─ buf build → 全量闭包注解镜像（含 google.api.http / 错误码等自定义选项字节）
         │     └─ rushwind-gen-http（框架仓的生成器）解析描述符，确定性生成：
-        │          · ROUTES 路由表（211 条，含 additional_bindings）
-        │          · 错误状态表（441 条 reason → HTTP 状态）
-        │          · 服务 trait（206 个方法，XxxServiceHandlers）
+        │          · ROUTES 路由表（284 条，含 additional_bindings）
+        │          · 错误状态表（546 条 reason → HTTP 状态）
+        │          · 服务 trait（556 个方法，XxxServiceHandlers）
         │          · mounts 挂载胶水（每服务一个，pub/gate 双路由线程）
         │          · 逐路由绑定计划（body/query/path 变量怎么解）
         │
@@ -53,7 +53,7 @@ backend/api/protos（+ buf 依赖的注解模块）
 
 ## 4. 差分回归台架：契约面的验收
 
-`backend/testbed` 通过 compose 拉起中间件与 **Go / Rust 双栈后端**，`admin-diff` 对 211 条路由 + 93 条 HEAD 自动 sweep 并**逐字节比对**响应，豁免显式登记于 `exemptions.json`（当前 4 类：路由遮蔽、鉴权后路径绑定、HEAD-on-GET、sweep 分类的形态差异）。
+`backend/testbed` 通过 compose 拉起中间件与 **Go / Rust 双栈后端**，`admin-diff` 对 284 条路由 + 93 条 HEAD 自动 sweep 并**逐字节比对**响应，豁免显式登记于 `exemptions.json`（当前 4 类：路由遮蔽、鉴权后路径绑定、HEAD-on-GET、sweep 分类的形态差异）。
 
 使用方式与"探针方法学陷阱"（代理污染、Content-Type 注入等，复跑前必读）见 [backend/testbed/README.md](../../backend/testbed/README.md)。
 

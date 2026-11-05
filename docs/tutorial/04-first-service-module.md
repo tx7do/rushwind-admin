@@ -9,7 +9,7 @@
 同步后 `backend/api/protos/<模块>/` 里出现该服务的 proto；`cargo build` 时生成链自动产出（见[第 3 章](./03-codegen-chain.md)）：
 
 - 类型：`proto::proto::dict::service::v1::{Language, ListLanguageResponse, ...}`
-- trait：`proto::gen::services::LanguageServiceHandlers`（206 个方法之一）
+- trait：`proto::gen::services::LanguageServiceHandlers`（556 个方法之一）
 - 挂载：`proto::gen::mounts::mount_language_service`
 
 此刻服务还不可用：trait 没有实现、挂载没有被调用。漏实现/漏挂载会在守卫测试与台架 sweep 里现形。

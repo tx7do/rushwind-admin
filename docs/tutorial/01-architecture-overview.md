@@ -24,7 +24,7 @@ rushwind-admin/
 两个要点：
 
 - **`backend/crates/` 与 `backend/services/` 的分工**：crates 放"每个微服务都能共用"的库（目前是契约 crate 和鉴权门），每个微服务一个 `services/<name>` crate（目前是 admin-api）；数据层（实体、仓储、租户范围）属于服务自身，放在服务 crate 的 `src/data/` 里，不抽公共 crate。
-- **proto 是唯一 API 契约**：211 条 REST 路由全部由 proto 的 `google.api.http` 注解在构建期生成，仓库里没有一条手写路由。契约树的维护方式见[第 3 章](./03-codegen-chain.md)。
+- **proto 是唯一 API 契约**：284 条 REST 路由全部由 proto 的 `google.api.http` 注解在构建期生成，仓库里没有一条手写路由。契约树的维护方式见[第 3 章](./03-codegen-chain.md)。
 
 前端说明：本仓随仓携带三套前端同步快照（`frontend/admin/{react,vue-element,vue-vben}`），生成的 TypeScript 客户端三份字节相同。三套前端功能同构、技术栈各异（React 19 + Ant Design V6 / Vue3 + Element Plus / Vben Admin 5.x）、共用同一套后端契约——**它们是给不同技术栈团队的三个并列选项，不是"同时要三套"的一套交付**。
 
@@ -44,7 +44,7 @@ RushWind 装配层（rushwind-bootstrap，由 services/admin-api/assets/server.y
   │  edge：gorilla 兼容的 CORS 层 + 10s 请求预算
   ▼
 REST transport（axum，:7788）
-  │  1. 路由匹配：构建期从注解描述符生成的路由表（211 条）
+  │  1. 路由匹配：构建期从注解描述符生成的路由表（284 条）
   │  2. 绑定层（逐路由最外层）：body 走 protojson（Content-Type 查表）、
   │     query 走 form 编解码——绑定失败在这里就返回 400，先于任何鉴权
   │  3. 鉴权门（仅门控路由）：JWT RS256 验签 + Redis 会话检查 → 租户检查
@@ -80,7 +80,7 @@ SeaORM → PostgreSQL
 
 | 通道 | 端口 | 用途 |
 |---|---|---|
-| REST | :7788 | 全部管理面路由（211 条） |
+| REST | :7788 | 全部管理面路由（284 条） |
 | SSE | :7789 `/events` | 服务端推送（站内信、通知）；流按 userId 归属校验，连接独立鉴权 |
 | 任务队列 worker | —（无监听端口） | 消费 Postgres 队列（rushwind-apalis-postgres）：广播扇出、审计归档、定时备份等异步任务 |
 | cron 生产者 | —（无监听端口） | 周期投递任务：租户到期扫描（每小时）、审计归档（03:30）、sys_tasks 表驱动的用户任务 |
