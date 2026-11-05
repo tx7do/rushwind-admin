@@ -35,9 +35,7 @@ frontend/admin/react/.vite/
 # Python bytecache (favicon generator diagnostics)
 __pycache__/
 
-# Agent workspace: ignore everything under any .zcode/ (session plans, run
-# journals — per-run scratch, never committable) except the project skills,
-# which are documentation and track like upstream's own carve-out; the **
-# prefix makes both rules cover .zcode/ at any depth (e.g. frontend/admin/.zcode/)
+# Agent workspace: everything under any .zcode/ is per-run scratch (session
+# plans, journals) and never committable; the ** prefix makes the rule cover
+# .zcode/ at any depth (e.g. frontend/admin/.zcode/)
 **/.zcode/*
-!**/.zcode/skills/
