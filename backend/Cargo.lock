@@ -3221,7 +3221,6 @@ dependencies = [
 [[package]]
 name = "rushwind-gen-http"
 version = "0.1.0"
-source = "git+https://github.com/tx7do/rushwind?rev=e33b2c53ad986db317324bcbd6f9f6c580a21be4#e33b2c53ad986db317324bcbd6f9f6c580a21be4"
 dependencies = [
  "heck 0.5.0",
  "prost-reflect",

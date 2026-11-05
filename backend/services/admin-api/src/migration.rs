@@ -185,10 +185,33 @@ impl MigrationTrait for ChannelSettingsSmsColumns {
 }
 
 /// Applies pending migrations. Called before seeding on startup.
+/// 逐步应用（每次一个迁移）：失败时日志带出"上一个成功的迁移名"，不然
+/// PG 只报一句事务内行号的 Query Error，定位不到是哪个迁移的哪条 DDL。
 pub async fn run(db: &sea_orm::DatabaseConnection) -> Result<(), String> {
-    Migrator::up(db, None)
-        .await
-        .map_err(|e| format!("schema migrate: {e}"))
+    let total = <Migrator as MigratorTrait>::migrations().len() as u32;
+    let mut last_applied = String::from("<start>");
+    for _ in 0..=total {
+        let applied = <Migrator as MigratorTrait>::get_applied_migrations(db)
+            .await
+            .map_err(|e| format!("schema migrate list: {e}"))?;
+        if applied.len() as u32 >= total {
+            return Ok(());
+        }
+        Migrator::up(db, Some(1))
+            .await
+            .map_err(|e| {
+                eprintln!("[migrate] failed right after {last_applied}");
+                format!("schema migrate: {e}")
+            })?;
+        let applied = <Migrator as MigratorTrait>::get_applied_migrations(db)
+            .await
+            .map_err(|e| format!("schema migrate list: {e}"))?;
+        if let Some(latest) = applied.iter().map(|m| m.name().to_string()).max() {
+            eprintln!("[migrate] applied {latest}");
+            last_applied = latest;
+        }
+    }
+    Ok(())
 }
 
 /// ce8ab49 vintage 的角色权限继承给 sys_roles 补的父角色列（NULL = 根角色）。
@@ -264,20 +287,27 @@ impl MigrationName for AiChunkVectorColumn {
 impl MigrationTrait for AiChunkVectorColumn {
     async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
         let conn = manager.get_connection();
-        // 扩展失败 → 列补建必然失败 → 全部吞掉：RAG 降级，服务照常。
-        if conn
-            .execute_unprepared("CREATE EXTENSION IF NOT EXISTS vector")
+        // 迁移跑在事务里：PG 事务内任一语句报错即 abort 整个事务且无法吞掉
+        // 继续——"CREATE EXTENSION 失败后照常补列"在这个执行模型下不成立。
+        // 因此扩展缺席（无超级用户）时整体安静跳过：RAG 降级，迁移链与
+        // 服务照常；扩展在场时两条 DDL 幂等补建。
+        let has_vector = conn
+            .query_one_raw(sea_orm::Statement::from_string(
+                manager.get_database_backend(),
+                "SELECT 1 FROM pg_extension WHERE extname = 'vector'",
+            ))
             .await
-            .is_err()
-        {
+            .map(|r| r.is_some())
+            .unwrap_or(false);
+        eprintln!("[migrate] pg_extension vector present = {has_vector}");
+        if !has_vector {
             return Ok(());
         }
-        let _ = conn
-            .execute_unprepared(
-                "ALTER TABLE sys_ai_chunks ADD COLUMN IF NOT EXISTS embedding vector(1536)",
-            )
-            .await;
-        Ok(())
+        conn.execute_unprepared(
+            "ALTER TABLE sys_ai_chunks ADD COLUMN IF NOT EXISTS embedding vector(1536)",
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
@@ -300,7 +330,21 @@ impl MigrationName for AiSearchIndexTable {
 #[async_trait::async_trait]
 impl MigrationTrait for AiSearchIndexTable {
     async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
-        let _ = manager
+        // 同上：vector 类型缺席（扩展未装）时建表必报错且事务不可续——
+        // 整体跳过，语义检索面降级为空索引。
+        let has_vector = manager
+            .get_connection()
+            .query_one_raw(sea_orm::Statement::from_string(
+                manager.get_database_backend(),
+                "SELECT 1 FROM pg_extension WHERE extname = 'vector'",
+            ))
+            .await
+            .map(|r| r.is_some())
+            .unwrap_or(false);
+        if !has_vector {
+            return Ok(());
+        }
+        manager
             .get_connection()
             .execute_unprepared(
                 "CREATE TABLE IF NOT EXISTS sys_ai_search_index (\
@@ -312,8 +356,8 @@ impl MigrationTrait for AiSearchIndexTable {
                  route TEXT NOT NULL DEFAULT '', \
                  embedding vector(1536))",
             )
-            .await;
-        Ok(())
+            .await
+            .map(|_| ())
     }
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {

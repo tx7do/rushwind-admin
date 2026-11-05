@@ -76,3 +76,7 @@ lto = "thin"
 [profile.dev]
 debug = "line-tables-only"
 
+# 走查期临时补丁：gen-http 的 AIP-136 verb-on-resource 修复（b30e4bc）在
+# 本地框架仓、未推送（本机无凭据）。push 后撤掉此段、bump rev 钉子。
+[patch."https://github.com/tx7do/rushwind"]
+rushwind-gen-http = { path = "/home/yanglinbo/Github/rushwind/crates/rushwind-gen-http" }
