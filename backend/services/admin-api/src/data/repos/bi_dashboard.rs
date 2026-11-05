@@ -1,0 +1,35 @@
+//! BiDashboardRepo — tenant-scoped dashboard/screen/template rows;
+//! code is unique per tenant, version is the optimistic-lock handle.
+
+use sea_orm::ColumnTrait;
+use sea_orm::Condition;
+use sea_orm::DatabaseConnection;
+use sea_orm::EntityTrait;
+use sea_orm::QueryFilter;
+
+use crate::data::bi_dashboards as entity;
+use crate::data::Viewer;
+use crate::state::{db_err, StatusError};
+
+repo_shell!(tenant BiDashboardRepo, entity);
+
+impl<'a> BiDashboardRepo<'a> {
+    /// The scoped row lookup — tenant viewers see own-tenant rows only,
+    /// platform/system viewers any named row.
+    pub async fn find_scoped(&self, id: u32) -> Result<Option<entity::Model>, StatusError> {
+        let mut query = entity::Entity::find_by_id(id);
+        if let Some(tid) = self.viewer.tenant_scope() {
+            query = query.filter(entity::Column::TenantId.eq(tid));
+        }
+        query.one(self.db).await.map_err(db_err)
+    }
+
+    /// Code uniqueness within the tenant (business-side lookup anchor).
+    pub async fn find_by_code(&self, code: &str) -> Result<Option<entity::Model>, StatusError> {
+        let mut query = entity::Entity::find().filter(entity::Column::Code.eq(code));
+        if let Some(tid) = self.viewer.tenant_scope() {
+            query = query.filter(entity::Column::TenantId.eq(tid));
+        }
+        query.one(self.db).await.map_err(db_err)
+    }
+}

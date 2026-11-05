@@ -79,6 +79,10 @@ impl MigratorTrait for Migrator {
             EntityTables::new("m20251105_000003_monitor_alert", DatabaseBackend::Postgres)
                 .table::<data::sys_monitor_alert_rules::Entity>()
                 .build();
+        let bi_dashboard =
+            EntityTables::new("m20251105_000006_bi_dashboard", DatabaseBackend::Postgres)
+                .table::<data::bi_dashboards::Entity>()
+                .build();
         vec![
             Box::new(init),
             Box::new(notification),
@@ -88,6 +92,7 @@ impl MigratorTrait for Migrator {
             Box::new(monitor_alert),
             Box::new(RoleParentColumn),
             Box::new(UserLocaleColumn),
+            Box::new(bi_dashboard),
         ]
     }
 }

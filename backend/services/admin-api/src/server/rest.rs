@@ -29,17 +29,17 @@ use axum::routing::MethodRouter;
 
 use crate::services::{
     AccessKeyService, AdminPortalService, ApiAuditLogService, ApiService, AuthenticationService,
-    ConfigService, DashboardService, DataAccessAuditLogService, DictEntryService, DictTypeService,
-    FileService, FileTransferService, InternalMessageCategoryService,
-    InternalMessageRecipientService, InternalMessageService, LanguageService, LoginAuditLogService,
-    LoginPolicyService, MenuService, MfaService, MonitorAlertService, MyTenantUsageService,
-    NotificationChannelService, NotificationDeliveryService, NotificationPreferenceService,
-    NotificationRuleService, NotificationTemplateService, OnlineSessionService,
-    OperationAuditLogService, OrgUnitService, PermissionAuditLogService, PermissionGroupService,
-    PermissionService, PlanModuleService, PlanQuotaService, PlanService,
-    PolicyEvaluationLogService, PositionService, RedisCacheMonitorService, RoleService,
-    ScriptLogService, ScriptService, ServerMonitorService, TaskMonitorService, TaskService,
-    TenantService, UserProfileService, UserService,
+    BiDashboardService, ConfigService, DashboardService, DataAccessAuditLogService,
+    DictEntryService, DictTypeService, FileService, FileTransferService,
+    InternalMessageCategoryService, InternalMessageRecipientService, InternalMessageService,
+    LanguageService, LoginAuditLogService, LoginPolicyService, MenuService, MfaService,
+    MonitorAlertService, MyTenantUsageService, NotificationChannelService,
+    NotificationDeliveryService, NotificationPreferenceService, NotificationRuleService,
+    NotificationTemplateService, OnlineSessionService, OperationAuditLogService, OrgUnitService,
+    PermissionAuditLogService, PermissionGroupService, PermissionService, PlanModuleService,
+    PlanQuotaService, PlanService, PolicyEvaluationLogService, PositionService,
+    RedisCacheMonitorService, RoleService, ScriptLogService, ScriptService, ServerMonitorService,
+    TaskMonitorService, TaskService, TenantService, UserProfileService, UserService,
 };
 use crate::state::AppState;
 use auth::auth_gate;
@@ -158,6 +158,7 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
         (mount_api_audit_log_service, ApiAuditLogService),
         (mount_api_service, ApiService),
         (mount_authentication_service, AuthenticationService),
+        (mount_bi_dashboard_service, BiDashboardService),
         (mount_config_service, ConfigService),
         (mount_dashboard_service, DashboardService),
         (

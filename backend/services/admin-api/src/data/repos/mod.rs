@@ -151,6 +151,7 @@ macro_rules! repo_shell {
 mod access_key;
 mod api;
 mod audit;
+mod bi_dashboard;
 mod config;
 mod dict_entry;
 mod dict_type;
@@ -184,6 +185,7 @@ mod user;
 pub use access_key::AccessKeyRepo;
 pub use api::ApiRepo;
 pub use audit::AuditRepo;
+pub use bi_dashboard::BiDashboardRepo;
 pub use config::ConfigRepo;
 pub use dict_entry::DictEntryRepo;
 pub use dict_type::DictTypeRepo;

@@ -30,7 +30,46 @@ pub async fn run(state: &Arc<AppState>) -> Result<(), String> {
     seed_permissions(state).await?;
     seed_menus(state).await?;
     seed_notification_rules(state).await?;
+    seed_bi_dashboards(state).await?;
     seed_admin_user(state).await?;
+    Ok(())
+}
+
+/// 内置 BI 模板（基线仪表盘版式）：按编码缺一补一、不覆盖既有行
+/// （与上游 SeedDefaults 同语义）。平台租户（0）下挂，复制派生成租户自有资产。
+async fn seed_bi_dashboards(state: &Arc<AppState>) -> Result<(), String> {
+    use crate::data::bi_dashboards as dash;
+    const CODE: &str = "builtin.bi.basic";
+    if dash::Entity::find()
+        .filter(dash::Column::Code.eq(CODE))
+        .one(&state.db)
+        .await
+        .map_err(|e| e.to_string())?
+        .is_some()
+    {
+        return Ok(());
+    }
+    insert_seed!(
+        &state.db,
+        dash::ActiveModel {
+            tenant_id: Set(Some(0)),
+            name: Set("基础仪表盘模板".into()),
+            code: Set(CODE.into()),
+            kind: Set(Some("TEMPLATE".into())),
+            remark: Set(Some("内置基线：一张柱状图，复制后换成自己的数据集即可".into())),
+            payload: Set(Some(
+                r#"{"schemaVersion":2,"name":"builtin.bi.basic","grid":{"columns":12,"rowHeight":80,"gap":8},"datasets":[{"id":"ds_sales","name":"月度销售额","type":"static","rows":[{"month":"1月","sales":120},{"month":"2月","sales":180},{"month":"3月","sales":150}]}],"charts":[{"id":"c_bar","title":"月度销售额","datasetId":"ds_sales","type":"bar","x":0,"y":0,"w":6,"h":4,"encoding":{"dimension":"month","measure":"sales"},"aggregation":"sum"}]}"#.into()
+            )),
+            chart_count: Set(Some(1)),
+            is_built_in: Set(Some(true)),
+            is_enabled: Set(Some(true)),
+            sort_order: Set(Some(1)),
+            version: Set(Some(1)),
+            created_at: Set(Some(crate::data::now())),
+            updated_at: Set(Some(crate::data::now())),
+            ..Default::default()
+        }
+    );
     Ok(())
 }
 
