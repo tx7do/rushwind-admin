@@ -483,27 +483,7 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
         _ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetTenantUsageRequest,
     ) -> Result<TenantUsage, StatusError> {
-        let repo = crate::data::repos::TenantRepo::new(&self.state.db);
-        let user_count = repo.user_count(req.id).await;
-        let tenant = repo.find_by_id(req.id).await?;
-        let plan_name = match tenant.as_ref().and_then(|t| t.plan_id) {
-            Some(pid) => crate::data::sys_plans::Entity::find_by_id(pid)
-                .one(&self.state.db)
-                .await
-                .ok()
-                .flatten()
-                .map(|p| p.name),
-            None => None,
-        };
-        Ok(TenantUsage {
-            tenant_id: req.id,
-            user_count,
-            storage_used_bytes: 0,
-            api_call_count: 0,
-            plan_id: tenant.and_then(|t| t.plan_id),
-            plan_name,
-            quotas: Vec::new(),
-        })
+        usage_for(&self.state, req.id).await
     }
 
     async fn cleanup_data(
@@ -523,4 +503,34 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
         }
         Ok(Empty {})
     }
+}
+
+/// 用量与配额计算：平台管理员按租户查（TenantService.GetUsage）与租户
+/// 自助查（MyTenantUsageService.GetMyTenantUsage）共享同一内核。
+/// 存储用量/API 调用计数与配额行随各自的计费面里程碑接入，现读零值。
+pub(crate) async fn usage_for(
+    state: &Arc<AppState>,
+    tenant_id: u32,
+) -> Result<TenantUsage, StatusError> {
+    let repo = crate::data::repos::TenantRepo::new(&state.db);
+    let user_count = repo.user_count(tenant_id).await;
+    let tenant = repo.find_by_id(tenant_id).await?;
+    let plan_name = match tenant.as_ref().and_then(|t| t.plan_id) {
+        Some(pid) => crate::data::sys_plans::Entity::find_by_id(pid)
+            .one(&state.db)
+            .await
+            .ok()
+            .flatten()
+            .map(|p| p.name),
+        None => None,
+    };
+    Ok(TenantUsage {
+        tenant_id,
+        user_count,
+        storage_used_bytes: 0,
+        api_call_count: 0,
+        plan_id: tenant.and_then(|t| t.plan_id),
+        plan_name,
+        quotas: Vec::new(),
+    })
 }
