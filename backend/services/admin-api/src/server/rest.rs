@@ -33,12 +33,12 @@ use crate::services::{
     FileService, FileTransferService, InternalMessageCategoryService,
     InternalMessageRecipientService, InternalMessageService, LanguageService, LoginAuditLogService,
     LoginPolicyService, MenuService, MfaService, NotificationChannelService,
-    NotificationDeliveryService, NotificationRuleService, OnlineSessionService,
-    OperationAuditLogService, OrgUnitService, PermissionAuditLogService, PermissionGroupService,
-    PermissionService, PlanModuleService, PlanQuotaService, PlanService,
-    PolicyEvaluationLogService, PositionService, RedisCacheMonitorService, RoleService,
-    ScriptLogService, ScriptService, ServerMonitorService, TaskService, TenantService,
-    UserProfileService, UserService,
+    NotificationDeliveryService, NotificationPreferenceService, NotificationRuleService,
+    NotificationTemplateService, OnlineSessionService, OperationAuditLogService, OrgUnitService,
+    PermissionAuditLogService, PermissionGroupService, PermissionService, PlanModuleService,
+    PlanQuotaService, PlanService, PolicyEvaluationLogService, PositionService,
+    RedisCacheMonitorService, RoleService, ScriptLogService, ScriptService, ServerMonitorService,
+    TaskService, TenantService, UserProfileService, UserService,
 };
 use crate::state::AppState;
 use auth::auth_gate;
@@ -186,7 +186,15 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
             NotificationChannelService
         ),
         (mount_notification_service, NotificationDeliveryService),
+        (
+            mount_notification_preference_service,
+            NotificationPreferenceService
+        ),
         (mount_notification_rule_service, NotificationRuleService),
+        (
+            mount_notification_template_service,
+            NotificationTemplateService
+        ),
         (mount_online_session_service, OnlineSessionService),
         (mount_operation_audit_log_service, OperationAuditLogService),
         (mount_org_unit_service, OrgUnitService),

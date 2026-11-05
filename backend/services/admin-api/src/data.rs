@@ -22,7 +22,8 @@ pub use identity::{
 };
 pub use message::{internal_message_categories, internal_message_recipients, internal_messages};
 pub use notification::{
-    sys_notification_channels, sys_notification_deliveries, sys_notification_rules,
+    sys_notification_channels, sys_notification_deliveries, sys_notification_preferences,
+    sys_notification_rules, sys_notification_templates,
 };
 pub use ops::{sys_script_logs, sys_scripts, sys_tasks};
 pub use platform::{files, sys_access_keys, sys_configs, sys_login_policies};

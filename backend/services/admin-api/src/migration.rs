@@ -68,10 +68,18 @@ impl MigratorTrait for Migrator {
                 .table::<data::sys_notification_deliveries::Entity>()
                 .table::<data::sys_notification_rules::Entity>()
                 .build();
+        let notification_preference_template = EntityTables::new(
+            "m20251105_000001_notification_preference_template",
+            DatabaseBackend::Postgres,
+        )
+        .table::<data::sys_notification_preferences::Entity>()
+        .table::<data::sys_notification_templates::Entity>()
+        .build();
         vec![
             Box::new(init),
             Box::new(notification),
             Box::new(ChannelWebhookColumns),
+            Box::new(notification_preference_template),
         ]
     }
 }

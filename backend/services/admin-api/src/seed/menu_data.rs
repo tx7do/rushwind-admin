@@ -19,7 +19,7 @@ pub(super) struct MenuSeedRow {
 
 /// The menu tree, parent before child (the seed inserts in array order).
 #[allow(clippy::all)]
-pub(super) const ROWS: [MenuSeedRow; 34] = [
+pub(super) const ROWS: [MenuSeedRow; 35] = [
     MenuSeedRow {
         id: 1,
         parent: 0,
@@ -129,6 +129,17 @@ pub(super) const ROWS: [MenuSeedRow; 34] = [
         module: "SYSTEM",
         title: "投递台账",
         order: 3,
+    },
+    MenuSeedRow {
+        id: 75,
+        parent: 74,
+        menu_type: "MENU",
+        path: "/notification/templates",
+        name: "notification-templates",
+        component: "notification/template/index",
+        module: "SYSTEM",
+        title: "通知模板",
+        order: 4,
     },
     MenuSeedRow {
         id: 10,
