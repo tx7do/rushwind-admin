@@ -110,6 +110,7 @@ impl MigratorTrait for Migrator {
             Box::new(bi_dashboard),
             Box::new(print_template),
             Box::new(ai),
+            Box::new(AiChunkVectorColumn),
         ]
     }
 }
@@ -237,6 +238,45 @@ impl MigrationTrait for UserLocaleColumn {
             )
             .await
             .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// RAG 向量列启动补建（幂等）：`CREATE EXTENSION IF NOT EXISTS vector` +
+/// `sys_ai_chunks.embedding vector(1536)` 定维列。扩展需要超级用户；任一步
+/// 失败**不阻断迁移链**（RAG 功能降级，其余不受影响）——与上游
+/// MigrateVectorColumn 的"失败只记日志"语义一致。历史非定维/异维度列的
+/// 整列重建（向量清空 + 重索引）超出本迁移面：embedding 模型换维时手工
+/// DROP 该列后重启即可再次补建。
+struct AiChunkVectorColumn;
+
+impl MigrationName for AiChunkVectorColumn {
+    fn name(&self) -> &str {
+        "m20251105_000009_ai_chunk_vector"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for AiChunkVectorColumn {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        let conn = manager.get_connection();
+        // 扩展失败 → 列补建必然失败 → 全部吞掉：RAG 降级，服务照常。
+        if conn
+            .execute_unprepared("CREATE EXTENSION IF NOT EXISTS vector")
+            .await
+            .is_err()
+        {
+            return Ok(());
+        }
+        let _ = conn
+            .execute_unprepared(
+                "ALTER TABLE sys_ai_chunks ADD COLUMN IF NOT EXISTS embedding vector(1536)",
+            )
+            .await;
+        Ok(())
     }
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {

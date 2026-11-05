@@ -28,13 +28,13 @@ use std::sync::Arc;
 use axum::routing::MethodRouter;
 
 use crate::services::{
-    AccessKeyService, AdminPortalService, AiChatService, AiConversationService, AiMessageService,
-    AiProviderService, AiUsageLogService, ApiAuditLogService, ApiService, AuthenticationService,
-    BiDashboardService, ConfigService, DashboardService, DataAccessAuditLogService,
-    DictEntryService, DictTypeService, FileService, FileTransferService,
-    InternalMessageCategoryService, InternalMessageRecipientService, InternalMessageService,
-    LanguageService, LoginAuditLogService, LoginPolicyService, MenuService, MfaService,
-    MonitorAlertService, MyTenantUsageService, NotificationChannelService,
+    AccessKeyService, AdminPortalService, AiAgentService, AiChatService, AiConversationService,
+    AiKnowledgeBaseService, AiMessageService, AiProviderService, AiUsageLogService,
+    ApiAuditLogService, ApiService, AuthenticationService, BiDashboardService, ConfigService,
+    DashboardService, DataAccessAuditLogService, DictEntryService, DictTypeService, FileService,
+    FileTransferService, InternalMessageCategoryService, InternalMessageRecipientService,
+    InternalMessageService, LanguageService, LoginAuditLogService, LoginPolicyService, MenuService,
+    MfaService, MonitorAlertService, MyTenantUsageService, NotificationChannelService,
     NotificationDeliveryService, NotificationPreferenceService, NotificationRuleService,
     NotificationTemplateService, OnlineSessionService, OperationAuditLogService, OrgUnitService,
     PermissionAuditLogService, PermissionGroupService, PermissionService, PlanModuleService,
@@ -156,7 +156,9 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
     // classifies each of its route bindings.
     mount_services!(
         (mount_access_key_service, AccessKeyService),
+        (mount_ai_agent_service, AiAgentService),
         (mount_ai_chat_service, AiChatService),
+        (mount_ai_knowledge_base_service, AiKnowledgeBaseService),
         (mount_ai_conversation_service, AiConversationService),
         (mount_ai_message_service, AiMessageService),
         (mount_ai_provider_service, AiProviderService),
