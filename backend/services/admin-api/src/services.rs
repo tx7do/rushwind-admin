@@ -3,6 +3,7 @@
 
 mod access_key;
 mod admin_portal;
+mod ai_chat;
 mod ai_conversation;
 mod ai_message;
 mod ai_provider;
@@ -22,6 +23,7 @@ mod internal_message;
 mod internal_message_category;
 mod internal_message_recipient;
 mod language;
+mod llm;
 mod login_audit_log;
 mod login_policy;
 mod menu;
@@ -55,6 +57,7 @@ mod user_profile;
 
 pub use access_key::AccessKeyService;
 pub use admin_portal::AdminPortalService;
+pub use ai_chat::AiChatService;
 pub use ai_conversation::AiConversationService;
 pub use ai_message::AiMessageService;
 pub use ai_provider::AiProviderService;
