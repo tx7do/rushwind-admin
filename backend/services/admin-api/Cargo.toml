@@ -13,24 +13,24 @@ workspace = true
 [dependencies]
 proto = { path = "../../crates/proto" }
 auth = { path = "../../crates/auth" }
-rushwind-authn = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-authn-jwt = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-bootstrap = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-http-binding = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-storage-seaorm-support = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-oss-local = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-transport-sse = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-oss = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-oss-s3 = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
+rushwind-authn = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-authn-jwt = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-bootstrap = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-http-binding = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-storage-seaorm-support = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-oss-local = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-transport-sse = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-oss = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-oss-s3 = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
 rushwind-transport-cron = { workspace = true }
-rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
+rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
 apalis-core = { workspace = true }
-rushwind-transport = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
-rushwind-transport-axum = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
+rushwind-transport = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
+rushwind-transport-axum = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query", "json", "matched-path"] }
 tokio = { workspace = true }
 sea-orm = { workspace = true }
-rushwind-storage-seaorm-migration = { git = "https://github.com/tx7do/rushwind", rev = "eaa813e1c26819251060a0ac7af0b75fe871bcea" }
+rushwind-storage-seaorm-migration = { git = "https://github.com/tx7do/rushwind", rev = "e33b2c53ad986db317324bcbd6f9f6c580a21be4" }
 redis = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
