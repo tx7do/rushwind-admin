@@ -38,7 +38,7 @@ use crate::services::{
     PermissionAuditLogService, PermissionGroupService, PermissionService, PlanModuleService,
     PlanQuotaService, PlanService, PolicyEvaluationLogService, PositionService,
     RedisCacheMonitorService, RoleService, ScriptLogService, ScriptService, ServerMonitorService,
-    TaskService, TenantService, UserProfileService, UserService,
+    TaskMonitorService, TaskService, TenantService, UserProfileService, UserService,
 };
 use crate::state::AppState;
 use auth::auth_gate;
@@ -218,6 +218,7 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
         (mount_script_log_service, ScriptLogService),
         (mount_script_service, ScriptService),
         (mount_server_monitor_service, ServerMonitorService),
+        (mount_task_monitor_service, TaskMonitorService),
         (mount_task_service, TaskService),
         (mount_tenant_service, TenantService),
         (mount_user_profile_service, UserProfileService),

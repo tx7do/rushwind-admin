@@ -228,6 +228,16 @@ pub fn worker_factory(
 
 /// Builds the cron producer registrations: the static system crons and
 /// the DB-driven PERIODIC wildcard, keyed by their registered names.
+/// The full schedule registry (static crons + the DB-driven wildcard),
+/// exposed read-only for the task-monitor inspect surface.
+pub fn schedule_registry() -> Vec<(&'static str, &'static str)> {
+    vec![
+        ("tenant_expiry_scan", "0 * * * *"),
+        ("audit_log_archive", "30 3 * * *"),
+        ("sys_tasks_periodic", "* * * * *"),
+    ]
+}
+
 pub fn cron_jobs(
     state: Arc<AppState>,
     queue: Arc<TaskQueue>,
