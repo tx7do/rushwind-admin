@@ -75,12 +75,17 @@ impl MigratorTrait for Migrator {
         .table::<data::sys_notification_preferences::Entity>()
         .table::<data::sys_notification_templates::Entity>()
         .build();
+        let monitor_alert =
+            EntityTables::new("m20251105_000003_monitor_alert", DatabaseBackend::Postgres)
+                .table::<data::sys_monitor_alert_rules::Entity>()
+                .build();
         vec![
             Box::new(init),
             Box::new(notification),
             Box::new(ChannelWebhookColumns),
             Box::new(notification_preference_template),
             Box::new(ChannelSettingsSmsColumns),
+            Box::new(monitor_alert),
         ]
     }
 }

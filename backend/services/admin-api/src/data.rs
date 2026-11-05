@@ -5,6 +5,7 @@ mod audit;
 mod dict;
 mod identity;
 mod message;
+mod monitor;
 mod notification;
 mod ops;
 mod platform;
@@ -21,6 +22,7 @@ pub use identity::{
     sys_user_credentials, sys_user_mfa_factors, sys_user_roles, sys_users,
 };
 pub use message::{internal_message_categories, internal_message_recipients, internal_messages};
+pub use monitor::sys_monitor_alert_rules;
 pub use notification::{
     sys_notification_channels, sys_notification_deliveries, sys_notification_preferences,
     sys_notification_rules, sys_notification_templates,

@@ -257,6 +257,19 @@ enum_map!(notification_sms_provider_of + notification_sms_provider_str {
     "TENCENT" => 1,
 });
 
+enum_map!(monitor_metric_of + monitor_metric_str {
+    "GO_GOROUTINES" => 1,
+    "GO_MEM_ALLOC_MB" => 2,
+    "DB_OPEN_CONNECTIONS" => 3,
+    "DB_PING_FAIL" => 4,
+    "REDIS_DB_SIZE" => 5,
+});
+
+enum_map!(monitor_alert_op_of + monitor_alert_op_str {
+    "GE" => 1,
+    "LE" => 2,
+});
+
 // --- task / script ------------------------------------------------------
 
 enum_map!(task_type_of {
@@ -450,6 +463,17 @@ mod tests {
                 "notification_sms_provider",
                 vec![("ALIYUN", 0), ("TENCENT", 1)],
             ),
+            (
+                "monitor_metric",
+                vec![
+                    ("GO_GOROUTINES", 1),
+                    ("GO_MEM_ALLOC_MB", 2),
+                    ("DB_OPEN_CONNECTIONS", 3),
+                    ("DB_PING_FAIL", 4),
+                    ("REDIS_DB_SIZE", 5),
+                ],
+            ),
+            ("monitor_alert_op", vec![("GE", 1), ("LE", 2)]),
         ];
 
         for (table, pairs) in both_way {
@@ -481,6 +505,8 @@ mod tests {
             "notification_smtp_tls" => notification_smtp_tls_of(lit),
             "notification_sign_style" => notification_sign_style_of(lit),
             "notification_sms_provider" => notification_sms_provider_of(lit),
+            "monitor_metric" => monitor_metric_of(lit),
+            "monitor_alert_op" => monitor_alert_op_of(lit),
             _ => unreachable!("unlisted both-way table {table}"),
         }
     }
@@ -503,6 +529,8 @@ mod tests {
             "notification_smtp_tls" => notification_smtp_tls_str(num),
             "notification_sign_style" => notification_sign_style_str(num),
             "notification_sms_provider" => notification_sms_provider_str(num),
+            "monitor_metric" => monitor_metric_str(num),
+            "monitor_alert_op" => monitor_alert_op_str(num),
             _ => unreachable!("unlisted both-way table {table}"),
         }
     }
