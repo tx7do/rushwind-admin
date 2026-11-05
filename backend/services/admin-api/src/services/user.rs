@@ -166,6 +166,9 @@ impl UserService {
         if let Some(v) = &data.region {
             a.region = Set(Some(v.clone()));
         }
+        if let Some(v) = &data.locale {
+            a.locale = Set(Some(v.clone()));
+        }
         if let Some(v) = &data.description {
             a.description = Set(Some(v.clone()));
         }
@@ -471,8 +474,7 @@ pub(crate) fn user_to_proto(user: crate::data::sys_users::Model, role_codes: Vec
             .map(|g| mapping::user_gender_of(g).unwrap_or(0)),
         address: user.address,
         region: user.region,
-        // The per-user locale column rides the user increment; rows read unset.
-        locale: None,
+        locale: user.locale,
         description: user.description,
         last_login_at: user.last_login_at.and_then(crate::state::naive_to_ts),
         last_login_ip: user.last_login_ip,

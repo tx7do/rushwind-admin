@@ -87,6 +87,7 @@ impl MigratorTrait for Migrator {
             Box::new(ChannelSettingsSmsColumns),
             Box::new(monitor_alert),
             Box::new(RoleParentColumn),
+            Box::new(UserLocaleColumn),
         ]
     }
 }
@@ -183,6 +184,34 @@ impl MigrationTrait for RoleParentColumn {
             .execute_unprepared(
                 "ALTER TABLE sys_roles \
                  ADD COLUMN IF NOT EXISTS parent_id integer",
+            )
+            .await
+            .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// ce8ab49 vintage 给 sys_users 补的偏好语言列（事务性邮件按此渲染，
+/// 空 = 按请求 Accept-Language）。
+struct UserLocaleColumn;
+
+impl MigrationName for UserLocaleColumn {
+    fn name(&self) -> &str {
+        "m20251105_000005_user_locale"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for UserLocaleColumn {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE sys_users \
+                 ADD COLUMN IF NOT EXISTS locale varchar",
             )
             .await
             .map(|_| ())

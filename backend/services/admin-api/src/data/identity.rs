@@ -23,6 +23,9 @@ pub mod sys_users {
         pub address: Option<String>,
         #[sea_orm(default_value = "")]
         pub region: Option<String>,
+        /// 偏好语言（zh-CN/en-US，空 = 跟随请求 Accept-Language）：事务性
+        /// 邮件（找回密码/换绑验证码）按此渲染。
+        pub locale: Option<String>,
         pub description: Option<String>,
         /// enum(SECRET,MALE,FEMALE) default SECRET.
         pub gender: Option<String>,
