@@ -76,11 +76,13 @@
     }
   },
   "notice": {
-    "title": "Notifications",
+    "title": "Inbox",
     "empty": "No messages",
-    "markAllRead": "Mark All as Read",
-    "clearAll": "Clear All",
-    "viewAll": "View All Messages",
+    "markAllRead": "Mark All Read",
+    "unreadCount": "{count} unread",
+    "markAllReadSuccess": "All messages marked as read",
+    "markAllReadFailed": "Failed to mark all as read",
+    "viewAll": "Go to Inbox",
     "detail": "Notification Details"
   },
   "resetPwd": {
@@ -115,5 +117,14 @@
       "notFound": "Resource Not Found",
       "internalServerError": "Internal Server Error"
     }
+  },
+  "sso": {
+    "title": "SSO Callback",
+    "failed": "SSO login failed",
+    "backToLogin": "Back to login",
+    "redirecting": "Signing in with SSO…",
+    "missingParams": "Missing code or state parameter",
+    "button": "Sign in with SSO",
+    "or": "or"
   }
 }

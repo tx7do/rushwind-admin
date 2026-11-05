@@ -45,7 +45,6 @@ import type { ProPageConfig } from "@/components/Pro/ProPage/types";
 import AccessKeyDrawer from "./access-key-drawer.vue";
 import { useI18n } from "@/core/i18n";
 import {
-  createPagedExportAction,
   deleteAccessKey,
   fetchListAccessKeys,
   resetAccessKeySecret,
@@ -87,14 +86,12 @@ const pageConfig = computed<ProPageConfig>(() => ({
     deleteAction: async (ids: string) => {
       await deleteAccessKey(ids);
     },
-    exportsAction: createPagedExportAction(fetchListAccessKeys),
     toolbar: [],
     toolbarRight: ["add"],
-    defaultToolbar: ["refresh", "exports", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     tableAttrs: { border: true, stripe: true },
     emptyActionText: "common.button.add",
     columns: [
-      { type: "index", label: t("common.table.seq"), width: 60 },
       { prop: "name", label: t("pages.access_key.name"), minWidth: 160 },
       { prop: "accessKey", label: t("pages.access_key.accessKey"), minWidth: 220 },
       {

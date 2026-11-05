@@ -63,16 +63,18 @@ export const SourceDonutChart = ({ data }: SourceDonutChartProps) => {
       tooltip: {
         trigger: 'item',
         formatter: '{b}: {c} ({d}%)',
-        backgroundColor: 'rgba(20,20,30,0.95)',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#e2e8f0' },
+        backgroundColor: token.colorBgElevated,
+        borderColor: token.colorBorder,
+        textStyle: { color: token.colorText },
       },
       legend: {
         orient: 'horizontal',
         bottom: 0,
         data: items.map((it) => actionLabel(it.label)),
+        // 图例文字随主题取 token：原值 #94a3b8 是暗色档，浅色卡片上实测 2.56:1；
+        // 画布文字不吃 CSS 层叠，只能在这里跟 LineChart 一样显式引用 token。
         textStyle: {
-          color: '#94a3b8',
+          color: token.colorTextSecondary,
           fontSize: 12,
         },
         itemWidth: 10,

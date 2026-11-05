@@ -779,7 +779,7 @@ $chrome-radius: 7px;
     transition: all 0.2s ease;
 
     &:hover {
-      color: var(--el-color-primary);
+      color: var(--gowind-primary-text);
       background: var(--el-fill-color-light);
       transform: scale(1.05);
     }
@@ -823,7 +823,7 @@ $chrome-radius: 7px;
     color: var(--el-text-color-regular);
 
     &.is-active {
-      color: var(--el-color-primary);
+      color: var(--gowind-primary-text);
     }
 
     // 亮/暗模式通用：hover 文字提亮
@@ -836,7 +836,7 @@ $chrome-radius: 7px;
       padding: 0 16px;
 
       &.is-active {
-        color: var(--el-color-primary);
+        color: var(--gowind-primary-text);
         background-color: var(--tabs-bar-active-bg);
         font-weight: 600;
         border-bottom: 2px solid var(--el-color-primary);
@@ -857,7 +857,7 @@ $chrome-radius: 7px;
       border-radius: 8px 8px 0 0;
 
       &.is-active {
-        color: var(--el-color-primary);
+        color: var(--gowind-primary-text);
         background-color: var(--tabs-bar-active-bg);
         font-weight: 600;
         border-bottom: 2px solid var(--el-color-primary);
@@ -894,7 +894,7 @@ $chrome-radius: 7px;
       }
 
       &.is-active {
-        color: var(--el-color-primary);
+        color: var(--gowind-primary-text);
         background-color: var(--tabs-bar-active-bg);
         font-weight: 600;
 
@@ -944,7 +944,7 @@ $chrome-radius: 7px;
       }
 
       &.is-active {
-        color: var(--el-color-primary);
+        color: var(--gowind-primary-text);
       }
     }
 
@@ -1068,7 +1068,7 @@ $chrome-radius: 7px;
 
     .tabs-bar__item.is-active & {
       opacity: 1;
-      color: var(--el-color-primary);
+      color: var(--gowind-primary-text);
     }
 
     &:hover {
@@ -1080,7 +1080,7 @@ $chrome-radius: 7px;
   &__pin {
     color: var(--el-text-color-secondary);
     .tabs-bar__item.is-active & {
-      color: var(--el-color-primary);
+      color: var(--gowind-primary-text);
     }
   }
 
@@ -1108,7 +1108,7 @@ $chrome-radius: 7px;
     transition: all 0.2s ease;
 
     &:hover {
-      color: var(--el-color-primary);
+      color: var(--gowind-primary-text);
       background: var(--el-fill-color-light);
       transform: scale(1.05);
     }

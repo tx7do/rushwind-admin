@@ -22,8 +22,8 @@
   "taskOptionsProcessIn": "延迟处理时间",
   "taskOptionsProcessAt": "定时处理时间",
   "action": "操作",
-  "create": "新建任务",
-  "edit": "编辑任务",
+  "create": "创建任务",
+  "edit": "更新任务",
   "startAll": "全部启动",
   "stopAll": "全部停止",
   "restartAll": "全部重启",
@@ -54,7 +54,6 @@
   "deleteFailed": "删除失败",
   "operationFailed": "操作失败",
   "updateStatusFailed": "状态更新失败",
-  "fetchFailed": "获取数据失败",
   "requiredTypeName": "请选择类型名称",
   "requiredType": "请选择任务类型",
   "taskType": {
@@ -65,5 +64,27 @@
   "enableMap": {
     "true": "启用",
     "false": "禁用"
-  }
+  },
+  "sysTasksButton": "系统级任务",
+  "sysTasksTitle": "系统级常驻任务",
+  "sysTaskType": "任务类型",
+  "sysTaskCron": "调度计划",
+  "sysTaskNext": "下次执行",
+  "sysTaskPrev": "上次执行",
+  "sysTaskNeverRun": "从未运行",
+  "sysTaskSchedules": "调度计划",
+  "sysTaskStates": "运行状态",
+  "sysTaskFailures": "最近失败",
+  "sysTaskQueueHint": "队列 {{queue}}（只读 asynq，每 5 分钟自动评估的任务在此可见）",
+  "sysTaskActive": "执行中",
+  "sysTaskPending": "待执行",
+  "sysTaskRetry": "重试",
+  "sysTaskArchived": "已归档",
+  "sysTaskState": "状态",
+  "sysTaskLastError": "最后错误",
+  "sysTaskFailedAt": "失败时间",
+  "sysTaskRetried": "已试/上限",
+  "sysTaskNoFailures": "没有失败记录。",
+  "sysTaskLoading": "读取中…",
+  "sysTaskLoadFailed": "读取失败"
 }

@@ -1,9 +1,21 @@
 import { defineComponent, h } from "vue";
 import type { Component, FunctionalComponent } from "vue";
 import { useDateFormat } from "@vueuse/core";
-import { ElImage, ElTag, ElSwitch, ElLink, ElIcon, ElButton, ElSpace } from "element-plus";
+import {
+  ElDropdown,
+  ElDropdownItem,
+  ElDropdownMenu,
+  ElImage,
+  ElTag,
+  ElSwitch,
+  ElLink,
+  ElIcon,
+  ElButton,
+  ElSpace,
+} from "element-plus";
 import SvgIcon from "@/components/SvgIcon/index.vue";
-import { AccessControl } from "@/core/access";
+import { useAccess } from "@/core/access";
+import { $t } from "@/core/i18n";
 import type { ProTableColumn } from "./types";
 
 export interface CellRendererContext {
@@ -118,19 +130,29 @@ const ToolCell = defineComponent({
   props: ["col", "row", "field", "rowIndex"],
   emits: ["operate"],
   setup(props, { emit }) {
+    const { hasAccess } = useAccess();
     return () => {
-      const buttons = props.col.buttons ?? [];
-      const items = buttons.map((btn: any) => {
-        const codes = btn.auth ? (Array.isArray(btn.auth) ? btn.auth : [btn.auth]) : undefined;
+      const declared = props.col.buttons ?? [];
+      // 与渲染口径一致地判活：visible() + 权限码（AccessControl 的同一套 hasAccess），
+      // 只对判活后的按钮数做溢出判定，权限隐藏后不足 3 个就不出「更多」。
+      const buttons = declared.filter((btn: any) => {
         const visible = btn.visible?.(props.row) ?? true;
-        if (!visible) return null;
+        if (!visible) return false;
+        const codes = btn.auth ? (Array.isArray(btn.auth) ? btn.auth : [btn.auth]) : undefined;
+        return !codes || hasAccess(codes);
+      });
 
+      // 操作列定式：>3 个操作不堆行内，行内只留前 3 个，「更多」下拉收其余（图标+文本，与行内同款）。
+      const inline = buttons.slice(0, 3);
+      const overflow = buttons.slice(3);
+
+      const renderButton = (btn: any) => {
         // 统一为 link 文本按钮：type=primary（编辑）/ danger（删除），link 弱化视觉。
         // 图标 + 文字形式，比纯图标更直观，避免暗色下高亮图标凌乱。
         const btnType = btn.type ?? btn.attrs?.type ?? "primary";
         const label = btn.label ?? btn.name;
         const iconNode = btn.icon ? h(SvgIcon, { icon: btn.icon, size: 14 }) : null;
-        const el = h(
+        return h(
           ElButton,
           {
             link: true,
@@ -141,8 +163,47 @@ const ToolCell = defineComponent({
           },
           () => [iconNode, label]
         );
-        return h(AccessControl, { codes }, () => el);
-      });
+      };
+
+      const items = inline.map(renderButton);
+
+      if (overflow.length > 0) {
+        items.push(
+          h(
+            ElDropdown,
+            {
+              trigger: "click",
+              onCommand: (name: string) =>
+                emit("operate", { name, row: props.row, $index: props.rowIndex }),
+            },
+            {
+              // 触发器独占默认插槽（ElOnlyChild 要求恰好一个子节点），菜单走具名 #dropdown 插槽
+              default: () =>
+                h(ElButton, { link: true, type: "primary", size: "small" }, () => [
+                  $t("common.button.more"),
+                  h(SvgIcon, { icon: "lucide:chevron-down", size: 14 }),
+                ]),
+              dropdown: () =>
+                h(ElDropdownMenu, null, () =>
+                  overflow.map((btn: any) => {
+                    const label = btn.label ?? btn.name;
+                    const iconNode = btn.icon ? h(SvgIcon, { icon: btn.icon, size: 14 }) : null;
+                    const danger = (btn.type ?? btn.attrs?.type) === "danger";
+                    return h(
+                      ElDropdownItem,
+                      {
+                        command: btn.name,
+                        class: danger ? "pro-table__more-item--danger" : undefined,
+                      },
+                      () => [iconNode, label]
+                    );
+                  })
+                ),
+            }
+          )
+        );
+      }
+
       return h(ElSpace, { class: "pro-table__tool-cell" }, () => items);
     };
   },

@@ -26,6 +26,15 @@
       </el-col>
     </el-row>
 
+    <!-- AI 安全与异常洞察（行为模式挖掘，平台用户专属） -->
+    <AiInsightsCard
+      :overview="overviewQuery.data.value"
+      :trend="trendQuery.data.value"
+      :actions="actionDistQuery.data.value?.items"
+      :status-items="statusDistQuery.data.value?.items"
+      class="mb-5"
+    />
+
     <!-- Login Trend Chart -->
     <el-card shadow="hover" class="mb-5">
       <template #header>
@@ -74,6 +83,7 @@ import {
   useOperationActionDistribution,
 } from "@/api/composables/dashboard";
 import AnalyticsTrends from "./analytics-trends.vue";
+import AiInsightsCard from "./ai-insights-card.vue";
 import AnalyticsVisitsData from "./analytics-visits-data.vue";
 import AnalyticsVisitsSource from "./analytics-visits-source.vue";
 

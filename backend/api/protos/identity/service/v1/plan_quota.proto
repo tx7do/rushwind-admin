@@ -40,6 +40,7 @@ message PlanQuota {
     USER_LIMIT = 1;  // 用户上限
     STORAGE = 2;     // 存储空间
     API_CALL = 3;    // API 调用量
+    AI_TOKENS = 4;   // AI token 用量
   }
 
   optional uint32 id = 1 [

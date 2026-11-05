@@ -19,5 +19,7 @@
   "logHash": "Log Hash",
   "signature": "Signature",
   "province": "Province",
-  "city": "City"
+  "city": "City",
+  "exportServerSuccess": "Download started",
+  "exportServerFailed": "Server-side export failed"
 }

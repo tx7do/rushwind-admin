@@ -162,7 +162,7 @@ export function createAccessKeyServiceClient(
 ): AccessKeyService {
   return {
     List(request) {
-      const path = `admin/v1/access-keys`;
+      const path = `/admin/v1/access-keys`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -210,56 +210,9 @@ export function createAccessKeyServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -280,7 +233,7 @@ export function createAccessKeyServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/access-keys/${request.id}`;
+      const path = `/admin/v1/access-keys/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.accessKey) {
@@ -303,7 +256,7 @@ export function createAccessKeyServiceClient(
       }) as Promise<access_keyservicev1_AccessKey>;
     },
     Create(request) {
-      const path = `admin/v1/access-keys`;
+      const path = `/admin/v1/access-keys`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'AccessKeyService',
@@ -314,8 +267,10 @@ export function createAccessKeyServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/access-keys/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/access-keys/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'AccessKeyService',
         method: 'Update',
@@ -325,7 +280,7 @@ export function createAccessKeyServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/access-keys/${request.id}`;
+      const path = `/admin/v1/access-keys/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'AccessKeyService',
@@ -336,15 +291,17 @@ export function createAccessKeyServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/access-keys/${request.id}/secret`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/access-keys/${request.id}/secret`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'AccessKeyService',
         method: 'ResetSecret',
       }) as Promise<access_keyservicev1_CreateAccessKeyResponse>;
     },
     IssueToken(request) {
-      const path = `admin/v1/access-keys/token`;
+      const path = `/admin/v1/access-keys/token`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'AccessKeyService',
@@ -734,7 +691,7 @@ export function createAdminPortalServiceClient(
 ): AdminPortalService {
   return {
     GetNavigation(_request) {
-      const path = `admin/v1/routes`;
+      const path = `/admin/v1/routes`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'AdminPortalService',
@@ -742,7 +699,7 @@ export function createAdminPortalServiceClient(
       }) as Promise<ListRouteResponse>;
     },
     GetMyPermissionCode(_request) {
-      const path = `admin/v1/perm-codes`;
+      const path = `/admin/v1/perm-codes`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'AdminPortalService',
@@ -750,7 +707,7 @@ export function createAdminPortalServiceClient(
       }) as Promise<ListPermissionCodeResponse>;
     },
     GetInitialContext(_request) {
-      const path = `admin/v1/initial-context`;
+      const path = `/admin/v1/initial-context`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'AdminPortalService',
@@ -759,44 +716,48 @@ export function createAdminPortalServiceClient(
     },
   };
 }
-// API资源管理服务
-export interface ApiService {
-  // 查询API资源列表
+// AI Agent 编排管理服务（可视化画布）
+export interface AiAgentService {
+  // 分页查询 Agent 应用列表
   List(
     request: pagination_PagingRequest,
-  ): Promise<permissionservicev1_ListApiResponse>;
-  // 查询API资源详情
+  ): Promise<aiservicev1_ListAiAgentAppsResponse>;
+  // 查询 Agent 应用详情
   Get(
-    request: permissionservicev1_GetApiRequest,
-  ): Promise<permissionservicev1_Api>;
-  // 创建API资源
+    request: aiservicev1_GetAiAgentAppRequest,
+  ): Promise<aiservicev1_AiAgentApp>;
+  // 创建 Agent 应用
   Create(
-    request: permissionservicev1_CreateApiRequest,
-  ): Promise<wellKnownEmpty>;
-  // 更新API资源
+    request: aiservicev1_CreateAiAgentAppRequest,
+  ): Promise<aiservicev1_AiAgentApp>;
+  // 更新 Agent 应用
   Update(
-    request: permissionservicev1_UpdateApiRequest,
+    request: aiservicev1_UpdateAiAgentAppRequest,
   ): Promise<wellKnownEmpty>;
-  // 删除API资源
+  // 删除 Agent 应用
   Delete(
-    request: permissionservicev1_DeleteApiRequest,
+    request: aiservicev1_DeleteAiAgentAppRequest,
   ): Promise<wellKnownEmpty>;
-  // 同步API资源
-  SyncApis(
-    request: wellKnownEmpty,
-  ): Promise<wellKnownEmpty>;
-  // 查询路由数据
-  GetWalkRouteData(
-    request: wellKnownEmpty,
-  ): Promise<permissionservicev1_ListApiResponse>;
+  // 试运行（同步执行图，返回含 trace 的运行记录）
+  Run(
+    request: aiservicev1_RunAiAgentAppRequest,
+  ): Promise<aiservicev1_AiAgentRun>;
+  // 查询运行台账（appId eq 过滤走 PagingRequest；独立集合路径，避免与 /{id} 参数路由抢配）
+  ListRuns(
+    request: pagination_PagingRequest,
+  ): Promise<aiservicev1_ListAiAgentRunsResponse>;
+  // 查询运行详情（含 trace JSON）
+  GetRun(
+    request: aiservicev1_GetAiAgentRunRequest,
+  ): Promise<aiservicev1_AiAgentRun>;
 }
 
-export function createApiServiceClient(
+export function createAiAgentServiceClient(
   transport: ClientTransport,
-): ApiService {
+): AiAgentService {
   return {
     List(request) {
-      const path = `admin/v1/apis`;
+      const path = `/admin/v1/ai/agents`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -844,41 +805,128 @@ export function createApiServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
+      if (request.orderBy) {
         queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.op) {
+      if (request.fieldMask) {
         queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.value) {
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiAgentService',
+        method: 'List',
+      }) as Promise<aiservicev1_ListAiAgentAppsResponse>;
+    },
+    Get(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/agents/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'AiAgentService',
+        method: 'Get',
+      }) as Promise<aiservicev1_AiAgentApp>;
+    },
+    Create(request) {
+      const path = `/admin/v1/ai/agents`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiAgentService',
+        method: 'Create',
+      }) as Promise<aiservicev1_AiAgentApp>;
+    },
+    Update(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/agents/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'PUT', body, {
+        service: 'AiAgentService',
+        method: 'Update',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Delete(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/agents/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'AiAgentService',
+        method: 'Delete',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Run(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/agents/${request.id}/run`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiAgentService',
+        method: 'Run',
+      }) as Promise<aiservicev1_AiAgentRun>;
+    },
+    ListRuns(request) {
+      const path = `/admin/v1/ai/agent-runs`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
         queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
+          `page=${encodeURIComponent(request.page.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.jsonValue) {
+      if (request.pageSize) {
         queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
+      if (request.offset) {
         queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
+          `offset=${encodeURIComponent(request.offset.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.jsonPath) {
+      if (request.limit) {
         queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
       if (request.orderBy) {
@@ -886,14 +934,1416 @@ export function createApiServiceClient(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
         );
       }
-      if (request.sorting?.field) {
+      if (request.fieldMask) {
         queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
         );
       }
-      if (request.sorting?.direction) {
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiAgentService',
+        method: 'ListRuns',
+      }) as Promise<aiservicev1_ListAiAgentRunsResponse>;
+    },
+    GetRun(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/agent-runs/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'AiAgentService',
+        method: 'GetRun',
+      }) as Promise<aiservicev1_AiAgentRun>;
+    },
+  };
+}
+// 查询列表 - 回应
+export type aiservicev1_ListAiAgentAppsResponse = {
+  items: aiservicev1_AiAgentApp[] | undefined;
+  total: number | undefined;
+};
+
+// Agent 编排应用
+export type aiservicev1_AiAgentApp = {
+  createdAt?: wellKnownTimestamp;
+  createdBy?: number;
+  description?: string;
+  enabled?: boolean;
+  // 图 DSL（JSON：nodes/edges；节点五种、模板与条件表达式语义见设计文档 §2）
+  graph?: string;
+  id?: number;
+  name?: string;
+  // 创建/更新入参带出（与 AiConversation 同口径）：租户隔离 mixin 无创建钩子，租户必须显式写
+  tenantId?: number;
+  updatedAt?: wellKnownTimestamp;
+  updatedBy?: number;
+};
+
+// 查询详情 - 请求
+export type aiservicev1_GetAiAgentAppRequest = {
+  id: number | undefined;
+};
+
+// 创建 - 请求
+export type aiservicev1_CreateAiAgentAppRequest = {
+  data: aiservicev1_AiAgentApp | undefined;
+};
+
+// 更新 - 请求
+export type aiservicev1_UpdateAiAgentAppRequest = {
+  data: aiservicev1_AiAgentApp | undefined;
+  id: number | undefined;
+  updateMask: undefined | wellKnownFieldMask;
+};
+
+// 删除 - 请求
+export type aiservicev1_DeleteAiAgentAppRequest = {
+  id: number | undefined;
+};
+
+// 试运行 - 请求
+export type aiservicev1_RunAiAgentAppRequest = {
+  id: number | undefined;
+  // 运行入参：start 节点声明的输入变量名 → 值（JSON 对象字符串）
+  input: { [key: string]: string } | undefined;
+};
+
+// Agent 运行记录
+export type aiservicev1_AiAgentRun = {
+  appId?: number;
+  completionTokens?: number;
+  createdAt?: wellKnownTimestamp;
+  durationMs?: number;
+  error?: string;
+  id?: number;
+  // 运行入参（JSON 对象：start 节点 inputVars 的 name → 值）
+  input?: string;
+  output?: string;
+  promptTokens?: number;
+  status?: aiservicev1_AiAgentRun_Status;
+  totalTokens?: number;
+  // 逐节点执行轨迹（JSON 数组：{nodeId,type,status,ms,summary,usage}）
+  trace?: string;
+};
+
+// 运行状态
+export type aiservicev1_AiAgentRun_Status =
+  | 'FAILED'
+  | 'RUNNING'
+  | 'STATUS_UNSPECIFIED'
+  | 'SUCCEEDED';
+// 运行台账列表 - 回应
+export type aiservicev1_ListAiAgentRunsResponse = {
+  items: aiservicev1_AiAgentRun[] | undefined;
+  total: number | undefined;
+};
+
+// 运行详情 - 请求
+export type aiservicev1_GetAiAgentRunRequest = {
+  id: number | undefined;
+};
+
+// AI 对话服务
+//
+// 流式语义：本 RPC 是普通 POST（body 为扁平请求体，**不包 data**），
+// 增量 token 经 SSE `ai_chat_chunk` 事件推送（见 domain proto 注释）。
+export interface AiChatService {
+  // 发起一轮对话
+  Chat(
+    request: aiservicev1_ChatRequest,
+  ): Promise<aiservicev1_ChatResponse>;
+}
+
+export function createAiChatServiceClient(
+  transport: ClientTransport,
+): AiChatService {
+  return {
+    Chat(request) {
+      const path = `/admin/v1/ai/chat/completions`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiChatService',
+        method: 'Chat',
+      }) as Promise<aiservicev1_ChatResponse>;
+    },
+  };
+}
+// 发起对话 - 请求
+export type aiservicev1_ChatRequest = {
+  content?: string;
+  conversationId?: number;
+  knowledgeBaseId?: number;
+  providerId?: number;
+};
+
+// 发起对话 - 回应
+export type aiservicev1_ChatResponse = {
+  // 会话（新建时返回新建的会话）
+  conversation: aiservicev1_AiConversation | undefined;
+  // 模型回复消息（含 token 用量与模型名）
+  message: aiservicev1_AiMessage | undefined;
+};
+
+// AI 对话会话
+export type aiservicev1_AiConversation = {
+  createdAt?: wellKnownTimestamp;
+  createdBy?: number;
+  deletedAt?: wellKnownTimestamp;
+  deletedBy?: number;
+  id?: number;
+  lastMessageAt?: wellKnownTimestamp;
+  providerId?: number;
+  tenantId?: number;
+  title?: string;
+  updatedAt?: wellKnownTimestamp;
+  updatedBy?: number;
+  userId?: number;
+};
+
+// AI 对话消息
+export type aiservicev1_AiMessage = {
+  completionTokens?: number;
+  content?: string;
+  conversationId?: number;
+  createdAt?: wellKnownTimestamp;
+  createdBy?: number;
+  deletedAt?: wellKnownTimestamp;
+  deletedBy?: number;
+  durationMs?: number;
+  errorMessage?: string;
+  id?: number;
+  modelName?: string;
+  promptTokens?: number;
+  role?: aiservicev1_AiRole;
+  tenantId?: number;
+  updatedAt?: wellKnownTimestamp;
+  updatedBy?: number;
+  userId?: number;
+};
+
+// 消息角色
+export type aiservicev1_AiRole =
+  | 'AI_ROLE_UNSPECIFIED'
+  | 'ASSISTANT'
+  | 'SYSTEM'
+  | 'USER';
+// AI 内容生成服务（表单助手）
+export interface AiContentService {
+  // 生成内容
+  GenerateContent(
+    request: aiservicev1_GenerateContentRequest,
+  ): Promise<aiservicev1_GenerateContentResponse>;
+  // 语义搜索（菜单等可导航条目）
+  SemanticSearch(
+    request: aiservicev1_SemanticSearchRequest,
+  ): Promise<aiservicev1_SemanticSearchResponse>;
+  // 重建搜索索引
+  RebuildSearchIndex(
+    request: wellKnownEmpty,
+  ): Promise<aiservicev1_RebuildSearchIndexResponse>;
+}
+
+export function createAiContentServiceClient(
+  transport: ClientTransport,
+): AiContentService {
+  return {
+    GenerateContent(request) {
+      const path = `/admin/v1/ai/content/generate`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiContentService',
+        method: 'GenerateContent',
+      }) as Promise<aiservicev1_GenerateContentResponse>;
+    },
+    SemanticSearch(request) {
+      const path = `/admin/v1/ai/content/search`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiContentService',
+        method: 'SemanticSearch',
+      }) as Promise<aiservicev1_SemanticSearchResponse>;
+    },
+    RebuildSearchIndex(_request) {
+      const path = `/admin/v1/ai/content/rebuild-index`;
+      const body = null;
+      return transport.unary(path, 'POST', body, {
+        service: 'AiContentService',
+        method: 'RebuildSearchIndex',
+      }) as Promise<aiservicev1_RebuildSearchIndexResponse>;
+    },
+  };
+}
+// 内容生成 - 请求
+export type aiservicev1_GenerateContentRequest = {
+  // 补充上下文（如已有内容的续写、字段标签等，可选）
+  context?: string;
+  // 输出语言（BCP-47，默认 zh-CN）
+  lang?: string;
+  // 期望长度（字符数提示，默认 200）
+  maxLength?: number;
+  // 场景标识
+  scene: aiservicev1_ContentScene | undefined;
+  // 主题/关键词（用户输入的生成指令）
+  topic: string | undefined;
+};
+
+// 场景标识（服务端按此选择预设提示词模板）
+export type aiservicev1_ContentScene =
+  // 公告/通知正文
+  | 'ANNOUNCEMENT'
+  | 'CONTENT_SCENE_UNSPECIFIED'
+  // 通用描述（角色/菜单/字典项/文件等实体描述）
+  | 'DESCRIPTION'
+  // 自由生成（用户自带完整提示词）
+  | 'GENERAL'
+  // 回复/反馈文案
+  | 'REPLY';
+// 内容生成 - 回应
+export type aiservicev1_GenerateContentResponse = {
+  content: string | undefined;
+  totalTokens: number | undefined;
+};
+
+// 语义搜索 - 请求
+export type aiservicev1_SemanticSearchRequest = {
+  limit?: number;
+  query: string | undefined;
+};
+
+// 语义搜索 - 回应
+export type aiservicev1_SemanticSearchResponse = {
+  items: aiservicev1_SemanticSearchItem[] | undefined;
+};
+
+// 搜索结果项
+export type aiservicev1_SemanticSearchItem = {
+  itemType: string | undefined;
+  route: string | undefined;
+  score: number | undefined;
+  title: string | undefined;
+};
+
+// 重建搜索索引 - 回应
+export type aiservicev1_RebuildSearchIndexResponse = {
+  indexedCount: number | undefined;
+};
+
+// AI 对话会话管理服务
+export interface AiConversationService {
+  // 分页查询会话列表
+  List(
+    request: pagination_PagingRequest,
+  ): Promise<aiservicev1_ListAiConversationResponse>;
+  // 查询会话详情
+  Get(
+    request: aiservicev1_GetAiConversationRequest,
+  ): Promise<aiservicev1_AiConversation>;
+  // 更新会话（改标题）
+  Update(
+    request: aiservicev1_UpdateAiConversationRequest,
+  ): Promise<wellKnownEmpty>;
+  // 删除会话
+  Delete(
+    request: aiservicev1_DeleteAiConversationRequest,
+  ): Promise<wellKnownEmpty>;
+}
+
+export function createAiConversationServiceClient(
+  transport: ClientTransport,
+): AiConversationService {
+  return {
+    List(request) {
+      const path = `/admin/v1/ai/conversations`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
         queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
+        );
+      }
+      if (request.fieldMask) {
+        queryParams.push(
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiConversationService',
+        method: 'List',
+      }) as Promise<aiservicev1_ListAiConversationResponse>;
+    },
+    Get(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/conversations/${request.id}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.viewMask) {
+        queryParams.push(
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiConversationService',
+        method: 'Get',
+      }) as Promise<aiservicev1_AiConversation>;
+    },
+    Update(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/conversations/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'PUT', body, {
+        service: 'AiConversationService',
+        method: 'Update',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Delete(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/conversations/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'AiConversationService',
+        method: 'Delete',
+      }) as Promise<wellKnownEmpty>;
+    },
+  };
+}
+// 查询会话列表 - 回应
+export type aiservicev1_ListAiConversationResponse = {
+  items: aiservicev1_AiConversation[] | undefined;
+  total: number | undefined;
+};
+
+// 查询会话详情 - 请求
+export type aiservicev1_GetAiConversationRequest = {
+  id?: number;
+  viewMask?: wellKnownFieldMask;
+};
+
+// 更新会话 - 请求
+export type aiservicev1_UpdateAiConversationRequest = {
+  allowMissing?: boolean;
+  data: aiservicev1_AiConversation | undefined;
+  id: number | undefined;
+  updateMask: undefined | wellKnownFieldMask;
+};
+
+// 删除会话 - 请求
+export type aiservicev1_DeleteAiConversationRequest = {
+  id?: number;
+};
+
+// AI 知识库管理服务（RAG）
+export interface AiKnowledgeBaseService {
+  // 分页查询知识库列表
+  List(
+    request: pagination_PagingRequest,
+  ): Promise<aiservicev1_ListAiKnowledgeBaseResponse>;
+  // 查询知识库详情
+  Get(
+    request: aiservicev1_GetAiKnowledgeBaseRequest,
+  ): Promise<aiservicev1_AiKnowledgeBase>;
+  // 创建知识库
+  Create(
+    request: aiservicev1_CreateAiKnowledgeBaseRequest,
+  ): Promise<wellKnownEmpty>;
+  // 更新知识库
+  Update(
+    request: aiservicev1_UpdateAiKnowledgeBaseRequest,
+  ): Promise<wellKnownEmpty>;
+  // 删除知识库
+  Delete(
+    request: aiservicev1_DeleteAiKnowledgeBaseRequest,
+  ): Promise<wellKnownEmpty>;
+  // 上传文档（纯文本：切片 → 向量化 → 落库）
+  UploadDoc(
+    request: aiservicev1_UploadAiDocRequest,
+  ): Promise<aiservicev1_UploadAiDocResponse>;
+  // 上传文档文件（txt/md/docx/pdf：抽取文本后入库）
+  UploadDocFile(
+    request: aiservicev1_UploadAiDocFileRequest,
+  ): Promise<aiservicev1_UploadAiDocResponse>;
+  // 查询知识库下的文档
+  ListDocs(
+    request: aiservicev1_ListAiDocsRequest,
+  ): Promise<aiservicev1_ListAiDocsResponse>;
+  // 删除文档
+  DeleteDoc(
+    request: aiservicev1_DeleteAiDocRequest,
+  ): Promise<wellKnownEmpty>;
+  // 检索测试
+  Search(
+    request: aiservicev1_SearchAiKnowledgeRequest,
+  ): Promise<aiservicev1_SearchAiKnowledgeResponse>;
+}
+
+export function createAiKnowledgeBaseServiceClient(
+  transport: ClientTransport,
+): AiKnowledgeBaseService {
+  return {
+    List(request) {
+      const path = `/admin/v1/ai/knowledge-bases`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
+        );
+      }
+      if (request.fieldMask) {
+        queryParams.push(
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'List',
+      }) as Promise<aiservicev1_ListAiKnowledgeBaseResponse>;
+    },
+    Get(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/knowledge-bases/${request.id}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.viewMask) {
+        queryParams.push(
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'Get',
+      }) as Promise<aiservicev1_AiKnowledgeBase>;
+    },
+    Create(request) {
+      const path = `/admin/v1/ai/knowledge-bases`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'Create',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Update(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/knowledge-bases/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'PUT', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'Update',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Delete(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/knowledge-bases/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'Delete',
+      }) as Promise<wellKnownEmpty>;
+    },
+    UploadDoc(request) {
+      if (request.baseId === undefined || request.baseId === null) {
+        throw new Error('missing required field request.base_id');
+      }
+      const path = `/admin/v1/ai/knowledge-bases/${request.baseId}/docs`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["baseId"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'UploadDoc',
+      }) as Promise<aiservicev1_UploadAiDocResponse>;
+    },
+    UploadDocFile(request) {
+      if (request.baseId === undefined || request.baseId === null) {
+        throw new Error('missing required field request.base_id');
+      }
+      const path = `/admin/v1/ai/knowledge-bases/${request.baseId}/docs/file`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["baseId"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'UploadDocFile',
+      }) as Promise<aiservicev1_UploadAiDocResponse>;
+    },
+    ListDocs(request) {
+      if (request.baseId === undefined || request.baseId === null) {
+        throw new Error('missing required field request.base_id');
+      }
+      const path = `/admin/v1/ai/knowledge-bases/${request.baseId}/docs`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'ListDocs',
+      }) as Promise<aiservicev1_ListAiDocsResponse>;
+    },
+    DeleteDoc(request) {
+      if (request.baseId === undefined || request.baseId === null) {
+        throw new Error('missing required field request.base_id');
+      }
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/knowledge-bases/${request.baseId}/docs/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'DeleteDoc',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Search(request) {
+      if (request.baseId === undefined || request.baseId === null) {
+        throw new Error('missing required field request.base_id');
+      }
+      const path = `/admin/v1/ai/knowledge-bases/${request.baseId}/search`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["baseId"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiKnowledgeBaseService',
+        method: 'Search',
+      }) as Promise<aiservicev1_SearchAiKnowledgeResponse>;
+    },
+  };
+}
+// 查询知识库列表 - 回应
+export type aiservicev1_ListAiKnowledgeBaseResponse = {
+  items: aiservicev1_AiKnowledgeBase[] | undefined;
+  total: number | undefined;
+};
+
+// AI 知识库
+export type aiservicev1_AiKnowledgeBase = {
+  createdAt?: wellKnownTimestamp;
+  createdBy?: number;
+  deletedAt?: wellKnownTimestamp;
+  deletedBy?: number;
+  description?: string;
+  docCount?: number;
+  embeddingModel?: string;
+  id?: number;
+  name?: string;
+  providerId?: number;
+  tenantId?: number;
+  updatedAt?: wellKnownTimestamp;
+  updatedBy?: number;
+  userId?: number;
+};
+
+// 查询知识库详情 - 请求
+export type aiservicev1_GetAiKnowledgeBaseRequest = {
+  id?: number;
+  viewMask?: wellKnownFieldMask;
+};
+
+// 创建知识库 - 请求
+export type aiservicev1_CreateAiKnowledgeBaseRequest = {
+  data: aiservicev1_AiKnowledgeBase | undefined;
+};
+
+// 更新知识库 - 请求
+export type aiservicev1_UpdateAiKnowledgeBaseRequest = {
+  allowMissing?: boolean;
+  data: aiservicev1_AiKnowledgeBase | undefined;
+  id: number | undefined;
+  updateMask: undefined | wellKnownFieldMask;
+};
+
+// 删除知识库 - 请求
+export type aiservicev1_DeleteAiKnowledgeBaseRequest = {
+  id?: number;
+};
+
+// 上传文档 - 请求（纯文本；内容直接随请求体传输）
+export type aiservicev1_UploadAiDocRequest = {
+  baseId: number | undefined;
+  content: string | undefined;
+  name: string | undefined;
+};
+
+// 上传文档 - 回应
+export type aiservicev1_UploadAiDocResponse = {
+  chunkCount: number | undefined;
+  doc: aiservicev1_AiDoc | undefined;
+};
+
+// AI 文档
+export type aiservicev1_AiDoc = {
+  baseId?: number;
+  chunkCount?: number;
+  createdAt?: wellKnownTimestamp;
+  errorMessage?: string;
+  id?: number;
+  name?: string;
+  status?: string;
+  tenantId?: number;
+  userId?: number;
+};
+
+// 上传文档文件 - 请求（文件字节经 protojson 即 base64 字符串传输）
+export type aiservicev1_UploadAiDocFileRequest = {
+  baseId: number | undefined;
+  contentBase64: string | undefined;
+  docName?: string;
+  fileName: string | undefined;
+};
+
+// 查询文档列表 - 请求
+export type aiservicev1_ListAiDocsRequest = {
+  baseId: number | undefined;
+};
+
+// 查询文档列表 - 回应
+export type aiservicev1_ListAiDocsResponse = {
+  items: aiservicev1_AiDoc[] | undefined;
+  total: number | undefined;
+};
+
+// 删除文档 - 请求
+export type aiservicev1_DeleteAiDocRequest = {
+  baseId: number | undefined;
+  id: number | undefined;
+};
+
+// 检索 - 请求
+export type aiservicev1_SearchAiKnowledgeRequest = {
+  baseId: number | undefined;
+  query: string | undefined;
+  topK?: number;
+};
+
+// 检索 - 回应
+export type aiservicev1_SearchAiKnowledgeResponse = {
+  hits: aiservicev1_KnowledgeHit[] | undefined;
+};
+
+// 检索命中片段
+export type aiservicev1_KnowledgeHit = {
+  chunkIndex: number | undefined;
+  content: string | undefined;
+  doc: aiservicev1_AiDoc | undefined;
+  score: number | undefined;
+};
+
+// AI 对话消息服务
+export interface AiMessageService {
+  // 分页查询消息列表（按 conversationId 过滤；ID 类字段精确匹配，不走模糊搜索）
+  List(
+    request: pagination_PagingRequest,
+  ): Promise<aiservicev1_ListAiMessageResponse>;
+  // 删除消息
+  Delete(
+    request: aiservicev1_DeleteAiMessageRequest,
+  ): Promise<wellKnownEmpty>;
+}
+
+export function createAiMessageServiceClient(
+  transport: ClientTransport,
+): AiMessageService {
+  return {
+    List(request) {
+      const path = `/admin/v1/ai/messages`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
+        );
+      }
+      if (request.fieldMask) {
+        queryParams.push(
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiMessageService',
+        method: 'List',
+      }) as Promise<aiservicev1_ListAiMessageResponse>;
+    },
+    Delete(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/messages/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'AiMessageService',
+        method: 'Delete',
+      }) as Promise<wellKnownEmpty>;
+    },
+  };
+}
+// 查询消息列表 - 回应
+export type aiservicev1_ListAiMessageResponse = {
+  items: aiservicev1_AiMessage[] | undefined;
+  total: number | undefined;
+};
+
+// 删除消息 - 请求
+export type aiservicev1_DeleteAiMessageRequest = {
+  id?: number;
+};
+
+// AI 模型提供商管理服务
+export interface AiProviderService {
+  // 分页查询 AI 提供商列表
+  List(
+    request: pagination_PagingRequest,
+  ): Promise<aiservicev1_ListAiProviderResponse>;
+  // 查询 AI 提供商详情
+  Get(
+    request: aiservicev1_GetAiProviderRequest,
+  ): Promise<aiservicev1_AiProvider>;
+  // 创建 AI 提供商
+  Create(
+    request: aiservicev1_CreateAiProviderRequest,
+  ): Promise<wellKnownEmpty>;
+  // 更新 AI 提供商
+  Update(
+    request: aiservicev1_UpdateAiProviderRequest,
+  ): Promise<wellKnownEmpty>;
+  // 删除 AI 提供商
+  Delete(
+    request: aiservicev1_DeleteAiProviderRequest,
+  ): Promise<wellKnownEmpty>;
+}
+
+export function createAiProviderServiceClient(
+  transport: ClientTransport,
+): AiProviderService {
+  return {
+    List(request) {
+      const path = `/admin/v1/ai/providers`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
+        );
+      }
+      if (request.fieldMask) {
+        queryParams.push(
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiProviderService',
+        method: 'List',
+      }) as Promise<aiservicev1_ListAiProviderResponse>;
+    },
+    Get(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/providers/${request.id}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.viewMask) {
+        queryParams.push(
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiProviderService',
+        method: 'Get',
+      }) as Promise<aiservicev1_AiProvider>;
+    },
+    Create(request) {
+      const path = `/admin/v1/ai/providers`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiProviderService',
+        method: 'Create',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Update(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/providers/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'PUT', body, {
+        service: 'AiProviderService',
+        method: 'Update',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Delete(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/ai/providers/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'AiProviderService',
+        method: 'Delete',
+      }) as Promise<wellKnownEmpty>;
+    },
+  };
+}
+// 查询 AI 提供商列表 - 回应
+export type aiservicev1_ListAiProviderResponse = {
+  items: aiservicev1_AiProvider[] | undefined;
+  total: number | undefined;
+};
+
+// AI 模型提供商（一行 = 一个可调用的模型端点配置）
+export type aiservicev1_AiProvider = {
+  apiKey?: string;
+  apiKeyHint?: string;
+  baseUrl?: string;
+  createdAt?: wellKnownTimestamp;
+  createdBy?: number;
+  deletedAt?: wellKnownTimestamp;
+  deletedBy?: number;
+  id?: number;
+  isDefault?: boolean;
+  isEnabled?: boolean;
+  localHost?: string;
+  localPort?: number;
+  modelName?: string;
+  modelType?: aiservicev1_AiProvider_ModelType;
+  name?: string;
+  organization?: string;
+  remark?: string;
+  systemPrompt?: string;
+  timeoutSeconds?: number;
+  updatedAt?: wellKnownTimestamp;
+  updatedBy?: number;
+};
+
+// 模型部署形态
+export type aiservicev1_AiProvider_ModelType =
+  | 'CLOUD'
+  | 'LOCAL'
+  | 'MODEL_TYPE_UNSPECIFIED';
+// 查询 AI 提供商详情 - 请求
+export type aiservicev1_GetAiProviderRequest = {
+  id?: number;
+  viewMask?: wellKnownFieldMask;
+};
+
+// 创建 AI 提供商 - 请求
+export type aiservicev1_CreateAiProviderRequest = {
+  data: aiservicev1_AiProvider | undefined;
+};
+
+// 更新 AI 提供商 - 请求
+export type aiservicev1_UpdateAiProviderRequest = {
+  allowMissing?: boolean;
+  data: aiservicev1_AiProvider | undefined;
+  id: number | undefined;
+  updateMask: undefined | wellKnownFieldMask;
+};
+
+// 删除 AI 提供商 - 请求
+export type aiservicev1_DeleteAiProviderRequest = {
+  id?: number;
+};
+
+// 智能问数服务（NL → 只读 SQL → 结构化结果）
+// 平台管理员专属：第一版查的是全平台数据，且 SQL 会触达原生库表。
+export interface AiQueryService {
+  // 智能问数
+  Ask(
+    request: aiservicev1_AskAiQueryRequest,
+  ): Promise<aiservicev1_AskAiQueryResponse>;
+}
+
+export function createAiQueryServiceClient(
+  transport: ClientTransport,
+): AiQueryService {
+  return {
+    Ask(request) {
+      const path = `/admin/v1/ai/query/ask`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AiQueryService',
+        method: 'Ask',
+      }) as Promise<aiservicev1_AskAiQueryResponse>;
+    },
+  };
+}
+// 智能问数 - 请求
+export type aiservicev1_AskAiQueryRequest = {
+  // 对话历史（最近若干轮，建议 ≤5；用于消解追问里的指代，如"那只看 admin 的"）
+  history: aiservicev1_AiQueryHistoryItem[] | undefined;
+  // 界面语言（BCP-47），决定结论 answer 的输出语言；默认 zh-CN
+  lang?: string;
+  question: string | undefined;
+  // 是否生成自然语言结论（二次模型调用；默认 true）
+  withAnswer?: boolean;
+};
+
+// 对话历史一轮（多轮追问用）：只回传问答摘要，供模型消解指代（如"那只看 admin 的"）
+export type aiservicev1_AiQueryHistoryItem = {
+  question: string | undefined;
+  resultSummary: string | undefined;
+  sql: string | undefined;
+};
+
+// 智能问数 - 回应
+export type aiservicev1_AskAiQueryResponse = {
+  // 自然语言结论（with_answer=false 或模型失败时为空）
+  answer?: string;
+  // 结果列名
+  columns: string[] | undefined;
+  // 执行失败原因（SQL 语法/列不存在等；有值时 rows 为空）
+  errorMessage?: string;
+  // 实际返回的行数
+  rowCount: number | undefined;
+  // 结果行（上限 100 行）
+  rows: aiservicev1_AiQueryRow[] | undefined;
+  // 生成的只读 SQL（原样返回，便于核对与复用）
+  sql: string | undefined;
+  // 本次消耗的总 token 数（计入 AI_TOKENS 用量）
+  totalTokens: number | undefined;
+};
+
+// 结果行（values 与 columns 下标对应；时间/数字均已格式化为字符串）
+export type aiservicev1_AiQueryRow = {
+  values: string[] | undefined;
+};
+
+// AI 用量流水服务（配额记账事实源）
+export interface AiUsageLogService {
+  // 分页查询用量流水
+  List(
+    request: pagination_PagingRequest,
+  ): Promise<aiservicev1_ListAiUsageLogResponse>;
+  // 当月用量汇总（tokens/调用量/配额上限）
+  GetUsageSummary(
+    request: wellKnownEmpty,
+  ): Promise<aiservicev1_UsageSummaryResponse>;
+}
+
+export function createAiUsageLogServiceClient(
+  transport: ClientTransport,
+): AiUsageLogService {
+  return {
+    List(request) {
+      const path = `/admin/v1/ai/usage-logs`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
+        );
+      }
+      if (request.fieldMask) {
+        queryParams.push(
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'AiUsageLogService',
+        method: 'List',
+      }) as Promise<aiservicev1_ListAiUsageLogResponse>;
+    },
+    GetUsageSummary(_request) {
+      const path = `/admin/v1/ai/usage-summary`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'AiUsageLogService',
+        method: 'GetUsageSummary',
+      }) as Promise<aiservicev1_UsageSummaryResponse>;
+    },
+  };
+}
+// 查询用量流水列表 - 回应
+export type aiservicev1_ListAiUsageLogResponse = {
+  items: aiservicev1_AiUsageLog[] | undefined;
+  total: number | undefined;
+};
+
+// AI 调用用量流水（每次成功的模型调用一行；配额按 total_tokens 聚合）
+export type aiservicev1_AiUsageLog = {
+  completionTokens?: number;
+  conversationId?: number;
+  createdAt?: wellKnownTimestamp;
+  durationMs?: number;
+  id?: number;
+  modelName?: string;
+  promptTokens?: number;
+  providerId?: number;
+  tenantId?: number;
+  totalTokens?: number;
+  userId?: number;
+};
+
+// 当月用量汇总 - 回应
+export type aiservicev1_UsageSummaryResponse = {
+  monthCalls: number | undefined;
+  monthTokens: number | undefined;
+  quotaConfigured: boolean | undefined;
+  quotaLimit: number | undefined;
+};
+
+// API资源管理服务
+export interface ApiService {
+  // 查询API资源列表
+  List(
+    request: pagination_PagingRequest,
+  ): Promise<permissionservicev1_ListApiResponse>;
+  // 查询API资源详情
+  Get(
+    request: permissionservicev1_GetApiRequest,
+  ): Promise<permissionservicev1_Api>;
+  // 创建API资源
+  Create(
+    request: permissionservicev1_CreateApiRequest,
+  ): Promise<wellKnownEmpty>;
+  // 更新API资源
+  Update(
+    request: permissionservicev1_UpdateApiRequest,
+  ): Promise<wellKnownEmpty>;
+  // 删除API资源
+  Delete(
+    request: permissionservicev1_DeleteApiRequest,
+  ): Promise<wellKnownEmpty>;
+  // 同步API资源
+  SyncApis(
+    request: wellKnownEmpty,
+  ): Promise<wellKnownEmpty>;
+  // 查询路由数据
+  GetWalkRouteData(
+    request: wellKnownEmpty,
+  ): Promise<permissionservicev1_ListApiResponse>;
+}
+
+export function createApiServiceClient(
+  transport: ClientTransport,
+): ApiService {
+  return {
+    List(request) {
+      const path = `/admin/v1/apis`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -914,7 +2364,7 @@ export function createApiServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/apis/${request.id}`;
+      const path = `/admin/v1/apis/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -932,7 +2382,7 @@ export function createApiServiceClient(
       }) as Promise<permissionservicev1_Api>;
     },
     Create(request) {
-      const path = `admin/v1/apis`;
+      const path = `/admin/v1/apis`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'ApiService',
@@ -943,8 +2393,10 @@ export function createApiServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/apis/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/apis/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'ApiService',
         method: 'Update',
@@ -954,7 +2406,7 @@ export function createApiServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/apis/${request.id}`;
+      const path = `/admin/v1/apis/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'ApiService',
@@ -962,7 +2414,7 @@ export function createApiServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     SyncApis(request) {
-      const path = `admin/v1/apis/sync`;
+      const path = `/admin/v1/apis/sync`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'ApiService',
@@ -970,7 +2422,7 @@ export function createApiServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     GetWalkRouteData(_request) {
-      const path = `admin/v1/apis/walk-route`;
+      const path = `/admin/v1/apis/walk-route`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'ApiService',
@@ -1007,6 +2459,7 @@ export type permissionservicev1_Api = {
 
 // 业务功能模块
 export type identityservicev1_Module =
+  | 'AI'
   | 'DASHBOARD'
   | 'DICT'
   | 'FILE'
@@ -1068,7 +2521,7 @@ export function createApiAuditLogServiceClient(
 ): ApiAuditLogService {
   return {
     List(request) {
-      const path = `admin/v1/api-audit-logs`;
+      const path = `/admin/v1/api-audit-logs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -1116,56 +2569,9 @@ export function createApiAuditLogServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -1186,7 +2592,7 @@ export function createApiAuditLogServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/api-audit-logs/${request.id}`;
+      const path = `/admin/v1/api-audit-logs/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -1327,6 +2733,22 @@ export interface AuthenticationService {
   VerifyCaptcha(
     request: authenticationservicev1_VerifyCaptchaRequest,
   ): Promise<authenticationservicev1_VerifyCaptchaResponse>;
+  // SSO 登录能力开关（免鉴权；登录页按钮显隐）
+  GetSsoLoginInfo(
+    request: authenticationservicev1_GetSsoLoginInfoRequest,
+  ): Promise<authenticationservicev1_GetSsoLoginInfoResponse>;
+  // 生成 OIDC 授权跳转 URL（免鉴权）
+  GetSsoLoginUrl(
+    request: authenticationservicev1_GetSsoLoginUrlRequest,
+  ): Promise<authenticationservicev1_GetSsoLoginUrlResponse>;
+  // OIDC 回调换本系统令牌（免鉴权）
+  SsoLogin(
+    request: authenticationservicev1_SsoLoginRequest,
+  ): Promise<authenticationservicev1_LoginResponse>;
+  // 租户白标查询（免鉴权；登录前按租户编号取名称/Logo 等展示信息）
+  GetTenantBranding(
+    request: authenticationservicev1_GetTenantBrandingRequest,
+  ): Promise<authenticationservicev1_GetTenantBrandingResponse>;
 }
 
 export function createAuthenticationServiceClient(
@@ -1334,7 +2756,7 @@ export function createAuthenticationServiceClient(
 ): AuthenticationService {
   return {
     Login(request) {
-      const path = `admin/v1/login`;
+      const path = `/admin/v1/login`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'AuthenticationService',
@@ -1342,7 +2764,7 @@ export function createAuthenticationServiceClient(
       }) as Promise<authenticationservicev1_LoginResponse>;
     },
     Logout(request) {
-      const path = `admin/v1/logout`;
+      const path = `/admin/v1/logout`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'AuthenticationService',
@@ -1350,7 +2772,7 @@ export function createAuthenticationServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     ForgotPassword(request) {
-      const path = `admin/v1/forgot-password`;
+      const path = `/admin/v1/forgot-password`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'AuthenticationService',
@@ -1358,7 +2780,7 @@ export function createAuthenticationServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     ResetPasswordByCode(request) {
-      const path = `admin/v1/reset-password-by-code`;
+      const path = `/admin/v1/reset-password-by-code`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'AuthenticationService',
@@ -1366,7 +2788,7 @@ export function createAuthenticationServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     RefreshToken(request) {
-      const path = `admin/v1/refresh-token`;
+      const path = `/admin/v1/refresh-token`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'AuthenticationService',
@@ -1374,7 +2796,7 @@ export function createAuthenticationServiceClient(
       }) as Promise<authenticationservicev1_LoginResponse>;
     },
     GenerateCaptcha(_request) {
-      const path = `admin/v1/captcha`;
+      const path = `/admin/v1/captcha`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'AuthenticationService',
@@ -1382,12 +2804,44 @@ export function createAuthenticationServiceClient(
       }) as Promise<authenticationservicev1_GenerateCaptchaResponse>;
     },
     VerifyCaptcha(request) {
-      const path = `admin/v1/captcha/verify`;
+      const path = `/admin/v1/captcha/verify`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'AuthenticationService',
         method: 'VerifyCaptcha',
       }) as Promise<authenticationservicev1_VerifyCaptchaResponse>;
+    },
+    GetSsoLoginInfo(_request) {
+      const path = `/admin/v1/sso/login-info`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'AuthenticationService',
+        method: 'GetSsoLoginInfo',
+      }) as Promise<authenticationservicev1_GetSsoLoginInfoResponse>;
+    },
+    GetSsoLoginUrl(request) {
+      const path = `/admin/v1/sso/login-url`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AuthenticationService',
+        method: 'GetSsoLoginUrl',
+      }) as Promise<authenticationservicev1_GetSsoLoginUrlResponse>;
+    },
+    SsoLogin(request) {
+      const path = `/admin/v1/sso/login`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AuthenticationService',
+        method: 'SsoLogin',
+      }) as Promise<authenticationservicev1_LoginResponse>;
+    },
+    GetTenantBranding(request) {
+      const path = `/admin/v1/tenant-branding`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'AuthenticationService',
+        method: 'GetTenantBranding',
+      }) as Promise<authenticationservicev1_GetTenantBrandingResponse>;
     },
   };
 }
@@ -1433,8 +2887,8 @@ export type authenticationservicev1_LoginResponse = {
   // 而是返回此 operation_id。前端据此跳转 MFA 挑战页，提交 TOTP 验证码到 MFAService.VerifyMFAChallenge。
   // 该字段非空时 access_token 必为空字符串；验证通过后由 VerifyMFAChallenge 返回真 token。
   mfa_operation_id?: string;
-  refresh_expires_in?: number;
-  refresh_token?: string;
+  // refresh token 已迁移 HttpOnly Cookie 传输（2026-08 迁移），不再进响应体：
+  // refresh_token / refresh_expires_in 字段已删除（历史残留，所有路径均未赋值）。
   scope?: string;
   token_type: authenticationservicev1_TokenType | undefined;
 };
@@ -1470,36 +2924,86 @@ export type authenticationservicev1_VerifyCaptchaResponse = {
   valid: boolean | undefined;
 };
 
-// 系统参数管理服务
-export interface ConfigService {
-  // 查询系统参数列表
+// SSO 登录能力开关查询（登录页按钮显隐用；免鉴权）。
+export type authenticationservicev1_GetSsoLoginInfoRequest = {
+};
+
+export type authenticationservicev1_GetSsoLoginInfoResponse = {
+  // OIDC SSO 是否已配置（issuer/client_id/client_secret/redirect_url 齐备）
+  enabled: boolean | undefined;
+};
+
+// 生成 OIDC 授权跳转 URL（免鉴权）。state 由服务端生成并存 Redis（10 分钟
+// 单次有效），SsoLogin 时验证并取删——防 CSRF 与回调重放。
+export type authenticationservicev1_GetSsoLoginUrlRequest = {
+};
+
+export type authenticationservicev1_GetSsoLoginUrlResponse = {
+  // 完整授权跳转 URL（前端 window.location 前往）
+  authorizationUrl: string | undefined;
+  // 本次登录的 state（前端原样带到回调，SsoLogin 时一并提交）
+  state: string | undefined;
+};
+
+// OIDC 回调换令牌（免鉴权）：code+state 换本系统 JWT。
+// 流程：state 验证取删 → code 在 IdP token 端点换 access_token →
+// 拉 userinfo 取 email → 按邮箱在本系统查用户（未找到且允许预置时自动建）→
+// 签发标准 JWT 对（refresh token 走 HttpOnly Cookie，与密码登录同形）。
+// V1 边界：SSO 登录不触发本系统 TOTP MFA 闸门（认证已在 IdP 完成）。
+export type authenticationservicev1_SsoLoginRequest = {
+  // IdP 回调带回的授权码
+  code: string | undefined;
+  // GetSsoLoginUrl 返回的 state
+  state: string | undefined;
+};
+
+// 租户白标查询（免鉴权；登录前按租户编号取展示信息）。
+// 只暴露展示字段（名称/Logo），不泄露任何运营/配置数据。
+export type authenticationservicev1_GetTenantBrandingRequest = {
+  // 租户编号（登录页 tenant_code 输入框的值）
+  code: string | undefined;
+};
+
+export type authenticationservicev1_GetTenantBrandingResponse = {
+  found: boolean | undefined;
+  logoUrl: string | undefined;
+  name: string | undefined;
+};
+
+// BI 仪表盘管理服务
+export interface BiDashboardService {
+  // 查询 BI 仪表盘列表
   List(
     request: pagination_PagingRequest,
-  ): Promise<configservicev1_ListConfigResponse>;
-  // 查询系统参数详情
+  ): Promise<biservicev1_ListBiDashboardResponse>;
+  // 查询 BI 仪表盘详情
   Get(
-    request: configservicev1_GetConfigRequest,
-  ): Promise<configservicev1_Config>;
-  // 创建系统参数
+    request: biservicev1_GetBiDashboardRequest,
+  ): Promise<biservicev1_BiDashboard>;
+  // 创建 BI 仪表盘
   Create(
-    request: configservicev1_CreateConfigRequest,
+    request: biservicev1_CreateBiDashboardRequest,
   ): Promise<wellKnownEmpty>;
-  // 更新系统参数
+  // 更新 BI 仪表盘
   Update(
-    request: configservicev1_UpdateConfigRequest,
+    request: biservicev1_UpdateBiDashboardRequest,
   ): Promise<wellKnownEmpty>;
-  // 删除系统参数
+  // 删除 BI 仪表盘
   Delete(
-    request: configservicev1_DeleteConfigRequest,
+    request: biservicev1_DeleteBiDashboardRequest,
+  ): Promise<wellKnownEmpty>;
+  // 复制 BI 仪表盘（模板派生 / 另存为）
+  Copy(
+    request: biservicev1_CopyBiDashboardRequest,
   ): Promise<wellKnownEmpty>;
 }
 
-export function createConfigServiceClient(
+export function createBiDashboardServiceClient(
   transport: ClientTransport,
-): ConfigService {
+): BiDashboardService {
   return {
     List(request) {
-      const path = `admin/v1/configs`;
+      const path = `/admin/v1/bi-dashboards`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -1547,56 +3051,242 @@ export function createConfigServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
         );
       }
-      if (request.sorting?.field) {
+      if (request.fieldMask) {
         queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
         );
       }
-      if (request.sorting?.direction) {
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'BiDashboardService',
+        method: 'List',
+      }) as Promise<biservicev1_ListBiDashboardResponse>;
+    },
+    Get(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/bi-dashboards/${request.id}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.viewMask) {
         queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'BiDashboardService',
+        method: 'Get',
+      }) as Promise<biservicev1_BiDashboard>;
+    },
+    Create(request) {
+      const path = `/admin/v1/bi-dashboards`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'BiDashboardService',
+        method: 'Create',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Update(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/bi-dashboards/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'PUT', body, {
+        service: 'BiDashboardService',
+        method: 'Update',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Delete(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/bi-dashboards/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'BiDashboardService',
+        method: 'Delete',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Copy(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/bi-dashboards/${request.id}:copy`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'BiDashboardService',
+        method: 'Copy',
+      }) as Promise<wellKnownEmpty>;
+    },
+  };
+}
+// 查询 BI 仪表盘列表 - 回应
+export type biservicev1_ListBiDashboardResponse = {
+  items: biservicev1_BiDashboard[] | undefined;
+  total: number | undefined;
+};
+
+// BI 仪表盘
+export type biservicev1_BiDashboard = {
+  chartCount?: number;
+  code?: string;
+  createdAt?: wellKnownTimestamp;
+  createdBy?: number;
+  deletedAt?: wellKnownTimestamp;
+  deletedBy?: number;
+  id?: number;
+  isBuiltIn?: boolean;
+  isEnabled?: boolean;
+  isPublic?: boolean;
+  kind?: biservicev1_BiDashboardKind;
+  name?: string;
+  payload?: string;
+  remark?: string;
+  sortOrder?: number;
+  themeKey?: string;
+  thumbnail?: string;
+  updatedAt?: wellKnownTimestamp;
+  updatedBy?: number;
+  version?: number;
+};
+
+// BI 仪表盘种类
+export type biservicev1_BiDashboardKind =
+  // 仪表盘（管理页内嵌展示）
+  | 'DASHBOARD'
+  // 大屏（投屏展示，按设计稿等比缩放）
+  | 'SCREEN'
+  // 可复用模板（列表页"从模板新建"派生用）
+  | 'TEMPLATE';
+// 查询 BI 仪表盘 - 请求
+export type biservicev1_GetBiDashboardRequest = {
+  id?: number;
+  viewMask?: wellKnownFieldMask;
+};
+
+// 创建 BI 仪表盘 - 请求
+export type biservicev1_CreateBiDashboardRequest = {
+  data: biservicev1_BiDashboard | undefined;
+};
+
+// 更新 BI 仪表盘 - 请求
+export type biservicev1_UpdateBiDashboardRequest = {
+  allowMissing?: boolean;
+  data: biservicev1_BiDashboard | undefined;
+  id: number | undefined;
+  updateMask: undefined | wellKnownFieldMask;
+};
+
+// 删除 BI 仪表盘 - 请求
+export type biservicev1_DeleteBiDashboardRequest = {
+  id?: number;
+};
+
+// 复制 BI 仪表盘 - 请求
+export type biservicev1_CopyBiDashboardRequest = {
+  code?: string;
+  id: number | undefined;
+  name?: string;
+};
+
+// 系统参数管理服务
+export interface ConfigService {
+  // 查询系统参数列表
+  List(
+    request: pagination_PagingRequest,
+  ): Promise<configservicev1_ListConfigResponse>;
+  // 查询系统参数详情
+  Get(
+    request: configservicev1_GetConfigRequest,
+  ): Promise<configservicev1_Config>;
+  // 创建系统参数
+  Create(
+    request: configservicev1_CreateConfigRequest,
+  ): Promise<wellKnownEmpty>;
+  // 更新系统参数
+  Update(
+    request: configservicev1_UpdateConfigRequest,
+  ): Promise<wellKnownEmpty>;
+  // 删除系统参数
+  Delete(
+    request: configservicev1_DeleteConfigRequest,
+  ): Promise<wellKnownEmpty>;
+}
+
+export function createConfigServiceClient(
+  transport: ClientTransport,
+): ConfigService {
+  return {
+    List(request) {
+      const path = `/admin/v1/configs`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -1617,7 +3307,7 @@ export function createConfigServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/configs/${request.id}`;
+      const path = `/admin/v1/configs/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -1635,7 +3325,7 @@ export function createConfigServiceClient(
       }) as Promise<configservicev1_Config>;
     },
     Create(request) {
-      const path = `admin/v1/configs`;
+      const path = `/admin/v1/configs`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'ConfigService',
@@ -1646,8 +3336,10 @@ export function createConfigServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/configs/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/configs/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'ConfigService',
         method: 'Update',
@@ -1657,7 +3349,7 @@ export function createConfigServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/configs/${request.id}`;
+      const path = `/admin/v1/configs/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'ConfigService',
@@ -1758,6 +3450,38 @@ export type StatusDistributionResponse = {
   items: DistributionItem[] | undefined;
 };
 
+// AI 概览解读 - 请求
+export type AiInsightsRequest = {
+  // 界面语言（BCP-47，如 zh-CN / en-US），决定 LLM 总评的输出语言；
+  // 告警本身只回传结构化事实，文案由前端 i18n 模板渲染
+  lang?: string;
+};
+
+// 异常告警条目：规则预筛的确定性结构化事实，**不含人类文案**——
+// 文案由前端按 type 选 i18n 模板并以 facts 插值渲染，保证多语言界面一致
+export type AiInsightAlert = {
+  // 插值参数（i18n 模板变量）：username / count / total / ip 等，键随 type 而定
+  facts: { [key: string]: string } | undefined;
+  // SENSITIVE_OPS 专用的明细行（username + action + 资源与时间由前端格式化）
+  items: AiSensitiveOpItem[] | undefined;
+  severity: string | undefined;
+  type: string | undefined;
+};
+
+// 敏感操作明细项
+export type AiSensitiveOpItem = {
+  action: string | undefined;
+  createdAt: string | undefined;
+  resourceType: string | undefined;
+  username: string | undefined;
+};
+
+// AI 概览解读 - 回应
+export type AiInsightsResponse = {
+  alerts: AiInsightAlert[] | undefined;
+  summary: string | undefined;
+};
+
 // 后台首页分析概览服务（只读聚合）
 export interface DashboardService {
   // 获取概览统计（用户总数 / 角色总数 / 今日登录次数 / 今日操作审计条数）
@@ -1773,6 +3497,10 @@ export interface DashboardService {
     request: wellKnownEmpty,
   ): Promise<ActionDistributionResponse>;
   // 登录审计按 status 分布
+  // AI 安全与异常洞察：审计明细行为模式挖掘（平台用户专属——数据会外发到模型端点）
+  GetAiInsights(
+    request: AiInsightsRequest,
+  ): Promise<AiInsightsResponse>;
   GetLoginStatusDistribution(
     request: wellKnownEmpty,
   ): Promise<StatusDistributionResponse>;
@@ -1783,7 +3511,7 @@ export function createDashboardServiceClient(
 ): DashboardService {
   return {
     GetOverview(_request) {
-      const path = `admin/v1/dashboard/overview`;
+      const path = `/admin/v1/dashboard/overview`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'DashboardService',
@@ -1791,7 +3519,7 @@ export function createDashboardServiceClient(
       }) as Promise<DashboardOverviewResponse>;
     },
     GetLoginTrend(request) {
-      const path = `admin/v1/dashboard/login-trend`;
+      const path = `/admin/v1/dashboard/login-trend`;
       const body = null;
       const queryParams: string[] = [];
       if (request.days) {
@@ -1809,15 +3537,23 @@ export function createDashboardServiceClient(
       }) as Promise<LoginTrendResponse>;
     },
     GetOperationActionDistribution(_request) {
-      const path = `admin/v1/dashboard/operation-action-distribution`;
+      const path = `/admin/v1/dashboard/operation-action-distribution`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'DashboardService',
         method: 'GetOperationActionDistribution',
       }) as Promise<ActionDistributionResponse>;
     },
+    GetAiInsights(request) {
+      const path = `/admin/v1/dashboard/ai-insights`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'DashboardService',
+        method: 'GetAiInsights',
+      }) as Promise<AiInsightsResponse>;
+    },
     GetLoginStatusDistribution(_request) {
-      const path = `admin/v1/dashboard/login-status-distribution`;
+      const path = `/admin/v1/dashboard/login-status-distribution`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'DashboardService',
@@ -1843,7 +3579,7 @@ export function createDataAccessAuditLogServiceClient(
 ): DataAccessAuditLogService {
   return {
     List(request) {
-      const path = `admin/v1/data-access-audit-logs`;
+      const path = `/admin/v1/data-access-audit-logs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -1891,56 +3627,9 @@ export function createDataAccessAuditLogServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -1961,7 +3650,7 @@ export function createDataAccessAuditLogServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/data-access-audit-logs/${request.id}`;
+      const path = `/admin/v1/data-access-audit-logs/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -2078,7 +3767,7 @@ export function createDictEntryServiceClient(
 ): DictEntryService {
   return {
     List(request) {
-      const path = `admin/v1/dict/entries`;
+      const path = `/admin/v1/dict/entries`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -2126,56 +3815,9 @@ export function createDictEntryServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -2193,7 +3835,7 @@ export function createDictEntryServiceClient(
       }) as Promise<dictservicev1_ListDictEntryResponse>;
     },
     Create(request) {
-      const path = `admin/v1/dict/entries`;
+      const path = `/admin/v1/dict/entries`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'DictEntryService',
@@ -2204,15 +3846,17 @@ export function createDictEntryServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/dict/entries/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/dict/entries/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'DictEntryService',
         method: 'Update',
       }) as Promise<wellKnownEmpty>;
     },
     Delete(request) {
-      const path = `admin/v1/dict/entries`;
+      const path = `/admin/v1/dict/entries`;
       const body = null;
       const queryParams: string[] = [];
       if (request.ids) {
@@ -2232,7 +3876,7 @@ export function createDictEntryServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     ListByTypeCode(request) {
-      const path = `admin/v1/dict/entries/by-type-code`;
+      const path = `/admin/v1/dict/entries/by-type-code`;
       const body = null;
       const queryParams: string[] = [];
       if (request.typeCode) {
@@ -2327,6 +3971,10 @@ export interface DictTypeService {
   Get(
     request: dictservicev1_GetDictTypeRequest,
   ): Promise<dictservicev1_DictType>;
+  /** Alternate HTTP binding #1 of Get: GET /admin/v1/dict/types/code/{code} */
+  GetAlt1(
+    request: dictservicev1_GetDictTypeRequest,
+  ): Promise<dictservicev1_DictType>;
   // 创建字典类型
   Create(
     request: dictservicev1_CreateDictTypeRequest,
@@ -2346,7 +3994,7 @@ export function createDictTypeServiceClient(
 ): DictTypeService {
   return {
     List(request) {
-      const path = `admin/v1/dict/types`;
+      const path = `/admin/v1/dict/types`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -2394,56 +4042,9 @@ export function createDictTypeServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -2464,7 +4065,7 @@ export function createDictTypeServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/dict/types/${request.id}`;
+      const path = `/admin/v1/dict/types/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.code) {
@@ -2486,8 +4087,36 @@ export function createDictTypeServiceClient(
         method: 'Get',
       }) as Promise<dictservicev1_DictType>;
     },
+
+    // Alternate HTTP binding #1 of Get: GET /admin/v1/dict/types/code/{code}
+    GetAlt1(request) {
+      if (request.code === undefined || request.code === null) {
+        throw new Error('missing required field request.code');
+      }
+      const path = `/admin/v1/dict/types/code/${request.code}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.id) {
+        queryParams.push(
+          `id=${encodeURIComponent(request.id.toString())}`,
+        );
+      }
+      if (request.viewMask) {
+        queryParams.push(
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'DictTypeService',
+        method: 'Get',
+      }) as Promise<dictservicev1_DictType>;
+    },
     Create(request) {
-      const path = `admin/v1/dict/types`;
+      const path = `/admin/v1/dict/types`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'DictTypeService',
@@ -2498,15 +4127,17 @@ export function createDictTypeServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/dict/types/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/dict/types/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'DictTypeService',
         method: 'Update',
       }) as Promise<wellKnownEmpty>;
     },
     Delete(request) {
-      const path = `admin/v1/dict/types`;
+      const path = `/admin/v1/dict/types`;
       const body = null;
       const queryParams: string[] = [];
       if (request.ids) {
@@ -2604,7 +4235,7 @@ export function createFileServiceClient(
 ): FileService {
   return {
     List(request) {
-      const path = `admin/v1/files`;
+      const path = `/admin/v1/files`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -2652,56 +4283,9 @@ export function createFileServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -2722,7 +4306,7 @@ export function createFileServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/files/${request.id}`;
+      const path = `/admin/v1/files/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -2740,7 +4324,7 @@ export function createFileServiceClient(
       }) as Promise<storageservicev1_File>;
     },
     Create(request) {
-      const path = `admin/v1/files`;
+      const path = `/admin/v1/files`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'FileService',
@@ -2751,8 +4335,10 @@ export function createFileServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/files/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/files/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'FileService',
         method: 'Update',
@@ -2762,7 +4348,7 @@ export function createFileServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/files/${request.id}`;
+      const path = `/admin/v1/files/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'FileService',
@@ -2860,7 +4446,7 @@ export function createFileTransferServiceClient(
 ): FileTransferService {
   return {
     DownloadFile(request) {
-      const path = `admin/v1/file/download`;
+      const path = `/admin/v1/file/download`;
       const body = null;
       const queryParams: string[] = [];
       if (request.fileId) {
@@ -2928,7 +4514,7 @@ export function createFileTransferServiceClient(
       }) as Promise<storageservicev1_DownloadFileResponse>;
     },
     PutUploadFile(request) {
-      const path = `admin/v1/file/upload`;
+      const path = `/admin/v1/file/upload`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'PUT', body, {
         service: 'FileTransferService',
@@ -2936,7 +4522,7 @@ export function createFileTransferServiceClient(
       }) as Promise<storageservicev1_UploadFileResponse>;
     },
     PostUploadFile(request) {
-      const path = `admin/v1/file/upload`;
+      const path = `/admin/v1/file/upload`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'FileTransferService',
@@ -3034,7 +4620,7 @@ export function createInternalMessageServiceClient(
 ): InternalMessageService {
   return {
     ListMessage(request) {
-      const path = `admin/v1/internal-message/messages`;
+      const path = `/admin/v1/internal-message/messages`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -3082,56 +4668,9 @@ export function createInternalMessageServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -3152,7 +4691,7 @@ export function createInternalMessageServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/internal-message/messages/${request.id}`;
+      const path = `/admin/v1/internal-message/messages/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -3173,8 +4712,10 @@ export function createInternalMessageServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/internal-message/messages/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/internal-message/messages/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'InternalMessageService',
         method: 'UpdateMessage',
@@ -3184,7 +4725,7 @@ export function createInternalMessageServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/internal-message/messages/${request.id}`;
+      const path = `/admin/v1/internal-message/messages/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'InternalMessageService',
@@ -3192,7 +4733,7 @@ export function createInternalMessageServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     SendMessage(request) {
-      const path = `admin/v1/internal-message/send`;
+      const path = `/admin/v1/internal-message/send`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'InternalMessageService',
@@ -3200,7 +4741,7 @@ export function createInternalMessageServiceClient(
       }) as Promise<internal_messageservicev1_SendMessageResponse>;
     },
     RevokeMessage(request) {
-      const path = `admin/v1/internal-message/revoke`;
+      const path = `/admin/v1/internal-message/revoke`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'InternalMessageService',
@@ -3321,7 +4862,7 @@ export function createInternalMessageCategoryServiceClient(
 ): InternalMessageCategoryService {
   return {
     List(request) {
-      const path = `admin/v1/internal-message/categories`;
+      const path = `/admin/v1/internal-message/categories`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -3369,56 +4910,9 @@ export function createInternalMessageCategoryServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -3439,7 +4933,7 @@ export function createInternalMessageCategoryServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/internal-message/categories/${request.id}`;
+      const path = `/admin/v1/internal-message/categories/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -3457,7 +4951,7 @@ export function createInternalMessageCategoryServiceClient(
       }) as Promise<internal_messageservicev1_InternalMessageCategory>;
     },
     Create(request) {
-      const path = `admin/v1/internal-message/categories`;
+      const path = `/admin/v1/internal-message/categories`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'InternalMessageCategoryService',
@@ -3468,8 +4962,10 @@ export function createInternalMessageCategoryServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/internal-message/categories/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/internal-message/categories/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'InternalMessageCategoryService',
         method: 'Update',
@@ -3479,7 +4975,7 @@ export function createInternalMessageCategoryServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/internal-message/categories/${request.id}`;
+      const path = `/admin/v1/internal-message/categories/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'InternalMessageCategoryService',
@@ -3561,7 +5057,7 @@ export function createInternalMessageRecipientServiceClient(
 ): InternalMessageRecipientService {
   return {
     ListUserInbox(request) {
-      const path = `admin/v1/internal-message/inbox`;
+      const path = `/admin/v1/internal-message/inbox`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -3609,56 +5105,9 @@ export function createInternalMessageRecipientServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -3676,7 +5125,7 @@ export function createInternalMessageRecipientServiceClient(
       }) as Promise<internal_messageservicev1_ListUserInboxResponse>;
     },
     DeleteNotificationFromInbox(request) {
-      const path = `admin/v1/internal-message/inbox/delete`;
+      const path = `/admin/v1/internal-message/inbox/delete`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'InternalMessageRecipientService',
@@ -3684,7 +5133,7 @@ export function createInternalMessageRecipientServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     MarkNotificationAsRead(request) {
-      const path = `admin/v1/internal-message/read`;
+      const path = `/admin/v1/internal-message/read`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'InternalMessageRecipientService',
@@ -3692,7 +5141,7 @@ export function createInternalMessageRecipientServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     MarkNotificationsStatus(request) {
-      const path = `admin/v1/internal-message/status`;
+      const path = `/admin/v1/internal-message/status`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'InternalMessageRecipientService',
@@ -3787,7 +5236,7 @@ export function createLanguageServiceClient(
 ): LanguageService {
   return {
     List(request) {
-      const path = `admin/v1/dict/langs`;
+      const path = `/admin/v1/dict/langs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -3835,56 +5284,9 @@ export function createLanguageServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -3905,7 +5307,7 @@ export function createLanguageServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/dict/langs/${request.id}`;
+      const path = `/admin/v1/dict/langs/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.code) {
@@ -3928,7 +5330,7 @@ export function createLanguageServiceClient(
       }) as Promise<dictservicev1_Language>;
     },
     Create(request) {
-      const path = `admin/v1/dict/langs`;
+      const path = `/admin/v1/dict/langs`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'LanguageService',
@@ -3939,15 +5341,17 @@ export function createLanguageServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/dict/langs/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/dict/langs/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'LanguageService',
         method: 'Update',
       }) as Promise<wellKnownEmpty>;
     },
     Delete(request) {
-      const path = `admin/v1/dict/langs`;
+      const path = `/admin/v1/dict/langs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.id) {
@@ -3965,7 +5369,7 @@ export function createLanguageServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     BatchCreate(request) {
-      const path = `admin/v1/dict/langs/batch`;
+      const path = `/admin/v1/dict/langs/batch`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'LanguageService',
@@ -4043,7 +5447,7 @@ export function createLoginAuditLogServiceClient(
 ): LoginAuditLogService {
   return {
     List(request) {
-      const path = `admin/v1/login-audit-logs`;
+      const path = `/admin/v1/login-audit-logs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -4091,56 +5495,9 @@ export function createLoginAuditLogServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -4161,7 +5518,7 @@ export function createLoginAuditLogServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/login-audit-logs/${request.id}`;
+      const path = `/admin/v1/login-audit-logs/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -4277,7 +5634,7 @@ export function createLoginPolicyServiceClient(
 ): LoginPolicyService {
   return {
     List(request) {
-      const path = `admin/v1/login-policies`;
+      const path = `/admin/v1/login-policies`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -4325,56 +5682,9 @@ export function createLoginPolicyServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -4395,7 +5705,7 @@ export function createLoginPolicyServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/login-policies/${request.id}`;
+      const path = `/admin/v1/login-policies/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -4413,7 +5723,7 @@ export function createLoginPolicyServiceClient(
       }) as Promise<authenticationservicev1_LoginPolicy>;
     },
     Create(request) {
-      const path = `admin/v1/login-policies`;
+      const path = `/admin/v1/login-policies`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'LoginPolicyService',
@@ -4424,8 +5734,10 @@ export function createLoginPolicyServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/login-policies/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/login-policies/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'LoginPolicyService',
         method: 'Update',
@@ -4435,7 +5747,7 @@ export function createLoginPolicyServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/login-policies/${request.id}`;
+      const path = `/admin/v1/login-policies/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'LoginPolicyService',
@@ -4540,7 +5852,7 @@ export function createMenuServiceClient(
 ): MenuService {
   return {
     List(request) {
-      const path = `admin/v1/menus`;
+      const path = `/admin/v1/menus`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -4588,56 +5900,9 @@ export function createMenuServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -4658,7 +5923,7 @@ export function createMenuServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/menus/${request.id}`;
+      const path = `/admin/v1/menus/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -4676,7 +5941,7 @@ export function createMenuServiceClient(
       }) as Promise<permissionservicev1_Menu>;
     },
     Create(request) {
-      const path = `admin/v1/menus`;
+      const path = `/admin/v1/menus`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'MenuService',
@@ -4687,8 +5952,10 @@ export function createMenuServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/menus/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/menus/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'MenuService',
         method: 'Update',
@@ -4698,7 +5965,7 @@ export function createMenuServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/menus/${request.id}`;
+      const path = `/admin/v1/menus/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.operatorId) {
@@ -4716,7 +5983,7 @@ export function createMenuServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     SyncMenus(request) {
-      const path = `admin/v1/menus/sync`;
+      const path = `/admin/v1/menus/sync`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'MenuService',
@@ -4859,7 +6126,7 @@ export function createMfaServiceClient(
 ): MfaService {
   return {
     GetMFAStatus(request) {
-      const path = `admin/v1/mfa/status`;
+      const path = `/admin/v1/mfa/status`;
       const body = null;
       const queryParams: string[] = [];
       if (request.userId) {
@@ -4877,7 +6144,7 @@ export function createMfaServiceClient(
       }) as Promise<authenticationservicev1_GetMFAStatusResponse>;
     },
     ListEnrolledMethods(request) {
-      const path = `admin/v1/mfa/methods`;
+      const path = `/admin/v1/mfa/methods`;
       const body = null;
       const queryParams: string[] = [];
       if (request.userId) {
@@ -4895,7 +6162,7 @@ export function createMfaServiceClient(
       }) as Promise<authenticationservicev1_ListEnrolledMethodsResponse>;
     },
     StartEnrollMethod(request) {
-      const path = `admin/v1/mfa/enroll/start`;
+      const path = `/admin/v1/mfa/enroll/start`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'MfaService',
@@ -4903,7 +6170,7 @@ export function createMfaServiceClient(
       }) as Promise<authenticationservicev1_StartEnrollMethodResponse>;
     },
     ConfirmEnrollMethod(request) {
-      const path = `admin/v1/mfa/enroll/confirm`;
+      const path = `/admin/v1/mfa/enroll/confirm`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'MfaService',
@@ -4911,7 +6178,7 @@ export function createMfaServiceClient(
       }) as Promise<authenticationservicev1_ConfirmEnrollMethodResponse>;
     },
     DisableMFA(request) {
-      const path = `admin/v1/mfa/disable`;
+      const path = `/admin/v1/mfa/disable`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'MfaService',
@@ -4922,7 +6189,7 @@ export function createMfaServiceClient(
       if (request.credentialId === undefined || request.credentialId === null) {
         throw new Error('missing required field request.credential_id');
       }
-      const path = `admin/v1/mfa/${request.credentialId}`;
+      const path = `/admin/v1/mfa/${request.credentialId}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'MfaService',
@@ -4930,7 +6197,7 @@ export function createMfaServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     VerifyMFAChallenge(request) {
-      const path = `admin/v1/mfa/verify`;
+      const path = `/admin/v1/mfa/verify`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'MfaService',
@@ -5076,28 +6343,40 @@ export type authenticationservicev1_VerifyMFAChallengeRequest = {
   webauthn?: authenticationservicev1_WebAuthnAssertion;
 };
 
-// 通知投递台账管理服务（平台级只读视图）。
-// 本域不含"发一条通知"的通用 HTTP 路由：SendDirect 只由进程内的业务 service 经 Notifier 接口调用。
-// 把它开放成端点等于给任意已登录操作员一个"向任意邮箱发信"的能力。
-// 两个刻意保留的手动触发口都是平台管理员专属、且只能发"测试文案"：
-// 渠道配置页的 send-test-email，与路由规则页的 notification-rules/{id}/test-dispatch。
-export interface NotificationService {
-  // 查询投递台账列表
-  ListNotificationDelivery(
+// 监控告警规则服务（平台管理员）
+export interface MonitorAlertService {
+  // 规则列表（分页，contains 搜索）
+  ListMonitorAlertRule(
     request: pagination_PagingRequest,
-  ): Promise<notificationservicev1_ListNotificationDeliveryResponse>;
-  // 查询投递台账详情
-  GetNotificationDelivery(
-    request: notificationservicev1_GetNotificationDeliveryRequest,
-  ): Promise<notificationservicev1_NotificationDelivery>;
+  ): Promise<monitor_alertservicev1_ListMonitorAlertRuleResponse>;
+  // 规则详情
+  GetMonitorAlertRule(
+    request: monitor_alertservicev1_GetMonitorAlertRuleRequest,
+  ): Promise<monitor_alertservicev1_MonitorAlertRule>;
+  // 新建规则
+  CreateMonitorAlertRule(
+    request: monitor_alertservicev1_CreateMonitorAlertRuleRequest,
+  ): Promise<monitor_alertservicev1_MonitorAlertRule>;
+  // 更新规则
+  UpdateMonitorAlertRule(
+    request: monitor_alertservicev1_UpdateMonitorAlertRuleRequest,
+  ): Promise<wellKnownEmpty>;
+  // 删除规则
+  DeleteMonitorAlertRule(
+    request: monitor_alertservicev1_DeleteMonitorAlertRuleRequest,
+  ): Promise<wellKnownEmpty>;
+  // 立即评估一轮（与周期扫描同一内核），返回各启用规则的求值结论
+  EvaluateMonitorAlerts(
+    request: monitor_alertservicev1_EvaluateMonitorAlertsRequest,
+  ): Promise<monitor_alertservicev1_EvaluateMonitorAlertsResponse>;
 }
 
-export function createNotificationServiceClient(
+export function createMonitorAlertServiceClient(
   transport: ClientTransport,
-): NotificationService {
+): MonitorAlertService {
   return {
-    ListNotificationDelivery(request) {
-      const path = `admin/v1/notification-deliveries`;
+    ListMonitorAlertRule(request) {
+      const path = `/admin/v1/monitor-alert-rules`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -5145,56 +6424,296 @@ export function createNotificationServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
         );
       }
-      if (request.sorting?.field) {
+      if (request.fieldMask) {
         queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
         );
       }
-      if (request.sorting?.direction) {
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'MonitorAlertService',
+        method: 'ListMonitorAlertRule',
+      }) as Promise<monitor_alertservicev1_ListMonitorAlertRuleResponse>;
+    },
+    GetMonitorAlertRule(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/monitor-alert-rules/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'MonitorAlertService',
+        method: 'GetMonitorAlertRule',
+      }) as Promise<monitor_alertservicev1_MonitorAlertRule>;
+    },
+    CreateMonitorAlertRule(request) {
+      const path = `/admin/v1/monitor-alert-rules`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'MonitorAlertService',
+        method: 'CreateMonitorAlertRule',
+      }) as Promise<monitor_alertservicev1_MonitorAlertRule>;
+    },
+    UpdateMonitorAlertRule(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/monitor-alert-rules/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'PUT', body, {
+        service: 'MonitorAlertService',
+        method: 'UpdateMonitorAlertRule',
+      }) as Promise<wellKnownEmpty>;
+    },
+    DeleteMonitorAlertRule(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/monitor-alert-rules/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'MonitorAlertService',
+        method: 'DeleteMonitorAlertRule',
+      }) as Promise<wellKnownEmpty>;
+    },
+    EvaluateMonitorAlerts(request) {
+      const path = `/admin/v1/monitor-alert-rules:evaluate`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'MonitorAlertService',
+        method: 'EvaluateMonitorAlerts',
+      }) as Promise<monitor_alertservicev1_EvaluateMonitorAlertsResponse>;
+    },
+  };
+}
+export type monitor_alertservicev1_ListMonitorAlertRuleResponse = {
+  items: monitor_alertservicev1_MonitorAlertRule[] | undefined;
+  total: number | undefined;
+};
+
+// 监控告警规则：指标阈值 → 触发通知。
+// 渠道与目标显式写在规则上（不经路由表）：告警是"点对点"的运营配置，
+// 路由表解决的是"事件该发去哪类渠道"，而这里要的是"这条告警发到这个邮箱"。
+export type monitor_alertservicev1_MonitorAlertRule = {
+  // 告警渠道（显式指定）
+  channel?: notificationservicev1_Channel;
+  // 重复告警冷却（分钟）：持续越限时按此间隔重发，默认 30
+  cooldownMinutes?: number;
+  id?: number;
+  isEnabled?: boolean;
+  lastAlertedAt?: wellKnownTimestamp;
+  // —— 以下为评估器回写状态（只读） ——
+  lastFiring?: boolean;
+  lastValue?: number;
+  metric?: monitor_alertservicev1_MonitorMetric;
+  name?: string;
+  // DB_PING_FAIL 时忽略 op/threshold
+  op?: monitor_alertservicev1_AlertOp;
+  remark?: string;
+  // 投递目标：EMAIL 为收件地址，WEBHOOK 为回调 URL
+  target?: string;
+  threshold?: number;
+  updatedAt?: wellKnownTimestamp;
+};
+
+// 监控指标（评估器支持的全集；新增指标 = 枚举加值 + evaluator 补取数分支）
+export type monitor_alertservicev1_MonitorMetric =
+  // 数据库当前打开连接数
+  | 'DB_OPEN_CONNECTIONS'
+  // 数据库连通性失败（布尔指标：越限即 ping 失败，op/threshold 被忽略）
+  | 'DB_PING_FAIL'
+  // Go goroutine 数量
+  | 'GO_GOROUTINES'
+  // Go 堆内存分配（MB）
+  | 'GO_MEM_ALLOC_MB'
+  | 'MONITOR_METRIC_UNSPECIFIED'
+  // Redis 逻辑库 key 总数（DBSIZE）
+  | 'REDIS_DB_SIZE';
+// 比较运算
+export type monitor_alertservicev1_AlertOp =
+  | 'ALERT_OP_UNSPECIFIED'
+  // 当前值 >= 阈值
+  | 'GE'
+  // 当前值 <= 阈值
+  | 'LE';
+// 投递渠道
+export type notificationservicev1_Channel =
+  | 'CHANNEL_UNSPECIFIED'
+  | 'EMAIL'
+  | 'EXT'
+  | 'INTERNAL'
+  | 'SMS'
+  | 'WEBHOOK';
+export type monitor_alertservicev1_GetMonitorAlertRuleRequest = {
+  id: number | undefined;
+};
+
+export type monitor_alertservicev1_CreateMonitorAlertRuleRequest = {
+  data: monitor_alertservicev1_MonitorAlertRule | undefined;
+};
+
+export type monitor_alertservicev1_UpdateMonitorAlertRuleRequest = {
+  data: monitor_alertservicev1_MonitorAlertRule | undefined;
+  id: number | undefined;
+  updateMask?: wellKnownFieldMask;
+};
+
+export type monitor_alertservicev1_DeleteMonitorAlertRuleRequest = {
+  id: number | undefined;
+};
+
+// 手动触发一轮评估（管理页「立即评估」）；返回各启用规则的求值结论
+export type monitor_alertservicev1_EvaluateMonitorAlertsRequest = {
+};
+
+export type monitor_alertservicev1_EvaluateMonitorAlertsResponse = {
+  outcomes: monitor_alertservicev1_EvaluateMonitorAlertsResponse_RuleOutcome[] | undefined;
+};
+
+export type monitor_alertservicev1_EvaluateMonitorAlertsResponse_RuleOutcome = {
+  // 本次扫描实际读到的指标值（采集失败为空）
+  currentValue?: number;
+  // 本次扫描是否越限
+  firing: boolean | undefined;
+  name: string | undefined;
+  // 本轮是否发出了通知（首次触发 / 冷却到期重发 / 恢复）
+  notified: boolean | undefined;
+  // 未发通知的原因（未越限未恢复 / 冷却中 / 采集失败）
+  reason?: string;
+  ruleId: number | undefined;
+};
+
+// 租户自助用量服务：租户管理员查看本租户的套餐用量与配额。
+// 与 TenantService.GetUsage（平台管理员按租户 ID 查任意租户）互补——
+// 本服务 server 钉定 operator 的租户，不接受客户端传入租户 ID。
+export interface MyTenantUsageService {
+  // 获取当前租户的套餐用量与配额（配额硬限制 403 时，租户管理员可在此看到原因）
+  GetMyTenantUsage(
+    request: wellKnownEmpty,
+  ): Promise<identityservicev1_TenantUsage>;
+}
+
+export function createMyTenantUsageServiceClient(
+  transport: ClientTransport,
+): MyTenantUsageService {
+  return {
+    GetMyTenantUsage(_request) {
+      const path = `/admin/v1/my-tenant-usage`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'MyTenantUsageService',
+        method: 'GetMyTenantUsage',
+      }) as Promise<identityservicev1_TenantUsage>;
+    },
+  };
+}
+// 租户用量与配额
+export type identityservicev1_TenantUsage = {
+  apiCallCount: number | undefined;
+  planId?: number;
+  planName?: string;
+  quotas: identityservicev1_QuotaUsage[] | undefined;
+  storageUsedBytes: number | undefined;
+  tenantId: number | undefined;
+  userCount: number | undefined;
+};
+
+// 配额用量项
+export type identityservicev1_QuotaUsage = {
+  quotaType: identityservicev1_PlanQuota_QuotaType | undefined;
+  quotaValue: number | undefined;
+};
+
+// 配额类型
+export type identityservicev1_PlanQuota_QuotaType =
+  | 'AI_TOKENS'
+  | 'API_CALL'
+  | 'PLAN_QUOTA_TYPE_UNSPECIFIED'
+  | 'STORAGE'
+  | 'USER_LIMIT';
+// 通知投递台账管理服务（平台级只读视图）。
+//
+// 本域不含"发一条通知"的通用 HTTP 路由：SendDirect 只由进程内的业务 service 经 Notifier 接口调用。
+// 把它开放成端点等于给任意已登录操作员一个"向任意邮箱发信"的能力。
+// 两个刻意保留的手动触发口都是平台管理员专属、且只能发"测试文案"：
+// 渠道配置页的 send-test-email，与路由规则页的 notification-rules/{id}/test-dispatch。
+export interface NotificationService {
+  // 查询投递台账列表
+  ListNotificationDelivery(
+    request: pagination_PagingRequest,
+  ): Promise<notificationservicev1_ListNotificationDeliveryResponse>;
+  // 查询投递台账详情
+  GetNotificationDelivery(
+    request: notificationservicev1_GetNotificationDeliveryRequest,
+  ): Promise<notificationservicev1_NotificationDelivery>;
+}
+
+export function createNotificationServiceClient(
+  transport: ClientTransport,
+): NotificationService {
+  return {
+    ListNotificationDelivery(request) {
+      const path = `/admin/v1/notification-deliveries`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
         queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -5215,7 +6734,7 @@ export function createNotificationServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-deliveries/${request.id}`;
+      const path = `/admin/v1/notification-deliveries/${request.id}`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'NotificationService',
@@ -5261,20 +6780,23 @@ export type notificationservicev1_NotificationDelivery = {
 // 表的初始四行由代码里那份同形常量播种（见 docs/notification_domain_design.md §3.5、§4 P2-C）。
 export type notificationservicev1_EventType =
   | 'CHANNEL_TEST_EMAIL'
+  // 渠道测试消息（扩展渠道 EXT_* 的"测试发送"）。
+  | 'CHANNEL_TEST_EXT'
+  // 渠道配置测试短信（渠道页"测试发送"）：与 CHANNEL_TEST_EMAIL 同因同果，只差渠道。
+  | 'CHANNEL_TEST_SMS'
   | 'CONTACT_BIND_CODE'
   | 'EVENT_TYPE_UNSPECIFIED'
   // 站内信投递：一条站内信发给一个收件人 = 一行台账，related_id 指向 sys_internal_messages.id。
   // 它与其他三个事件的区别：那三个由业务动作触发、渠道由路由表决定；这一个本身就是
   // "站内信内容域经缝投递了一次"，related_id 必填，否则台账行无法回答"发的是哪条消息"。
   | 'INTERNAL_MESSAGE'
-  | 'PASSWORD_RESET_CODE';
-// 投递渠道
-export type notificationservicev1_Channel =
-  | 'CHANNEL_UNSPECIFIED'
-  | 'EMAIL'
-  | 'INTERNAL'
-  | 'SMS'
-  | 'WEBHOOK';
+  // 监控告警：监控扫描任务对规则求值后触发（explicit channel + target，不经路由表）。
+  // related_id 指向 sys_monitor_alert_rules.id。
+  | 'MONITOR_ALERT'
+  | 'PASSWORD_RESET_CODE'
+  // 手机号绑定验证码短信：由 SMS 渠道显式投递（调用方带 channel=SMS，不经路由表），
+  // 正文来自渠道行配置的审核模板，占位值走 params.code。
+  | 'PHONE_BIND_CODE';
 // 投递状态
 export type notificationservicev1_DeliveryStatus =
   | 'DELIVERY_STATUS_UNSPECIFIED'
@@ -5313,6 +6835,14 @@ export interface NotificationChannelService {
   SendTestEmail(
     request: notification_channelservicev1_SendTestEmailRequest,
   ): Promise<wellKnownEmpty>;
+  // 发送测试消息（按渠道类型分派：EMAIL 走邮件，SMS 发测试验证码）
+  SendTest(
+    request: notification_channelservicev1_SendTestRequest,
+  ): Promise<wellKnownEmpty>;
+  // 全量扩展渠道 schema（独立集合路径，避免与 /{id} 参数路由抢配）
+  ListChannelSchemas(
+    request: wellKnownEmpty,
+  ): Promise<notification_channelservicev1_ListChannelSchemasResponse>;
 }
 
 export function createNotificationChannelServiceClient(
@@ -5320,7 +6850,7 @@ export function createNotificationChannelServiceClient(
 ): NotificationChannelService {
   return {
     ListNotificationChannel(request) {
-      const path = `admin/v1/notification-channels`;
+      const path = `/admin/v1/notification-channels`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -5368,56 +6898,9 @@ export function createNotificationChannelServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -5438,7 +6921,7 @@ export function createNotificationChannelServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-channels/${request.id}`;
+      const path = `/admin/v1/notification-channels/${request.id}`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'NotificationChannelService',
@@ -5446,7 +6929,7 @@ export function createNotificationChannelServiceClient(
       }) as Promise<notification_channelservicev1_NotificationChannel>;
     },
     CreateNotificationChannel(request) {
-      const path = `admin/v1/notification-channels`;
+      const path = `/admin/v1/notification-channels`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'NotificationChannelService',
@@ -5457,8 +6940,10 @@ export function createNotificationChannelServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-channels/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/notification-channels/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'NotificationChannelService',
         method: 'UpdateNotificationChannel',
@@ -5468,7 +6953,7 @@ export function createNotificationChannelServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-channels/${request.id}`;
+      const path = `/admin/v1/notification-channels/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'NotificationChannelService',
@@ -5479,12 +6964,35 @@ export function createNotificationChannelServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-channels/${request.id}/send-test-email`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/notification-channels/${request.id}/send-test-email`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'POST', body, {
         service: 'NotificationChannelService',
         method: 'SendTestEmail',
       }) as Promise<wellKnownEmpty>;
+    },
+    SendTest(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/notification-channels/${request.id}/send-test`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'NotificationChannelService',
+        method: 'SendTest',
+      }) as Promise<wellKnownEmpty>;
+    },
+    ListChannelSchemas(_request) {
+      const path = `/admin/v1/notification-channel-schemas`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'NotificationChannelService',
+        method: 'ListChannelSchemas',
+      }) as Promise<notification_channelservicev1_ListChannelSchemasResponse>;
     },
   };
 }
@@ -5502,11 +7010,27 @@ export type notification_channelservicev1_NotificationChannel = {
   // 密码不回传：仅创建/更新时写入；hasPassword 标识是否已配置
   hasPassword?: boolean;
   // 密钥不回传：与 password 同一条约定，仅写入时接收
+  hasSmsAccessSecret?: boolean;
+  // 密钥不回传：与 password 同一条约定，仅写入时接收
   hasWebhookSecret?: boolean;
   id?: number;
   name?: string;
   remark?: string;
+  // 扩展渠道（EXT_*）的配置整包（JSON）。读回显为**脱敏版**：schema 声明为 sensitive 的
+  // 字段值恒为空串——前端"留空 = 不修改"；写入（Create/Update）时为明文，服务端加密落库。
+  settings?: string;
+  smsAccessKeyId?: string;
+  // 腾讯云必填（SmsSdkAppId，控制台"应用管理"里那串数字）；阿里云留空。
+  smsAppId?: string;
+  smsProvider?: notification_channelservicev1_SmsProvider;
+  // 腾讯云必填（如 ap-guangzhou）；阿里云留空（默认 cn-hangzhou）。
+  smsRegion?: string;
+  smsSignName?: string;
+  // 短信模板必须是服务商侧审核通过的验证码模板：
+  // 阿里云模板正文含 ${code}，腾讯云模板正文含 {1}——同一份占位语义，各家用各家的写法。
+  smsTemplateCode?: string;
   smtpFrom?: string;
+  smtpFromName?: string;
   smtpHost?: string;
   smtpPort?: number;
   smtpTls?: notification_channelservicev1_NotificationChannel_TlsMode;
@@ -5524,8 +7048,55 @@ export type notification_channelservicev1_NotificationChannel = {
 
 // 渠道类型
 export type notification_channelservicev1_NotificationChannel_Type =
+  // ---- 个人推送（8）----
+  | 'BARK'
+  // ---- 运维告警（3）----
+  | 'DATADOG'
+  | 'DINGTALK_APP'
+  | 'DISCORD'
   | 'EMAIL'
-  | 'WEBHOOK';
+  | 'FEISHU_APP'
+  | 'GCHAT'
+  | 'GETUI'
+  | 'GOTIFY'
+  | 'HOMEASSISTANT'
+  // ---- 短信/消息（5）----
+  | 'HUAWEISMS'
+  // ---- 效率自动化（3）----
+  | 'IFTTT'
+  | 'JOIN'
+  // ---- 移动推送服务（2）----
+  | 'JPUSH'
+  | 'LINE'
+  // ---- 邮件 API（3）----
+  | 'MAILGUN'
+  | 'MATRIX'
+  | 'MATTERMOST'
+  | 'NTFY'
+  | 'OPSGENIE'
+  | 'PAGERDUTY'
+  | 'POSTMARK'
+  | 'PUSHBULLET'
+  | 'PUSHDEER'
+  | 'PUSHOVER'
+  | 'ROCKETCHAT'
+  | 'SENDGRID'
+  | 'SERVERCHAN'
+  | 'SLACK'
+  | 'SMS'
+  | 'TEAMS'
+  | 'TELEGRAM'
+  | 'TWILIO'
+  | 'VONAGE'
+  | 'WEBEX'
+  | 'WEBHOOK'
+  | 'WECHAT'
+  // ---- IM（15）----（EXT_* 扩展渠道：配置在 settings 列）
+  | 'WECOM_APP'
+  | 'WHATSAPP'
+  | 'WXPUSHER'
+  | 'YUNPIAN'
+  | 'ZULIP';
 // SMTP 加密方式
 export type notification_channelservicev1_NotificationChannel_TlsMode =
   | 'NONE'
@@ -5535,6 +7106,7 @@ export type notification_channelservicev1_NotificationChannel_TlsMode =
 // 以及"对端到底收下了没有"用什么判。这一格把三件事捆在一起选，因为它们是同一次决策的产物
 // （钉钉把签名放 URL query 且只看 body 的 errcode，飞书把签名放 body 里且看 code）。
 // 正文形状不在这一格里：它由 webhook_payload_template 决定，留空时回落到本风格的内置默认模板。
+//
 // 为什么在包顶层而不成 `NotificationChannel` 里：proto3 的枚举成员名属于外层作用域而非枚举
 // 自身，嵌进消息就和 `TlsMode.NONE` 撞同一作用域。成员名则必须与 ent 列值逐字相同：
 // repo 的 EnumTypeConverter 按名字字符串配对，加前缀等于字段静默丢失。
@@ -5544,6 +7116,11 @@ export type notification_channelservicev1_SignStyle =
   | 'FEISHU'
   | 'NONE'
   | 'WECOM';
+// 短信服务商。成员名必须与 ent 列值逐字相同（EnumTypeConverter 按名字字符串配对）。
+// proto3 首成员为零值：库里的存量行在加列时被 DEFAULT 回填成 'ALIYUN'，语义一致。
+export type notification_channelservicev1_SmsProvider =
+  | 'ALIYUN'
+  | 'TENCENT';
 // 查询通知渠道详情 - 请求
 export type notification_channelservicev1_GetNotificationChannelRequest = {
   id: number | undefined;
@@ -5554,6 +7131,10 @@ export type notification_channelservicev1_CreateNotificationChannelRequest = {
   data: notification_channelservicev1_NotificationChannel | undefined;
   // 明文密码（服务端加密存储，不落日志）
   password?: string;
+  // 扩展渠道配置（JSON 明文，含敏感字段；服务端按 schema 加密落库。仅 EXT_* 渠道）
+  settings?: string;
+  // 明文访问密钥 Secret（服务端加密存储，不落日志；仅 SMS 渠道）
+  smsAccessSecret?: string;
   // 明文签名密钥（服务端加密存储，不落日志；留空 = 不签名）
   webhookSecret?: string;
 };
@@ -5564,6 +7145,10 @@ export type notification_channelservicev1_UpdateNotificationChannelRequest = {
   id: number | undefined;
   // 明文密码；留空表示不修改已存密码
   password?: string;
+  // 扩展渠道配置（JSON 明文；仅 EXT_* 渠道。schema sensitive 字段留空 = 保留已存值）
+  settings?: string;
+  // 明文访问密钥 Secret；留空表示不修改已存密钥（仅 SMS 渠道）
+  smsAccessSecret?: string;
   updateMask: undefined | wellKnownFieldMask;
   // 明文签名密钥；留空表示不修改已存密钥
   // （与 password 同形：想清空只能在 data.webhookUrl 之外另走删除重建，一期不做清空口）
@@ -5579,6 +7164,123 @@ export type notification_channelservicev1_DeleteNotificationChannelRequest = {
 export type notification_channelservicev1_SendTestEmailRequest = {
   id: number | undefined;
   recipient: string | undefined;
+};
+
+// 发送测试消息 - 请求（按渠道类型分派：EMAIL 走邮件，SMS 发一条测试验证码；WEBHOOK 不支持）
+export type notification_channelservicev1_SendTestRequest = {
+  id: number | undefined;
+  // 收件目标：EMAIL 为邮箱地址，SMS 为手机号（E.164 或纯号码均可）
+  recipient: string | undefined;
+};
+
+// 全量渠道 schema - 回应
+export type notification_channelservicev1_ListChannelSchemasResponse = {
+  items: notification_channelservicev1_ChannelSchema[] | undefined;
+};
+
+// 扩展渠道声明
+export type notification_channelservicev1_ChannelSchema = {
+  fields: notification_channelservicev1_ChannelField[] | undefined;
+  group: string | undefined;
+  label: string | undefined;
+  needsTarget: boolean | undefined;
+  targetLabel: string | undefined;
+  type: string | undefined;
+};
+
+// 扩展渠道的字段声明（schema 驱动配置表单；见 docs/notify_channels_expansion.md §2.2）
+export type notification_channelservicev1_ChannelField = {
+  hint: string | undefined;
+  label: string | undefined;
+  name: string | undefined;
+  options: string[] | undefined;
+  placeholder: string | undefined;
+  required: boolean | undefined;
+  sensitive: boolean | undefined;
+  type: string | undefined;
+};
+
+// 用户通知偏好服务（自助：读写的都是当前操作人自己的偏好，无管理面）。
+export interface NotificationPreferenceService {
+  // 获取当前用户的通知偏好；从未配置过时返回默认值（未启用静音、无退订）。
+  GetMyNotificationPreference(
+    request: wellKnownEmpty,
+  ): Promise<notificationservicev1_NotificationPreference>;
+  // 更新当前用户的通知偏好，返回保存后的完整状态。
+  UpdateMyNotificationPreference(
+    request: notificationservicev1_UpdateNotificationPreferenceRequest,
+  ): Promise<notificationservicev1_NotificationPreference>;
+  // 当前用户可退订的启用分类清单（本租户内）。
+  ListMyNotificationCategories(
+    request: wellKnownEmpty,
+  ): Promise<notificationservicev1_ListMyNotificationCategoriesResponse>;
+}
+
+export function createNotificationPreferenceServiceClient(
+  transport: ClientTransport,
+): NotificationPreferenceService {
+  return {
+    GetMyNotificationPreference(_request) {
+      const path = `/admin/v1/notification-preference`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'NotificationPreferenceService',
+        method: 'GetMyNotificationPreference',
+      }) as Promise<notificationservicev1_NotificationPreference>;
+    },
+    UpdateMyNotificationPreference(request) {
+      const path = `/admin/v1/notification-preference`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'NotificationPreferenceService',
+        method: 'UpdateMyNotificationPreference',
+      }) as Promise<notificationservicev1_NotificationPreference>;
+    },
+    ListMyNotificationCategories(_request) {
+      const path = `/admin/v1/notification-preference/categories`;
+      const body = null;
+      return transport.unary(path, 'GET', body, {
+        service: 'NotificationPreferenceService',
+        method: 'ListMyNotificationCategories',
+      }) as Promise<notificationservicev1_ListMyNotificationCategoriesResponse>;
+    },
+  };
+}
+// 用户通知偏好（每用户一行）。
+// 服务端从操作人/收件人钉定 user_id，客户端传入的 user_id 一律忽略。
+export type notificationservicev1_NotificationPreference = {
+  // 退订的站内信分类 ID 列表：仅约束全员广播（targetAll），
+  // 点对点定向发送不受退订影响（直接指名发给你的消息不可拒收）。
+  mutedCategoryIds: number[] | undefined;
+  // 是否启用实时推送静音时段：只抑制 SSE 实时推送（桌面通知/角标即时性），
+  // 收件行照常落库，用户打开收件箱仍能看到全部消息。
+  quietEnabled?: boolean;
+  // 静音结束：自当日 00:00 起的分钟数（0-1439），默认 480（08:00）。
+  // 跨零点窗口（start > end，如 22:00→08:00）合法；start == end 且启用视为无效配置。
+  quietEndMinute?: number;
+  // 静音开始：自当日 00:00 起的分钟数（0-1439），默认 1320（22:00）。
+  quietStartMinute?: number;
+  updatedAt?: wellKnownTimestamp;
+  userId?: number;
+};
+
+// 更新自己的通知偏好（字段全量提交；未登录不可用）。
+export type notificationservicev1_UpdateNotificationPreferenceRequest = {
+  mutedCategoryIds: number[] | undefined;
+  quietEnabled?: boolean;
+  quietEndMinute?: number;
+  quietStartMinute?: number;
+};
+
+// 当前用户可见的启用分类清单（退订选择器的数据源）。
+export type notificationservicev1_ListMyNotificationCategoriesResponse = {
+  items: notificationservicev1_NotificationCategoryItem[] | undefined;
+};
+
+// 可退订分类的精简项（只取 id + 名称，避免拖整个分类实体）。
+export type notificationservicev1_NotificationCategoryItem = {
+  id?: number;
+  name?: string;
 };
 
 // 通知路由规则管理服务（平台级配置，菜单 authority 为 sys:platform_admin）。
@@ -5614,7 +7316,7 @@ export function createNotificationRuleServiceClient(
 ): NotificationRuleService {
   return {
     ListNotificationRule(request) {
-      const path = `admin/v1/notification-rules`;
+      const path = `/admin/v1/notification-rules`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -5662,56 +7364,9 @@ export function createNotificationRuleServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -5732,7 +7387,7 @@ export function createNotificationRuleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-rules/${request.id}`;
+      const path = `/admin/v1/notification-rules/${request.id}`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'NotificationRuleService',
@@ -5740,7 +7395,7 @@ export function createNotificationRuleServiceClient(
       }) as Promise<notificationservicev1_NotificationRule>;
     },
     CreateNotificationRule(request) {
-      const path = `admin/v1/notification-rules`;
+      const path = `/admin/v1/notification-rules`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'NotificationRuleService',
@@ -5751,8 +7406,10 @@ export function createNotificationRuleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-rules/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/notification-rules/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'NotificationRuleService',
         method: 'UpdateNotificationRule',
@@ -5762,7 +7419,7 @@ export function createNotificationRuleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-rules/${request.id}`;
+      const path = `/admin/v1/notification-rules/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'NotificationRuleService',
@@ -5773,8 +7430,10 @@ export function createNotificationRuleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/notification-rules/${request.id}/test-dispatch`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/notification-rules/${request.id}/test-dispatch`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'POST', body, {
         service: 'NotificationRuleService',
         method: 'TestDispatchNotification',
@@ -5827,6 +7486,7 @@ export type notificationservicev1_DeleteNotificationRuleRequest = {
 };
 
 // 测试投递 - 请求。
+//
 // target/title/content 全可空，缺省即"这条规则本来会发什么"：
 // target 对 EMAIL/INTERNAL 是必填的投递目标，对 WEBHOOK 留空则取所选渠道配置的 webhook_url；
 // title/content 留空由服务端按事件类型渲染一封测试文案（走 mailtext，与渠道测试邮件同一条出口）。
@@ -5841,6 +7501,228 @@ export type notificationservicev1_TestDispatchNotificationRequest = {
 export type notificationservicev1_TestDispatchNotificationResponse = {
   deliveryId: number | undefined;
   status: notificationservicev1_DeliveryStatus | undefined;
+};
+
+// 通知模板管理服务（平台管理员；租户由 notification_platform_guard 拒绝）
+export interface NotificationTemplateService {
+  // 模板列表（分页，contains 搜索）
+  ListNotificationTemplate(
+    request: pagination_PagingRequest,
+  ): Promise<notificationservicev1_ListNotificationTemplateResponse>;
+  // 模板详情
+  GetNotificationTemplate(
+    request: notificationservicev1_GetNotificationTemplateRequest,
+  ): Promise<notificationservicev1_NotificationTemplate>;
+  // 新建模板
+  CreateNotificationTemplate(
+    request: notificationservicev1_CreateNotificationTemplateRequest,
+  ): Promise<notificationservicev1_NotificationTemplate>;
+  // 更新模板（CRUD 请求体必须包 {data:{...}}，见仓铁律）
+  UpdateNotificationTemplate(
+    request: notificationservicev1_UpdateNotificationTemplateRequest,
+  ): Promise<wellKnownEmpty>;
+  // 删除模板
+  DeleteNotificationTemplate(
+    request: notificationservicev1_DeleteNotificationTemplateRequest,
+  ): Promise<wellKnownEmpty>;
+  // 试渲染：按变量集渲染指定模板，返回标题与正文（管理页预览用，不产生投递）
+  RenderNotificationTemplate(
+    request: notificationservicev1_RenderNotificationTemplateRequest,
+  ): Promise<notificationservicev1_RenderNotificationTemplateResponse>;
+}
+
+export function createNotificationTemplateServiceClient(
+  transport: ClientTransport,
+): NotificationTemplateService {
+  return {
+    ListNotificationTemplate(request) {
+      const path = `/admin/v1/notification-templates`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
+        );
+      }
+      if (request.fieldMask) {
+        queryParams.push(
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'NotificationTemplateService',
+        method: 'ListNotificationTemplate',
+      }) as Promise<notificationservicev1_ListNotificationTemplateResponse>;
+    },
+    GetNotificationTemplate(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/notification-templates/${request.id}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.code) {
+        queryParams.push(
+          `code=${encodeURIComponent(request.code.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'NotificationTemplateService',
+        method: 'GetNotificationTemplate',
+      }) as Promise<notificationservicev1_NotificationTemplate>;
+    },
+    CreateNotificationTemplate(request) {
+      const path = `/admin/v1/notification-templates`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'NotificationTemplateService',
+        method: 'CreateNotificationTemplate',
+      }) as Promise<notificationservicev1_NotificationTemplate>;
+    },
+    UpdateNotificationTemplate(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/notification-templates/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'PUT', body, {
+        service: 'NotificationTemplateService',
+        method: 'UpdateNotificationTemplate',
+      }) as Promise<wellKnownEmpty>;
+    },
+    DeleteNotificationTemplate(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/notification-templates/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'NotificationTemplateService',
+        method: 'DeleteNotificationTemplate',
+      }) as Promise<wellKnownEmpty>;
+    },
+    RenderNotificationTemplate(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/notification-templates/${request.id}/render`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'NotificationTemplateService',
+        method: 'RenderNotificationTemplate',
+      }) as Promise<notificationservicev1_RenderNotificationTemplateResponse>;
+    },
+  };
+}
+export type notificationservicev1_ListNotificationTemplateResponse = {
+  items: notificationservicev1_NotificationTemplate[] | undefined;
+  total: number | undefined;
+};
+
+// 通知模板：可复用的标题/正文占位模板（{{var}}），平台全局、code 全局唯一。
+export type notificationservicev1_NotificationTemplate = {
+  // 模板编码，发送方以 template_code 引用；全局唯一，仅限字母数字与下划线/连字符
+  code?: string;
+  // 正文模板，支持 {{var}} 占位符
+  contentTemplate?: string;
+  createdAt?: wellKnownTimestamp;
+  id?: number;
+  isEnabled?: boolean;
+  name?: string;
+  remark?: string;
+  // 标题模板，支持 {{var}} 占位符；未识别占位符在渲染时报错
+  titleTemplate?: string;
+  updatedAt?: wellKnownTimestamp;
+};
+
+export type notificationservicev1_GetNotificationTemplateRequest = {
+  code?: string;
+  id?: number;
+};
+
+export type notificationservicev1_CreateNotificationTemplateRequest = {
+  data: notificationservicev1_NotificationTemplate | undefined;
+};
+
+export type notificationservicev1_UpdateNotificationTemplateRequest = {
+  data: notificationservicev1_NotificationTemplate | undefined;
+  id: number | undefined;
+  // 字段掩码：留空更新全部字段
+  updateMask?: wellKnownFieldMask;
+};
+
+export type notificationservicev1_DeleteNotificationTemplateRequest = {
+  id: number | undefined;
+};
+
+// 按变量集试渲染（管理页预览；发送不经过这里）
+export type notificationservicev1_RenderNotificationTemplateRequest = {
+  // 被渲染的模板 ID
+  id: number | undefined;
+  // 变量集：占位符名 → 值；模板引用了变量集里没有的占位符时整个渲染报错
+  variables: { [key: string]: string } | undefined;
+};
+
+export type notificationservicev1_RenderNotificationTemplateResponse = {
+  content: string | undefined;
+  title: string | undefined;
 };
 
 // 在线会话管理服务（在线用户列表 + 强制下线）
@@ -5868,7 +7750,7 @@ export function createOnlineSessionServiceClient(
 ): OnlineSessionService {
   return {
     ListOnlineSession(request) {
-      const path = `admin/v1/online-session/sessions`;
+      const path = `/admin/v1/online-session/sessions`;
       const body = null;
       const queryParams: string[] = [];
       if (request.keyword) {
@@ -5896,7 +7778,7 @@ export function createOnlineSessionServiceClient(
       }) as Promise<online_sessionservicev1_ListOnlineSessionResponse>;
     },
     ForceLogoutSession(request) {
-      const path = `admin/v1/online-session/force-logout`;
+      const path = `/admin/v1/online-session/force-logout`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'OnlineSessionService',
@@ -5904,7 +7786,7 @@ export function createOnlineSessionServiceClient(
       }) as Promise<online_sessionservicev1_ForceLogoutSessionResponse>;
     },
     ListMyOnlineSession(_request) {
-      const path = `admin/v1/online-session/my-sessions`;
+      const path = `/admin/v1/online-session/my-sessions`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'OnlineSessionService',
@@ -5912,7 +7794,7 @@ export function createOnlineSessionServiceClient(
       }) as Promise<online_sessionservicev1_ListOnlineSessionResponse>;
     },
     RevokeMyOnlineSession(request) {
-      const path = `admin/v1/online-session/my-sessions/revoke`;
+      const path = `/admin/v1/online-session/my-sessions/revoke`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'OnlineSessionService',
@@ -5995,7 +7877,7 @@ export function createOperationAuditLogServiceClient(
 ): OperationAuditLogService {
   return {
     List(request) {
-      const path = `admin/v1/operation-audit-logs`;
+      const path = `/admin/v1/operation-audit-logs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -6043,56 +7925,9 @@ export function createOperationAuditLogServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -6113,7 +7948,7 @@ export function createOperationAuditLogServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/operation-audit-logs/${request.id}`;
+      const path = `/admin/v1/operation-audit-logs/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -6209,7 +8044,7 @@ export function createOrgUnitServiceClient(
 ): OrgUnitService {
   return {
     List(request) {
-      const path = `admin/v1/org-units`;
+      const path = `/admin/v1/org-units`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -6257,56 +8092,9 @@ export function createOrgUnitServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -6327,7 +8115,7 @@ export function createOrgUnitServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/org-units/${request.id}`;
+      const path = `/admin/v1/org-units/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -6345,7 +8133,7 @@ export function createOrgUnitServiceClient(
       }) as Promise<identityservicev1_OrgUnit>;
     },
     Create(request) {
-      const path = `admin/v1/org-units`;
+      const path = `/admin/v1/org-units`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'OrgUnitService',
@@ -6356,8 +8144,10 @@ export function createOrgUnitServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/org-units/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/org-units/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'OrgUnitService',
         method: 'Update',
@@ -6367,7 +8157,7 @@ export function createOrgUnitServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/org-units/${request.id}`;
+      const path = `/admin/v1/org-units/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'OrgUnitService',
@@ -6499,7 +8289,7 @@ export function createPermissionServiceClient(
 ): PermissionService {
   return {
     List(request) {
-      const path = `admin/v1/permissions`;
+      const path = `/admin/v1/permissions`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -6547,56 +8337,9 @@ export function createPermissionServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -6617,7 +8360,7 @@ export function createPermissionServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/permissions/${request.id}`;
+      const path = `/admin/v1/permissions/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.code) {
@@ -6640,7 +8383,7 @@ export function createPermissionServiceClient(
       }) as Promise<permissionservicev1_Permission>;
     },
     Create(request) {
-      const path = `admin/v1/permissions`;
+      const path = `/admin/v1/permissions`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'PermissionService',
@@ -6651,8 +8394,10 @@ export function createPermissionServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/permissions/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/permissions/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'PermissionService',
         method: 'Update',
@@ -6662,7 +8407,7 @@ export function createPermissionServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/permissions/${request.id}`;
+      const path = `/admin/v1/permissions/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.code) {
@@ -6685,7 +8430,7 @@ export function createPermissionServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     SyncPermissions(request) {
-      const path = `admin/v1/permissions/sync:perms`;
+      const path = `/admin/v1/permissions/sync:perms`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'PermissionService',
@@ -6767,7 +8512,7 @@ export function createPermissionAuditLogServiceClient(
 ): PermissionAuditLogService {
   return {
     List(request) {
-      const path = `admin/v1/permission-audit-logs`;
+      const path = `/admin/v1/permission-audit-logs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -6815,56 +8560,9 @@ export function createPermissionAuditLogServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -6885,7 +8583,7 @@ export function createPermissionAuditLogServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/permission-audit-logs/${request.id}`;
+      const path = `/admin/v1/permission-audit-logs/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -6983,7 +8681,7 @@ export function createPermissionGroupServiceClient(
 ): PermissionGroupService {
   return {
     List(request) {
-      const path = `admin/v1/permission-groups`;
+      const path = `/admin/v1/permission-groups`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -7031,56 +8729,9 @@ export function createPermissionGroupServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -7101,7 +8752,7 @@ export function createPermissionGroupServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/permission-groups/${request.id}`;
+      const path = `/admin/v1/permission-groups/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -7119,7 +8770,7 @@ export function createPermissionGroupServiceClient(
       }) as Promise<permissionservicev1_PermissionGroup>;
     },
     Create(request) {
-      const path = `admin/v1/permission-groups`;
+      const path = `/admin/v1/permission-groups`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'PermissionGroupService',
@@ -7130,8 +8781,10 @@ export function createPermissionGroupServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/permission-groups/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/permission-groups/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'PermissionGroupService',
         method: 'Update',
@@ -7141,7 +8794,7 @@ export function createPermissionGroupServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/permission-groups/${request.id}`;
+      const path = `/admin/v1/permission-groups/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'PermissionGroupService',
@@ -7232,7 +8885,7 @@ export function createPlanServiceClient(
 ): PlanService {
   return {
     List(request) {
-      const path = `admin/v1/plans`;
+      const path = `/admin/v1/plans`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -7280,56 +8933,9 @@ export function createPlanServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -7350,7 +8956,7 @@ export function createPlanServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/plans/${request.id}`;
+      const path = `/admin/v1/plans/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -7368,7 +8974,7 @@ export function createPlanServiceClient(
       }) as Promise<identityservicev1_Plan>;
     },
     Create(request) {
-      const path = `admin/v1/plans`;
+      const path = `/admin/v1/plans`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'PlanService',
@@ -7379,15 +8985,17 @@ export function createPlanServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/plans/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/plans/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'PlanService',
         method: 'Update',
       }) as Promise<wellKnownEmpty>;
     },
     Delete(request) {
-      const path = `admin/v1/plans`;
+      const path = `/admin/v1/plans`;
       const body = null;
       const queryParams: string[] = [];
       if (request.id) {
@@ -7494,7 +9102,7 @@ export function createPlanModuleServiceClient(
 ): PlanModuleService {
   return {
     List(request) {
-      const path = `admin/v1/plan-modules`;
+      const path = `/admin/v1/plan-modules`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -7542,56 +9150,9 @@ export function createPlanModuleServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -7612,7 +9173,7 @@ export function createPlanModuleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/plan-modules/${request.id}`;
+      const path = `/admin/v1/plan-modules/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -7630,7 +9191,7 @@ export function createPlanModuleServiceClient(
       }) as Promise<identityservicev1_PlanModule>;
     },
     Create(request) {
-      const path = `admin/v1/plan-modules`;
+      const path = `/admin/v1/plan-modules`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'PlanModuleService',
@@ -7641,15 +9202,17 @@ export function createPlanModuleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/plan-modules/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/plan-modules/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'PlanModuleService',
         method: 'Update',
       }) as Promise<wellKnownEmpty>;
     },
     Delete(request) {
-      const path = `admin/v1/plan-modules`;
+      const path = `/admin/v1/plan-modules`;
       const body = null;
       const queryParams: string[] = [];
       if (request.id) {
@@ -7736,7 +9299,7 @@ export function createPlanQuotaServiceClient(
 ): PlanQuotaService {
   return {
     List(request) {
-      const path = `admin/v1/plan-quotas`;
+      const path = `/admin/v1/plan-quotas`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -7784,56 +9347,9 @@ export function createPlanQuotaServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -7851,7 +9367,7 @@ export function createPlanQuotaServiceClient(
       }) as Promise<identityservicev1_ListPlanQuotaResponse>;
     },
     Create(request) {
-      const path = `admin/v1/plan-quotas`;
+      const path = `/admin/v1/plan-quotas`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'PlanQuotaService',
@@ -7862,15 +9378,17 @@ export function createPlanQuotaServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/plan-quotas/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/plan-quotas/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'PlanQuotaService',
         method: 'Update',
       }) as Promise<wellKnownEmpty>;
     },
     Delete(request) {
-      const path = `admin/v1/plan-quotas`;
+      const path = `/admin/v1/plan-quotas`;
       const body = null;
       const queryParams: string[] = [];
       if (request.id) {
@@ -7909,12 +9427,6 @@ export type identityservicev1_PlanQuota = {
   updatedBy?: number;
 };
 
-// 配额类型
-export type identityservicev1_PlanQuota_QuotaType =
-  | 'API_CALL'
-  | 'PLAN_QUOTA_TYPE_UNSPECIFIED'
-  | 'STORAGE'
-  | 'USER_LIMIT';
 // 创建套餐配额 - 请求
 export type identityservicev1_CreatePlanQuotaRequest = {
   data: identityservicev1_PlanQuota | undefined;
@@ -7950,7 +9462,7 @@ export function createPolicyEvaluationLogServiceClient(
 ): PolicyEvaluationLogService {
   return {
     List(request) {
-      const path = `admin/v1/policy-evaluation-logs`;
+      const path = `/admin/v1/policy-evaluation-logs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -7998,56 +9510,9 @@ export function createPolicyEvaluationLogServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -8068,7 +9533,7 @@ export function createPolicyEvaluationLogServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/policy-evaluation-logs/${request.id}`;
+      const path = `/admin/v1/policy-evaluation-logs/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.viewMask) {
@@ -8149,7 +9614,7 @@ export function createPositionServiceClient(
 ): PositionService {
   return {
     List(request) {
-      const path = `admin/v1/positions`;
+      const path = `/admin/v1/positions`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -8197,56 +9662,9 @@ export function createPositionServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -8267,7 +9685,7 @@ export function createPositionServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/positions/${request.id}`;
+      const path = `/admin/v1/positions/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.name) {
@@ -8295,7 +9713,7 @@ export function createPositionServiceClient(
       }) as Promise<identityservicev1_Position>;
     },
     Create(request) {
-      const path = `admin/v1/positions`;
+      const path = `/admin/v1/positions`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'PositionService',
@@ -8306,8 +9724,10 @@ export function createPositionServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/positions/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/positions/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'PositionService',
         method: 'Update',
@@ -8317,7 +9737,7 @@ export function createPositionServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/positions/${request.id}`;
+      const path = `/admin/v1/positions/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'PositionService',
@@ -8401,6 +9821,235 @@ export type identityservicev1_DeletePositionRequest = {
   id?: number;
 };
 
+// 打印模板管理服务
+export interface PrintTemplateService {
+  // 查询打印模板列表
+  List(
+    request: pagination_PagingRequest,
+  ): Promise<printservicev1_ListPrintTemplateResponse>;
+  // 查询打印模板详情
+  Get(
+    request: printservicev1_GetPrintTemplateRequest,
+  ): Promise<printservicev1_PrintTemplate>;
+  // 创建打印模板
+  Create(
+    request: printservicev1_CreatePrintTemplateRequest,
+  ): Promise<wellKnownEmpty>;
+  // 更新打印模板
+  Update(
+    request: printservicev1_UpdatePrintTemplateRequest,
+  ): Promise<wellKnownEmpty>;
+  // 删除打印模板
+  Delete(
+    request: printservicev1_DeletePrintTemplateRequest,
+  ): Promise<wellKnownEmpty>;
+  // 服务端 PDF 渲染（前端内核 HTML → 后端 Chromium 打印）
+  RenderPdf(
+    request: printservicev1_RenderPrintTemplateRequest,
+  ): Promise<printservicev1_RenderPrintTemplateResponse>;
+}
+
+export function createPrintTemplateServiceClient(
+  transport: ClientTransport,
+): PrintTemplateService {
+  return {
+    List(request) {
+      const path = `/admin/v1/print-templates`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.page) {
+        queryParams.push(
+          `page=${encodeURIComponent(request.page.toString())}`,
+        );
+      }
+      if (request.pageSize) {
+        queryParams.push(
+          `pageSize=${encodeURIComponent(request.pageSize.toString())}`,
+        );
+      }
+      if (request.offset) {
+        queryParams.push(
+          `offset=${encodeURIComponent(request.offset.toString())}`,
+        );
+      }
+      if (request.limit) {
+        queryParams.push(
+          `limit=${encodeURIComponent(request.limit.toString())}`,
+        );
+      }
+      if (request.token) {
+        queryParams.push(
+          `token=${encodeURIComponent(request.token.toString())}`,
+        );
+      }
+      if (request.noPaging) {
+        queryParams.push(
+          `noPaging=${encodeURIComponent(request.noPaging.toString())}`,
+        );
+      }
+      if (request.query) {
+        queryParams.push(
+          `query=${encodeURIComponent(request.query.toString())}`,
+        );
+      }
+      if (request.filter) {
+        queryParams.push(
+          `filter=${encodeURIComponent(request.filter.toString())}`,
+        );
+      }
+      if (request.filterExpr?.type) {
+        queryParams.push(
+          `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
+        );
+      }
+      if (request.orderBy) {
+        queryParams.push(
+          `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
+        );
+      }
+      if (request.fieldMask) {
+        queryParams.push(
+          `fieldMask=${encodeURIComponent(request.fieldMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'PrintTemplateService',
+        method: 'List',
+      }) as Promise<printservicev1_ListPrintTemplateResponse>;
+    },
+    Get(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/print-templates/${request.id}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.viewMask) {
+        queryParams.push(
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'PrintTemplateService',
+        method: 'Get',
+      }) as Promise<printservicev1_PrintTemplate>;
+    },
+    Create(request) {
+      const path = `/admin/v1/print-templates`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'PrintTemplateService',
+        method: 'Create',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Update(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/print-templates/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'PUT', body, {
+        service: 'PrintTemplateService',
+        method: 'Update',
+      }) as Promise<wellKnownEmpty>;
+    },
+    Delete(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/print-templates/${request.id}`;
+      const body = null;
+      return transport.unary(path, 'DELETE', body, {
+        service: 'PrintTemplateService',
+        method: 'Delete',
+      }) as Promise<wellKnownEmpty>;
+    },
+    RenderPdf(request) {
+      const path = `/admin/v1/print-templates:render-pdf`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'PrintTemplateService',
+        method: 'RenderPdf',
+      }) as Promise<printservicev1_RenderPrintTemplateResponse>;
+    },
+  };
+}
+// 查询打印模板列表 - 回应
+export type printservicev1_ListPrintTemplateResponse = {
+  items: printservicev1_PrintTemplate[] | undefined;
+  total: number | undefined;
+};
+
+// 打印模板（单据打印设计器的 TemplateData 载体；租户隔离，内置模板禁删可复制）
+export type printservicev1_PrintTemplate = {
+  code?: string;
+  createdAt?: wellKnownTimestamp;
+  createdBy?: number;
+  deletedAt?: wellKnownTimestamp;
+  deletedBy?: number;
+  id?: number;
+  isBuiltIn?: boolean;
+  isEnabled?: boolean;
+  name?: string;
+  orientation?: string;
+  paperSize?: string;
+  payload?: string;
+  resourceKey?: string;
+  sortOrder?: number;
+  updatedAt?: wellKnownTimestamp;
+  updatedBy?: number;
+};
+
+// 查询打印模板 - 请求
+export type printservicev1_GetPrintTemplateRequest = {
+  id?: number;
+  viewMask?: wellKnownFieldMask;
+};
+
+// 创建打印模板 - 请求
+export type printservicev1_CreatePrintTemplateRequest = {
+  data: printservicev1_PrintTemplate | undefined;
+};
+
+// 更新打印模板 - 请求
+export type printservicev1_UpdatePrintTemplateRequest = {
+  allowMissing?: boolean;
+  data: printservicev1_PrintTemplate | undefined;
+  id: number | undefined;
+  updateMask: undefined | wellKnownFieldMask;
+};
+
+// 删除打印模板 - 请求
+export type printservicev1_DeletePrintTemplateRequest = {
+  id?: number;
+};
+
+// 服务端 PDF 渲染 - 请求
+export type printservicev1_RenderPrintTemplateRequest = {
+  background: boolean | undefined;
+  filename: string | undefined;
+  html: string | undefined;
+  landscape: boolean | undefined;
+  paperHeightMm: number | undefined;
+  paperWidthMm: number | undefined;
+};
+
+// 服务端 PDF 渲染 - 回应（pdf 为 base64；前端解码为 Blob 下载）
+export type printservicev1_RenderPrintTemplateResponse = {
+  filename: string | undefined;
+  pdf: string | undefined;
+};
+
 // Redis缓存监控管理服务（只读）
 export interface RedisCacheMonitorService {
   // 查询Redis缓存监控信息
@@ -8414,7 +10063,7 @@ export function createRedisCacheMonitorServiceClient(
 ): RedisCacheMonitorService {
   return {
     Get(_request) {
-      const path = `admin/v1/redis-cache-monitor`;
+      const path = `/admin/v1/redis-cache-monitor`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'RedisCacheMonitorService',
@@ -8485,7 +10134,7 @@ export function createRoleServiceClient(
 ): RoleService {
   return {
     List(request) {
-      const path = `admin/v1/roles`;
+      const path = `/admin/v1/roles`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -8533,56 +10182,9 @@ export function createRoleServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -8603,7 +10205,7 @@ export function createRoleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/roles/${request.id}`;
+      const path = `/admin/v1/roles/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.name) {
@@ -8631,7 +10233,7 @@ export function createRoleServiceClient(
       }) as Promise<permissionservicev1_Role>;
     },
     Create(request) {
-      const path = `admin/v1/roles`;
+      const path = `/admin/v1/roles`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'RoleService',
@@ -8642,8 +10244,10 @@ export function createRoleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/roles/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/roles/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'RoleService',
         method: 'Update',
@@ -8653,7 +10257,7 @@ export function createRoleServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/roles/${request.id}`;
+      const path = `/admin/v1/roles/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'RoleService',
@@ -8682,6 +10286,8 @@ export type permissionservicev1_Role = {
   isProtected?: boolean;
   name?: string;
   orgUnits: number[] | undefined;
+  parentId?: number;
+  parentName?: string;
   permissions: number[] | undefined;
   sortOrder?: number;
   status?: permissionservicev1_Role_Status;
@@ -8755,6 +10361,10 @@ export interface ScriptService {
   Get(
     request: scriptservicev1_GetScriptRequest,
   ): Promise<scriptservicev1_Script>;
+  /** Alternate HTTP binding #1 of Get: GET /admin/v1/scripts/name/{name} */
+  GetAlt1(
+    request: scriptservicev1_GetScriptRequest,
+  ): Promise<scriptservicev1_Script>;
   // 创建脚本
   Create(
     request: scriptservicev1_CreateScriptRequest,
@@ -8782,7 +10392,7 @@ export function createScriptServiceClient(
 ): ScriptService {
   return {
     List(request) {
-      const path = `admin/v1/scripts`;
+      const path = `/admin/v1/scripts`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -8830,56 +10440,9 @@ export function createScriptServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -8897,7 +10460,7 @@ export function createScriptServiceClient(
       }) as Promise<scriptservicev1_ListScriptsResponse>;
     },
     Count(request) {
-      const path = `admin/v1/scripts/count`;
+      const path = `/admin/v1/scripts/count`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -8945,56 +10508,9 @@ export function createScriptServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -9015,7 +10531,7 @@ export function createScriptServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/scripts/${request.id}`;
+      const path = `/admin/v1/scripts/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.name) {
@@ -9037,8 +10553,36 @@ export function createScriptServiceClient(
         method: 'Get',
       }) as Promise<scriptservicev1_Script>;
     },
+
+    // Alternate HTTP binding #1 of Get: GET /admin/v1/scripts/name/{name}
+    GetAlt1(request) {
+      if (request.name === undefined || request.name === null) {
+        throw new Error('missing required field request.name');
+      }
+      const path = `/admin/v1/scripts/name/${request.name}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.id) {
+        queryParams.push(
+          `id=${encodeURIComponent(request.id.toString())}`,
+        );
+      }
+      if (request.viewMask) {
+        queryParams.push(
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'ScriptService',
+        method: 'Get',
+      }) as Promise<scriptservicev1_Script>;
+    },
     Create(request) {
-      const path = `admin/v1/scripts`;
+      const path = `/admin/v1/scripts`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'ScriptService',
@@ -9049,15 +10593,17 @@ export function createScriptServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/scripts/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/scripts/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'ScriptService',
         method: 'Update',
       }) as Promise<wellKnownEmpty>;
     },
     Delete(request) {
-      const path = `admin/v1/scripts`;
+      const path = `/admin/v1/scripts`;
       const body = null;
       const queryParams: string[] = [];
       if (request.ids) {
@@ -9077,7 +10623,7 @@ export function createScriptServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     TestRun(request) {
-      const path = `admin/v1/scripts/test_run`;
+      const path = `/admin/v1/scripts/test_run`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'ScriptService',
@@ -9085,7 +10631,7 @@ export function createScriptServiceClient(
       }) as Promise<scriptservicev1_TestRunScriptResponse>;
     },
     ListHookPoints(_request) {
-      const path = `admin/v1/script/hooks`;
+      const path = `/admin/v1/script/hooks`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'ScriptService',
@@ -9209,7 +10755,7 @@ export function createScriptLogServiceClient(
 ): ScriptLogService {
   return {
     List(request) {
-      const path = `admin/v1/script/logs`;
+      const path = `/admin/v1/script/logs`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -9257,56 +10803,9 @@ export function createScriptLogServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -9324,7 +10823,7 @@ export function createScriptLogServiceClient(
       }) as Promise<scriptservicev1_ListScriptLogsResponse>;
     },
     Count(request) {
-      const path = `admin/v1/script/logs/count`;
+      const path = `/admin/v1/script/logs/count`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -9372,56 +10871,9 @@ export function createScriptLogServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -9439,7 +10891,7 @@ export function createScriptLogServiceClient(
       }) as Promise<scriptservicev1_CountScriptLogsResponse>;
     },
     Purge(request) {
-      const path = `admin/v1/script/logs/purge`;
+      const path = `/admin/v1/script/logs/purge`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'ScriptLogService',
@@ -9496,7 +10948,7 @@ export function createServerMonitorServiceClient(
 ): ServerMonitorService {
   return {
     Get(_request) {
-      const path = `admin/v1/server-monitor`;
+      const path = `/admin/v1/server-monitor`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'ServerMonitorService',
@@ -9557,6 +11009,10 @@ export interface TaskService {
   Get(
     request: taskservicev1_GetTaskRequest,
   ): Promise<taskservicev1_Task>;
+  /** Alternate HTTP binding #1 of Get: GET /admin/v1/tasks/type-name/{type_name} */
+  GetAlt1(
+    request: taskservicev1_GetTaskRequest,
+  ): Promise<taskservicev1_Task>;
   // 创建调度任务
   Create(
     request: taskservicev1_CreateTaskRequest,
@@ -9596,7 +11052,7 @@ export function createTaskServiceClient(
 ): TaskService {
   return {
     List(request) {
-      const path = `admin/v1/tasks`;
+      const path = `/admin/v1/tasks`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -9644,56 +11100,9 @@ export function createTaskServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -9714,7 +11123,7 @@ export function createTaskServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/tasks/${request.id}`;
+      const path = `/admin/v1/tasks/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.typeName) {
@@ -9736,8 +11145,36 @@ export function createTaskServiceClient(
         method: 'Get',
       }) as Promise<taskservicev1_Task>;
     },
+
+    // Alternate HTTP binding #1 of Get: GET /admin/v1/tasks/type-name/{type_name}
+    GetAlt1(request) {
+      if (request.typeName === undefined || request.typeName === null) {
+        throw new Error('missing required field request.type_name');
+      }
+      const path = `/admin/v1/tasks/type-name/${request.typeName}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.id) {
+        queryParams.push(
+          `id=${encodeURIComponent(request.id.toString())}`,
+        );
+      }
+      if (request.viewMask) {
+        queryParams.push(
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'TaskService',
+        method: 'Get',
+      }) as Promise<taskservicev1_Task>;
+    },
     Create(request) {
-      const path = `admin/v1/tasks`;
+      const path = `/admin/v1/tasks`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'TaskService',
@@ -9748,8 +11185,10 @@ export function createTaskServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/tasks/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/tasks/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'TaskService',
         method: 'Update',
@@ -9759,7 +11198,7 @@ export function createTaskServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/tasks/${request.id}`;
+      const path = `/admin/v1/tasks/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'TaskService',
@@ -9767,7 +11206,7 @@ export function createTaskServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     ListTaskTypeName(_request) {
-      const path = `admin/v1/tasks:type-names`;
+      const path = `/admin/v1/tasks:type-names`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'TaskService',
@@ -9775,7 +11214,7 @@ export function createTaskServiceClient(
       }) as Promise<taskservicev1_ListTaskTypeNameResponse>;
     },
     RestartAllTask(request) {
-      const path = `admin/v1/tasks:restart`;
+      const path = `/admin/v1/tasks:restart`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'TaskService',
@@ -9783,7 +11222,7 @@ export function createTaskServiceClient(
       }) as Promise<taskservicev1_RestartAllTaskResponse>;
     },
     StartAllTask(request) {
-      const path = `admin/v1/tasks:start`;
+      const path = `/admin/v1/tasks:start`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'TaskService',
@@ -9791,7 +11230,7 @@ export function createTaskServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     StopAllTask(request) {
-      const path = `admin/v1/tasks:stop`;
+      const path = `/admin/v1/tasks:stop`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'TaskService',
@@ -9799,7 +11238,7 @@ export function createTaskServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     ControlTask(request) {
-      const path = `admin/v1/tasks:control`;
+      const path = `/admin/v1/tasks:control`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'TaskService',
@@ -9937,6 +11376,77 @@ export type taskservicev1_ControlTaskRequest_ControlType =
   | 'Restart'
   | 'Start'
   | 'Stop';
+// 系统级常驻任务监控服务（平台管理员；只读 asynq Inspector，无副作用）。
+export interface TaskMonitorService {
+  // 一站式巡检：调度条目（cron/上次/下次入队）+ 各任务类型的队列状态与失败明细
+  InspectSystemTasks(
+    request: taskservicev1_InspectSystemTasksRequest,
+  ): Promise<taskservicev1_InspectSystemTasksResponse>;
+}
+
+export function createTaskMonitorServiceClient(
+  transport: ClientTransport,
+): TaskMonitorService {
+  return {
+    InspectSystemTasks(request) {
+      const path = `/admin/v1/system-tasks:inspect`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'TaskMonitorService',
+        method: 'InspectSystemTasks',
+      }) as Promise<taskservicev1_InspectSystemTasksResponse>;
+    },
+  };
+}
+// 手动触发巡检（系统级常驻任务可视化，只读 asynq，无副作用）
+export type taskservicev1_InspectSystemTasksRequest = {
+};
+
+export type taskservicev1_InspectSystemTasksResponse = {
+  // asynq 队列名（当前配置）
+  queue: string | undefined;
+  schedules: taskservicev1_SystemTaskScheduleEntry[] | undefined;
+  // 只汇总系统级常驻任务涉及的任务类型；无任何记录时不出现在结果里
+  summaries: taskservicev1_SystemTaskStateSummary[] | undefined;
+};
+
+// 系统级常驻任务的调度条目（asynq SchedulerEntries 的只读投影）。
+// Prev 为零值时间表示从未入队过（调度注册后还没到第一个触发点）。
+export type taskservicev1_SystemTaskScheduleEntry = {
+  // cron 表达式
+  cronSpec: string | undefined;
+  nextEnqueueAt: undefined | wellKnownTimestamp;
+  // 上次入队时间；从未入队为空
+  prevEnqueueAt: undefined | wellKnownTimestamp;
+  // 任务类型名（载荷里的 handler/类型，如 tenant_expiry_scan）
+  taskType: string | undefined;
+};
+
+// 单任务类型在队列里的状态摘要
+export type taskservicev1_SystemTaskStateSummary = {
+  active: number | undefined;
+  archived: number | undefined;
+  pending: number | undefined;
+  // 最近失败明细（retry + archived 合并、按失败时间倒序、截断）
+  recentFailures: taskservicev1_SystemTaskFailure[] | undefined;
+  retry: number | undefined;
+  taskType: string | undefined;
+};
+
+// 失败任务明细（retry/archived 里的单条）
+export type taskservicev1_SystemTaskFailure = {
+  lastError: string | undefined;
+  lastFailedAt: undefined | wellKnownTimestamp;
+  maxRetry: number | undefined;
+  // 下次重试时间（archived 无）
+  nextProcessAt: undefined | wellKnownTimestamp;
+  queue: string | undefined;
+  retried: number | undefined;
+  // retry 或 archived
+  state: string | undefined;
+  taskType: string | undefined;
+};
+
 // 租户管理服务
 export interface TenantService {
   // 获取租户列表
@@ -9982,7 +11492,7 @@ export function createTenantServiceClient(
 ): TenantService {
   return {
     List(request) {
-      const path = `admin/v1/tenants`;
+      const path = `/admin/v1/tenants`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -10030,56 +11540,9 @@ export function createTenantServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -10100,7 +11563,7 @@ export function createTenantServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/tenants/${request.id}`;
+      const path = `/admin/v1/tenants/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.code) {
@@ -10128,7 +11591,7 @@ export function createTenantServiceClient(
       }) as Promise<identityservicev1_Tenant>;
     },
     Create(request) {
-      const path = `admin/v1/tenants`;
+      const path = `/admin/v1/tenants`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'TenantService',
@@ -10139,8 +11602,10 @@ export function createTenantServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/tenants/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/tenants/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'TenantService',
         method: 'Update',
@@ -10150,7 +11615,7 @@ export function createTenantServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/tenants/${request.id}`;
+      const path = `/admin/v1/tenants/${request.id}`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'TenantService',
@@ -10158,7 +11623,7 @@ export function createTenantServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     CreateTenantWithAdminUser(request) {
-      const path = `admin/v1/tenants:with-admin`;
+      const path = `/admin/v1/tenants:with-admin`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'TenantService',
@@ -10166,7 +11631,7 @@ export function createTenantServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     TenantExists(request) {
-      const path = `admin/v1/tenants:exists`;
+      const path = `/admin/v1/tenants:exists`;
       const body = null;
       const queryParams: string[] = [];
       if (request.code) {
@@ -10192,7 +11657,7 @@ export function createTenantServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/tenants/${request.id}/usage`;
+      const path = `/admin/v1/tenants/${request.id}/usage`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'TenantService',
@@ -10203,8 +11668,10 @@ export function createTenantServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/tenants/${request.id}/cleanup`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/tenants/${request.id}/cleanup`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'POST', body, {
         service: 'TenantService',
         method: 'CleanupData',
@@ -10313,6 +11780,8 @@ export type identityservicev1_User = {
   id?: number;
   lastLoginAt?: wellKnownTimestamp;
   lastLoginIp?: string;
+  // 偏好语言：事务性邮件（找回密码/换绑验证码）按此渲染；空 = 按请求 Accept-Language。
+  locale?: string;
   lockedUntil?: wellKnownTimestamp;
   mobile?: string;
   nickname?: string;
@@ -10369,23 +11838,6 @@ export type identityservicev1_GetTenantUsageRequest = {
   id: number | undefined;
 };
 
-// 租户用量与配额
-export type identityservicev1_TenantUsage = {
-  apiCallCount: number | undefined;
-  planId?: number;
-  planName?: string;
-  quotas: identityservicev1_QuotaUsage[] | undefined;
-  storageUsedBytes: number | undefined;
-  tenantId: number | undefined;
-  userCount: number | undefined;
-};
-
-// 配额用量项
-export type identityservicev1_QuotaUsage = {
-  quotaType: identityservicev1_PlanQuota_QuotaType | undefined;
-  quotaValue: number | undefined;
-};
-
 // 清理租户数据 - 请求
 export type identityservicev1_CleanupTenantDataRequest = {
   id: number | undefined;
@@ -10401,6 +11853,10 @@ export interface UserService {
   Get(
     request: identityservicev1_GetUserRequest,
   ): Promise<identityservicev1_User>;
+  /** Alternate HTTP binding #1 of Get: GET /admin/v1/users/username/{username} */
+  GetAlt1(
+    request: identityservicev1_GetUserRequest,
+  ): Promise<identityservicev1_User>;
   // 创建用户
   Create(
     request: identityservicev1_CreateUserRequest,
@@ -10411,6 +11867,10 @@ export interface UserService {
   ): Promise<wellKnownEmpty>;
   // 删除用户
   Delete(
+    request: identityservicev1_DeleteUserRequest,
+  ): Promise<wellKnownEmpty>;
+  /** Alternate HTTP binding #1 of Delete: DELETE /admin/v1/users/username/{username} */
+  DeleteAlt1(
     request: identityservicev1_DeleteUserRequest,
   ): Promise<wellKnownEmpty>;
   // 用户是否存在
@@ -10428,7 +11888,7 @@ export function createUserServiceClient(
 ): UserService {
   return {
     List(request) {
-      const path = `admin/v1/users`;
+      const path = `/admin/v1/users`;
       const body = null;
       const queryParams: string[] = [];
       if (request.page) {
@@ -10476,56 +11936,9 @@ export function createUserServiceClient(
           `filterExpr.type=${encodeURIComponent(request.filterExpr.type.toString())}`,
         );
       }
-      if (request.filterExpr?.conditions?.field) {
-        queryParams.push(
-          `filterExpr.conditions.field=${encodeURIComponent(request.filterExpr.conditions.field.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.op) {
-        queryParams.push(
-          `filterExpr.conditions.op=${encodeURIComponent(request.filterExpr.conditions.op.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.value) {
-        queryParams.push(
-          `filterExpr.conditions.value=${encodeURIComponent(request.filterExpr.conditions.value.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonValue) {
-        queryParams.push(
-          `filterExpr.conditions.jsonValue=${encodeURIComponent(request.filterExpr.conditions.jsonValue.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.values) {
-        request.filterExpr.conditions.values.forEach((x) => {
-          queryParams.push(
-            `filterExpr.conditions.values=${encodeURIComponent(x.toString())}`,
-          );
-        });
-      }
-      if (request.filterExpr?.conditions?.datePart) {
-        queryParams.push(
-          `filterExpr.conditions.datePart=${encodeURIComponent(request.filterExpr.conditions.datePart.toString())}`,
-        );
-      }
-      if (request.filterExpr?.conditions?.jsonPath) {
-        queryParams.push(
-          `filterExpr.conditions.jsonPath=${encodeURIComponent(request.filterExpr.conditions.jsonPath.toString())}`,
-        );
-      }
       if (request.orderBy) {
         queryParams.push(
           `orderBy=${encodeURIComponent(request.orderBy.toString())}`,
-        );
-      }
-      if (request.sorting?.field) {
-        queryParams.push(
-          `sorting.field=${encodeURIComponent(request.sorting.field.toString())}`,
-        );
-      }
-      if (request.sorting?.direction) {
-        queryParams.push(
-          `sorting.direction=${encodeURIComponent(request.sorting.direction.toString())}`,
         );
       }
       if (request.fieldMask) {
@@ -10546,7 +11959,7 @@ export function createUserServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/users/${request.id}`;
+      const path = `/admin/v1/users/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.username) {
@@ -10568,8 +11981,36 @@ export function createUserServiceClient(
         method: 'Get',
       }) as Promise<identityservicev1_User>;
     },
+
+    // Alternate HTTP binding #1 of Get: GET /admin/v1/users/username/{username}
+    GetAlt1(request) {
+      if (request.username === undefined || request.username === null) {
+        throw new Error('missing required field request.username');
+      }
+      const path = `/admin/v1/users/username/${request.username}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.id) {
+        queryParams.push(
+          `id=${encodeURIComponent(request.id.toString())}`,
+        );
+      }
+      if (request.viewMask) {
+        queryParams.push(
+          `viewMask=${encodeURIComponent(request.viewMask.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'GET', body, {
+        service: 'UserService',
+        method: 'Get',
+      }) as Promise<identityservicev1_User>;
+    },
     Create(request) {
-      const path = `admin/v1/users`;
+      const path = `/admin/v1/users`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'UserService',
@@ -10580,8 +12021,10 @@ export function createUserServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/users/${request.id}`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/users/${request.id}`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'PUT', body, {
         service: 'UserService',
         method: 'Update',
@@ -10591,7 +12034,7 @@ export function createUserServiceClient(
       if (request.id === undefined || request.id === null) {
         throw new Error('missing required field request.id');
       }
-      const path = `admin/v1/users/${request.id}`;
+      const path = `/admin/v1/users/${request.id}`;
       const body = null;
       const queryParams: string[] = [];
       if (request.username) {
@@ -10608,8 +12051,31 @@ export function createUserServiceClient(
         method: 'Delete',
       }) as Promise<wellKnownEmpty>;
     },
+
+    // Alternate HTTP binding #1 of Delete: DELETE /admin/v1/users/username/{username}
+    DeleteAlt1(request) {
+      if (request.username === undefined || request.username === null) {
+        throw new Error('missing required field request.username');
+      }
+      const path = `/admin/v1/users/username/${request.username}`;
+      const body = null;
+      const queryParams: string[] = [];
+      if (request.id) {
+        queryParams.push(
+          `id=${encodeURIComponent(request.id.toString())}`,
+        );
+      }
+      let uri = path;
+      if (queryParams.length > 0) {
+        uri += `?${queryParams.join('&')}`;
+      }
+      return transport.unary(uri, 'DELETE', body, {
+        service: 'UserService',
+        method: 'Delete',
+      }) as Promise<wellKnownEmpty>;
+    },
     UserExists(request) {
-      const path = `admin/v1/users:exists`;
+      const path = `/admin/v1/users:exists`;
       const body = null;
       const queryParams: string[] = [];
       if (request.id) {
@@ -10635,8 +12101,10 @@ export function createUserServiceClient(
       if (request.userId === undefined || request.userId === null) {
         throw new Error('missing required field request.user_id');
       }
-      const path = `admin/v1/users/${request.userId}/password`;
-      const body = JSON.stringify(request);
+      const path = `/admin/v1/users/${request.userId}/password`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["userId"];
+      const body = JSON.stringify(bodyMap);
       return transport.unary(path, 'POST', body, {
         service: 'UserService',
         method: 'EditUserPassword',
@@ -10734,7 +12202,7 @@ export function createUserProfileServiceClient(
 ): UserProfileService {
   return {
     GetUser(_request) {
-      const path = `admin/v1/me`;
+      const path = `/admin/v1/me`;
       const body = null;
       return transport.unary(path, 'GET', body, {
         service: 'UserProfileService',
@@ -10742,7 +12210,7 @@ export function createUserProfileServiceClient(
       }) as Promise<identityservicev1_User>;
     },
     UpdateUser(request) {
-      const path = `admin/v1/me`;
+      const path = `/admin/v1/me`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'PUT', body, {
         service: 'UserProfileService',
@@ -10750,7 +12218,7 @@ export function createUserProfileServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     ChangePassword(request) {
-      const path = `admin/v1/me/password`;
+      const path = `/admin/v1/me/password`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'UserProfileService',
@@ -10758,7 +12226,7 @@ export function createUserProfileServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     UploadAvatar(request) {
-      const path = `admin/v1/me/avatar`;
+      const path = `/admin/v1/me/avatar`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'UserProfileService',
@@ -10766,7 +12234,7 @@ export function createUserProfileServiceClient(
       }) as Promise<identityservicev1_UploadAvatarResponse>;
     },
     DeleteAvatar(_request) {
-      const path = `admin/v1/me/avatar`;
+      const path = `/admin/v1/me/avatar`;
       const body = null;
       return transport.unary(path, 'DELETE', body, {
         service: 'UserProfileService',
@@ -10774,7 +12242,7 @@ export function createUserProfileServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     BindContact(request) {
-      const path = `admin/v1/me/contact`;
+      const path = `/admin/v1/me/contact`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'UserProfileService',
@@ -10782,7 +12250,7 @@ export function createUserProfileServiceClient(
       }) as Promise<wellKnownEmpty>;
     },
     VerifyContact(request) {
-      const path = `admin/v1/me/contact/verify`;
+      const path = `/admin/v1/me/contact/verify`;
       const body = JSON.stringify(request);
       return transport.unary(path, 'POST', body, {
         service: 'UserProfileService',
@@ -10847,9 +12315,19 @@ export type identityservicev1_EmailVerification = {
 export class ApiClient {
   private _accessKeyService?: AccessKeyService;
   private _adminPortalService?: AdminPortalService;
+  private _aiAgentService?: AiAgentService;
+  private _aiChatService?: AiChatService;
+  private _aiContentService?: AiContentService;
+  private _aiConversationService?: AiConversationService;
+  private _aiKnowledgeBaseService?: AiKnowledgeBaseService;
+  private _aiMessageService?: AiMessageService;
+  private _aiProviderService?: AiProviderService;
+  private _aiQueryService?: AiQueryService;
+  private _aiUsageLogService?: AiUsageLogService;
   private _apiAuditLogService?: ApiAuditLogService;
   private _apiService?: ApiService;
   private _authenticationService?: AuthenticationService;
+  private _biDashboardService?: BiDashboardService;
   private _configService?: ConfigService;
   private _dashboardService?: DashboardService;
   private _dataAccessAuditLogService?: DataAccessAuditLogService;
@@ -10865,9 +12343,13 @@ export class ApiClient {
   private _loginPolicyService?: LoginPolicyService;
   private _menuService?: MenuService;
   private _mfaService?: MfaService;
+  private _monitorAlertService?: MonitorAlertService;
+  private _myTenantUsageService?: MyTenantUsageService;
   private _notificationChannelService?: NotificationChannelService;
+  private _notificationPreferenceService?: NotificationPreferenceService;
   private _notificationRuleService?: NotificationRuleService;
   private _notificationService?: NotificationService;
+  private _notificationTemplateService?: NotificationTemplateService;
   private _onlineSessionService?: OnlineSessionService;
   private _operationAuditLogService?: OperationAuditLogService;
   private _orgUnitService?: OrgUnitService;
@@ -10879,11 +12361,13 @@ export class ApiClient {
   private _planService?: PlanService;
   private _policyEvaluationLogService?: PolicyEvaluationLogService;
   private _positionService?: PositionService;
+  private _printTemplateService?: PrintTemplateService;
   private _redisCacheMonitorService?: RedisCacheMonitorService;
   private _roleService?: RoleService;
   private _scriptLogService?: ScriptLogService;
   private _scriptService?: ScriptService;
   private _serverMonitorService?: ServerMonitorService;
+  private _taskMonitorService?: TaskMonitorService;
   private _taskService?: TaskService;
   private _tenantService?: TenantService;
   private readonly _transport: ClientTransport;
@@ -10902,6 +12386,42 @@ export class ApiClient {
     return this._adminPortalService ??= createAdminPortalServiceClient(this._transport);
   }
 
+  get aiAgentService(): AiAgentService {
+    return this._aiAgentService ??= createAiAgentServiceClient(this._transport);
+  }
+
+  get aiChatService(): AiChatService {
+    return this._aiChatService ??= createAiChatServiceClient(this._transport);
+  }
+
+  get aiContentService(): AiContentService {
+    return this._aiContentService ??= createAiContentServiceClient(this._transport);
+  }
+
+  get aiConversationService(): AiConversationService {
+    return this._aiConversationService ??= createAiConversationServiceClient(this._transport);
+  }
+
+  get aiKnowledgeBaseService(): AiKnowledgeBaseService {
+    return this._aiKnowledgeBaseService ??= createAiKnowledgeBaseServiceClient(this._transport);
+  }
+
+  get aiMessageService(): AiMessageService {
+    return this._aiMessageService ??= createAiMessageServiceClient(this._transport);
+  }
+
+  get aiProviderService(): AiProviderService {
+    return this._aiProviderService ??= createAiProviderServiceClient(this._transport);
+  }
+
+  get aiQueryService(): AiQueryService {
+    return this._aiQueryService ??= createAiQueryServiceClient(this._transport);
+  }
+
+  get aiUsageLogService(): AiUsageLogService {
+    return this._aiUsageLogService ??= createAiUsageLogServiceClient(this._transport);
+  }
+
   get apiAuditLogService(): ApiAuditLogService {
     return this._apiAuditLogService ??= createApiAuditLogServiceClient(this._transport);
   }
@@ -10912,6 +12432,10 @@ export class ApiClient {
 
   get authenticationService(): AuthenticationService {
     return this._authenticationService ??= createAuthenticationServiceClient(this._transport);
+  }
+
+  get biDashboardService(): BiDashboardService {
+    return this._biDashboardService ??= createBiDashboardServiceClient(this._transport);
   }
 
   get configService(): ConfigService {
@@ -10974,8 +12498,20 @@ export class ApiClient {
     return this._mfaService ??= createMfaServiceClient(this._transport);
   }
 
+  get monitorAlertService(): MonitorAlertService {
+    return this._monitorAlertService ??= createMonitorAlertServiceClient(this._transport);
+  }
+
+  get myTenantUsageService(): MyTenantUsageService {
+    return this._myTenantUsageService ??= createMyTenantUsageServiceClient(this._transport);
+  }
+
   get notificationChannelService(): NotificationChannelService {
     return this._notificationChannelService ??= createNotificationChannelServiceClient(this._transport);
+  }
+
+  get notificationPreferenceService(): NotificationPreferenceService {
+    return this._notificationPreferenceService ??= createNotificationPreferenceServiceClient(this._transport);
   }
 
   get notificationRuleService(): NotificationRuleService {
@@ -10984,6 +12520,10 @@ export class ApiClient {
 
   get notificationService(): NotificationService {
     return this._notificationService ??= createNotificationServiceClient(this._transport);
+  }
+
+  get notificationTemplateService(): NotificationTemplateService {
+    return this._notificationTemplateService ??= createNotificationTemplateServiceClient(this._transport);
   }
 
   get onlineSessionService(): OnlineSessionService {
@@ -11030,6 +12570,10 @@ export class ApiClient {
     return this._positionService ??= createPositionServiceClient(this._transport);
   }
 
+  get printTemplateService(): PrintTemplateService {
+    return this._printTemplateService ??= createPrintTemplateServiceClient(this._transport);
+  }
+
   get redisCacheMonitorService(): RedisCacheMonitorService {
     return this._redisCacheMonitorService ??= createRedisCacheMonitorServiceClient(this._transport);
   }
@@ -11048,6 +12592,10 @@ export class ApiClient {
 
   get serverMonitorService(): ServerMonitorService {
     return this._serverMonitorService ??= createServerMonitorServiceClient(this._transport);
+  }
+
+  get taskMonitorService(): TaskMonitorService {
+    return this._taskMonitorService ??= createTaskMonitorServiceClient(this._transport);
   }
 
   get taskService(): TaskService {

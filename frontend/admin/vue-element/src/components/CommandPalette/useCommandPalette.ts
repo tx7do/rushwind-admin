@@ -7,6 +7,7 @@ import { router } from "@/router";
 import { useAccessStore } from "@/stores";
 import { isExternal } from "@/utils";
 import { i18n } from "@/core/i18n";
+import { fetchSemanticSearch } from "@/api/composables/ai-content";
 
 const t = i18n.global.t;
 
@@ -18,6 +19,8 @@ interface SearchItem {
   icon?: string;
   redirect?: string;
   params?: LocationQueryRaw;
+  /** 语义搜索命中项（区别于本地菜单关键字匹配，UI 上打 AI 标） */
+  semantic?: boolean;
 }
 
 const STORAGE_KEY = "menu_search_history";
@@ -43,8 +46,13 @@ export function useCommandPalette() {
   // ============================================
 
   function open() {
+    // 每次打开都重建菜单索引：标题在索引期翻译（loadRoutes 存的是 key，
+    // 不重建则换语言后仍是旧文案；路由后到时也能补上）
+    menuItems.value = [];
+    loadRoutes(accessStore.accessRoutes);
     keyword.value = "";
     results.value = [];
+    semanticResults.value = [];
     activeIndex.value = -1;
     visible.value = true;
     setTimeout(() => inputRef.value?.focus(), 100);
@@ -62,14 +70,54 @@ export function useCommandPalette() {
     activeIndex.value = -1;
     if (!keyword.value.trim()) {
       results.value = [];
+      semanticResults.value = [];
+      clearTimeout(semanticTimer);
       return;
     }
     const kw = keyword.value.toLowerCase();
-    results.value = menuItems.value.filter((item) => item.title.toLowerCase().includes(kw));
+    // 与 react 端同口径：标题或路径 contains（key 已在索引期翻译为文案）
+    results.value = menuItems.value.filter(
+      (item) =>
+        item.title.toLowerCase().includes(kw) || item.path.toLowerCase().includes(kw)
+    );
+    queueSemanticSearch(keyword.value.trim());
+  }
+
+  // ── 语义搜索（pgvector，500ms 防抖；尽力而为，失败只清空不打断本地搜索）──
+  let semanticTimer: ReturnType<typeof setTimeout> | undefined;
+  const semanticResults = ref<SearchItem[]>([]);
+  const semanticLoading = ref(false);
+
+  function queueSemanticSearch(query: string) {
+    clearTimeout(semanticTimer);
+    semanticTimer = setTimeout(async () => {
+      semanticLoading.value = true;
+      try {
+        const resp = await fetchSemanticSearch(query, 8);
+        semanticResults.value = (resp.items ?? [])
+          .filter((item) => item.route)
+          .map((item) => ({
+            title: item.title ?? item.route!,
+            path: item.route!,
+            semantic: true,
+          }));
+      } catch (error) {
+        // 不吞错：带出原始错误对象；语义搜索降级为仅本地结果
+        console.error("semantic search failed:", error);
+        semanticResults.value = [];
+      } finally {
+        semanticLoading.value = false;
+      }
+    }, 500);
   }
 
   function getDisplayList() {
-    return results.value.length ? results.value : history.value;
+    // 键盘选择列表必须与模板展示列表一致（关键词态=本地+语义合并，空关键词=历史）：
+    // 此前只回本地结果或历史，语义命中的行无法用键盘选中，本地无结果时回车甚至会跳去历史项。
+    if (keyword.value.trim()) {
+      return [...results.value, ...semanticResults.value];
+    }
+    return history.value;
   }
 
   function onSelect() {
@@ -162,7 +210,12 @@ export function useCommandPalette() {
         loadRoutes(route.children, path);
       } else if (route.meta?.title && typeof route.meta.title === "string") {
         menuItems.value.push({
-          title: route.meta.title === "dashboard" ? t("common.text.home") : route.meta.title,
+          // meta.title 是 i18n key（如 routes.tenant.member），索引期必须翻译，
+          // 否则展示裸 key 且中文永远匹配不上；t() 对不存在的 key 原样返回
+          title:
+            route.meta.title === "dashboard"
+              ? t("common.text.home")
+              : t(route.meta.title),
           path,
           name: typeof route.name === "string" ? route.name : undefined,
           icon: typeof route.meta.icon === "string" ? route.meta.icon : undefined,
@@ -200,12 +253,15 @@ export function useCommandPalette() {
 
   onBeforeUnmount(() => {
     document.removeEventListener("keydown", handleKeydown);
+    clearTimeout(semanticTimer);
   });
 
   return {
     visible,
     keyword,
     results,
+    semanticResults,
+    semanticLoading,
     history,
     activeIndex,
     inputRef,

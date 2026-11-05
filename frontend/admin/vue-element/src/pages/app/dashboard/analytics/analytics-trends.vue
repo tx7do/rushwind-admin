@@ -7,7 +7,7 @@ import type { LoginTrendResponse } from "@/api/generated/admin/service/v1";
 
 import { EchartsUI, EchartsUIType, useEcharts } from "@/plugins/echarts";
 import { usePreferences } from "@/core/preferences";
-import { getChartPrimary, hexToRgba } from "@/utils/chart-palette";
+import { getChartPrimary, getChartSecondaryText, hexToRgba } from "@/utils/chart-palette";
 
 const props = defineProps<{
   data?: LoginTrendResponse;
@@ -96,7 +96,7 @@ const chartOptions = computed(() => {
           show: false,
         },
         axisLabel: {
-          color: isDark.value ? "#8c8c8c" : "#909399",
+          color: getChartSecondaryText(),
           fontSize: 11,
           formatter: (val: number) => {
             if (val >= 1000) return `${Math.round(val / 1000)}k`;

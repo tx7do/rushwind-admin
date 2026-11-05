@@ -42,7 +42,6 @@ import {
   useDeletePosition,
   createImportsAction,
   generateImportTemplate,
-  createPagedExportAction,
 } from "@/api/composables";
 import { PaginationQuery } from "@/core/transport/rest";
 import { $t } from "@/core/i18n";
@@ -168,14 +167,12 @@ const pageConfig = computed<ProPageConfig>(() => {
       return createPosition(values);
     }),
     importTemplate: () => generateImportTemplate(importFields),
-    exportsAction: createPagedExportAction(fetchListPositions),
     toolbar: [],
     toolbarRight: ["add"],
-    defaultToolbar: ["refresh", "imports", "filter", "exports"],
+    defaultToolbar: ["exports", "imports", "refresh", "zoom", "filter"],
     tableAttrs: { border: true, stripe: true },
     emptyActionText: "common.button.add",
     columns: [
-      { type: "index", label: $t("common.table.seq"), width: 60 },
       { prop: "name", label: $t("pages.position.name"), minWidth: 120 },
       { prop: "code", label: $t("pages.position.code"), minWidth: 120 },
       {

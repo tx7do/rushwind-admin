@@ -94,7 +94,11 @@ export interface ProPageConfig<T = any, Q = any> {
     request?: { pageName: string; limitName: string };
     modifyAction?: (data: { [key: string]: any; field: string; value: any }) => Promise<any>;
     deleteAction?: (ids: string) => Promise<any>;
-    exportsAction?: (queryParams: Q) => Promise<any[]>;
+    /**
+     * 服务端全量导出（XLSX，上限远大于客户端聚合）：提供后「导出全部」下拉
+     * 追加「服务端全量」项；错误处理与提示由页面闭包自己负责（不吞错）。
+     */
+    exportServer?: () => Promise<void>;
     importsAction?: (data: any[]) => Promise<any>;
     importAction?: (file: File) => Promise<any>;
     importTemplate?: string | (() => Promise<any>);

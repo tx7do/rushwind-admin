@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import { ProTable } from '@ant-design/pro-components';
-import { App, Button, Popconfirm, Space, Tag, Tooltip } from 'antd';
+import ListTable from '@/components/common/ListTable';
+import TableActions from '@/components/common/TableActions';
+import { App, Tag, Tooltip } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -15,6 +16,8 @@ import TableExportButton from '@/components/common/TableExportButton';
 import { TABLE } from '@/config/constants';
 import { useProTableScrollY } from '@/hooks/useProTableScrollY';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
+import { searchOptionRender } from '@/components/common/searchSubmitter';
+import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
 /**
  * 在线用户（在线会话）页面
@@ -130,18 +133,25 @@ const OnlineSessionPage = () => {
       width: 110,
       fixed: 'right',
       render: (_, record) => (
-        <Space>
-          <Popconfirm
-            title={t('forceLogoutConfirm')}
-            description={t('forceLogoutConfirmDesc', { user: record.username || record.userId })}
-            okButtonProps={{ loading: forceLogoutMutation.isPending }}
-            onConfirm={() => handleForceLogout(record)}
-          >
-            <Button danger type="link" size="small" icon={<DeleteOutlined />}>
-              {t('forceLogout')}
-            </Button>
-          </Popconfirm>
-        </Space>
+        <TableActions
+          record={record}
+          actions={[
+            {
+              key: 'force-logout',
+              label: t('forceLogout'),
+              icon: <DeleteOutlined />,
+              danger: true,
+              confirm: {
+                title: t('forceLogoutConfirm'),
+                description: t('forceLogoutConfirmDesc', {
+                  user: record.username || record.userId,
+                }),
+                okLoading: forceLogoutMutation.isPending,
+              },
+              onClick: () => handleForceLogout(record),
+            },
+          ]}
+        />
       ),
     },
   ];
@@ -149,29 +159,20 @@ const OnlineSessionPage = () => {
   return (
     <ContentContainer heightMode="fixed" padding="16px" bottomMargin={0}>
       <div ref={containerRef} className="page-container-content">
-        <ProTable<OnlineSession>
+        <ListTable<OnlineSession>
           actionRef={actionRef}
           columns={columns}
           request={async (params) => {
-            try {
-              const response = await fetchListOnlineSessions({
-                page: params.current || 1,
-                pageSize: params.pageSize || 20,
-                keyword: (params.keyword as string) || undefined,
-              });
-              return {
-                data: response.items || [],
-                total: response.total || 0,
-                success: true,
-              };
-            } catch (error: any) {
-              message.error(error.message || t('fetchFailed'));
-              return {
-                data: [],
-                total: 0,
-                success: false,
-              };
-            }
+            const response = await fetchListOnlineSessions({
+              page: params.current || 1,
+              pageSize: params.pageSize || 20,
+              keyword: (params.keyword as string) || undefined,
+            });
+            return {
+              data: response.items || [],
+              total: response.total || 0,
+              success: true,
+            };
           }}
           toolBarRender={() => [
             <TableExportButton
@@ -188,7 +189,7 @@ const OnlineSessionPage = () => {
             />,
           ]}
           rowKey={(record) => `${record.clientType}-${record.userId}-${record.jti}`}
-          search={{
+          search={{ optionRender: searchOptionRender,
             labelWidth: 'auto',
             defaultCollapsed: false,
           }}
@@ -201,7 +202,7 @@ const OnlineSessionPage = () => {
           options={{
             density: true,
             fullScreen: true,
-            setting: true,
+            setting: { settingIcon: <ColumnSlidersIcon /> },
             reload: true,
           }}
           size="middle"

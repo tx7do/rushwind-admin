@@ -56,6 +56,17 @@ fn channel_proto(r: crate::data::sys_notification_channels::Model) -> Notificati
             .as_deref()
             .map(|s| mapping::notification_sign_style_of(s).unwrap_or(0)),
         webhook_payload_template: r.webhook_payload_template,
+        // SMS/settings faces land with the notification-channel increment
+        // (entity columns ride that migration; rows read empty until then).
+        settings: None,
+        sms_provider: None,
+        sms_access_key_id: None,
+        has_sms_access_secret: None,
+        sms_sign_name: None,
+        sms_template_code: None,
+        sms_app_id: None,
+        sms_region: None,
+        smtp_from_name: None,
     }
 }
 
@@ -213,5 +224,35 @@ impl proto::gen::services::NotificationChannelServiceHandlers for NotificationCh
             ));
         }
         Ok(Empty {})
+    }
+
+    async fn send_test(
+        &self,
+        _ctx: rushwind_http_binding::ctx::RequestContext,
+        req: proto::proto::notification_channel::service::v1::SendTestRequest,
+    ) -> Result<Empty, StatusError> {
+        // The generic channel test (EMAIL/WEBHOOK/SMS/EXT) rides the outbound
+        // delivery increment; until then it validates the channel exists.
+        let repo = crate::data::repos::NotificationChannelRepo::new(&self.state.db);
+        repo.get_by_id(req.id).await?;
+        Ok(Empty {})
+    }
+
+    async fn list_channel_schemas(
+        &self,
+        _ctx: rushwind_http_binding::ctx::RequestContext,
+        _req: Empty,
+    ) -> Result<
+        proto::proto::notification_channel::service::v1::ListChannelSchemasResponse,
+        StatusError,
+    > {
+        // The EXT_* settings-channel schema registry (39 declared channels on
+        // the reference) lands with the notification-channel increment; the
+        // dynamic forms read empty until then.
+        Ok(
+            proto::proto::notification_channel::service::v1::ListChannelSchemasResponse {
+                items: Vec::new(),
+            },
+        )
     }
 }

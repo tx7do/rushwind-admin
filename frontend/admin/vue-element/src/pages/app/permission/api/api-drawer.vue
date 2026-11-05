@@ -1,10 +1,11 @@
 <template>
   <ProModal
     v-model:visible="drawer.visible.value"
+    :close-guard="drawer.closeGuard"
     :title="drawer.title.value"
     :config="{
       component: 'drawer',
-      drawer: { size: drawer.drawerWidth, closeOnClickModal: false },
+      drawer: { size: drawer.drawerWidth },
     }"
   >
     <ElForm
@@ -69,7 +70,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="drawer.close">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="drawer.guard.requestClose(drawer.close)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton
           type="primary"
           :loading="drawer.submitLoading.value"
@@ -117,8 +118,21 @@ const formRules = {
   method: [{ required: true, message: $t("common.validation.selectRequired"), trigger: "change" }],
 };
 
+// 包装 open：编辑模式下显式回填表单声明字段（避免 useDrawerForm 默认不回填导致编辑态空白）
+function open(data?: { create?: boolean; row?: any }) {
+  drawer.open(data, (row: any) => {
+    if (!row) return;
+    // 仅回填 defaults 声明的字段，不拷贝 id/createdAt 等不可变字段
+    drawer.formData.description = row.description ?? "";
+    drawer.formData.module = row.module ?? "";
+    drawer.formData.moduleDescription = row.moduleDescription ?? "";
+    drawer.formData.path = row.path ?? "";
+    drawer.formData.method = row.method ?? "";
+  });
+}
+
 // 暴露方法给父组件
-defineExpose({ open: drawer.open });
+defineExpose({ open });
 </script>
 
 <style lang="scss" scoped>

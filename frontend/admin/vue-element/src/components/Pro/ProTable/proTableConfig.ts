@@ -4,8 +4,9 @@ import { DEFAULT_PAGE_SIZE, DEFAULT_PAGE_SIZES } from "@/components/Pro";
 export const proTableGlobalConfig: ProTableConfig = {
   engine: "vxe",
   rowKey: "id",
-  // 行高由全局 _vxe-table.scss 通过 padding 控制（表项 ~30px、表头 ~30px）
-  // 此处保留字段用于 el-table 引擎兼容
+  // vxe 引擎行高由全局 _vxe-table.scss 的 --vxe-ui-table-row-height-* 变量控制
+  // （34px，同时是主表与固定列克隆表行高对齐的机制，改值前读该文件块注释）；
+  // 此处字段仅 el-table 引擎兼容用
   rowHeight: 30,
   headerHeight: 30,
   border: "none",

@@ -314,5 +314,15 @@
       "UNIT_ONLY": "Department Only",
       "SELF": "Self Only"
     }
+  },
+  "membershipPosition": {
+    "status": {
+      "PROBATION": "Probation",
+      "ACTIVE": "Active",
+      "LEAVE": "Left",
+      "RESIGNED": "Resigned",
+      "TERMINATED": "Terminated",
+      "EXPIRED": "Expired"
+    }
   }
 }

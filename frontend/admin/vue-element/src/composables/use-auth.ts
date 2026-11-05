@@ -3,6 +3,7 @@
  * 替代 authentication.store.ts，提供登录/登出/注册/验证码/获取用户信息/权限码等功能
  */
 import { ref } from "vue";
+import { apiClient } from "@/api/client";
 import { encryptPassword } from "@/utils";
 import { router } from "@/router";
 
@@ -245,6 +246,18 @@ async function completeMfaChallenge(
   return { userInfo };
 }
 
+// completeSsoLogin OIDC 回调换令牌：code+state 调 SsoLogin（后端已验证 state
+// 并签发标准 JWT 对），复用 applySuccessfulLogin（存 token/拉用户/跳转）。
+// refresh token 由后端经 HttpOnly Cookie 下发，与密码登录同形。
+async function completeSsoLogin(
+  code: string,
+  state: string,
+  onSuccess?: () => Promise<void> | void
+): Promise<UserInfo | null> {
+  const resp = await apiClient.authenticationService.SsoLogin({ code, state });
+  return applySuccessfulLogin(resp, onSuccess);
+}
+
 async function _doLogout(redirect: boolean = true) {
   console.log("_doLogout");
   stopRefreshTimer();
@@ -334,6 +347,7 @@ export function useAuth() {
     loginLoading,
     login,
     completeMfaChallenge,
+    completeSsoLogin,
     logout,
     // 强制登出：纯前端清理+跳转，不调后端 logout API。
     // 用于改密成功等 token 已被后端吊销的场景，避免登出请求再吃 401。

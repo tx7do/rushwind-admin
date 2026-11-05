@@ -61,6 +61,17 @@ const coreRoutes: RouteRecordRaw[] = [
         },
       },
       {
+        name: "SsoCallback",
+        path: "sso/callback",
+        component: () => import("@/pages/core/login/sso-callback.vue"),
+        meta: {
+          title: "core.sso.title",
+          hideInBreadcrumb: true,
+          hideInMenu: true,
+          hideInTab: true,
+        },
+      },
+      {
         name: "MfaChallenge",
         path: "mfa-challenge",
         component: () => import("@/pages/core/login/components/MfaChallenge.vue"),

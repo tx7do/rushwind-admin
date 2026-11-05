@@ -13,8 +13,8 @@
   "sortOrderPlaceholder": "请输入排序",
   "status": "状态",
   "requiredStatus": "请选择状态",
-  "create": "新建分组",
-  "edit": "编辑分组",
+  "create": "创建分组",
+  "edit": "更新分组",
   "expandAll": "展开全部",
   "collapseAll": "折叠全部",
   "selectAll": "全选",
@@ -28,7 +28,6 @@
   "createFailed": "创建失败",
   "updateFailed": "更新失败",
   "deleteFailed": "删除失败",
-  "fetchFailed": "获取数据失败",
   "selectGroupFirst": "请先在左侧选择一个权限分组",
   "statusMap": {
     "ON": "启用",

@@ -2,7 +2,8 @@
   <ProModal
     v-model:visible="visible"
     :title="title"
-    :config="{ component: 'drawer', drawer: { size: '800px', closeOnClickModal: false } }"
+    :config="{ component: 'drawer', drawer: { size: '800px' } }"
+    :close-guard="guard.allowClose"
   >
     <ElForm ref="formRef" :model="formData" :rules="formRules" label-width="120px">
       <ElRow :gutter="20">
@@ -91,14 +92,19 @@
         <ElInput v-model="formData.title" :placeholder="$t('common.placeholder.input')" clearable />
       </ElFormItem>
 
-      <ElFormItem :label="$t('pages.internal_message.content')" prop="content">
-        <Editor v-model="formData.content" :editor-type="EditorType.RICH_TEXT" :height="350" />
+      <!-- 消息内容：富文本属复杂控件按规范标签在上通栏 -->
+      <ElFormItem
+        :label="$t('pages.internal_message.content')"
+        prop="content"
+        class="form-item-label-top"
+      >
+        <Editor v-model="formData.content" :editor-type="EditorType.RICH_TEXT" :height="500" />
       </ElFormItem>
     </ElForm>
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="handleClose">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="guard.requestClose(handleClose)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton type="primary" :loading="loading" @click="handleSubmit">
           {{ $t("common.button.confirm") }}
         </ElButton>
@@ -124,6 +130,7 @@ import {
 import { PaginationQuery } from "@/core/transport/rest";
 import { $t } from "@/core/i18n";
 import ProModal from "@/components/Pro/ProModal/index.vue";
+import { useDrawerCloseGuard } from "@/components/Pro/composables/use-drawer-close-guard";
 
 const emit = defineEmits(["success"]);
 
@@ -234,6 +241,9 @@ function resetForm() {
 }
 
 // 打开抽屉
+// 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+const guard = useDrawerCloseGuard(() => ({ ...formData }));
+
 async function open(row?: any) {
   visible.value = true;
   await loadCategoryTree();
@@ -252,6 +262,9 @@ async function open(row?: any) {
     currentId.value = undefined;
     resetForm();
   }
+
+  // 填充完成后记录基线快照（回填不算脏）
+  guard.syncBaseline();
 }
 
 // 关闭抽屉
@@ -319,5 +332,17 @@ defineExpose({
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+}
+
+/* 复杂控件（富文本编辑器）标签在上定式：label 独占一行左对齐，与控件留 8px；
+   width 需 !important 压过表单 label-width 注入的内联宽度 */
+.form-item-label-top {
+  display: block;
+}
+
+.form-item-label-top :deep(.el-form-item__label) {
+  justify-content: flex-start;
+  width: 100% !important;
+  margin-bottom: 8px;
 }
 </style>

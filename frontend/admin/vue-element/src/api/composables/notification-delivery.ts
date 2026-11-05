@@ -74,10 +74,10 @@ export const notificationDeliveryChannelList = computed(() =>
  *
  * 路由不写在 Go 里：后端那份静态 eventChannels 表已经删了，「事件 → 渠道 + 是否异步」现在是
  * 数据库表 sys_notification_rules，在「通知路由规则」页维护，改完立刻生效。所以只要管理员建了一行
- * WEBHOOK 规则，台账里就会出现 WEBHOOK 行——筛选项跟着渠道全集走，只有 SMS 至今没有投递实现、
- * 永远不会有台账行，才把它留在展示文案而不进下拉（空表容易被读成"条件写错了"）。
+ * WEBHOOK 规则，台账里就会出现 WEBHOOK 行——筛选项跟着渠道全集走。SMS 自 2026-10-15 起有投递实现
+ * （渠道页配好短信账号后即可写出台账行），进下拉。
  */
-const FILTERED_CHANNEL_KEYS: notificationservicev1_Channel[] = ["EMAIL", "INTERNAL", "WEBHOOK"];
+const FILTERED_CHANNEL_KEYS: notificationservicev1_Channel[] = ["EMAIL", "INTERNAL", "WEBHOOK", "SMS"];
 
 export const notificationDeliveryChannelFilterList = computed(
   () =>

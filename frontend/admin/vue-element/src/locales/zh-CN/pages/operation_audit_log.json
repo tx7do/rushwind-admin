@@ -19,5 +19,7 @@
   "logHash": "日志哈希",
   "signature": "签名",
   "province": "省份",
-  "city": "城市"
+  "city": "城市",
+  "exportServerSuccess": "已开始下载",
+  "exportServerFailed": "服务端导出失败"
 }

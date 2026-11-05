@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 
 import { PaginationQuery } from '@/core';
 import { useCreatePlanQuota, useUpdatePlanQuota, fetchListPlans } from '@/api/hooks/plan';
+import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 import { getQuotaTypeOptions } from '../constants';
 import { SELECT_FILTER_PROPS } from '../constants';
 
@@ -36,6 +37,9 @@ const PlanQuotaDrawer: React.FC<PlanQuotaDrawerProps> = ({
 }) => {
   const { t } = useTranslation('plan');
   const formRef = useRef<ProFormInstance>(null);
+
+  // 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+  const { guardClose, handleValuesChange } = useDrawerCloseGuard(open, onClose);
   const queryClient = useQueryClient();
   const { message } = App.useApp();
 
@@ -131,14 +135,9 @@ const PlanQuotaDrawer: React.FC<PlanQuotaDrawerProps> = ({
   return (
     <DrawerForm
       formRef={formRef}
-      title={mode === 'create' ? t('create') : t('edit')}
+      title={mode === 'create' ? t('quotaCreate') : t('quotaEdit')}
       open={open}
-      onOpenChange={(visible) => {
-        if (!visible) {
-          formRef.current?.resetFields();
-          onClose();
-        }
-      }}
+      onValuesChange={handleValuesChange}
       initialValues={{
         planId,
       }}
@@ -151,9 +150,12 @@ const PlanQuotaDrawer: React.FC<PlanQuotaDrawerProps> = ({
         submitButtonProps: {
           loading: confirmLoading || createMutation.isPending || updateMutation.isPending,
         },
-        resetButtonProps: { onClick: onClose },
+        resetButtonProps: { onClick: guardClose },
       }}
-      drawerProps={{ destroyOnHidden: true, onClose, size: 600 }}
+      drawerProps={{ destroyOnHidden: true, onClose: guardClose, size: 600 }}
+      layout="horizontal"
+      labelCol={{ flex: '0 0 120px' }}
+      wrapperCol={{ flex: 'auto' }}
     >
       {/* 所属套餐 - 只读 Select */}
       <Form.Item

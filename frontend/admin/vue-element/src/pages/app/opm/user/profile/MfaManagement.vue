@@ -28,7 +28,7 @@
     </div>
 
     <!-- 绑定弹窗：二维码 + 手动密钥 + 首码确认 -->
-    <ElDialog
+    <ElDrawer
       v-model="enrollVisible"
       :title="$t('pages.user.secureSetting.mfaBindTitle')"
       width="440px"
@@ -63,7 +63,7 @@
           {{ $t("pages.user.secureSetting.mfaConfirmBind") }}
         </ElButton>
       </template>
-    </ElDialog>
+    </ElDrawer>
   </div>
 </template>
 

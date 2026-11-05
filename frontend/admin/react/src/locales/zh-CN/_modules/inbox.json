@@ -15,7 +15,6 @@
   "deleteFailed": "删除失败",
   "deleteConfirmTitle": "确认删除",
   "deleteConfirmDesc": "确定要删除该{{moduleName}}吗？",
-  "fetchFailed": "获取数据失败",
   "noUnread": "暂无未读消息",
   "viewAll": "查看全部消息",
   "goToInbox": "进入收件箱",
@@ -31,5 +30,6 @@
   "markAllReadFailed": "全部已读操作失败",
   "detailTitle": "消息详情",
   "unreadCount": "{{count}} 条未读",
-  "noMessages": "暂无消息"
+  "noMessages": "暂无消息",
+  "senderSystem": "系统"
 }

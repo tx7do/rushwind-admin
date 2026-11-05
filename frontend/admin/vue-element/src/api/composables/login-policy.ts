@@ -102,7 +102,7 @@ export const loginPolicyTypeList = computed(() => [
 
 export const loginPolicyMethodList = computed(() => [
   { value: "IP", label: t("enum.loginPolicy.method.IP") },
-  { value: "MAC", label: t("enum.loginPolicy.method.MAC") },
+  // MAC 不在下拉中：HTTP 请求上下文拿不到 MAC 地址，选了也永不命中（后端枚举保留兼容存量数据）
   { value: "REGION", label: t("enum.loginPolicy.method.REGION") },
   { value: "TIME", label: t("enum.loginPolicy.method.TIME") },
   { value: "DEVICE", label: t("enum.loginPolicy.method.DEVICE") },

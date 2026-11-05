@@ -147,7 +147,7 @@ const data = ref<auditservicev1_ApiAuditLog>();
 
 function open(payload: { row: auditservicev1_ApiAuditLog }) {
   data.value = payload.row;
-  title.value = $t("pages.api_audit_log.moduleName");
+  title.value = $t("common.modal.view", { moduleName: $t("pages.api_audit_log.moduleName") });
   visible.value = true;
 }
 

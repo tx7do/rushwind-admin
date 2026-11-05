@@ -32,33 +32,34 @@
       </div>
     </div>
 
-    <!-- 绑定邮箱对话框：发送验证码 → 输入验证码完成绑定 -->
-    <el-dialog
+    <!-- 绑定邮箱抽屉：发送验证码 → 输入验证码完成绑定 -->
+    <ElDrawer
       v-model="bindOpen"
       :title="$t('pages.user.accountBind.bindEmailTitle')"
-      width="440px"
-      destroy-on-close
+      size="480px"
+      :append-to-body="true"
+      :destroy-on-close="true"
     >
-      <el-form label-width="110px">
-        <el-form-item :label="$t('pages.user.accountBind.newEmail')" required>
-          <el-input v-model="bindEmail" :placeholder="$t('pages.user.accountBind.newEmailPlaceholder')" />
-        </el-form-item>
-        <el-form-item :label="$t('pages.user.accountBind.vcode')" required>
+      <ElForm label-position="top">
+        <ElFormItem :label="$t('pages.user.accountBind.newEmail')" required>
+          <ElInput v-model="bindEmail" :placeholder="$t('pages.user.accountBind.newEmailPlaceholder')" />
+        </ElFormItem>
+        <ElFormItem :label="$t('pages.user.accountBind.vcode')" required>
           <div class="vcode-row">
-            <el-input v-model="bindCode" :placeholder="$t('pages.user.accountBind.vcodePlaceholder')" />
-            <el-button :disabled="codeSent" @click="handleSendCode">
+            <ElInput v-model="bindCode" :placeholder="$t('pages.user.accountBind.vcodePlaceholder')" />
+            <ElButton :disabled="codeSent" :loading="sending" @click="handleSendCode">
               {{ codeSent ? $t("pages.user.accountBind.codeSent") : $t("pages.user.accountBind.sendVcode") }}
-            </el-button>
+            </ElButton>
           </div>
-        </el-form-item>
-      </el-form>
+        </ElFormItem>
+      </ElForm>
       <template #footer>
-        <el-button @click="bindOpen = false">{{ $t("common.button.cancel") }}</el-button>
-        <el-button type="primary" :loading="verifying" @click="handleVerify">
-          {{ $t("pages.user.accountBind.confirmBind") }}
-        </el-button>
+        <ElButton @click="bindOpen = false">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton type="primary" :loading="verifying" @click="handleVerify">
+          {{ $t("common.button.confirm") }}
+        </ElButton>
       </template>
-    </el-dialog>
+    </ElDrawer>
   </div>
 </template>
 
@@ -123,6 +124,7 @@ const bindOpen = ref(false);
 const bindEmail = ref("");
 const bindCode = ref("");
 const codeSent = ref(false);
+const sending = ref(false);
 const verifying = ref(false);
 
 function openBind() {
@@ -138,12 +140,16 @@ async function handleSendCode() {
     ElMessage.error($t("pages.user.accountBind.newEmailRequired"));
     return;
   }
+  sending.value = true;
   try {
     await apiClient.userProfileService.BindContact({ email: { email } });
     codeSent.value = true;
-    ElMessage.success($t("pages.user.accountBind.vcodeSent"));
+    ElMessage.success($t("pages.user.accountBind.codeSent"));
   } catch (error: any) {
+    console.error("Failed to send bind code:", error);
     ElMessage.error(error?.message || $t("pages.user.accountBind.vcodeSendFailed"));
+  } finally {
+    sending.value = false;
   }
 }
 
@@ -160,9 +166,11 @@ async function handleVerify() {
     });
     ElMessage.success($t("pages.user.accountBind.bindSuccess"));
     bindOpen.value = false;
-    // 刷新用户信息以更新绑定状态展示
+    // 刷新用户信息以更新绑定状态展示（本页读 userProfile，顶栏头像等读 getMe）
     queryClient.invalidateQueries({ queryKey: ["getMe"] });
+    queryClient.invalidateQueries({ queryKey: ["userProfile"] });
   } catch (error: any) {
+    console.error("Failed to verify bind code:", error);
     ElMessage.error(error?.message || $t("pages.user.accountBind.bindFailed"));
   } finally {
     verifying.value = false;

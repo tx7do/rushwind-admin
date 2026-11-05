@@ -4,6 +4,7 @@ import type { ProFormInstance } from '@ant-design/pro-components';
 import { Button, message, Divider, Popconfirm, Descriptions,  Progress } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
+import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 import { useUpdateTenant, useCreateTenantWithAdminUser, useGetTenantUsage, useCleanupTenantData } from '@/api/hooks/tenant';
 import { toProtoTimestamp } from '@/utils/datetime';
 import { fetchListPlans } from '@/api/hooks/plan';
@@ -42,6 +43,9 @@ const TenantDrawer: React.FC<TenantDrawerProps> = ({
   const { t } = useTranslation('tenant');
   const queryClient = useQueryClient();
   const formRef = useRef<ProFormInstance>(null);
+
+  // 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+  const { guardClose, handleValuesChange } = useDrawerCloseGuard(open, onClose);
 
   const updateMutation = useUpdateTenant();
   const createMutation = useCreateTenantWithAdminUser();
@@ -163,6 +167,7 @@ const TenantDrawer: React.FC<TenantDrawerProps> = ({
       // 重置表单并关闭
       formRef.current?.resetFields();
       onSuccess();
+      onClose();
 
       return true;
     } catch (error: any) {
@@ -176,12 +181,7 @@ const TenantDrawer: React.FC<TenantDrawerProps> = ({
       formRef={formRef}
       title={mode === 'create' ? t('create') : t('edit')}
       open={open}
-      onOpenChange={(visible) => {
-        if (!visible) {
-          formRef.current?.resetFields();
-          onClose();
-        }
-      }}
+      onValuesChange={handleValuesChange}
       initialValues={{
         tenantType: 'PAID',
         auditStatus: 'APPROVED',
@@ -198,9 +198,12 @@ const TenantDrawer: React.FC<TenantDrawerProps> = ({
       }}
       drawerProps={{
         destroyOnHidden: true,
-        onClose,
+        onClose: guardClose,
         size: 600,
       }}
+      layout="horizontal"
+      labelCol={{ flex: '0 0 120px' }}
+      wrapperCol={{ flex: 'auto' }}
     >
       <ProFormText
         name="name"

@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import TableExportButton from '@/components/common/TableExportButton';
-import { ProTable } from '@ant-design/pro-components';
-import { Button, Popconfirm, Tag, App, Upload } from 'antd';
+import TableActions from '@/components/common/TableActions';
+import ListTable from '@/components/common/ListTable';
+import { Button, Tag, App, Upload } from 'antd';
 import {
   DeleteOutlined,
   DownloadOutlined,
@@ -18,6 +19,8 @@ import { useProTableScrollY } from '@/hooks/useProTableScrollY';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { getProviderMap, formatFileSize } from './constants';
 import FileDrawer from './components/FileDrawer';
+import { searchOptionRender } from '@/components/common/searchSubmitter';
+import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
 /**
  * 文件管理页面
@@ -144,22 +147,31 @@ const FileManagement = () => {
     {
       title: t('action'),
       valueType: 'option',
-      width: 100,
-      render: (_, record) => [
-        <a key="download" onClick={() => handleDownload(record)}>
-          <DownloadOutlined />
-        </a>,
-        <Popconfirm
-          key="delete"
-          title={t('deleteConfirmTitle')}
-          description={t('deleteConfirmDesc', { moduleName: t('moduleName') })}
-          onConfirm={() => record.id && deleteMutation.mutate({ id: record.id })}
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a style={{ color: 'var(--ant-color-error)' }}><DeleteOutlined /></a>
-        </Popconfirm>,
-      ],
+      width: 150,
+      render: (_, record) => (
+        <TableActions
+          record={record}
+          actions={[
+            {
+              key: 'download',
+              label: t('download'),
+              icon: <DownloadOutlined />,
+              onClick: () => handleDownload(record),
+            },
+            {
+              key: 'delete',
+              label: t('common:button.delete'),
+              icon: <DeleteOutlined />,
+              danger: true,
+              confirm: {
+                title: t('deleteConfirmTitle'),
+                description: t('deleteConfirmDesc', { moduleName: t('moduleName') }),
+              },
+              onClick: () => record.id && deleteMutation.mutate({ id: record.id }),
+            },
+          ]}
+        />
+      ),
     },
   ];
 
@@ -167,47 +179,38 @@ const FileManagement = () => {
     <>
       <ContentContainer heightMode="fixed" padding="16px" bottomMargin={0}>
         <div ref={containerRef} className="page-container-content">
-          <ProTable<FileItem>
+          <ListTable<FileItem>
             actionRef={actionRef}
             columns={columns}
             request={async (params, sorter, _filter) => {
-              try {
-                const query = new PaginationQuery({
-                  paging: {
-                    page: params.current || 1,
-                    pageSize: params.pageSize || 10,
-                  },
-                  formValues: Object.fromEntries(
-                    Object.entries(params).filter(
-                      ([key]) => !['current', 'pageSize'].includes(key),
-                    ),
+              const query = new PaginationQuery({
+                paging: {
+                  page: params.current || 1,
+                  pageSize: params.pageSize || 10,
+                },
+                formValues: Object.fromEntries(
+                  Object.entries(params).filter(
+                    ([key]) => !['current', 'pageSize'].includes(key),
                   ),
-                  orderBy:
-                    sorter && Object.keys(sorter).length > 0
-                      ? Object.entries(sorter).map(([key, value]) =>
-                          value === 'ascend' ? key : `-${key}`,
-                        )
-                      : ['-created_at'],
-                });
+                ),
+                orderBy:
+                  sorter && Object.keys(sorter).length > 0
+                    ? Object.entries(sorter).map(([key, value]) =>
+                        value === 'ascend' ? key : `-${key}`,
+                      )
+                    : ['-created_at'],
+              });
 
-                const response = await fetchListFiles(query);
+              const response = await fetchListFiles(query);
 
-                return {
-                  data: response.items || [],
-                  total: response.total || 0,
-                  success: true,
-                };
-              } catch (error: any) {
-                message.error(error.message || t('fetchFailed'));
-                return {
-                  data: [],
-                  total: 0,
-                  success: false,
-                };
-              }
+              return {
+                data: response.items || [],
+                total: response.total || 0,
+                success: true,
+              };
             }}
             rowKey="id"
-            search={{
+            search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
               defaultCollapsed: false,
             }}
@@ -232,7 +235,7 @@ const FileManagement = () => {
             options={{
               density: true,
               fullScreen: true,
-              setting: true,
+              setting: { settingIcon: <ColumnSlidersIcon /> },
               reload: true,
             }}
             size="middle"

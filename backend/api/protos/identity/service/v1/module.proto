@@ -18,4 +18,5 @@ enum Module {
   INTERNAL_MESSAGE = 8; // 内部消息
   FILE = 9;             // 文件管理
   TASK = 10;            // 任务管理
+  AI = 11;              // AI 助手（对话/知识库/提供商）
 }

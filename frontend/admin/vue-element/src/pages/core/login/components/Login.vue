@@ -16,6 +16,7 @@
         <el-input
           v-model.trim="loginFormData.tenant_code"
           :placeholder="t('core.login.tenantCode')"
+          autocomplete="off"
         >
           <template #prefix>
             <el-icon><User /></el-icon>
@@ -25,7 +26,11 @@
 
       <!-- 用户名 -->
       <el-form-item prop="username">
-        <el-input v-model.trim="loginFormData.username" :placeholder="t('core.login.username')">
+        <el-input
+          v-model.trim="loginFormData.username"
+          :placeholder="t('core.login.username')"
+          autocomplete="username"
+        >
           <template #prefix>
             <el-icon><User /></el-icon>
           </template>
@@ -39,6 +44,7 @@
             v-model.trim="loginFormData.password"
             :placeholder="t('core.login.password')"
             type="password"
+            autocomplete="current-password"
             show-password
             @keyup="checkCapsLock"
             @keyup.enter="handleLoginSubmit"
@@ -56,6 +62,7 @@
           <el-input
             v-model.trim="loginFormData.captchaCode"
             :placeholder="t('core.login.captchaCode')"
+            autocomplete="off"
             @keyup.enter="handleLoginSubmit"
           >
             <template #prefix>
@@ -87,12 +94,23 @@
           {{ t("core.login.login") }}
         </el-button>
       </el-form-item>
+
+      <!-- SSO 登录（后端未配置时不渲染） -->
+      <template v-if="ssoOn">
+        <div class="sso-divider">
+          <span>{{ t("core.sso.or") }}</span>
+        </div>
+        <el-button class="w-full" @click="handleSsoLogin">
+          {{ t("core.sso.button") }}
+        </el-button>
+      </template>
     </el-form>
   </div>
 </template>
 <script setup lang="ts">
 import type { FormInstance } from "element-plus";
 import { useAuth } from "@/composables/use-auth";
+import { ssoEnabled, startSsoLogin } from "@/composables/sso";
 import { router } from "@/router";
 
 const { t } = useI18n();
@@ -103,6 +121,13 @@ const loginFormRef = ref<FormInstance>();
 const loading = ref(false);
 // 是否大写锁定
 const isCapsLock = ref(false);
+
+// SSO 开关（后端未配置 OIDC 时按钮不渲染）
+const ssoOn = ref(false);
+
+onMounted(() => {
+  ssoEnabled().then((v) => (ssoOn.value = v)).catch(() => (ssoOn.value = false));
+});
 // 验证码状态
 const captchaId = ref("");
 const captchaImage = ref("");
@@ -166,6 +191,16 @@ onMounted(() => {
 /**
  * 登录提交
  */
+async function handleSsoLogin() {
+  try {
+    await startSsoLogin();
+  } catch (err: any) {
+    // 原始错误必须留在控制台：展示给用户的是归一化文案
+    console.error("start sso login failed", err);
+    ElMessage.error(err?.message || t("core.sso.failed"));
+  }
+}
+
 async function handleLoginSubmit() {
   // 函数入口即同步捕获 redirect：此时当前路由必然是登录页，读取最可靠。
   // 登录请求返回后到 onSuccess 之间存在响应式更新时序竞态（route 与
@@ -272,6 +307,12 @@ function checkCapsLock(event: KeyboardEvent) {
   &__placeholder {
     color: var(--el-text-color-placeholder);
     font-size: 12px;
+
+    // §2.2 点名的浅底盒子：浅色盒子是 --el-fill-color-light #F5F7FA，占位档 #9CA3AF
+    // 实测只有 2.37:1，取 §2.1 实底暗墨（暗色盒子仍是深底，保持占位档 6.15:1）。
+    html:not(.dark) & {
+      color: var(--gowind-solid-ink);
+    }
   }
 }
 </style>

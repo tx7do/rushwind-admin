@@ -2,7 +2,8 @@
   <ProModal
     v-model:visible="visible"
     :title="title"
-    :config="{ component: 'drawer', drawer: { size: DRAWER_WIDTH, closeOnClickModal: false } }"
+    :config="{ component: 'drawer', drawer: { size: DRAWER_WIDTH } }"
+    :close-guard="guard.allowClose"
   >
     <ElForm
       ref="formRef"
@@ -66,7 +67,11 @@
         <div class="form-extra">{{ $t("pages.script.criticalTip") }}</div>
       </ElFormItem>
 
-      <ElFormItem :label="$t('pages.script.source')" prop="source">
+      <ElFormItem class="source-form-item">
+        <template #label>
+          <span class="source-required-star">*</span>
+          {{ $t('pages.script.source') }}
+        </template>
         <div class="source-editor-wrapper">
           <Editor
             :key="formData.language"
@@ -85,7 +90,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="handleClose">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="guard.requestClose(handleClose)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
           {{ $t("common.button.confirm") }}
         </ElButton>
@@ -107,6 +112,7 @@ import {
 import { $t } from "@/core/i18n";
 import { DRAWER_WIDTH } from "@/constants";
 import ProModal from "@/components/Pro/ProModal/index.vue";
+import { useDrawerCloseGuard } from "@/components/Pro/composables/use-drawer-close-guard";
 import { Editor, EditorType } from "@/components/Editor";
 
 const emit = defineEmits<{
@@ -166,10 +172,9 @@ const formRules: FormRules = {
       trigger: "blur",
     },
   ],
-  source: [{ required: true, message: $t("pages.script.requiredSource"), trigger: "change" }],
-};
-
-// 标题
+  // source 不进 formRules：源码存在独立 ref 而非 formData，prop 校验恒取 undefined
+  // 会把提交静默拦死；空校验由 handleSubmit 的 trim 检查兜底
+};// 标题
 const title = computed(() =>
   isCreate.value
     ? $t("pages.script.create")
@@ -218,6 +223,9 @@ function handleLanguageChanged(next: string | number | boolean | undefined) {
 }
 
 // 打开抽屉
+// 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）；
+// 脚本内容编辑器（source）也是编辑态，纳入脏判定
+const guard = useDrawerCloseGuard(() => ({ ...formData, source: source.value }));
 function open(row?: any) {
   visible.value = true;
 
@@ -238,6 +246,9 @@ function open(row?: any) {
     resetForm();
     source.value = skeletonFor("LUA");
   }
+
+  // 填充完成后记录基线快照（回填不算脏）
+  guard.syncBaseline();
 }
 
 // 关闭抽屉
@@ -333,5 +344,21 @@ defineExpose({
 .source-editor-wrapper {
   width: 100%;
   min-height: 360px;
+}
+
+/* 脚本源码：标签独占一行置顶、编辑器全宽（对齐 react/vben 基准） */
+.source-form-item {
+  flex-direction: column;
+  align-items: stretch;
+
+  :deep(.el-form-item__label) {
+    width: 100% !important;
+    justify-content: flex-start;
+  }
+}
+
+.source-required-star {
+  margin-right: 4px;
+  color: var(--el-color-danger);
 }
 </style>

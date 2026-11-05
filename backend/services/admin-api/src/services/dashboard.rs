@@ -142,4 +142,17 @@ impl proto::gen::services::DashboardServiceHandlers for DashboardService {
                 .collect(),
         })
     }
+
+    async fn get_ai_insights(
+        &self,
+        _ctx: rushwind_http_binding::ctx::RequestContext,
+        _req: proto::proto::admin::service::v1::AiInsightsRequest,
+    ) -> Result<proto::proto::admin::service::v1::AiInsightsResponse, StatusError> {
+        // The LLM-backed dashboard insights ride the AI domain increment;
+        // the panel reads empty until then.
+        Ok(proto::proto::admin::service::v1::AiInsightsResponse {
+            alerts: Vec::new(),
+            summary: String::new(),
+        })
+    }
 }

@@ -27,6 +27,9 @@
       </template>
     </ProPage>
 
+    <!-- 系统级常驻任务监控（只读 asynq Inspector） -->
+    <SystemTasksModal ref="sysTasksRef" />
+
     <!-- 新增/编辑抽屉 -->
     <TaskDrawer ref="drawerRef" @success="handleSuccess" />
   </div>
@@ -37,6 +40,7 @@ import { ref } from "vue";
 import { ElMessage, ElMessageBox, ElSwitch, ElTag } from "element-plus";
 
 import ProPage from "@/components/Pro/ProPage/index.vue";
+import SystemTasksModal from "./system-tasks-modal.vue";
 import type { ProPageConfig, ToolsButton } from "@/components/Pro/ProPage/types";
 import TaskDrawer from "./task-drawer.vue";
 
@@ -52,7 +56,6 @@ import {
   useStartAllTasks,
   useStopAllTasks,
   useRestartAllTasks,
-  createPagedExportAction,
 } from "@/api/composables";
 import { PaginationQuery } from "@/core/transport/rest";
 import { $t } from "@/core/i18n";
@@ -65,6 +68,7 @@ const { mutateAsync: stopAllTask } = useStopAllTasks();
 const { mutateAsync: restartAllTask } = useRestartAllTasks();
 
 const pageRef = ref();
+const sysTasksRef = ref();
 const drawerRef = ref();
 
 const pageConfig = computed<ProPageConfig>(() => ({
@@ -117,27 +121,32 @@ const pageConfig = computed<ProPageConfig>(() => ({
     deleteAction: async (ids: string) => {
       await deleteTask({ id: ids as any });
     },
-    exportsAction: createPagedExportAction(fetchListTasks),
-    toolbar: [],
+    toolbar: [
+      {
+        name: "sysTasks",
+        label: $t("pages.task.sysTasksButton"),
+        icon: "lucide:server-cog",
+      },
+    ],
     toolbarRight: [
       {
         name: "startAll",
         label: $t("pages.task.button.startAll"),
-        attrs: { type: "success" },
+        attrs: { type: "success", plain: true, icon: "CaretRight" },
       } as ToolsButton,
       {
         name: "stopAll",
         label: $t("pages.task.button.stopAll"),
-        attrs: { type: "danger" },
+        attrs: { type: "danger", plain: true, icon: "VideoPause" },
       } as ToolsButton,
       {
         name: "restartAll",
         label: $t("pages.task.button.restartAll"),
-        attrs: { type: "primary" },
+        attrs: { type: "warning", plain: true, icon: "Refresh" },
       } as ToolsButton,
       "add",
     ],
-    defaultToolbar: ["refresh", "exports", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     pagination: false,
     tableAttrs: { border: true, stripe: false },
     columns: [
@@ -169,7 +178,7 @@ const pageConfig = computed<ProPageConfig>(() => ({
         prop: "action",
         label: $t("common.table.action"),
         fixed: "right",
-        width: 240,
+        width: 300,
         cellType: "tool",
         buttons: [
           { name: "edit", label: $t("common.button.edit"), icon: "lucide:pen-line" },
@@ -212,6 +221,10 @@ function handleEdit(row: any) {
 }
 
 async function handleToolbar(name: string) {
+  if (name === "sysTasks") {
+    sysTasksRef.value?.open();
+    return;
+  }
   const actionMap: Record<string, () => Promise<any>> = {
     startAll: () => startAllTask(),
     stopAll: () => stopAllTask(),

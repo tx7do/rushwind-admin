@@ -79,6 +79,7 @@ async function handleRevoke(row: online_sessionservicev1_OnlineSession) {
     await revoke({ clientType: row.clientType, jti: row.jti });
     ElMessage.success($t("pages.online_session.revokeSuccess"));
   } catch (error: any) {
+    console.error("Failed to revoke session:", error);
     ElMessage.error(error?.message || $t("pages.online_session.revokeFailed"));
   }
 }

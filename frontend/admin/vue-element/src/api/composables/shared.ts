@@ -99,35 +99,6 @@ export function successToNameWithStatusCode(success: boolean, statusCode: number
 
 
 /**
- * 创建「全部数据」导出动作：按页聚合拉取（默认上限 1 万行），
- * 供 ProPage 导出弹窗的「全部数据」范围使用。
- */
-export function createPagedExportAction<T>(
-  fetcher: (query: PaginationQuery) => Promise<{ items?: T[]; total?: number }>,
-  maxRows = 10_000
-) {
-  const PAGE_SIZE = 1000;
-  return async (searchParams?: Record<string, any>) => {
-    const rows: T[] = [];
-    for (let page = 1; rows.length < maxRows; page++) {
-      const resp = await fetcher(
-        new PaginationQuery({
-          paging: { page, pageSize: PAGE_SIZE },
-          formValues:
-            searchParams && Object.keys(searchParams).length > 0
-              ? searchParams
-              : undefined,
-        })
-      );
-      const items = resp.items ?? [];
-      rows.push(...items);
-      if (items.length < PAGE_SIZE) break;
-    }
-    return rows.slice(0, maxRows);
-  };
-}
-
-/**
  * 生成导入模板（exceljs）：表头行 = 页面声明的可导入字段标签。
  * 供 ProPage 导入弹窗「下载模板」按钮的 importTemplate（函数形态）使用；
  * 返回 { data } 以兼容弹窗现有的响应对象消费形态。

@@ -127,7 +127,10 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 0;
+  /* 上 16px = §2.6「表格 → 分页器」；下 0：分页器到卡片边的留白由 .pro-page__content
+     的 20px 内缩唯一提供（原 `12px 0` 与容器 12px 叠成上 12/下 24，两个来源各写一份）。
+     暗色在 styles/_dark-mode.scss 里有同一条的 !important 覆写，两处必须一起改。 */
+  padding: 16px 0 0;
   background-color: var(--el-bg-color);
   margin-top: auto; // 贴底 ProPage 容器
 

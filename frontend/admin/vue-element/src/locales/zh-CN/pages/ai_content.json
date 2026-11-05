@@ -1,0 +1,7 @@
+{
+  "moduleName": "AI 内容生成",
+  "button": "AI 生成",
+  "generateNow": "生成",
+  "topicPlaceholder": "输入主题或关键词",
+  "failed": "AI 生成失败"
+}

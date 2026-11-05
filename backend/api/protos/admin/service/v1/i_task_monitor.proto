@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package admin.service.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+import "task/service/v1/task_monitor.proto";
+
+// 系统级常驻任务监控服务（平台管理员；只读 asynq Inspector，无副作用）。
+service TaskMonitorService {
+  // 一站式巡检：调度条目（cron/上次/下次入队）+ 各任务类型的队列状态与失败明细
+  rpc InspectSystemTasks(task.service.v1.InspectSystemTasksRequest) returns (task.service.v1.InspectSystemTasksResponse) {
+    option (google.api.http) = {
+      post: "/admin/v1/system-tasks:inspect"
+      body: "*"
+    };
+  }
+}

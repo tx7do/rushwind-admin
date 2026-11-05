@@ -1,5 +1,7 @@
 /**
  * 生成基于字符串的固定随机色（HSL模式，保证饱和度和明度适中）
+ *
+ * 浅底色（l=85）：只能配深色墨（最差色相对深色墨仍 ≥11:1），配白字不可读。
  * @param str
  */
 export const getRandomColor = (str: string) => {
@@ -12,7 +14,12 @@ export const getRandomColor = (str: string) => {
 };
 
 /**
- * 根据首字母生成固定随机色
+ * 根据首字母生成固定随机色（头像实底色，前景固定白色）
+ *
+ * 明度取 28% 是量出来的：本函数的产物一律配 el-avatar 的白字（--el-avatar-text-color:
+ * var(--el-color-white)），而 45% 明度是"两种墨都不合格"的死区（360 个色相里最差
+ * white 2.03 / dark 2.01）；28% + s60 保证任意色相下白字 ≥4.86:1（判据见
+ * docs/design-language.md §2.1，与 react 端 utils/color.ts 同值）。
  * @param char
  */
 export const getCharColor = (char: string) => {
@@ -22,7 +29,7 @@ export const getCharColor = (char: string) => {
   }
   const hue = Math.abs(hash % 360);
   const saturation = 60;
-  const lightness = 45;
+  const lightness = 28;
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 };
 

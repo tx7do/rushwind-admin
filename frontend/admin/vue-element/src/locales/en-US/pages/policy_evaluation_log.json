@@ -15,5 +15,7 @@
   "effectDetails": "Effect Details",
   "scopeSql": "Scope SQL",
   "logHash": "Log Hash",
-  "signature": "Signature"
+  "signature": "Signature",
+  "exportServerSuccess": "Download started",
+  "exportServerFailed": "Server-side export failed"
 }

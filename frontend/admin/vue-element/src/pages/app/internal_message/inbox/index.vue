@@ -1,6 +1,13 @@
 <template>
   <div class="app-container h-full flex flex-1 flex-col">
     <ProPage ref="pageRef" :config="pageConfig">
+      <!-- 标题：点击查看详情（操作列不再放查看按钮） -->
+      <template #title="scope: any">
+        <ElLink type="primary" underline="never" @click="handleView(scope.row)">
+          {{ scope.row.title || "-" }}
+        </ElLink>
+      </template>
+
       <!-- 状态 -->
       <template #status="scope: any">
         <ElTag
@@ -12,22 +19,47 @@
         </ElTag>
       </template>
 
-      <!-- 操作 -->
+      <!-- 操作：标记已读（未读时）+ 删除；查看走标题链接。
+           操作列统一为图标+文本 link 按钮（同 cellType:"tool" 的 ToolCell 形态） -->
       <template #operation="scope: any">
-        <ElTooltip :content="$t('common.button.view')" placement="top" :show-after="300">
-          <button class="table-icon-btn table-icon-btn--primary" @click="handleView(scope.row)">
-            <SvgIcon icon="lucide:eye" :size="16" />
-          </button>
-        </ElTooltip>
+        <ElButton
+          v-if="scope.row.status !== 'READ'"
+          link
+          type="primary"
+          size="small"
+          @click="handleMarkRead(scope.row)"
+        >
+          <SvgIcon icon="lucide:check" :size="14" />
+          {{ $t("pages.internal_message.button.markAsRead") }}
+        </ElButton>
+        <ElButton link type="danger" size="small" @click="handleDelete(scope.row)">
+          <SvgIcon icon="lucide:trash-2" :size="14" />
+          {{ $t("common.button.delete") }}
+        </ElButton>
+      </template>
+
+      <!-- 全部已读（工具栏）：recipientIds 传空 = 标记该用户全部未读 -->
+      <template #toolbar-right>
+        <ElButton
+          type="primary"
+          plain
+          :loading="markAllReadLoading"
+          :disabled="!userStore.userInfo?.id"
+          @click="handleMarkAllRead"
+        >
+          {{ $t("pages.internal_message.button.markAllRead") }}
+        </ElButton>
       </template>
     </ProPage>
 
-    <!-- 消息详情对话框 -->
-    <el-dialog
-      v-model="detailDialogVisible"
+    <!-- 消息详情抽屉 -->
+    <ProModal
+      v-model:visible="detailDialogVisible"
       :title="detail?.title ?? $t('core.notice.detail')"
-      width="800px"
-      custom-class="message-detail-dialog"
+      :config="{
+        component: 'drawer',
+        drawer: { size: '720px', closeOnClickModal: true },
+      }"
     >
       <div v-if="detail" class="message-detail">
         <div class="message-detail__header">
@@ -36,37 +68,64 @@
               <el-icon :size="20"><UserFilled /></el-icon>
             </ElAvatar>
             <div class="message-detail__info">
-              <div class="message-detail__sender">{{ detail.publisherName }}</div>
-              <div class="message-detail__time">{{ detail.publishTime }}</div>
+              <div class="message-detail__sender">{{ senderShown }}</div>
+              <div class="message-detail__time">
+                {{ $t("pages.internal_message.createdAt") }} {{ receivedTimeText }}
+              </div>
+              <div v-if="readTimeText" class="message-detail__time">
+                {{ $t("pages.internal_message.readAt") }} {{ readTimeText }}
+              </div>
             </div>
           </div>
           <ElTag
             size="small"
             round
-            :type="internalMessageRecipientStatusToType(detail.status)"
+            :type="internalMessageRecipientStatusToType(detailStatus)"
           >
-            {{ internalMessageRecipientStatusLabel(detail.status) }}
+            {{ internalMessageRecipientStatusLabel(detailStatus) }}
           </ElTag>
         </div>
 
         <ElDivider />
 
-        <!-- eslint-disable-next-line vue/no-v-html -- 已由 DOMPurify 净化（见 sanitizedContent） -->
-        <div class="message-detail__content" v-html="sanitizedContent"></div>
+        <!-- 正文格式自适应：富文本 HTML 净化渲染；纯文本/Markdown 走 MdPreview -->
+        <div class="message-detail__content">
+          <MdPreview
+            v-if="!isHtmlContent"
+            :model-value="rawContent"
+            :theme="isDark ? 'dark' : 'light'"
+            preview-theme="default"
+            :sanitize="sanitizeHtml"
+          />
+          <!-- eslint-disable-next-line vue/no-v-html -- 已由 DOMPurify 净化（见 sanitizedContent） -->
+          <div v-else class="message-detail__html" v-html="sanitizedContent"></div>
+        </div>
       </div>
-    </el-dialog>
+    </ProModal>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, computed } from "vue";
-import { ElTag, ElDivider, ElAvatar, ElMessage, ElTooltip } from "element-plus";
+import {
+  ElTag,
+  ElDivider,
+  ElAvatar,
+  ElMessage,
+  ElMessageBox,
+  ElLink,
+  ElButton,
+} from "element-plus";
 import { UserFilled } from "@element-plus/icons-vue";
 import dayjs from "dayjs";
 import DOMPurify from "dompurify";
+import { MdPreview } from "md-editor-v3";
+import "md-editor-v3/lib/preview.css";
 
 import ProPage from "@/components/Pro/ProPage/index.vue";
+import ProModal from "@/components/Pro/ProModal/index.vue";
 import SvgIcon from "@/components/SvgIcon/index.vue";
+import { isDarkMode } from "@/components/Editor";
 import type { ProPageConfig } from "@/components/Pro/ProPage/types";
 
 import { $t } from "@/core/i18n";
@@ -76,23 +135,51 @@ import {
   fetchListUserInbox,
   fetchGetInternalMessage,
   useMarkNotificationAsRead,
+  useDeleteNotificationFromInbox,
 } from "@/api/composables";
 import { useAppUserStore } from "@/stores";
 import { PaginationQuery } from "@/core/transport/rest";
 import defaultAvatar from "@/assets/images/default-avatar.png";
 
 const { mutateAsync: markNotificationAsRead } = useMarkNotificationAsRead();
+const { mutateAsync: deleteNotificationFromInbox } =
+  useDeleteNotificationFromInbox();
 const userStore = useAppUserStore();
 
 const pageRef = ref();
 const detailDialogVisible = ref(false);
 const detail = ref<any | null>(null);
+// 收件行的已读时间与状态（readAt/status 在 recipient 行上，消息详情里没有）
+const detailReadAt = ref<string>("");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- 行数据来自表格 dynamic row
+const detailStatus = ref<any>("");
+const detailReceivedAt = ref<string>("");
 
 // 对消息正文进行 XSS 净化，防止富文本内容中注入脚本（存储型 XSS）
 const sanitizedContent = computed(() => {
   const raw = detail.value?.content;
   return raw ? DOMPurify.sanitize(String(raw)) : "";
 });
+
+// 正文格式自适应（对齐 react 抽屉）：富文本 HTML 净化渲染，
+// 纯文本/Markdown（AI 日报等）走 MdPreview
+const rawContent = computed(() => (detail.value?.content ? String(detail.value.content) : ""));
+const isHtmlContent = computed(() => /<\/?[a-z][\s\S]*>/i.test(rawContent.value));
+const isDark = computed(() => isDarkMode());
+const sanitizeHtml = (html: string) => DOMPurify.sanitize(html);
+
+// 发送人：sender_id=0 的系统消息（AI 日报等）senderName 为空，显示"系统"而非占位符
+const senderShown = computed(
+  () => detail.value?.senderName || $t("pages.internal_message.senderSystem"),
+);
+const receivedTimeText = computed(() =>
+  detailReceivedAt.value
+    ? dayjs(detailReceivedAt.value).format("YYYY-MM-DD HH:mm:ss")
+    : "-",
+);
+const readTimeText = computed(() =>
+  detailReadAt.value ? dayjs(detailReadAt.value).format("YYYY-MM-DD HH:mm:ss") : "",
+);
 
 const pageConfig = computed<ProPageConfig>(() => ({
   skeleton: true,
@@ -118,7 +205,7 @@ const pageConfig = computed<ProPageConfig>(() => ({
       },
       {
         type: "date-picker",
-        label: $t("common.table.createdAt"),
+        label: $t("pages.internal_message.createdAt"),
         field: "createdAt",
         attrs: {
           type: "datetimerange",
@@ -199,7 +286,9 @@ const pageConfig = computed<ProPageConfig>(() => ({
     },
     toolbar: [],
     toolbarRight: [],
-    defaultToolbar: ["refresh", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
+    // 导出与列表同口径：区间归一为 gte/lte、recipient_user_id 强制注入（隐私闸门）
+    exportFilename: "im-inbox",
     tableAttrs: { border: true, stripe: true, height: "auto" },
     columns: [
       {
@@ -207,6 +296,7 @@ const pageConfig = computed<ProPageConfig>(() => ({
         label: $t("pages.internal_message.title"),
         minWidth: 200,
         align: "left",
+        slotName: "title",
       },
       {
         prop: "status",
@@ -223,7 +313,7 @@ const pageConfig = computed<ProPageConfig>(() => ({
       },
       {
         prop: "createdAt",
-        label: $t("common.table.createdAt"),
+        label: $t("pages.internal_message.createdAt"),
         width: 160,
         cellType: "date",
         dateFormat: "YYYY-MM-DD HH:mm:ss",
@@ -231,7 +321,7 @@ const pageConfig = computed<ProPageConfig>(() => ({
       {
         prop: "operation",
         label: $t("common.table.operation"),
-        width: 100,
+        width: 170,
         slotName: "operation",
         fixed: "right",
       },
@@ -242,6 +332,9 @@ const pageConfig = computed<ProPageConfig>(() => ({
 async function handleView(row: any) {
   try {
     const messageId = Number(row.messageId);
+    detailReadAt.value = row.readAt ? String(row.readAt) : "";
+    detailReceivedAt.value = row.receivedAt || row.createdAt || "";
+    detailStatus.value = row.status || "";
     detail.value = await fetchGetInternalMessage({ id: messageId });
     detailDialogVisible.value = true;
 
@@ -258,6 +351,69 @@ async function handleView(row: any) {
     ElMessage.error($t("common.message.getDetailFailed"));
   }
 }
+
+/* 标记为已读（操作列） */
+async function handleMarkRead(row: any) {
+  const userId = userStore.userInfo?.id;
+  if (!userId) return;
+  try {
+    await markNotificationAsRead({ userId, recipientIds: [Number(row.id)] });
+    ElMessage.success($t("common.notice.markedRead"));
+    pageRef.value?.refresh();
+  } catch {
+    ElMessage.error($t("common.message.operationFailed"));
+  }
+}
+
+/* 删除（操作列） */
+async function handleDelete(row: any) {  try {
+    await ElMessageBox.confirm(
+      $t("common.text.do_you_want_delete", {
+        moduleName: $t("pages.internal_message.moduleName"),
+      }),
+      $t("common.title.confirm"),
+      {
+        confirmButtonText: $t("common.button.confirm"),
+        cancelButtonText: $t("common.button.cancel"),
+        type: "warning",
+        lockScroll: false,
+      }
+    );
+  } catch (error) {
+    // 取消是 ElMessageBox 的 reject("cancel")，属正常路径；其余形态留痕
+    if (error !== "cancel" && error !== "close") {
+      console.error("delete confirm dialog rejected unexpectedly", error);
+    }
+    return;
+  }
+
+  const userId = userStore.userInfo?.id;
+  if (!userId) return;
+  try {
+    await deleteNotificationFromInbox({ userId, recipientIds: [Number(row.id)] });
+    ElMessage.success($t("common.notification.deleteSuccess"));
+    pageRef.value?.refresh();
+  } catch {
+    ElMessage.error($t("common.notification.deleteFailed"));
+  }
+}
+
+/* 全部已读（工具栏）：recipientIds 传空 = 标记该用户全部未读 */
+const markAllReadLoading = ref(false);
+async function handleMarkAllRead() {
+  const userId = userStore.userInfo?.id;
+  if (!userId) return;
+  markAllReadLoading.value = true;
+  try {
+    await markNotificationAsRead({ userId, recipientIds: [] });
+    ElMessage.success($t("common.notice.markedRead"));
+    pageRef.value?.refresh();
+  } catch {
+    ElMessage.error($t("common.message.operationFailed"));
+  } finally {
+    markAllReadLoading.value = false;
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -269,6 +425,14 @@ async function handleView(row: any) {
 }
 
 .message-detail {
+  /* md-editor 暗色预览自带近黑底色（--md-bk-color），与抽屉表面冲突——
+     置透明融入抽屉，文字颜色继承主题 */
+  :deep(.md-editor-previewOnly),
+  :deep(.md-editor-previewWrapper),
+  :deep(.md-editor-preview) {
+    background-color: transparent;
+  }
+
   &__header {
     display: flex;
     align-items: center;
@@ -309,16 +473,6 @@ async function handleView(row: any) {
       max-width: 100%;
       height: auto;
     }
-  }
-}
-
-:deep(.message-detail-dialog) {
-  .el-dialog__header {
-    padding-bottom: 16px;
-  }
-
-  .el-dialog__body {
-    padding: 20px;
   }
 }
 </style>

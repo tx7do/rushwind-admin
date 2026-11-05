@@ -7,7 +7,7 @@ import AuthLayout from '@/components/bussiness/AuthLayout';
 
 /**
  * 忘记密码页面：
- * 步骤 1 输入绑定邮箱 → 发送验证码；
+ * 步骤 1 输入绑定的邮箱或手机号 → 发送验证码（邮箱走 SMTP，手机号走短信渠道）；
  * 步骤 2 输入验证码 + 新密码 → 重置成功跳登录页。
  */
 const ForgotPassword = () => {

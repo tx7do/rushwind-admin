@@ -238,13 +238,13 @@ function handleConfirm() {
   transition: all 0.2s;
 
   &:hover {
-    color: var(--el-color-primary);
+    color: var(--gowind-primary-text);
     background: var(--el-fill-color);
   }
 }
 
 .column-filter__action-icon--active {
-  color: var(--el-color-primary);
+  color: var(--gowind-primary-text);
 }
 
 .column-filter__footer {

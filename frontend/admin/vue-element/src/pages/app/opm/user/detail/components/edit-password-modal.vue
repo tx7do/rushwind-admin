@@ -1,12 +1,10 @@
 <template>
-  <ElDialog
+  <ElDrawer
     v-model="visible"
     :title="$t('pages.user.button.editPassword')"
-    width="500px"
+    width="520px"
     :close-on-click-modal="false"
     :destroy-on-close="true"
-    append-to-body
-    :lock-scroll="false"
     @close="handleClose"
   >
     <ElForm
@@ -46,7 +44,7 @@
         </ElButton>
       </div>
     </template>
-  </ElDialog>
+  </ElDrawer>
 </template>
 
 <script lang="ts" setup>

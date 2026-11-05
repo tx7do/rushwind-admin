@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import { ProTable } from '@ant-design/pro-components';
+import ListTable from '@/components/common/ListTable';
 import { Button, Drawer, Popconfirm, Tag, Tooltip, App } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,8 @@ import { PaginationQuery } from '@/core';
 import { fetchListScriptLogs, usePurgeScriptLogs } from '@/api/hooks/script-log';
 import { useProTableScrollY } from '@/hooks/useProTableScrollY';
 import { TABLE } from '@/config/constants.ts';
+import { searchOptionRender } from '@/components/common/searchSubmitter';
+import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
 interface ScriptLogDrawerProps {
   open: boolean;
@@ -114,7 +116,7 @@ const ScriptLogDrawer: React.FC<ScriptLogDrawerProps> = ({ open, onClose }) => {
       render: (_, record) =>
         record.error ? (
           <Tooltip title={<pre style={{ margin: 0, whiteSpace: 'pre-wrap', maxHeight: 300, overflow: 'auto' }}>{record.error}</pre>}>
-            <span style={{ color: 'var(--ant-color-error)' }}>{record.error}</span>
+            <span style={{ color: 'var(--gowind-danger-text)' }}>{record.error}</span>
           </Tooltip>
         ) : (
           '-'
@@ -131,43 +133,39 @@ const ScriptLogDrawer: React.FC<ScriptLogDrawerProps> = ({ open, onClose }) => {
 
   return (
     <Drawer
-      title={t('logTitle')}
+      title={t('viewTitle')}
       open={open}
       onClose={onClose}
       size={960}
-      destroyOnHidden
+      forceRender
     >
-      <ProTable<ScriptLog>
+      <div ref={containerRef} className="page-container-content h-full">
+      <ListTable<ScriptLog>
         actionRef={actionRef}
         columns={columns}
         request={async (params, _sorter, _filter) => {
-          try {
-            const query = new PaginationQuery({
-              paging: {
-                page: params.current || 1,
-                pageSize: params.pageSize || TABLE.DEFAULT_PAGE_SIZE,
-              },
-              formValues: Object.fromEntries(
-                Object.entries(params).filter(
-                  ([key]) => !['current', 'pageSize'].includes(key),
-                ),
+          const query = new PaginationQuery({
+            paging: {
+              page: params.current || 1,
+              pageSize: params.pageSize || TABLE.DEFAULT_PAGE_SIZE,
+            },
+            formValues: Object.fromEntries(
+              Object.entries(params).filter(
+                ([key]) => !['current', 'pageSize'].includes(key),
               ),
-            });
+            ),
+          });
 
-            const response = await fetchListScriptLogs(query);
+          const response = await fetchListScriptLogs(query);
 
-            return {
-              data: response.items || [],
-              total: Number(response.total || 0),
-              success: true,
-            };
-          } catch (error: any) {
-            message.error(error.message || t('fetchFailed'));
-            return { data: [], total: 0, success: false };
-          }
+          return {
+            data: response.items || [],
+            total: Number(response.total || 0),
+            success: true,
+          };
         }}
         rowKey="id"
-        search={{
+        search={{ optionRender: searchOptionRender,
           labelWidth: 'auto',
           defaultCollapsed: false,
         }}
@@ -193,10 +191,11 @@ const ScriptLogDrawer: React.FC<ScriptLogDrawerProps> = ({ open, onClose }) => {
             </Button>
           </Popconfirm>,
         ]}
-        options={{ density: true, reload: true }}
+        options={{ setting: { settingIcon: <ColumnSlidersIcon /> }, density: true, reload: true }}
         size="middle"
         scroll={{ y: tableScrollY }}
       />
+      </div>
     </Drawer>
   );
 };

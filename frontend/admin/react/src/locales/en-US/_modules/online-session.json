@@ -18,7 +18,6 @@
   "forceLogoutSuccess": "Session force logged out",
   "forceLogoutFailed": "Failed to force logout",
   "keywordPlaceholder": "Username or IP keyword",
-  "fetchFailed": "Failed to load online sessions",
   "pollingHint": "The list refreshes every 30 seconds",
   "mySessionsTitle": "My Active Sessions",
   "mySessionsHint": "All sessions you are currently signed in with. Sign out any unfamiliar device or location below; the current session cannot be signed out here.",

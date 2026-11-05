@@ -96,7 +96,16 @@
   /* ========== 行高：极简紧凑模式 ==========
    * 表头高度：~30px（1 + 28px文字line-height + 1）
    * 表项高度：~30px（1 + 28px文字line-height + 1）
+   *
+   * 行高变量（34px ≥ 表体最高常驻内容 ElSwitch 32px + 上下 padding 2px）是
+   * 「主表 ↔ 固定列克隆表」行高对齐的唯一保障：vxe 在 show-overflow 模式下给
+   * 每个 .vxe-cell 写内联 height=该值，两套表因此逐行同高；若被覆盖（见下方
+   * 表体单元格注释），固定列行跟随自身内容变矮，hover/斑马纹背景就会错开。
    */
+  --vxe-ui-table-row-height-default: 34px;
+  --vxe-ui-table-row-height-medium: 34px;
+  --vxe-ui-table-row-height-small: 30px;
+  --vxe-ui-table-row-height-mini: 28px;
   --vxe-ui-table-cell-padding-top: 1px;
   --vxe-ui-table-cell-padding-bottom: 1px;
   --vxe-ui-table-header-cell-padding-top: 1px;
@@ -353,7 +362,8 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    color: var(--el-text-color-placeholder);
+    // 空态文案是内容不是 placeholder（占位档对白底只有 2.30:1）
+    color: var(--el-text-color-secondary);
 
     .vxe-icon--empty {
       font-size: 48px;
@@ -366,8 +376,11 @@
 // ============================================
 // VxeTable 单元格 flex 垂直居中
 // 修复不同语种（中/韩/日/俄/西）字符基线差导致文字高低不齐
-// 表头单元格：强制 flex + align-items: center
-// 表格内容单元格：强制 flex + align-items: center
+// 表头单元格：强制 flex + align-items: center，height:100% 跟随表头行高
+// 表格内容单元格：强制 flex + align-items: center。
+//   注意表体不能写 height——会顶掉 vxe 写入 .vxe-cell 的内联行高（来自
+//   --vxe-ui-table-row-height-*），主表与固定列克隆表行高随即各自跟随内容，
+//   hover/斑马纹背景在固定列处错开（任务页实测 48.7 vs 39.3px）。
 // .vxe-cell--content 宽度 100% 撑满
 // ============================================
 
@@ -379,11 +392,10 @@
     height: 100% !important;
   }
 
-  // 表格内容单元格
+  // 表格内容单元格（行高交给 vxe 内联 height，见上方块注释）
   .vxe-body--row .vxe-cell {
     display: flex !important;
     align-items: center !important;
-    height: 100% !important;
   }
 
   // 单元格内部内容容器撑满宽度

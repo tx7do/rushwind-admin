@@ -65,7 +65,7 @@ body {
     color: #f8fafc;
 }
 
-/* 卡片悬浮反馈：边框提亮 + 轻投影（仅暗色；亮色卡片自带边框层次无需加） */
+/* 卡片悬浮反馈：边框提亮 + 轻投影（暗色档） */
 [data-theme='dark'] .ant-card {
     transition:
         border-color 0.2s ease,
@@ -77,9 +77,117 @@ body {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
 }
 
-/* 浮层（抽屉/弹窗）深投影：强化"悬浮在页面上"的层级感 */
-[data-theme='dark'] .ant-drawer-content,
-[data-theme='dark'] .ant-modal-content {
+/* 浅色卡片层级（§2.2）：静止 0 1px 2px / 悬浮 0 4px 12px。
+   原先这里的注释写着"亮色卡片自带边框层次无需加"——实测不成立：antd 的带边框卡片
+   根本不给投影（antd/es/card/style/index.js 只给 :not(-bordered) 一个 boxShadowTertiary，
+   hoverable 才在 hover 用 boxShadowCard），于是浅色卡片只有 1px 描边、描边色还是派生的
+   #F0F0F0（对白底 1.045 倍 ≈ 隐形），整页没有任何纵深。
+   描边色本身在 lightThemeTokens.colorBorderSecondary 里提到 #E4E4E7，这里只补投影。 */
+[data-theme='light'] .ant-card {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+[data-theme='light'] .ant-card:hover {
+    /* 取 --ant-color-border（浅色 = antd 的 #D9D9D9，比静止档 #E4E4E7 重一档）而不是再写一个
+       字面 hex：§2.2 没有"悬浮边框"档，硬写就成了色板外的孤儿值，且用户换主题色时不跟。
+       作用域在卡片元素上、位于 antd 的 cssVar 包裹层内，var 能解析（<html> 作用域才会落空）。 */
+    border-color: var(--ant-color-border);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* ========== 路由入场（docs/design-language.md §2.7） ==========
+   只做起不做落：ProLayout 的 Outlet 没有退出相位可挂钩，单向 fade-in 已足够消除硬切。
+   位移取 8px（预览卡片里的 -20px 是 36px 小方块的尺度，放到整屏内容上会像滚动跳帧）。
+   填充档刻意用 backwards 而不是 both：both 会把 100% 帧的 transform 永久留在元素上，
+   非 none 的 transform 让内容包裹层长期成为 containing block，页内 position: fixed 的
+   元素会被改挂到它下面；backwards 只补动画开始前的首帧（防闪一下），结束后回到元素自身样式。
+   .page-transition 同时是内容区的 flex 链一环，动画属性不能改动它的 display。 */
+.page-transition {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.transition-fade {
+    animation: gowind-page-fade 0.24s ease-in-out backwards;
+}
+
+.transition-fade-slide {
+    animation: gowind-page-fade-slide 0.24s ease-in-out backwards;
+}
+
+.transition-fade-down {
+    animation: gowind-page-fade-down 0.24s ease-in-out backwards;
+}
+
+.transition-fade-up {
+    animation: gowind-page-fade-up 0.24s ease-in-out backwards;
+}
+
+@keyframes gowind-page-fade {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes gowind-page-fade-slide {
+    from {
+        opacity: 0;
+        transform: translateX(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes gowind-page-fade-down {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes gowind-page-fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 全局动效开关（preferences.transition.enable）与系统"减弱动态效果"都必须生效。
+   本条刻意排在四条 .transition-* 之后：同为单类选择器，靠顺序压过上面的 animation。 */
+.transition-disabled {
+    animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .page-transition {
+        animation: none;
+    }
+}
+
+/* 浮层（抽屉/弹窗）深投影：强化"悬浮在页面上"的层级感。
+   载体类名 v6 已换（antd/es/{drawer,modal}/style 现读）：抽屉投影挂在 .ant-drawer-content-wrapper、
+   弹窗的底色+投影都在 .ant-modal-container；旧名 .ant-drawer-content / .ant-modal-content 在实测
+   DOM 里命中 0 ⇒ 这条覆写曾整条静默失效，暗色浮层吃到的是 darkAlgorithm 派生的白 α 投影（§2.3 明令避免）。 */
+[data-theme='dark'] .ant-drawer-content-wrapper,
+[data-theme='dark'] .ant-modal-container {
     box-shadow:
         0 12px 48px rgba(0, 0, 0, 0.55),
         0 2px 8px rgba(0, 0, 0, 0.4);
@@ -108,6 +216,51 @@ body {
 }
 [data-theme='light'] {
     --app-bg-nav: #ffffff;
+}
+
+/* ========== 品牌标识插画令牌（docs/brand/README.md 色板 · 三端同名） ==========
+   渐变三档是品牌资产、不随主题反色，故两态同值；--brand-primary 跟主题主色，
+   原先插画里那颗轨道光点写的 #3B82F6 是 §2.1 沿革中已退役的旧主色。
+   var() 必须带字面量兜底：--app-color-primary 由 ThemeProvider 的 effect 写到 <html>，
+   首帧尚未注入时 color-mix 会整条声明 IACVT（静默失效），有兜底才退到权威值。 */
+:root {
+    --brand-grad-light: #70b3ff;
+    --brand-grad-mid: #0d74f2;
+    --brand-grad-deep: #005ac2;
+    --brand-primary: var(--app-color-primary, #006be6);
+}
+
+/* 认证页左侧品牌面板：底色渐变 + 中心光晕，两态各一档 */
+[data-theme='light'] {
+    --auth-panel-from: #e8ecf1;
+    --auth-panel-via: #d5e0ed;
+    --auth-panel-to: #e8ecf1;
+    --auth-panel-glow: rgba(255, 255, 255, 0.15);
+}
+[data-theme='dark'] {
+    --auth-panel-from: #0a0a0a;
+    --auth-panel-via: #121218;
+    --auth-panel-to: #0a0a0a;
+    --auth-panel-glow: color-mix(in srgb, var(--app-color-primary, #006be6) 18%, transparent);
+}
+
+/* ========== Chrome 自动填充底色覆盖 ==========
+   保存过密码的浏览器上，Chrome 密码管理器按 autoComplete=username /
+   current-password 填充账号与密码框，并在 app 样式之上强制绘制
+   input:-webkit-autofill 白底——background 无法覆盖它，暗色主题下
+   账号/密码两个输入框因此整块发白（登录页首当其冲；无痕窗口没有
+   已存密码、不触发填充，所以"看起来正常"，Ctrl+R 也清不掉）。
+   处置：box-shadow inset 用输入框自身 token 底色（antd Input 常规
+   底色即 colorBgContainer，暗亮两主题同源）盖回；text-fill-color /
+   caret-color 恢复文字与光标色；无限过渡作双保险拖住 Chrome 的底色绘制。 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--ant-color-text);
+    caret-color: var(--ant-color-text);
+    -webkit-box-shadow: 0 0 0 1000px var(--ant-color-bg-container) inset;
+    transition: background-color 99999s ease-in-out 0s;
 }
 
 .ant-table-cell .ant-space-item a {
@@ -157,3 +310,141 @@ body {
     min-width: 0 !important;
     padding: 0 !important;
 }
+
+/* 列表表格四角直角（用户裁决 2026-10-21：以 ele 实际渲染为基准）。
+   antd v6 不止给 .ant-table（上两角）/ .ant-table-container（下两角）发
+   borderRadiusLG 圆角，还向内层发了一轮：sticky 表头包装 .ant-table-header、
+   表头/表体两张内层 <table>、首末 th 单元格（含 .ant-table-cell-scrollbar
+   滚动条占位格）各带 12px——只清外两层时表头左上仍见明显圆弧（用户截图
+   实证）。此处连同内层一并取直，bordered 表格的外框线随之走直线直角。
+   ele 的 vxe 外框线是方角（其 :deep(.vxe-table) 的 6px 圆角不被内层裁切
+   落地，实际渲染就是直角），三端以它为准。
+   !important 必须留：antd cssinjs 运行时注入在打包 CSS 之后，同特异性
+   平局时后注入者赢。外层宿主卡（.ant-pro-card）保持圆角不动——ele 的
+   列表卡同样圆角，方角的只是表格面。 */
+.ant-table.ant-table,
+.ant-table .ant-table-container,
+.ant-table .ant-table-header,
+.ant-table table,
+.ant-table .ant-table-header th.ant-table-cell {
+    border-radius: 0 !important;
+}
+
+/* 空状态占位行的右缘杂线（用户截图实证：悬空在「暂无数据」右侧的细竖线）。
+   scroll.x + 固定列的表格里，antd 给占位内容的粘性包装
+   （.ant-table-expanded-row-fixed）画 ::after（1px × 内容高的竖线，颜色走
+   colorSplit），本意是横向滚动时给固定列分界补线——但占位行不是数据行，
+   空表里这条线悬空在空图标右侧，读作脏东西。占位行内直接摘掉；
+   ::before 同形一并处理。真正的展开行（.ant-table-expanded-row）内容
+   不在 .ant-table-placeholder 子树里，不受影响。 */
+.ant-table-placeholder .ant-table-expanded-row-fixed::before,
+.ant-table-placeholder .ant-table-expanded-row-fixed::after {
+    display: none;
+}
+
+/* 全局搜索面板头部输入（vben 同款无边框形态）：暗色下表单描边惯例
+   （[data-theme=dark] .ant-input-affix-wrapper(:focus-within) + !important，
+   (0,3,0)）会盖过 variant="borderless"，这里以 (0,4,0) + !important 压平 */
+.ant-modal .global-search-input.ant-input-affix-wrapper.ant-input-affix-wrapper {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* ProTable 工具栏内建全屏钮：antd FullscreenOutlined/FullscreenExitOutlined 是
+   四角箭头造型，与三端统一的 lucide 四角括号对（顶栏 HeaderContent 的
+   Maximize/Minimize 内联复刻）不同族。内建图标在 pro-table FullscreenIcon 里
+   写死、无 props 可换，这里藏掉 svg 用 mask 自绘括号对（进入=lucide Maximize、
+   退出=顶栏 MinimizeBracketsIcon 同款路径——注意那是手抄混合版：下半两角为
+   外肘贴边造型，与 lucide 官方 Minimize 的内肘不同，以顶栏为基准）。
+   画法同 vben vxe-toolbar 的 vben-icon-toolbar-fullscreen* 类。
+   作用域收在 list-toolbar 内：全站仅 ProTable 工具栏此二类。 */
+.ant-pro-table-list-toolbar .anticon-fullscreen svg,
+.ant-pro-table-list-toolbar .anticon-fullscreen-exit svg {
+    display: none;
+}
+
+.ant-pro-table-list-toolbar .anticon-fullscreen,
+.ant-pro-table-list-toolbar .anticon-fullscreen-exit {
+    width: 1em;
+    height: 1em;
+    background-color: currentColor;
+    -webkit-mask: var(--fullscreen-bracket-icon) no-repeat center / contain;
+    mask: var(--fullscreen-bracket-icon) no-repeat center / contain;
+}
+
+.ant-pro-table-list-toolbar .anticon-fullscreen {
+    --fullscreen-bracket-icon: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 3H5a2 2 0 0 0-2 2v3'/%3E%3Cpath d='M21 8V5a2 2 0 0 0-2-2h-3'/%3E%3Cpath d='M3 16v3a2 2 0 0 0 2 2h3'/%3E%3Cpath d='M16 21h3a2 2 0 0 0 2-2v-3'/%3E%3C/svg%3E");
+}
+
+.ant-pro-table-list-toolbar .anticon-fullscreen-exit {
+    --fullscreen-bracket-icon: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 3v3a2 2 0 0 1-2 2H3'/%3E%3Cpath d='M21 8h-3a2 2 0 0 1-2-2V3'/%3E%3Cpath d='M3 16v3a2 2 0 0 0 2 2h3'/%3E%3Cpath d='M16 21h3a2 2 0 0 0 2-2v-3'/%3E%3C/svg%3E");
+}
+
+/* ProTable 工具栏右侧图标组排序：刷新 → 密度 → 全屏 → 列设置
+   （三端口径 下载→刷新→全屏→列设置；react 的导出为文字钮居工具栏左区，
+   下载语义已居首）。pro-table 的 options 键序在包内固定不可配，
+   借 CSS order 对齐；列设置的调节器图标带 anticon-column-sliders 标记类。 */
+.ant-pro-table-list-toolbar-setting-items {
+    display: flex;
+}
+
+.ant-pro-table-list-toolbar-setting-item:has(.anticon-reload) {
+    order: 1;
+}
+
+.ant-pro-table-list-toolbar-setting-item:has(.anticon-column-height) {
+    order: 2;
+}
+
+.ant-pro-table-list-toolbar-setting-item:has(.anticon-fullscreen),
+.ant-pro-table-list-toolbar-setting-item:has(.anticon-fullscreen-exit) {
+    order: 3;
+}
+
+.ant-pro-table-list-toolbar-setting-item:has(.anticon-column-sliders),
+.ant-pro-table-list-toolbar-setting-item:has(.anticon-setting) {
+    order: 4;
+}
+
+/* 抽屉/弹窗表单「复杂控件标签在上」定式（三端口径）：富文本编辑器等复杂控件的
+   Form.Item 加 labelCol/wrapperCol={span:24} + labelAlign="left" + 本类——
+   label 独占一行左对齐，与控件留 8px 间距；简单控件仍走标签同行。 */
+.ant-form-item.form-item-label-top > .ant-form-item-label {
+    padding-bottom: 8px;
+}
+
+/* 顶部栏铃铛 hover 摆动（vben notification.vue 同款 bell-ring） */
+.header-bell-btn:hover .anticon svg {
+    animation: bell-ring 1s both;
+    transform-origin: top;
+}
+
+@keyframes bell-ring {
+    0%,
+    100% {
+        transform: rotateZ(0deg);
+    }
+
+    15% {
+        transform: rotateZ(10deg);
+    }
+
+    30% {
+        transform: rotateZ(-10deg);
+    }
+
+    45% {
+        transform: rotateZ(5deg);
+    }
+
+    60% {
+        transform: rotateZ(-5deg);
+    }
+
+    75% {
+        transform: rotateZ(2deg);
+    }
+}
+
+

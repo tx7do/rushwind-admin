@@ -13,8 +13,8 @@
   "moduleDescriptionPlaceholder": "请输入模块描述",
   "createdAt": "创建时间",
   "action": "操作",
-  "create": "新建 API",
-  "edit": "编辑 API",
+  "create": "创建 API",
+  "edit": "更新 API",
   "sync": "同步 API",
   "syncConfirmTitle": "确认同步",
   "syncConfirmDesc": "确定要同步 API 吗？这将从后端重新扫描并同步所有 API 接口。",
@@ -28,7 +28,6 @@
   "deleteFailed": "删除失败",
   "syncSuccess": "同步成功",
   "syncFailed": "同步失败",
-  "fetchFailed": "获取数据失败",
   "maxChars": "最多 {{max}} 个字符",
   "requiredPath": "请输入API路径",
   "requiredMethod": "请选择请求方法"

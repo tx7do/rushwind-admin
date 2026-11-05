@@ -7,6 +7,7 @@
     "delete": "Delete",
     "search": "Search",
     "reset": "Reset",
+    "retry": "Retry",
     "export": "Export",
     "import": "Import",
     "add": "Add",
@@ -21,7 +22,9 @@
     "ok": "OK",
     "detail": "Detail",
     "expand": "Expand",
-    "collapse": "Collapse"
+    "collapse": "Collapse",
+    "more": "More",
+    "copy": "Copy"
   },
   "status": {
     "enabled": "Enabled",
@@ -67,7 +70,7 @@
     "operationFailed": "Operation failed",
     "getDetailFailed": "Failed to get details",
     "confirmDelete": "Are you sure you want to delete this {moduleName}?",
-    "confirmSyncPermissions": "Are you sure you want to sync {moduleName} permissions?",
+    "confirmSyncPermissions": "Are you sure you want to sync the {moduleName}?",
     "developing": "Under development ...",
     "loadDataFailed": "Failed to load data"
   },
@@ -131,7 +134,12 @@
     "syncFailed": "Sync failed",
     "password_mismatch": "The two passwords do not match",
     "update_status_success": "Status updated successfully",
-    "passwordChanged": "Password changed, please sign in again"
+    "passwordChanged": "Password changed, please sign in again",
+    "create_success": "Create successful",
+    "create_failed": "Create failed",
+    "operation_success": "Operation successful",
+    "operation_failed": "Operation failed",
+    "update_status_failed": "Status update failed"
   },
   "title": {
     "confirm": "Confirm",
@@ -143,7 +151,12 @@
   },
   "modal": {
     "create": "Create {moduleName}",
-    "update": "Edit {moduleName}"
+    "update": "Update {moduleName}",
+    "view": "View {moduleName}"
+  },
+  "drawer": {
+    "unsavedMessage": "The form has been modified. Do you want to discard this edit?",
+    "discardButton": "Discard"
   },
   "confirm": {
     "do_you_want_delete": "Are you sure you want to delete this {moduleName}?",
@@ -153,15 +166,30 @@
     "searchMenu": "Search Menu",
     "openSearch": "Open search panel",
     "close": "Close",
-    "noHistory": "No search history",
+    "noHistory": "No recent searches",
+    "noResults": "No matching pages found",
+    "recent": "Recent",
+    "semanticTitle": "Semantic Search",
+    "searching": "Searching…",
     "switch": "Switch",
     "select": "Select"
   },
   "navbar": {
     "profile": "Profile",
+    "inbox": "Inbox",
+    "lockScreen": "Lock Screen",
     "logout": "Logout",
     "logoutConfirmTitle": "Notice",
     "logoutConfirmMessage": "Are you sure you want to logout and exit the system?"
+  },
+  "lockScreen": {
+    "title": "Lock Screen",
+    "placeholder": "Please enter password",
+    "lock": "Locking",
+    "unlock": "Click to unlock",
+    "entry": "Enter the system",
+    "backToLogin": "Back to login",
+    "errorTip": "Password error, please re-enter"
   },
   "sidebar": {
     "collapseMenu": "Collapse menu",
@@ -388,6 +416,21 @@
     "json_parse_error": "JSON parse error",
     "json_serialize_error": "JSON serialization error",
     "unknown_error": "Unknown error",
-    "image_upload_failed": "Image upload failed"
+    "image_upload_failed": "Image upload failed",
+    "clear_content_confirm": "Are you sure you want to clear all content?"
+  },
+  "loading": "Loading...",
+  "loadingMenu": "Loading menus",
+  "operationFailed": "Operation failed",
+  "header": {
+    "settings": "System Settings",
+    "fullscreen": "Fullscreen",
+    "layout": "Layout",
+    "language": "Language",
+    "notification": "Notifications",
+    "sidebar": "Sidebar",
+    "refresh": "Refresh Content",
+    "preferences": "Preferences",
+    "theme": "Theme"
   }
 }

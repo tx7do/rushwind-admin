@@ -27,8 +27,10 @@ use pbjson_types::Empty;
 use proto::gen::services::AuthenticationServiceHandlers;
 use proto::proto::authentication::service::v1::{login_request, GrantType};
 use proto::proto::authentication::service::v1::{
-    ForgotPasswordRequest, GenerateCaptchaResponse, LoginRequest, LoginResponse,
-    ResetPasswordByCodeRequest, VerifyCaptchaRequest, VerifyCaptchaResponse,
+    ForgotPasswordRequest, GenerateCaptchaResponse, GetSsoLoginInfoRequest,
+    GetSsoLoginInfoResponse, GetSsoLoginUrlRequest, GetSsoLoginUrlResponse,
+    GetTenantBrandingRequest, GetTenantBrandingResponse, LoginRequest, LoginResponse,
+    ResetPasswordByCodeRequest, SsoLoginRequest, VerifyCaptchaRequest, VerifyCaptchaResponse,
 };
 use rushwind_http_binding::envelope::StatusError;
 
@@ -318,9 +320,7 @@ impl AuthenticationServiceHandlers for AuthenticationService {
             token_type: 0, // bearer
             access_token: access,
             expires_in: self.state.tokens.access_expires_secs,
-            refresh_token: None,
             scope: None,
-            refresh_expires_in: Some(self.state.tokens.refresh_expires_secs),
             id_token: None,
             mfa_operation_id: None,
         })
@@ -348,6 +348,49 @@ impl AuthenticationServiceHandlers for AuthenticationService {
         let valid =
             crate::captcha::verify(&self.state.redis, &req.captcha_id, &req.user_input).await;
         Ok(VerifyCaptchaResponse { valid })
+    }
+
+    async fn get_sso_login_info(
+        &self,
+        _ctx: Ctx,
+        _req: GetSsoLoginInfoRequest,
+    ) -> Result<GetSsoLoginInfoResponse, StatusError> {
+        // The SSO face (oauth.proto was retired upstream for sso.proto) lands
+        // with the authentication increment; until then the login page reads
+        // "no SSO configured".
+        Ok(GetSsoLoginInfoResponse { enabled: false })
+    }
+
+    async fn get_sso_login_url(
+        &self,
+        _ctx: Ctx,
+        _req: GetSsoLoginUrlRequest,
+    ) -> Result<GetSsoLoginUrlResponse, StatusError> {
+        Err(status_error(
+            "NOT_IMPLEMENTED",
+            "sso login rides the authentication increment",
+        ))
+    }
+
+    async fn sso_login(
+        &self,
+        _ctx: Ctx,
+        _req: SsoLoginRequest,
+    ) -> Result<LoginResponse, StatusError> {
+        Err(status_error(
+            "NOT_IMPLEMENTED",
+            "sso login rides the authentication increment",
+        ))
+    }
+
+    async fn get_tenant_branding(
+        &self,
+        _ctx: Ctx,
+        _req: GetTenantBrandingRequest,
+    ) -> Result<GetTenantBrandingResponse, StatusError> {
+        // Tenant branding (logo/title per tenant) rides the authentication
+        // increment; the default branding answers empty until then.
+        Ok(GetTenantBrandingResponse::default())
     }
 }
 
@@ -502,9 +545,7 @@ impl AuthenticationService {
                 token_type: 0,
                 access_token: String::new(),
                 expires_in: 0,
-                refresh_token: None,
                 scope: None,
-                refresh_expires_in: None,
                 id_token: None,
                 mfa_operation_id: Some(op_id),
             });
@@ -548,9 +589,7 @@ impl AuthenticationService {
             token_type: 0,
             access_token: access,
             expires_in: self.state.tokens.access_expires_secs,
-            refresh_token: None,
             scope: None,
-            refresh_expires_in: None,
             id_token: None,
             mfa_operation_id: None,
         })

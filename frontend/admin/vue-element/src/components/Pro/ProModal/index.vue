@@ -3,6 +3,7 @@
     :is="containerComponent"
     v-model="visible"
     v-bind="containerProps"
+    :before-close="handleContainerBeforeClose"
     @close="handleClose"
   >
     <!-- 内容区域（支持 v-loading） -->
@@ -56,6 +57,9 @@ const props = withDefaults(
     loading?: boolean;
     /** 弹窗标题（优先级高于 config.drawer/dialog 中的 title） */
     title?: string;
+    /** 关闭守卫（docs/form_drawer_close_guard.md）：返回 true 才允许关闭；
+     *  遮罩/ESC/X/底部取消四条路径统一走它；提交成功路径不经守卫 */
+    closeGuard?: () => boolean | Promise<boolean>;
   }>(),
   { mode: "add", loading: false }
 );
@@ -99,9 +103,34 @@ const containerComponent = computed(() =>
 );
 const submitting = ref(false);
 
-function handleClose() {
+function doClose() {
   visible.value = false;
   formRef.value?.resetFields();
+}
+
+/** 底部取消按钮的关闭尝试：走守卫。visible 已为 false 时直接放行——
+ *  EP 的 close 事件在关闭开始后触发，会再进到这里，去重防二次弹确认。 */
+async function attemptClose() {
+  if (!props.visible) return;
+  const allow = props.closeGuard ? await props.closeGuard() : true;
+  if (allow) doClose();
+}
+
+/** 遮罩 / ESC / 标题栏 X 的统一入口（EP before-close）：守卫放行后才真正关 */
+async function handleContainerBeforeClose(done: () => void) {
+  if (!props.visible) {
+    done();
+    return;
+  }
+  const allow = props.closeGuard ? await props.closeGuard() : true;
+  if (allow) {
+    doClose();
+    done();
+  }
+}
+
+function handleClose() {
+  void attemptClose();
 }
 
 async function handleSubmit() {

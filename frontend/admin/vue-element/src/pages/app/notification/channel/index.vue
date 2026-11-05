@@ -31,6 +31,14 @@
       <ElTag v-else size="small">{{ t("pages.notification_channel.passwordNotSet") }}</ElTag>
     </template>
 
+    <!-- SMS 访问密钥配置状态：同上，读侧只有布尔 -->
+    <template #hasSmsAccessSecret="scope: any">
+      <ElTag v-if="scope.row.hasSmsAccessSecret" type="success" size="small">
+        {{ t("pages.notification_channel.passwordSet") }}
+      </ElTag>
+      <ElTag v-else size="small">{{ t("pages.notification_channel.passwordNotSet") }}</ElTag>
+    </template>
+
     <!-- 启用状态 -->
     <template #enabled="scope: any">
       <ElTag v-if="scope.row.enabled" type="success" size="small">
@@ -46,15 +54,26 @@
   <!-- 测试发送对话框 -->
   <ElDialog
     v-model="testVisible"
-    :title="t('pages.notification_channel.testSendTitle', { name: testTarget?.name || '' })"
+    :title="
+      testTarget?.type === 'SMS'
+        ? t('pages.notification_channel.testSendTitleSms', { name: testTarget?.name || '' })
+        : t('pages.notification_channel.testSendTitle', { name: testTarget?.name || '' })
+    "
     width="480px"
     align-center
     :close-on-click-modal="false"
     @closed="testTarget = undefined"
   >
     <ElForm ref="testFormRef" :model="testForm" :rules="testRules" label-width="120px">
-      <ElFormItem :label="t('pages.notification_channel.testRecipient')" prop="recipient">
-        <ElInput v-model="testForm.recipient" placeholder="you@example.com" clearable />
+      <ElFormItem
+        :label="testTarget?.type === 'SMS' ? t('pages.notification_channel.testRecipientPhone') : t('pages.notification_channel.testRecipient')"
+        prop="recipient"
+      >
+        <ElInput
+          v-model="testForm.recipient"
+          :placeholder="testTarget?.type === 'SMS' ? '13800138000' : 'you@example.com'"
+          clearable
+        />
       </ElFormItem>
     </ElForm>
     <template #footer>
@@ -86,10 +105,9 @@ import { useI18n } from "@/core/i18n";
 import { PaginationQuery } from "@/core/transport/rest";
 import type { notification_channelservicev1_NotificationChannel as NotificationChannel } from "@/api/generated/admin/service/v1";
 import {
-  createPagedExportAction,
   deleteNotificationChannel,
   fetchListNotificationChannels,
-  sendTestEmail,
+  sendTest,
 } from "@/api/composables";
 
 const { t } = useI18n();
@@ -112,19 +130,32 @@ function tlsLabel(mode?: string): string {
 const typeLabels: Record<string, string> = {
   EMAIL: t("pages.notification_channel.typeEmail"),
   WEBHOOK: t("pages.notification_channel.typeWebhook"),
+  SMS: t("pages.notification_channel.typeSms"),
 };
 
-const typeTagTypes: Record<string, "primary" | "info"> = {
+const typeTagTypes: Record<string, "primary" | "info" | "warning"> = {
   EMAIL: "primary",
   WEBHOOK: "info",
+  SMS: "warning",
 };
 
 function typeLabel(type?: string): string {
   return (type && typeLabels[type]) || type || "-";
 }
 
-function typeTagType(type?: string): "primary" | "info" {
+function typeTagType(type?: string): "primary" | "info" | "warning" {
   return (type && typeTagTypes[type]) || "info";
+}
+
+// 短信服务商：值与 proto SmsProvider 成员名的同一组字符串（枚举按名字配对）。
+const smsProviderLabels: Record<string, string> = {
+  ALIYUN: t("pages.notification_channel.providerAliyun"),
+  TENCENT: t("pages.notification_channel.providerTencent"),
+};
+
+function smsProviderLabel(row: NotificationChannel): string {
+  if (row.type !== "SMS") return "-";
+  return (row.smsProvider && smsProviderLabels[row.smsProvider]) || row.smsProvider || "-";
 }
 
 // 出站风格：值与后端 webhook_style.go 里的同一组字符串逐字相同（枚举按名字配对）。
@@ -162,10 +193,9 @@ const pageConfig = computed<ProPageConfig>(() => ({
     deleteAction: async (ids: string) => {
       await deleteNotificationChannel(Number(ids));
     },
-    exportsAction: createPagedExportAction(fetchListNotificationChannels),
     toolbar: [],
     toolbarRight: ["add"],
-    defaultToolbar: ["refresh", "exports", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     tableAttrs: { border: true, stripe: true },
     emptyActionText: "common.button.add",
     columns: [
@@ -194,12 +224,30 @@ const pageConfig = computed<ProPageConfig>(() => ({
         width: 130,
         formatter: (row: any) => signStyleLabel(row),
       },
+      {
+        prop: "smsProvider",
+        label: t("pages.notification_channel.smsProvider"),
+        width: 110,
+        formatter: (row: any) => smsProviderLabel(row),
+      },
+      {
+        prop: "smsSignName",
+        label: t("pages.notification_channel.smsSignName"),
+        width: 110,
+        formatter: (row: any) => (row.type === "SMS" ? row.smsSignName || "-" : "-"),
+      },
       { prop: "hasPassword", label: t("pages.notification_channel.hasPassword"), width: 100, slotName: "hasPassword" },
       {
         prop: "hasWebhookSecret",
         label: t("pages.notification_channel.hasWebhookSecret"),
         width: 100,
         slotName: "hasWebhookSecret",
+      },
+      {
+        prop: "hasSmsAccessSecret",
+        label: t("pages.notification_channel.hasSmsAccessSecret"),
+        width: 100,
+        slotName: "hasSmsAccessSecret",
       },
       { prop: "enabled", label: t("pages.notification_channel.enabled"), width: 90, slotName: "enabled" },
       { prop: "remark", label: t("pages.notification_channel.remark"), minWidth: 140 },
@@ -215,9 +263,9 @@ const pageConfig = computed<ProPageConfig>(() => ({
             name: "test",
             label: t("pages.notification_channel.testSend"),
             icon: "lucide:send",
-            // 测试发送只对 EMAIL 有意义：它测的就是这一个 SMTP 账号能否握手发信。
+            // 测试发送只对有"收件目标"的渠道有意义：EMAIL 测 SMTP 握手发信、SMS 发一条真验证码。
             // WEBHOOK 的"当场试一次"在路由规则页（那里测的是事件 → 渠道 → 台账整条链）。
-            visible: (row: any) => row.type === "EMAIL",
+            visible: (row: any) => row.type === "EMAIL" || row.type === "SMS",
           },
           {
             name: "delete",
@@ -257,12 +305,26 @@ const testFormRef = ref();
 const testTarget = ref<NotificationChannel>();
 const testForm = ref({ recipient: "" });
 
-const testRules = {
+// 测试发送：校验跟随渠道类型——SMS 收手机号（宽松位数控，E.164 或大陆裸号），EMAIL 收邮箱。
+const testRules = computed(() => ({
   recipient: [
-    { required: true, message: t("pages.notification_channel.requiredRecipient"), trigger: "blur" },
-    { type: "email" as const, message: t("pages.notification_channel.invalidEmail"), trigger: "blur" },
+    {
+      required: true,
+      message:
+        testTarget.value?.type === "SMS"
+          ? t("pages.notification_channel.requiredRecipientPhone")
+          : t("pages.notification_channel.requiredRecipient"),
+      trigger: "blur",
+    },
+    testTarget.value?.type === "SMS"
+      ? {
+          pattern: /^\+?\d[\d\s-]{4,19}$/,
+          message: t("pages.notification_channel.invalidPhone"),
+          trigger: "blur",
+        }
+      : { type: "email" as const, message: t("pages.notification_channel.invalidEmail"), trigger: "blur" },
   ],
-};
+}));
 
 async function handleTestSend() {
   if (!testTarget.value?.id) return;
@@ -272,11 +334,11 @@ async function handleTestSend() {
   if (!valid) return;
   testing.value = true;
   try {
-    await sendTestEmail(testTarget.value.id, testForm.value.recipient);
+    await sendTest(testTarget.value.id, testForm.value.recipient);
     ElMessage.success(t("pages.notification_channel.testSendSuccess"));
     testVisible.value = false;
   } catch (error: any) {
-    console.error("send test email failed:", error);
+    console.error("send test message failed:", error);
     ElMessage.error(error?.message || t("pages.notification_channel.testSendFailed"));
   } finally {
     testing.value = false;

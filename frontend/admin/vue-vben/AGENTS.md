@@ -8,7 +8,7 @@
 
 **核心技术栈**: Vue 3.5, Ant Design Vue 4.2, Tailwind CSS, Shadcn-ui, Pinia, Vue Router, Vue Query (TanStack Query), VxeTable, i18n, Axios
 
-**应用入口**: `apps/admin/src/`
+**应用入口**: `src/`（工程根，单包结构——原 apps/admin 已削平）
 
 ## Vben 框架核心机制
 
@@ -47,10 +47,31 @@ Mentions, Rate, Divider, Space, DefaultButton, PrimaryButton, ApiTree
 | 表单赋值/取值 | `baseFormApi.setValues()` / `baseFormApi.getValues()` | 直接操作 DOM 或 ref |
 | 表单校验 | `baseFormApi.validate()` | 手动检查每个字段 |
 
-## 目录结构
+## 工程结构（单包化后，2026-10 起）
+
+原 Vben 5 monorepo 的 26 个 packages/* 已并入 `framework/`，apps/ 已削平：
 
 ```
-apps/admin/src/
+vue-vben/
+├── framework/            # 框架壳（原 26 包源码，保留包边界子目录，勿打平）
+│   ├── base/ core/ ui-kit/ effects/ + 根级(constants/icons/locales/preferences/stores/styles/types/utils)
+├── src/                  # 业务层（页面/路由/stores/api/adapter，见下）
+├── build-config/             # 工具链 workspace（vite-config/tailwind-config/tsconfig/node-utils/lint-configs）
+├── node_modules/         # 唯一依赖源（应用依赖全在根 package.json）
+└── vite.config.mts / tsconfig.json / index.html / .env*
+```
+
+- **framework/node_modules 已删除**：早期为 compiler-sfc 类型解析建的 junction 兼容层，实测（dev+build 双验证）已不需要——vite root 在工程根后 tsconfck 命中根 tsconfig 的 paths 供类型解析。若未来某天 dev 白屏报 Failed to resolve extends base type，从 git 历史恢复 scripts/rebuild-framework-links.mjs 跑一次即可。
+- **框架包名即别名**：`@vben/*`、`@vben-core/*` 按 26 条映射解析到 framework/ 子目录（vite resolve.alias + tsconfig paths 双份，改包名/加子路径要两处同步）。子路径如 `@vben/styles/antd`、`@vben/plugins/echarts` 自然解析
+- **命令从工程根跑且必须经 `pnpm run`**：`pnpm dev` / `pnpm build` / `pnpm typecheck`。env.ts 靠 `npm_lifecycle_script` 正则解析 `--mode`，直接调 `.bin/vite` 会丢 mode（端口回落 5173）
+- **build-config/ 是纯源码目录**（去微服务后无 package.json/dist）：vite.config.mts、tailwind.config.ts、eslint.config.ts 经 esbuild/jiti 直接吃 TS 源，改完即生效无需构建
+- **node ≥ 20.11 硬要求**（unplugin 顶层 import.meta.dirname）：本机 PATH 默认 node 20.10 会崩，dev/build 前置 scoop node：`export PATH="$HOME/scoop/apps/nodejs/current:$PATH"`
+- 主题色/暗亮的 CSS 变量由 `framework/core/preferences/update-css-variables.ts` 运行时注入；design-tokens 在 `framework/base/design/design-tokens/`
+
+### src/ 业务层结构
+
+```
+src/
 ├── api/                  # API 层（两层架构）
 │   ├── generated/        # ← protobuf 自动生成，禁止手动编辑
 │   ├── client.ts         # ← ApiClient 单例（ClientTransport 适配器）
@@ -288,17 +309,15 @@ views/app/{module}/
   <a-tag :color="xxxStatusToColor(row.status)">{{ xxxStatusToName(row.status) }}</a-tag>
 </template>
 
-<!-- 操作列 -->
+<!-- 操作列：按钮一律 图标+文本（common.edit/common.delete/ui.button.detail 是纯文本键）；
+     超过 3 个操作只留前 3 个行内，其余进「更多」下拉(ui.button.more)，下拉里用 Modal.confirm 确认。
+     注意 ui.button.edit/delete/view 是带 {moduleName} 的抽屉标题键，不能当行内按钮文本。 -->
+<!-- 操作列 = TableActions 描述符组件（#/components/TableActions.vue），不要手写按钮/下拉。
+     描述符 { key, label, icon: h(LucideX), onClick, danger?, success?, confirm?, tooltip?, hidden? }，
+     行参在点击时回传 onClick(row)；>3 个自动溢出「更多」(ui.button.more)并降级 Modal.confirm。
+     注意 ui.button.edit/delete/view 是带 {moduleName} 的抽屉标题键，不能当行内按钮文本。 -->
 <template #action="{ row }">
-  <a-button type="link" :icon="h(LucideFilePenLine)" @click.stop="handleEdit(row)" />
-  <a-popconfirm
-    :cancel-text="$t('ui.button.cancel')"
-    :ok-text="$t('ui.button.ok')"
-    :title="$t('ui.text.do_you_want_delete', { moduleName: $t('page.xxx.moduleName') })"
-    @confirm="handleDelete(row)"
-  >
-    <a-button danger type="link" :icon="h(LucideTrash2)" />
-  </a-popconfirm>
+  <TableActions :row="row" :actions="buildRowActions()" />
 </template>
 ```
 
@@ -414,13 +433,15 @@ export default routes;
 - `vue: 3.5.13` — `^` 范围会让 apps 与 packages 解析出两个 vue patch 版本，vue-router 等 peer 包随之产生两份实例，typecheck 出现大批 `Two different types with this name exist` 假错。
 - `typescript: 5.6.3` / `vue-tsc: 2.1.10` — 此配对经全量验证；`^` 会因镜像源元数据漂移解析到不可预期的组合（vue-tsc 2.1.x 与 TS 5.7 不兼容，会崩 `Search string not found`）。
 
-`packageManager: pnpm@11.18.0` 必须与本机 pnpm 主版本一致：pnpm 的版本自举切换在 npmmirror 下会下载残缺的 `@pnpm/exe`（缺 pnpm.exe），导致 turbo 嵌套的 `pnpm run` 报 `ERR_PNPM_ENGINE_BIN_MISSING` 且项目级 `.npmrc` 无法阻止（切换决策只读用户/全局配置）。
+**已知例外（别照这条规则去"顺手修正"）**：根 `package.json` 的 devDependencies 里 `"vue": "^3.5.22"` 确实是范围写法，但 `pnpm-workspace.yaml` 的 `overrides: vue: catalog:` 会把全仓所有 vue 请求强制收敛到 catalog 的 `3.5.13`，单实例保证仍然成立——所以既不要动那个 `^`，也不要删 `overrides` 里的这一行。
+
+`packageManager: pnpm@11.18.0` 必须与本机 pnpm 主版本一致：pnpm 的版本自举切换在 npmmirror 下会下载残缺的 `@pnpm/exe`（缺 pnpm.exe），导致 turbo 嵌套的 `pnpm run` 报 `ERR_PNPM_ENGINE_BIN_MISSING`。本仓已在项目级 `.npmrc` 里写 `manage-package-manager-versions=false` 关掉自举（直接用本机 pnpm，版本一致时行为完全相同）——**别删这一行**，删了才会撞上上述错误。
 
 ### TS2589（Type instantiation is excessively deep）
 
 vxe-table 的巨型递归类型与 `DeepPartial` 展开做结构比较时极易超深。已做两层防御：
 
-1. `DeepPartial`（`@vben-core/typings/helper.d.ts`）已改为**深度 6 层封顶**，请勿改回无界递归。
+1. `DeepPartial`（`framework/base/typings/helper.d.ts`）已改为**深度 6 层封顶**，请勿改回无界递归。
 2. `use-vxe-grid.vue` 中向 `setState`/`mergeWithArrayOverride` 传 vxe 大类型处有显式断言截断。
 
 新增页面若再遇 TS2589：优先在调用点按目标类型断言收窄，**不要**升级 TS/vue-tsc 去碰运气。
@@ -431,15 +452,30 @@ vxe-table 的巨型递归类型与 `DeepPartial` 展开做结构比较时极易�
 
 ### 构建目标
 
-`build.target` 必须 **es2022+**（`internal/vite-config/src/config/application.ts`）。降到 es2015 会因依赖中 jiti 的顶层 await 直接断构建。
+`build.target` 必须 **es2022+**（`build-config/vite-config/src/config/application.ts`）。降到 es2015 会因依赖中 jiti 的顶层 await 直接断构建。
+
+### `build-config/` 不在门禁视野里（dev/build 起不来的第一嫌疑）
+
+`tsconfig.json` 的 `include` 只有 `src/**` 与 `framework/**`（现数：`vue-tsc --listFiles` 的程序里有改过的两个
+`.vue`，而 `build-config/node-utils/src/index.ts` 计数 0），所以 **`pnpm run typecheck` 全绿不等于 `pnpm dev` /
+`pnpm build` 起得来**：`vite.config.mts` 及其引到的 `build-config/**` 一旦 import 到不在依赖集里的包，只在启动
+那一刻炸 `ERR_MODULE_NOT_FOUND`，门禁一声不响。单包化提交（`b5be60037` 删 `internal/*/package.json`）就是这样把
+`rimraf` 漏出依赖集的——`build-config/node-utils/src/index.ts` 里那行 `export { rimraf } from 'rimraf'` 全仓引用计数 0，
+2026-10-14 删掉该行后 `VITE ready` + `/` 回 200（红/绿各跑了一次）。
+
+**真要补依赖，先看 lock 的删除行**：同日实测把 `"rimraf": "catalog:"` 写进 `devDependencies` 再 `pnpm install`，
+它连带把 `@intlify/shared` 从 11.4.13 漂到 `12.0.0-alpha.4`（lock 30 加 / 8 删），撞上面"版本钉死"那条铁律；
+`git diff pnpm-lock.yaml` 里出现与本任务无关的漂移就回滚 lock + package.json，优先走"删死引用"这条路。
 
 ### `$t()` 空键崩溃
 
 `$t(undefined)` 或不存在的 key 会直接抛错崩页面（曾致菜单页白屏崩溃）。用 `$t()` 前确认 key 已在 `locales/langs/`（zh-CN + en-US 同步）登记；key 来自变量时先保证非空。
 
-### 开发策略：移植优先
+### 上游维护者的工序：移植优先（不是对采用者的要求）
 
-新功能/新模块以 **react 端为行为基准先做**，再移植到 vben。vben 框架变体（vben 5.x monorepo）在训练语料中占比低，AI 直接首创容易产出框架级错误（`$t` 误用、忘记离线图标、component 未用注册名等）；移植是有参照的翻译，便宜得多。
+三端是并列的**三选一**选项（见仓库根 `AGENTS.md` 与 `docs/adopt-one-frontend.md`）：采用者只取一端，不需要也不应该被要求跟另两端。下面这条只约束**本仓上游维护者 / 向本仓贡献代码的人**：
+
+新功能/新模块由上游以 **react 端为行为基准先实现并验证**，再由维护者移植到 vben。vben 框架变体（vben 5.x monorepo）在训练语料中占比低，AI 直接首创容易产出框架级错误（`$t` 误用、忘记离线图标、component 未用注册名等）；移植是有参照的翻译，便宜得多。
 
 ---
 

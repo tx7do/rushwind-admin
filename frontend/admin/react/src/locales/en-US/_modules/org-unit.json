@@ -32,8 +32,8 @@
   "remarkPlaceholder": "Enter remark",
   "createdAt": "Created At",
   "action": "Actions",
-  "create": "New Org",
-  "edit": "Edit Org",
+  "create": "Create Org",
+  "edit": "Update Org",
   "expandAll": "Expand All",
   "collapseAll": "Collapse All",
   "deleteConfirmTitle": "Confirm Delete",
@@ -44,7 +44,6 @@
   "createFailed": "Creation failed",
   "updateFailed": "Update failed",
   "deleteFailed": "Delete failed",
-  "fetchFailed": "Failed to fetch data",
   "statusMap": {
     "ON": "Active",
     "OFF": "Inactive"

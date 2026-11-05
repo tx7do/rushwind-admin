@@ -15,5 +15,7 @@
   "effectDetails": "生效详情",
   "scopeSql": "数据范围SQL",
   "logHash": "日志哈希",
-  "signature": "签名"
+  "signature": "签名",
+  "exportServerSuccess": "已开始下载",
+  "exportServerFailed": "服务端导出失败"
 }

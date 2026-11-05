@@ -38,6 +38,5 @@
   "confirmPasswordPlaceholder": "请再次输入新密码",
   "passwordMismatch": "两次输入的密码不一致",
   "editPasswordSuccess": "密码修改成功",
-  "editPasswordFailed": "密码修改失败",
-  "fetchFailed": "获取用户数据失败"
+  "editPasswordFailed": "密码修改失败"
 }

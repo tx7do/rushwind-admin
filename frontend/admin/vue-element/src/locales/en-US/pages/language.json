@@ -8,7 +8,7 @@
   "sortOrder": "Sort Order",
   "createdAt": "Created At",
   "button": {
-    "create": "Create",
-    "update": "Update"
+    "create": "Create Language",
+    "update": "Update Language"
   }
 }

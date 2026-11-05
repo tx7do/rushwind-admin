@@ -1,4 +1,3 @@
-
 {
   "pageTitle": "Language Management",
   "moduleName": "Language",
@@ -15,8 +14,8 @@
   "sortOrderPlaceholder": "Enter sort order",
   "createdAt": "Created At",
   "action": "Actions",
-  "create": "New Language",
-  "edit": "Edit Language",
+  "create": "Create Language",
+  "edit": "Update Language",
   "deleteConfirmTitle": "Confirm Delete",
   "deleteConfirmDesc": "Are you sure you want to delete language \"{{name}}\"?",
   "createSuccess": "Created successfully",
@@ -25,7 +24,6 @@
   "createFailed": "Creation failed",
   "updateFailed": "Update failed",
   "deleteFailed": "Delete failed",
-  "fetchFailed": "Failed to fetch data",
   "requiredLanguageName": "Please enter language name",
   "requiredLanguageCode": "Please enter language code",
   "requiredNativeName": "Please enter native name",

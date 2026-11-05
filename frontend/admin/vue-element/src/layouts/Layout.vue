@@ -2,23 +2,45 @@
   <div class="layout-wrapper">
     <component :is="currentLayoutComponent" />
     <PreferencesPanel :open="settingsVisible" @close="settingsVisible = false" />
+    <LockScreen :avatar="avatar" @to-login="handleLockToLogin" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 
 import { PreferencesPanel } from "@/core/preferences/components";
-import { LayoutType } from "@/core/preferences";
+import { LayoutType, preferences } from "@/core/preferences";
+import { useAuth } from "@/composables/use-auth";
+import { useAppUserStore, useLockStore } from "@/stores";
 
 import { useLayout } from "./useLayout";
 
 import LeftLayout from "./LeftLayout.vue";
 import TopLayout from "./TopLayout.vue";
 import MixLayout from "./MixLayout.vue";
+import LockScreen from "@/components/LockScreen/index.vue";
 
 const route = useRoute();
+const router = useRouter();
 const { currentLayout } = useLayout();
+const userStore = useAppUserStore();
+const authStore = useAuth();
+const lockStore = useLockStore();
+
+const avatar = computed(
+  () => userStore.userInfo?.avatar || preferences.app.defaultAvatar || "/default-avatar.png"
+);
+
+/**
+ * 锁屏遮罩上的「返回登录」：必须先撤遮罩——logout 不清 lock-storage，
+ * 否则重新登录后遮罩依旧在。
+ */
+async function handleLockToLogin() {
+  lockStore.unlockScreen();
+  await authStore.logout();
+  router.push(`/login?redirect=${route.fullPath}`);
+}
 
 // 设置面板可见性（全局状态）
 const settingsVisible = ref(false);

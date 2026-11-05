@@ -1,9 +1,10 @@
 {
-  "moduleName": "权限管理",
+  "moduleName": "权限",
   "name": "权限名称",
   "code": "权限编码",
   "groupId": "所属分组",
   "groupName": "分组名称",
   "menuIds": "关联菜单",
-  "apiIds": "关联API"
+  "apiIds": "关联API",
+  "syncPermissions": "同步权限"
 }

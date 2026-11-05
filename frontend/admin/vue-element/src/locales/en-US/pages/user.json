@@ -1,12 +1,58 @@
 {
-  "moduleName": "User Management",
+  "moduleName": "User",
   "profile": {
     "tab": {
       "editPassword": "Edit Password",
       "basicSettings": "Basic Settings",
       "securitySettings": "Security Settings",
       "accountBind": "Account Bind",
-      "activeSessions": "Active Sessions"
+      "activeSessions": "Active Sessions",
+      "notification": "Notifications",
+      "tenantUsage": "Plan Usage"
+    },
+    "field": {
+      "nickname": "Nickname",
+      "realname": "Name",
+      "email": "Email",
+      "mobile": "Mobile",
+      "telephone": "Telephone",
+      "gender": "Gender",
+      "region": "Region",
+      "address": "Address",
+      "description": "Description",
+      "locale": "Preferred Language",
+      "avatar": "Avatar"
+    },
+    "info": {
+      "username": "Username",
+      "roleNames": "Roles",
+      "orgUnitNames": "Organizations",
+      "positionNames": "Positions",
+      "tenantName": "Tenant",
+      "lastLoginAt": "Last Login At",
+      "lastLoginIp": "Last Login IP",
+      "createdAt": "Created At"
+    },
+    "notice": {
+      "uploadSuccess": "Avatar uploaded",
+      "uploadFailed": "Failed to upload avatar"
+    },
+    "notification": {
+      "quietTitle": "Quiet Hours",
+      "quietDesc": "During quiet hours, internal message notifications are not pushed in real time (no instant desktop toasts or badge updates). Messages still arrive in your inbox.",
+      "quietEnable": "Enable quiet hours",
+      "quietTimeRange": "Quiet window (supports overnight spans, e.g. 22:00 to 08:00)",
+      "startTime": "Start",
+      "endTime": "End",
+      "quietTimeRequired": "Please select the quiet window",
+      "quietZeroWidth": "Quiet start and end time cannot be the same",
+      "muteTitle": "Category Unsubscribe",
+      "muteDesc": "After unsubscribing, you will no longer receive all-hands broadcast messages of that category. Direct messages addressed to you are not affected.",
+      "noCategories": "No categories available in this tenant",
+      "save": "Save Preferences",
+      "saveSuccess": "Notification preferences saved",
+      "saveFailed": "Failed to save notification preferences",
+      "transactionalNote": "Transactional emails such as verification codes are not affected by this page and are always sent."
     }
   },
   "detail": {
@@ -41,7 +87,10 @@
     "status": "Status",
     "role": "Role",
     "position": "Position",
-    "orgUnit": "Organization"
+    "orgUnit": "Organization",
+    "oldPassword": "Current Password",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password"
   },
   "table": {
     "username": "Username",
@@ -64,9 +113,11 @@
   },
   "button": {
     "updatePassword": "Update Password",
-    "updateUserInfo": "Update User Info",
+    "updateUserInfo": "Update Profile",
     "editPassword": "Edit Password",
-    "banAccount": "Ban Account"
+    "banAccount": "Ban Account",
+    "uploadAvatar": "Upload Avatar",
+    "deleteAvatar": "Delete Avatar"
   },
   "secureSetting": {
     "accountPassword": "Login Password",

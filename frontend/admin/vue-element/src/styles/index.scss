@@ -45,10 +45,55 @@
   // 正文 400（设计语言规范 2.5：正文 400 / 标题 600）
   --el-font-weight-primary: 400;
   // 亮色文字加深，不用浅灰，避免发虚
+  // ⚠ 这三行是死声明：theme-chalk 的 base.css 由 unplugin 在本文件之后追加，等价选择器
+  //   反超（2026-10-14 浅色登录页实测 paints #303133 / #606266）。生效档在
+  //   vendors/_element-plus.scss 的 :root 块里，带 !important。
   --el-text-color-primary: #1F2937;
   --el-text-color-regular: #374151;
   --el-text-color-secondary: #6B7280; // 辅助文字（创建时间、发送人等）加深，避免浅色页面过淡发飘
   --el-font-weight-bold: 600;
+}
+
+// ============================================
+// 品牌标识插画令牌（docs/brand/README.md 色板 · 与 react / vben 三端同名）
+// 登录页插画 icons/slogan.vue 的 15 处色值统一从这里取，组件内不留裸 hex（§4）。
+// 必须与上面的 EP 覆盖块**平级**：写进它里面会被 Sass 嵌套编译成 `:root :root`，
+// 语法照过、规则却永不匹配（实测 getComputedStyle 读回空串、SVG 全部落回初始值黑）。
+// --brand-primary 不写死 #006be6：实测本端 --el-color-primary 两态都是 rgb(0,107,230)，
+// 取 token 后品牌主色随主题走、值不变。
+// ============================================
+:root {
+  --brand-grad-light: #70b3ff;
+  --brand-grad-mid: #0d74f2;
+  --brand-grad-deep: #005ac2;
+  --brand-primary: var(--el-color-primary);
+}
+
+// ============================================
+// 1. ElSelect 分组下拉（渠道类型等）显式样式
+//    EP 默认样式在某些缓存/按需组合下会丢分组缩进与标题弱化，显式钉死：
+//    分组标题=小号灰字不可点；组内选项相对分组标题缩进，层级感明确
+// ============================================
+.el-select-dropdown {
+  .el-select-group__title {
+    color: var(--el-text-color-secondary, #909399) !important;
+    font-size: 12px !important;
+    line-height: 24px !important;
+    padding: 0 20px !important;
+    cursor: default !important;
+  }
+
+  .el-select-group__wrap:not(:first-of-type) {
+    padding-top: 4px;
+  }
+
+  .el-select-group {
+    padding: 0 0 0 10px;
+
+    .el-select-dropdown__item {
+      padding-left: 20px !important;
+    }
+  }
 }
 
 // 针对 Element Plus 全局布局强制开启抗锯齿
@@ -138,4 +183,23 @@ html.invert-mode {
 /* 灰色模式 - 去色效果 */
 html.grayscale-mode {
   filter: grayscale(1);
+}
+
+// ============================================
+// 4. Chrome 自动填充底色覆盖
+//     保存过密码的浏览器上，Chrome 密码管理器按账号/密码语义填充登录框，
+//     并在页面样式之上强制绘制 input:-webkit-autofill 白底（background
+//     无法覆盖），暗色主题下账号/密码两个输入框因此整块发白；无痕窗口
+//     没有已存密码、不触发填充，所以"看起来正常"。box-shadow inset 用
+//     输入框自身 token 底色（el-input 底色即 --el-input-bg-color，暗亮
+//     两主题同源）盖回，text-fill-color 恢复文字色，无限过渡作双保险。
+// ============================================
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--el-text-color-regular);
+  caret-color: var(--el-text-color-regular);
+  -webkit-box-shadow: 0 0 0 1000px var(--el-input-bg-color, var(--el-fill-color-blank)) inset;
+  transition: background-color 99999s ease-in-out 0s;
 }

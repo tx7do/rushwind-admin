@@ -5,6 +5,7 @@ import {
   type notification_channelservicev1_ListNotificationChannelResponse,
   type notification_channelservicev1_NotificationChannel,
   type notification_channelservicev1_SendTestEmailRequest,
+  type notification_channelservicev1_SendTestRequest,
   type notification_channelservicev1_UpdateNotificationChannelRequest,
 } from '@/api/generated/admin/service/v1';
 import { type PaginationQuery, queryClient } from '@/core';
@@ -77,6 +78,15 @@ export function useSendTestEmail(
 ) {
   return useMutation({
     mutationFn: (req) => apiClient.notificationChannelService.SendTestEmail(req),
+    ...options,
+  });
+}
+
+export function useSendTest(
+  options?: UseMutationOptions<{}, Error, notification_channelservicev1_SendTestRequest>,
+) {
+  return useMutation({
+    mutationFn: (req) => apiClient.notificationChannelService.SendTest(req),
     ...options,
   });
 }

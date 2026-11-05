@@ -61,5 +61,63 @@
     "oct": "Oct",
     "nov": "Nov",
     "dec": "Dec"
+  },
+  "aiInsights": {
+    "title": "Security & Anomaly Insights",
+    "subtitle": "24h audit trail · behavior pattern mining",
+    "generate": "Scan now",
+    "regenerate": "Rescan",
+    "empty": "Click \"Scan now\" to mine the last 24h of audit details for anomalies.",
+    "noAnomaly": "No anomalous behavior patterns detected in the last 24 hours.",
+    "failed": "Scan failed",
+    "assessment": "AI Assessment",
+    "generatedAt": "Generated at {{time}}",
+    "alerts": {
+      "bruteForce": {
+        "title": "Possible credential guessing: {{count}} failed logins for account {{username}} in 24h",
+        "detail": "Last failure from IP {{ip}}. Verify whether it was the account owner; reset the password and temporarily block the source if needed."
+      },
+      "nightOps": {
+        "title": "Off-hours activity: account {{username}} ran {{count}} operations between 00:00-06:00 local time",
+        "detail": "Late-night activity deviates from normal patterns. If this was not a planned change window, check with the account owner."
+      },
+      "failedOps": {
+        "title": "Clustered failures: account {{username}} had {{count}} failed operations ({{total}} total) in 24h",
+        "detail": "Repeated failures may indicate missing permissions or probing. Review the failed resources and reasons in the operation log."
+      },
+      "sensitiveOps": {
+        "title": "{{count}} sensitive operations detected (delete/export/authorization changes)"
+      }
+    }
+  },
+  "workspace": {
+    "greeting": {
+      "morning": "Good morning",
+      "afternoon": "Good afternoon",
+      "evening": "Good evening",
+      "night": "Working late",
+      "morningWith": "Good morning, {{name}}",
+      "afternoonWith": "Good afternoon, {{name}}",
+      "eveningWith": "Good evening, {{name}}",
+      "nightWith": "Working late, {{name}}"
+    },
+    "today": "Today is {{date}}",
+    "quickAccess": {
+      "title": "Quick Access",
+      "subtitle": "One-click access to common pages"
+    },
+    "myMessages": {
+      "title": "My Messages",
+      "unreadCount": "{{count}} unread",
+      "viewAll": "View all",
+      "empty": "No messages"
+    },
+    "mySessions": {
+      "title": "My Active Sessions",
+      "subtitle": "Devices signed in as you",
+      "manage": "Manage sessions",
+      "empty": "No active sessions",
+      "current": "Current device"
+    }
   }
 }

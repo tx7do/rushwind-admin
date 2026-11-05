@@ -191,13 +191,13 @@ async function handleLogout() {
   color: var(--el-text-color-regular);
 
   &:hover {
-    color: var(--el-color-primary);
+    color: var(--gowind-primary-text);
   }
 
   &.active {
     background: var(--el-bg-color);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    color: var(--el-color-primary);
+    color: var(--gowind-primary-text);
   }
 }
 

@@ -82,6 +82,7 @@ async function handleSubmit() {
   try {
     await formRef.value.validate();
   } catch {
+    // 校验失败由 ElForm 就地标红，字段级错误对象无需再记日志
     return;
   }
 
@@ -101,8 +102,9 @@ async function handleSubmit() {
     ElMessage.success($t("common.notification.passwordChanged"));
     forceLogout();
     return;
-  } catch {
-    ElMessage.error($t("common.notification.updateFailed"));
+  } catch (error) {
+    console.error("Failed to change password:", error);
+    ElMessage.error((error as any)?.message || $t("common.notification.updateFailed"));
   } finally {
     submitLoading.value = false;
   }

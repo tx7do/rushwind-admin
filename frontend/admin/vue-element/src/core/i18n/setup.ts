@@ -14,7 +14,11 @@ const i18n = createI18n({
 // 从 src/locales/ 加载翻译文件
 const modules = import.meta.glob("../../locales/**/*.json");
 const localesMap = loadLocalesMapFromDir(/..\/locales\/([^/]+)\/(.*)\.json$/, modules);
-let loadMessages: LoadMessageFn;
+// 必须声明即赋默认值：initPreferences 在 setupI18n 之前运行，其 handleUpdates 会
+// 因 app.locale 存在而调用 loadLocaleMessages；若此处是 undefined，
+// 冷启动（尤其已登录刷新，refreshToken 网络往返拉长了时序窗口）会随机抛出
+// "Uncaught (in promise) TypeError: loadMessages is not a function"（setup.ts loadLocaleMessages）。
+let loadMessages: LoadMessageFn = async () => ({});
 
 /**
  * Set i18n language
@@ -74,7 +78,12 @@ async function loadLocaleMessages(lang: string) {
 function translateRouteTitle(title: string): string {
   if (!title) return "";
   // 直接尝试翻译，如果不存在则返回原文
-  return i18n.global.te(title) ? i18n.global.t(title) : title;
+  if (i18n.global.te(title)) return i18n.global.t(title);
+  // 后端菜单种子键带 menu./page. 前缀，而本端路由文案都在 routes 命名空间下
+  // 按去前缀的嵌套键存放（menu.ai.moduleName → routes.ai.moduleName），换前缀再查
+  const prefixed = title.replace(/^(menu|page)\./, "routes.");
+  if (prefixed !== title && i18n.global.te(prefixed)) return i18n.global.t(prefixed);
+  return title;
 }
 
 const $t = i18n.global.t;

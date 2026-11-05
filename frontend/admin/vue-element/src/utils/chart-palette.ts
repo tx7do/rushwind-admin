@@ -34,3 +34,15 @@ export function hexToRgba(hex: string, alpha: number): string {
   const [r, g, b] = hexToRgb(hex);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
+
+/**
+ * 图表轴标签/次要文字色：ECharts 画在 canvas 上，不继承 CSS 变量，
+ * 只能在建 option 时读 --el-text-color-secondary（§2.2 次要档，随主题注入）的实际值。
+ */
+export function getChartSecondaryText(fallback = "#676E7C"): string {
+  if (typeof window === "undefined") return fallback;
+  return (
+    getComputedStyle(document.documentElement).getPropertyValue("--el-text-color-secondary").trim() ||
+    fallback
+  );
+}

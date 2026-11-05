@@ -1,7 +1,8 @@
 import { useRef } from 'react';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import { ProTable } from '@ant-design/pro-components';
-import { App, Tag, Tooltip } from 'antd';
+import ListTable from '@/components/common/ListTable';
+import TableExportButton from '@/components/common/TableExportButton';
+import { Tag, Tooltip } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type {
   notificationservicev1_Channel,
@@ -13,6 +14,8 @@ import { TABLE } from '@/config/constants';
 import { fetchListNotificationDeliveries } from '@/api/hooks/notification-delivery';
 import { useProTableScrollY } from '@/hooks/useProTableScrollY';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
+import { searchOptionRender } from '@/components/common/searchSubmitter';
+import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
 /**
  * 通知投递台账（只读）
@@ -38,6 +41,7 @@ const CHANNEL_COLORS: Record<notificationservicev1_Channel, string> = {
   SMS: 'green',
   WEBHOOK: 'purple',
   INTERNAL: 'cyan',
+  EXT: 'geekblue',
   CHANNEL_UNSPECIFIED: 'default',
 };
 
@@ -55,21 +59,23 @@ const eventTypeOptions = (t: (key: string) => string) =>
 
 // 可筛渠道 = 有 Sender 实现、因此真能写出台账行的渠道。路由现在是数据库表
 // （sys_notification_rules，在「通知路由规则」页维护），默认规则没指向 WEBHOOK 也筛得到：
-// 管理员建一行 WEBHOOK 规则，下一趟投递就写进台账。只有 SMS 还没有实现，永远筛不出东西。
+// 管理员建一行 WEBHOOK 规则，下一趟投递就写进台账。SMS 自 2026-10-15 起有实现
+// （渠道页配好短信账号后即可写出台账行），进下拉。
 const channelOptions = (t: (key: string) => string) =>
-  (['EMAIL', 'WEBHOOK', 'INTERNAL'] as const).map((value) => ({ value, label: t(`channelMap.${value}`) }));
+  (['EMAIL', 'WEBHOOK', 'SMS', 'EXT', 'INTERNAL'] as const).map((value) => ({ value, label: t(`channelMap.${value}`) }));
 
-// ProTable 的 sorter key 来自 dataIndex（camelCase），而 orderBy 要的是数据库列名。
-// 直接透传 "createdAt" 在 sqlite 上实测为"静默不参与排序"（go-crud 的列白名单对本仓表
-// fail-open，非法列不报错也不生效），换成蛇形才真按投递时间排。
+// ProTable 的 sorter key 来自 dataIndex（camelCase），这里显式转成数据库列名，与台账列口径对齐。
+// （后端 orderBy 的 JSON 数组形自己会做 camel→snake 归一，透传驼峰也排得动；但拼错的列名
+//   不会被静默丢掉，而是整条查询报错 —— 两形差异与实测见 docs/list_query_rule.md）
 const toSnakeCase = (key: string) => key.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 
 const NotificationDeliveryPage = () => {
   const { t } = useTranslation('notification-delivery');
   const actionRef = useRef<ActionType>(null);
-  const { message } = App.useApp();
   const containerRef = useRef<HTMLDivElement>(null);
   const tableScrollY = useProTableScrollY(containerRef);
+  // 当前搜索条件（服务端导出透传用，与列表 request 同源——"导出的就是当前搜索看到的"）
+  const latestFormValuesRef = useRef<Record<string, unknown>>({});
 
   const columns: ProColumns<NotificationDelivery>[] = [
     {
@@ -197,47 +203,40 @@ const NotificationDeliveryPage = () => {
   return (
     <ContentContainer heightMode="fixed" padding="16px" bottomMargin={0}>
       <div ref={containerRef} className="page-container-content">
-        <ProTable<NotificationDelivery>
+        <ListTable<NotificationDelivery>
           actionRef={actionRef}
           columns={columns}
           request={async (params, sorter) => {
-            try {
-              const query = new PaginationQuery({
-                paging: {
-                  page: params.current || 1,
-                  pageSize: params.pageSize || 20,
-                },
-                formValues: Object.fromEntries(
-                  Object.entries(params).filter(
-                    ([key]) => !['current', 'pageSize'].includes(key),
-                  ),
-                ),
-                orderBy:
-                  sorter && Object.keys(sorter).length > 0
-                    ? Object.entries(sorter).map(([key, value]) =>
-                        value === 'ascend' ? toSnakeCase(key) : `-${toSnakeCase(key)}`,
-                      )
-                    : ['-created_at'],
-              });
+            const formValues = Object.fromEntries(
+              Object.entries(params).filter(
+                ([key]) => !['current', 'pageSize'].includes(key),
+              ),
+            );
+            latestFormValuesRef.current = formValues;
+            const query = new PaginationQuery({
+              paging: {
+                page: params.current || 1,
+                pageSize: params.pageSize || 20,
+              },
+              formValues,
+              orderBy:
+                sorter && Object.keys(sorter).length > 0
+                  ? Object.entries(sorter).map(([key, value]) =>
+                      value === 'ascend' ? toSnakeCase(key) : `-${toSnakeCase(key)}`,
+                    )
+                  : ['-created_at'],
+            });
 
-              const response = await fetchListNotificationDeliveries(query);
+            const response = await fetchListNotificationDeliveries(query);
 
-              return {
-                data: response.items || [],
-                total: response.total || 0,
-                success: true,
-              };
-            } catch (error: any) {
-              message.error(error.message || t('fetchFailed'));
-              return {
-                data: [],
-                total: 0,
-                success: false,
-              };
-            }
+            return {
+              data: response.items || [],
+              total: response.total || 0,
+              success: true,
+            };
           }}
           rowKey="id"
-          search={{
+          search={{ optionRender: searchOptionRender,
             labelWidth: 'auto',
             defaultCollapsed: false,
           }}
@@ -246,10 +245,24 @@ const NotificationDeliveryPage = () => {
             showSizeChanger: true,
             showQuickJumper: true,
           }}
+          toolBarRender={() => [
+            // 导出：客户端聚合（小数据量快速路径）+ 服务端全量（当前搜索条件透传，
+            // 与列表同源；本页与台账读接口同为平台管理员专属，闸在后端）
+            <TableExportButton
+              key="export"
+              fetcher={fetchListNotificationDeliveries}
+              columns={columns}
+              filename="notification-deliveries"
+              serverExport={{
+                url: 'admin/v1/notification-deliveries:export',
+                buildQuery: () => new PaginationQuery({ formValues: latestFormValuesRef.current }),
+              }}
+            />,
+          ]}
           options={{
             density: true,
             fullScreen: true,
-            setting: true,
+            setting: { settingIcon: <ColumnSlidersIcon /> },
             reload: true,
           }}
           size="middle"

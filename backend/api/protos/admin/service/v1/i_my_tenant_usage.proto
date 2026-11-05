@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package admin.service.v1;
+
+import "gnostic/openapi/v3/annotations.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+import "identity/service/v1/tenant.proto";
+
+// 租户自助用量服务：租户管理员查看本租户的套餐用量与配额。
+// 与 TenantService.GetUsage（平台管理员按租户 ID 查任意租户）互补——
+// 本服务 server 钉定 operator 的租户，不接受客户端传入租户 ID。
+service MyTenantUsageService {
+  // 获取当前租户的套餐用量与配额（配额硬限制 403 时，租户管理员可在此看到原因）
+  rpc GetMyTenantUsage (google.protobuf.Empty) returns (identity.service.v1.TenantUsage) {
+    option (google.api.http) = {
+      get: "/admin/v1/my-tenant-usage"
+    };
+  }
+}

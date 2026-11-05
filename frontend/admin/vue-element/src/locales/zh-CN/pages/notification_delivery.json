@@ -12,5 +12,6 @@
   "relatedId": "关联对象",
   "sentAt": "完成时间",
   "lastError": "失败原因",
-  "fetchFailed": "获取投递记录失败"
+  "exportServerSuccess": "已开始下载",
+  "exportServerFailed": "服务端导出失败"
 }

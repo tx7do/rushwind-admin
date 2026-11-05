@@ -20,53 +20,115 @@
 
     <el-dialog
       v-model="visible"
-      width="720px"
+      width="600px"
       :close-on-click-modal="true"
       :show-close="false"
       @close="close"
     >
       <div class="command-palette-dialog">
-        <el-input
-          ref="inputRef"
-          v-model="keyword"
-          class="command-palette-input"
-          :placeholder="$t('common.commandPalette.searchMenu')"
-          @input="onSearch"
-          @keydown="handleInputKeydown"
-        >
-          <template #prefix>
-            <SvgIcon icon="search" />
-          </template>
-          <template #suffix>
-            <div class="command-palette-input__suffix">
-              <SvgIcon
-                icon="close"
-                role="button"
-                tabindex="0"
-                :aria-label="$t('common.commandPalette.close')"
-                @click="close"
-              />
-            </div>
-          </template>
-        </el-input>
+        <!-- 头部：搜索图标 + 无边框输入（同一 baseline，规格见 docs/design-language.md「全局搜索面板」） -->
+        <div class="command-palette-inputbar">
+          <SvgIcon icon="search" :size="16" class="command-palette-inputbar__icon" />
+          <el-input
+            ref="inputRef"
+            v-model="keyword"
+            class="command-palette-input"
+            :placeholder="$t('common.commandPalette.searchMenu')"
+            @input="onSearch"
+            @keydown="handleInputKeydown"
+          />
+        </div>
 
+        <!-- 结果区（限高内滚） -->
         <div class="command-palette-results">
-          <div v-if="displayList.length === 0" class="command-palette-empty">
-            {{ $t("common.commandPalette.noHistory") }}
-          </div>
-
-          <ul v-else class="command-palette-list">
-            <li
-              v-for="(item, idx) in displayList"
-              :key="item.path + idx"
-              :class="['command-palette-item', { 'is-active': activeIndex === idx }]"
-              @mouseenter="activeIndex = idx"
-              @click="onGo(item)"
+          <!-- 无关键词：最近搜索 -->
+          <template v-if="!keyword.trim()">
+            <div
+              v-if="history.length === 0"
+              class="command-palette-empty"
             >
-              <div class="command-palette-item__title">{{ item.title }}</div>
-              <div class="command-palette-item__path">{{ item.path }}</div>
-            </li>
-          </ul>
+              {{ $t("common.commandPalette.noHistory") }}
+            </div>
+            <template v-else>
+              <div class="command-palette-section">
+                {{ $t("common.commandPalette.recent") }}
+              </div>
+              <ul class="command-palette-list">
+                <li
+                  v-for="(item, idx) in history"
+                  :key="item.path"
+                  :class="['command-palette-item', { 'is-active': activeIndex === idx }]"
+                  @mouseenter="activeIndex = idx"
+                  @click="onGo(item)"
+                >
+                  <SvgIcon
+                    v-if="item.icon"
+                    :icon="item.icon"
+                    :size="15"
+                    class="command-palette-item__icon"
+                  />
+                  <div class="command-palette-item__title">{{ item.title }}</div>
+                  <SvgIcon
+                    icon="close"
+                    class="command-palette-item__remove"
+                    @click.stop="removeHistory(idx)"
+                  />
+                </li>
+              </ul>
+            </template>
+          </template>
+
+          <!-- 有关键词：本地菜单命中 + 语义搜索独立小节 -->
+          <template v-else>
+            <div
+              v-if="results.length === 0 && !semanticLoading && semanticResults.length === 0"
+              class="command-palette-empty"
+            >
+              {{ $t("common.commandPalette.noResults") }}
+            </div>
+
+            <ul v-if="results.length" class="command-palette-list">
+              <li
+                v-for="(item, idx) in results"
+                :key="item.path"
+                :class="['command-palette-item', { 'is-active': activeIndex === idx }]"
+                @mouseenter="activeIndex = idx"
+                @click="onGo(item)"
+              >
+                <SvgIcon
+                  v-if="item.icon"
+                  :icon="item.icon"
+                  :size="15"
+                  class="command-palette-item__icon"
+                />
+                <div class="command-palette-item__title">{{ item.title }}</div>
+              </li>
+            </ul>
+
+            <template v-if="semanticLoading || semanticResults.length">
+              <div class="command-palette-section">
+                {{ $t("common.commandPalette.semanticTitle") }}
+              </div>
+              <div
+                v-if="semanticLoading"
+                class="command-palette-empty command-palette-empty--tight"
+              >
+                {{ $t("common.commandPalette.searching") }}
+              </div>
+              <ul v-else class="command-palette-list">
+                <li
+                  v-for="(item, j) in semanticResults"
+                  :key="item.path"
+                  :class="['command-palette-item', { 'is-active': activeIndex === results.length + j }]"
+                  @mouseenter="activeIndex = results.length + j"
+                  @click="onGo(item)"
+                >
+                  <div class="command-palette-item__title">{{ item.title }}</div>
+                  <div class="command-palette-item__route">{{ item.path }}</div>
+                </li>
+              </ul>
+            </template>
+          </template>
         </div>
 
         <div class="command-palette-hints">
@@ -90,7 +152,6 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
 import SvgIcon from "@/components/SvgIcon/index.vue";
 import { useCommandPalette } from "./useCommandPalette";
 
@@ -98,6 +159,8 @@ const {
   visible,
   keyword,
   results,
+  semanticResults,
+  semanticLoading,
   history,
   activeIndex,
   inputRef,
@@ -107,9 +170,8 @@ const {
   onSelect,
   onNavigate,
   onGo,
+  removeHistory,
 } = useCommandPalette();
-
-const displayList = computed(() => (results.value.length ? results.value : history.value));
 
 const handleInputKeydown: (evt: KeyboardEvent | Event) => any = (evt) => {
   if (!(evt instanceof KeyboardEvent)) return;
@@ -136,7 +198,6 @@ const handleInputKeydown: (evt: KeyboardEvent | Event) => any = (evt) => {
 
   if (key === "enter") {
     e.preventDefault();
-    if (displayList.value.length === 0) return;
     if (activeIndex.value < 0) activeIndex.value = 0;
     onSelect();
   }
@@ -200,31 +261,41 @@ const handleInputKeydown: (evt: KeyboardEvent | Event) => any = (evt) => {
 .command-palette-dialog {
   display: flex;
   flex-direction: column;
-  gap: 14px;
 }
 
-.command-palette-input :deep(.el-input__wrapper) {
-  border-radius: 10px;
-}
-
-.command-palette-input__suffix {
-  display: inline-flex;
+.command-palette-inputbar {
+  display: flex;
   gap: 10px;
   align-items: center;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
 }
 
-.command-palette-input__suffix :deep(.svg-local-icon) {
-  font-size: 16px;
+.command-palette-inputbar__icon {
+  flex-shrink: 0;
   color: var(--el-text-color-secondary);
 }
 
-.command-palette-input__suffix :deep(.svg-local-icon):hover {
-  color: var(--el-color-primary);
+/* el-dialog 传送门外/内 scope 属性继承不稳（el-input 组件根元素可能丢父 scope id），
+   锚在自家纯 div 上穿透，保证命中；特异性压到 (0,5,0) 才能盖过
+   _dark-mode.scss 的 html.dark ... !important 焦点环（(0,4,1)） */
+.command-palette-dialog :deep(.command-palette-input.el-input .el-input__wrapper) {
+  background: transparent !important;
+  border-radius: 0;
+  box-shadow: none !important;
+  padding-left: 0;
 }
 
 .command-palette-results {
   max-height: 48vh;
   overflow: auto;
+  padding: 8px 0;
+}
+
+.command-palette-section {
+  padding: 6px 16px 4px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
 }
 
 .command-palette-empty {
@@ -233,45 +304,88 @@ const handleInputKeydown: (evt: KeyboardEvent | Event) => any = (evt) => {
   text-align: center;
 }
 
+.command-palette-empty--tight {
+  padding: 12px 0;
+}
+
 .command-palette-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 0;
+  gap: 2px;
+  padding: 0 8px;
   margin: 0;
   list-style: none;
 }
 
 .command-palette-item {
-  padding: 10px 12px;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 9px 10px;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: 6px;
 }
 
 .command-palette-item:hover {
   background: var(--el-fill-color-light);
 }
 
+/* 键盘/悬停选中 = 主色实底 + 白字（同侧栏菜单选中惯例，禁淡底） */
 .command-palette-item.is-active {
-  background: var(--el-color-primary-light-9);
+  background: var(--el-color-primary);
+}
+
+.command-palette-item__icon {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
 }
 
 .command-palette-item__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   font-size: 14px;
   color: var(--el-text-color-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.command-palette-item__path {
-  margin-top: 2px;
+.command-palette-item__route {
+  flex-shrink: 0;
   font-size: 12px;
   color: var(--el-text-color-secondary);
+}
+
+.command-palette-item__remove {
+  flex-shrink: 0;
+  color: var(--el-text-color-secondary);
+}
+
+.command-palette-item__remove:hover {
+  color: var(--gowind-primary-text);
+}
+
+.command-palette-item.is-active .command-palette-item__title {
+  color: var(--el-color-white);
+}
+
+.command-palette-item.is-active .command-palette-item__icon {
+  color: var(--el-color-white);
+}
+
+.command-palette-item.is-active .command-palette-item__route {
+  color: color-mix(in srgb, var(--el-color-white) 80%, transparent);
+}
+
+.command-palette-item.is-active .command-palette-item__remove {
+  color: var(--el-color-white);
 }
 
 .command-palette-hints {
   display: flex;
   gap: 14px;
   align-items: center;
-  padding-top: 10px;
+  padding: 10px 16px;
   border-top: 1px solid var(--el-border-color-lighter);
 }
 
@@ -283,6 +397,7 @@ const handleInputKeydown: (evt: KeyboardEvent | Event) => any = (evt) => {
 
 .command-palette-hint__key {
   display: inline-flex;
+  gap: 3px;
   align-items: center;
   justify-content: center;
   height: 24px;

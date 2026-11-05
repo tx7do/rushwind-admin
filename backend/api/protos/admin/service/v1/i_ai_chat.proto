@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package admin.service.v1;
+
+import "google/api/annotations.proto";
+
+import "pagination/v1/pagination.proto";
+import "ai/service/v1/ai_chat.proto";
+
+// AI 对话服务
+//
+// 流式语义：本 RPC 是普通 POST（body 为扁平请求体，**不包 data**），
+// 增量 token 经 SSE `ai_chat_chunk` 事件推送（见 domain proto 注释）。
+service AiChatService {
+  // 发起一轮对话
+  rpc Chat (ai.service.v1.ChatRequest) returns (ai.service.v1.ChatResponse) {
+    option (google.api.http) = {
+      post: "/admin/v1/ai/chat/completions"
+      body: "*"
+    };
+  }
+}

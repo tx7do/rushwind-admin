@@ -4,9 +4,10 @@
     :title="title"
     :config="{
       component: 'drawer',
-      drawer: { size: '800px', closeOnClickModal: false },
+      drawer: { size: '800px' },
     }"
-  >
+  
+    :close-guard="guard.allowClose">
     <ElForm
       ref="formRef"
       :model="formData"
@@ -125,7 +126,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="handleClose">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="guard.requestClose(handleClose)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
           {{ $t("common.button.confirm") }}
         </ElButton>
@@ -139,6 +140,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 
 import ProModal from "@/components/Pro/ProModal/index.vue";
+import { useDrawerCloseGuard } from "@/components/Pro/composables/use-drawer-close-guard";
 
 import type { dictservicev1_DictType as DictType } from "@/api/generated/admin/service/v1";
 
@@ -276,6 +278,10 @@ function resetForm() {
 }
 
 // 打开抽屉
+// 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）；
+// i18n 多语言行编辑态（i18nDataMap）纳入脏判定
+const guard = useDrawerCloseGuard(() => ({ ...formData, i18nDataMap: i18nDataMap.value }));
+
 async function open(data?: { create: boolean; row?: any }) {
   visible.value = true;
   isCreate.value = data?.create ?? true;
@@ -303,6 +309,9 @@ async function open(data?: { create: boolean; row?: any }) {
 
   // 加载语言列表
   await loadLanguageList();
+
+  // 填充完成后记录基线快照（回填不算脏）
+  guard.syncBaseline();
 }
 
 // 关闭抽屉

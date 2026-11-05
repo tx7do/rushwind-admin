@@ -84,6 +84,8 @@ async fn role_proto(state: &AppState, r: crate::data::sys_roles::Model) -> Role 
         id: Some(r.id),
         name: Some(r.name),
         code: Some(r.code),
+        parent_id: None,
+        parent_name: None,
         sort_order: r.sort_order,
         status: r.status.as_deref().map(crate::state::status_to_proto),
         description: r.description,

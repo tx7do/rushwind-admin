@@ -30,6 +30,14 @@ service DashboardService {
   }
 
   // 登录审计按 status 分布
+  // AI 安全与异常洞察：审计明细行为模式挖掘（平台用户专属——数据会外发到模型端点）
+  rpc GetAiInsights (AiInsightsRequest) returns (AiInsightsResponse) {
+    option (google.api.http) = {
+      post: "/admin/v1/dashboard/ai-insights"
+      body: "*"
+    };
+  }
+
   rpc GetLoginStatusDistribution (google.protobuf.Empty) returns (StatusDistributionResponse) {
     option (google.api.http) = {
       get: "/admin/v1/dashboard/login-status-distribution"
@@ -78,4 +86,37 @@ message StatusDistributionResponse {
 message DistributionItem {
   string label = 1; // 枚举名
   uint32 count = 2; // 数量
+}
+
+// AI 概览解读 - 请求
+message AiInsightsRequest {
+  // 界面语言（BCP-47，如 zh-CN / en-US），决定 LLM 总评的输出语言；
+  // 告警本身只回传结构化事实，文案由前端 i18n 模板渲染
+  optional string lang = 1;
+}
+
+// 异常告警条目：规则预筛的确定性结构化事实，**不含人类文案**——
+// 文案由前端按 type 选 i18n 模板并以 facts 插值渲染，保证多语言界面一致
+message AiInsightAlert {
+  string severity = 1; // HIGH / MEDIUM / LOW
+  string type = 2;     // BRUTE_FORCE / NIGHT_OPS / FAILED_OPS / SENSITIVE_OPS
+  // 插值参数（i18n 模板变量）：username / count / total / ip 等，键随 type 而定
+  map<string, string> facts = 3;
+
+  // SENSITIVE_OPS 专用的明细行（username + action + 资源与时间由前端格式化）
+  repeated AiSensitiveOpItem items = 4;
+}
+
+// 敏感操作明细项
+message AiSensitiveOpItem {
+  string username = 1;
+  string action = 2;
+  string resource_type = 3 [json_name = "resourceType"];
+  string created_at = 4 [json_name = "createdAt"]; // 本地时区格式化文本
+}
+
+// AI 概览解读 - 回应
+message AiInsightsResponse {
+  repeated AiInsightAlert alerts = 1; // 异常告警（无异常为空）
+  string summary = 2;                 // 总体评估（LLM 按请求语言生成；无告警时前端本地化固定文案）
 }

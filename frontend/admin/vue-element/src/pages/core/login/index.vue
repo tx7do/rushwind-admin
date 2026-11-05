@@ -27,17 +27,33 @@
       <div class="login-form-wrapper">
         <div class="login-form-container">
           <div class="form-header">
-            <h2 class="form-title">
-              {{ t("core.login.welcomeTitle") }}
-              <span class="wave">👋</span>
-            </h2>
-            <p class="form-subtitle">{{ t("core.login.welcomeSubtitle") }}</p>
+            <template v-if="tenantBranding">
+              <img
+                v-if="tenantBranding.logoUrl"
+                :src="tenantBranding.logoUrl"
+                :alt="tenantBranding.name"
+                class="tenant-logo"
+              />
+              <h2 class="form-title">{{ tenantBranding.name }}</h2>
+              <p class="form-subtitle">{{ t("core.login.welcomeTitle") }}</p>
+            </template>
+            <template v-else>
+              <h2 class="form-title">
+                {{ t("core.login.welcomeTitle") }}
+                <span class="wave">👋</span>
+              </h2>
+              <p class="form-subtitle">{{ t("core.login.welcomeSubtitle") }}</p>
+            </template>
           </div>
 
           <!-- 登录表单卡片（对齐 react：24px 圆角 + 边框 + 主色柔影） -->
           <div class="form-card">
             <transition name="fade-slide" mode="out-in">
-              <component :is="formComponents[component]" class="auth-panel__form" />
+              <component
+                :is="formComponents[component]"
+                class="auth-panel__form"
+                @tenant-branding="tenantBranding = $event"
+              />
             </transition>
           </div>
         </div>
@@ -60,6 +76,10 @@ const { t } = useI18n();
 type LayoutMap = "login";
 
 const component = ref<LayoutMap>("login");
+
+// 租户白标：由 Login 子组件在租户编号失焦时经 provide/inject 上报。
+// 更简单的做法：白标状态放这里，经 props 传给子组件由其触发回调。
+const tenantBranding = ref<{ found: boolean; name: string; logoUrl: string } | null>(null);
 
 const formComponents = {
   login: defineAsyncComponent(() => import("./components/Login.vue")),
@@ -136,7 +156,7 @@ const formComponents = {
     left: 20%;
     width: 250px;
     height: 250px;
-    background: radial-gradient(circle, rgba(0, 107, 230, 0.08) 0%, transparent 70%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--el-color-primary) 8%, transparent) 0%, transparent 70%);
     border-radius: 50%;
     filter: blur(60px);
   }
@@ -148,7 +168,7 @@ const formComponents = {
     right: 15%;
     width: 180px;
     height: 180px;
-    background: radial-gradient(circle, rgba(0, 107, 230, 0.06) 0%, transparent 70%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--el-color-primary) 6%, transparent) 0%, transparent 70%);
     border-radius: 50%;
     filter: blur(50px);
   }
@@ -168,15 +188,13 @@ const formComponents = {
     .slogan-icon {
       width: 360px;
       height: 360px;
-      filter: drop-shadow(0 8px 32px rgba(0, 107, 230, 0.3));
-      animation: slogan-float 5s linear infinite;
+      filter: drop-shadow(0 8px 32px color-mix(in srgb, var(--el-color-primary) 30%, transparent));
+
+      /* 外层不再整体浮动：vben 遗留的 5s 上下 20px 跳动与 SVG 内部
+         24s~70s 慢速旋转体系不搭；生命感由 SVG 内光晕呼吸承担。 */
 
       html:not(.dark) & {
-        filter: drop-shadow(0 8px 32px rgba(0, 107, 230, 0.2));
-      }
-
-      @media (prefers-reduced-motion: reduce) {
-        animation: none;
+        filter: drop-shadow(0 8px 32px color-mix(in srgb, var(--el-color-primary) 20%, transparent));
       }
     }
   }
@@ -186,22 +204,22 @@ const formComponents = {
       font-size: 26px;
       font-weight: 700;
       letter-spacing: 0.5px;
-      color: #f8fafc;
+      color: var(--el-text-color-primary);
       margin: 0 0 14px 0;
-
-      html:not(.dark) & {
-        color: #1a1d28;
-      }
     }
 
+    // 两态都写死过灰阶（暗 #9ca3af / 浅 #6b7280），浅色那支实测 4.22 < 4.5。
+    // 暗色回到次要档（#8B949E，实测 5.90）；浅色这块面板的底是
+    // radial #E8F0FF→#F5F7FF，比 §2.2 验证次要档 #676E7C 的四处浅底都亮，
+    // 实测只有 4.48——所以浅色取常规档 #606266（实测 5.34），不动面板色相。
     .brand-desc {
       font-size: 15px;
       line-height: 1.6;
-      color: #9ca3af;
+      color: var(--el-text-color-secondary);
       margin: 0;
 
       html:not(.dark) & {
-        color: #6b7280;
+        color: var(--el-text-color-regular);
       }
     }
   }
@@ -234,15 +252,18 @@ const formComponents = {
     .form-header {
       margin-bottom: 24px;
 
-      .form-title {
+      .tenant-logo {
+  max-height: 48px;
+  max-width: 200px;
+  object-fit: contain;
+  margin-bottom: 12px;
+}
+
+.form-title {
         font-size: 22px;
         font-weight: 600;
-        color: #e5eaf3;
+        color: var(--el-text-color-primary);
         margin: 0 0 8px 0;
-
-        html:not(.dark) & {
-          color: #1a1d28;
-        }
 
         .wave {
           display: inline-block;
@@ -251,14 +272,11 @@ const formComponents = {
         }
       }
 
+    // 次要档统一吃 token：原两态写死 #6b7a8d / #6b7280，暗色实测 4.05 < 4.5
     .form-subtitle {
       font-size: 13px;
-      color: #6b7a8d;
+      color: var(--el-text-color-secondary);
       margin: 0;
-
-      html:not(.dark) & {
-        color: #6b7280;
-      }
     }
   }
 
@@ -268,7 +286,7 @@ const formComponents = {
     border-radius: 24px;
     background-color: #111827;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 12px 40px -8px rgba(0, 107, 230, 0.18);
+    box-shadow: 0 12px 40px -8px color-mix(in srgb, var(--el-color-primary) 18%, transparent);
 
     html:not(.dark) & {
       background-color: #ffffff;
@@ -276,50 +294,6 @@ const formComponents = {
     }
   }
 
-    .form-section-title {
-      font-size: 15px;
-      font-weight: 600;
-      color: #e5eaf3;
-      text-align: center;
-      margin: 24px 0 20px 0;
-
-      html:not(.dark) & {
-        color: #1a1d28;
-      }
-    }
-
-    .form-footer {
-      margin-top: 24px;
-      padding-top: 16px;
-      border-top: 1px solid rgba(0, 0, 0, 0.08);
-      text-align: center;
-
-      html:not(.dark) & {
-        border-top: 1px solid rgba(0, 0, 0, 0.08);
-      }
-
-      > .el-text {
-        display: block;
-        color: #6b7a8d;
-
-        html:not(.dark) & {
-          color: #6b7280;
-        }
-      }
-    }
-  }
-}
-
-// 品牌插画：vben 同款浮动动效（float 5s，translateY -20px 循环）
-@keyframes slogan-float {
-  0% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-  100% {
-    transform: translateY(0);
   }
 }
 
@@ -385,18 +359,18 @@ const formComponents = {
     }
 
     &.is-focus {
-      border-color: #006be6 !important;
+      border-color: var(--el-color-primary) !important;
       box-shadow:
-        0 0 0 1px #006be6 inset,
-        0 0 12px rgba(0, 107, 230, 0.15) !important;
+        0 0 0 1px var(--el-color-primary) inset,
+        0 0 12px color-mix(in srgb, var(--el-color-primary) 15%, transparent) !important;
     }
 
     .el-input__inner {
-      color: #f8fafc !important;
+      color: var(--el-text-color-primary) !important;
       font-weight: 400;
 
       &::placeholder {
-        color: #9ca3af !important;
+        color: var(--el-text-color-placeholder) !important;
       }
     }
   }
@@ -404,19 +378,19 @@ const formComponents = {
   // 输入框前缀图标颜色
   :deep(.el-input__prefix) {
     .el-icon {
-      color: #9ca3af !important;
+      color: var(--el-text-color-placeholder) !important;
     }
   }
 
   // 输入框后缀图标颜色
   :deep(.el-input__suffix) {
     .el-icon {
-      color: #9ca3af !important;
+      color: var(--el-text-color-placeholder) !important;
     }
   }
 
   :deep(.el-checkbox__label) {
-    color: #f8fafc !important;
+    color: var(--el-text-color-primary) !important;
     font-weight: 400;
   }
 
@@ -426,15 +400,15 @@ const formComponents = {
   }
 
   :deep(.el-checkbox.is-checked .el-checkbox__inner) {
-    background-color: #006be6 !important;
-    border-color: #006be6 !important;
+    background-color: var(--el-color-primary) !important;
+    border-color: var(--el-color-primary) !important;
   }
 
   :deep(.el-link) {
     color: var(--el-color-primary-light-3) !important;
     font-weight: 500;
     text-decoration: underline;
-    text-decoration-color: rgba(0, 107, 230, 0.3);
+    text-decoration-color: color-mix(in srgb, var(--el-color-primary) 30%, transparent);
     text-underline-offset: 2px;
 
     &:hover {
@@ -465,7 +439,7 @@ html:not(.dark) {
         color: #1a1d28 !important;
 
         &::placeholder {
-          color: #a8abb2 !important;
+          color: var(--el-text-color-placeholder) !important;
         }
       }
     }
@@ -485,7 +459,7 @@ html:not(.dark) {
     }
 
     :deep(.el-checkbox__label) {
-      color: #6b7280 !important;
+      color: var(--el-text-color-regular) !important;
     }
 
     :deep(.el-checkbox__inner) {
@@ -494,7 +468,7 @@ html:not(.dark) {
     }
 
     :deep(.el-link) {
-      color: var(--el-color-primary) !important;
+      color: var(--gowind-primary-text) !important;
     }
   }
 }
@@ -507,13 +481,10 @@ html:not(.dark) {
   right: 0;
   text-align: center;
 
+  // 版权属 §2.2 点名的次要文字：原写 #5a6a80 / #9ca3af，实测暗 3.22、浅 2.54，两态都不达标
   :deep(.el-text) {
-    color: #5a6a80;
+    color: var(--el-text-color-secondary);
     font-weight: 300;
-
-    html:not(.dark) & {
-      color: #9ca3af;
-    }
   }
 }
 </style>

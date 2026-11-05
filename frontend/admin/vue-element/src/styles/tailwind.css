@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* dark: 变体必须挂到 html.dark 上：应用的主题开关（update-css-variables 切换根类，
+   element-plus/vxe 变量全部跟随）与 tailwind dark: 工具类此前脱钩——tailwind v4
+   默认 dark: 走系统 prefers-color-scheme，应用内切暗色而系统为浅色时，
+   全端所有 dark:bg-* / dark:text-* 等类不生效，页面出现暗底嵌白卡、浅底白字。 */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================
    主题变量 — 从 UnoCSS config 迁移
    ============================================ */

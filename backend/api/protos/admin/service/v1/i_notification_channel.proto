@@ -54,4 +54,19 @@ service NotificationChannelService {
       body: "*"
     };
   }
+
+  // 发送测试消息（按渠道类型分派：EMAIL 走邮件，SMS 发测试验证码）
+  rpc SendTest(notification_channel.service.v1.SendTestRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/admin/v1/notification-channels/{id}/send-test"
+      body: "*"
+    };
+  }
+
+  // 全量扩展渠道 schema（独立集合路径，避免与 /{id} 参数路由抢配）
+  rpc ListChannelSchemas(google.protobuf.Empty) returns (notification_channel.service.v1.ListChannelSchemasResponse) {
+    option (google.api.http) = {
+      get: "/admin/v1/notification-channel-schemas"
+    };
+  }
 }

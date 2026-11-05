@@ -1,5 +1,5 @@
 <template>
-  <div class="pro-page">
+  <div ref="rootRef" class="pro-page">
     <!-- 搜索区 -->
     <ProSearch
       v-if="!showSkeleton && searchVisible && config.search?.fields?.length"
@@ -28,6 +28,16 @@
         :show-pagination="skeletonProps.showPagination ?? config.table.pagination !== false"
       />
 
+      <!-- 首屏加载失败（没有可展示的数据）：整块替换为错误态 + 重试 -->
+      <div
+        v-else-if="tableState.hasError.value && tableData.length === 0"
+        class="pro-page__error"
+      >
+        <ElEmpty :description="errorText" :image-size="120">
+          <ElButton type="primary" @click="handleRetry">{{ t("common.button.retry") }}</ElButton>
+        </ElEmpty>
+      </div>
+
       <!-- 正常内容 -->
       <template v-else>
         <!-- 工具栏 -->
@@ -41,12 +51,35 @@
           @filter-change="handleFilterChange"
         >
           <template #left><slot name="toolbar-left" /></template>
-          <template #before-tools><slot name="toolbar-before-tools" /></template>
+          <template #before-tools>
+            <slot name="toolbar-before-tools" />
+            <!-- 导出全部（exports 工具的落地形态，置于图标工具区之前，与 react/vben 同位）：
+                 CSV/Excel 按当前搜索条件经 listAction 聚合（上限 1 万行）；
+                 服务端全量项由页面经 table.exportServer 提供 -->
+            <ExportAllDropdown
+              v-if="hasExportAllDropdown"
+              :fetcher="exportFetcher"
+              :columns="config.table.columns"
+              :params="searchParams"
+              :filename="config.exportFilename ?? 'export'"
+              :server-export="config.table.exportServer"
+            />
+          </template>
           <template v-if="!!$slots['toolbar-filter']" #filter>
             <slot name="toolbar-filter" />
           </template>
           <template #right><slot name="toolbar-right" /></template>
         </ProToolbar>
+
+        <!-- 翻页/搜索失败但仍有旧数据：保留表格，只在表上方挂一条错误横幅 -->
+        <ElAlert
+          v-if="tableState.hasError.value"
+          class="pro-page__error-alert"
+          type="error"
+          :title="errorText"
+          :closable="false"
+          show-icon
+        />
 
         <!-- 表格 -->
         <ProTable
@@ -56,7 +89,7 @@
           :table-id="tableId"
           :columns="config.table.columns"
           :data="tableData"
-          :loading="tableState.loading.value"
+          :loading="delayedLoading"
           :row-key="rowKey"
           :table="config.table.tableAttrs"
           :empty-action-text="config.table.emptyActionText"
@@ -80,17 +113,6 @@
         </ProTable>
       </template>
     </div>
-
-    <!-- 导出弹窗 -->
-    <ExportModal
-      ref="exportModalRef"
-      :columns="exportableColumns"
-      :selection-data="selectionData"
-      :table-data="tableData"
-      :exports-action="config.table.exportsAction"
-      :search-params="searchParams"
-      :default-filename="config.exportFilename"
-    />
 
     <!-- 导入弹窗 -->
     <ImportModal
@@ -118,16 +140,18 @@
 </template>
 
 <script setup lang="ts" generic="T extends Record<string, any>, Q extends Record<string, any>">
-import { reactive, computed, ref, useSlots, watch } from "vue";
+import { reactive, computed, ref, useSlots, watch, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRoute } from "vue-router";
 import { useI18n } from "@/core/i18n";
+import { preferences } from "@/core/preferences";
+import { PaginationQuery } from "@/core/transport/rest";
 
 import ProSearch from "../ProSearch/index.vue";
 import ProTable from "../ProTable/index.vue";
 import ProModal from "../ProModal/index.vue";
 import ProToolbar from "../ProToolbar/index.vue";
-import ExportModal from "./ExportModal.vue";
+import ExportAllDropdown from "../ExportAllDropdown.vue";
 import ImportModal from "./ImportModal.vue";
 import TableSkeleton from "./TableSkeleton.vue";
 
@@ -172,14 +196,50 @@ const tableState = useTableState<T, Q>({
 const modalState = useModalState<T>(rowKey);
 const tableRef = ref<any>(null);
 const searchRef = ref<any>(null);
+const rootRef = ref<HTMLElement | null>(null);
 const contentRef = ref<HTMLElement | null>(null);
-const exportModalRef = ref<InstanceType<typeof ExportModal>>();
 const importModalRef = ref<InstanceType<typeof ImportModal>>();
 
 const tableData = computed(() => tableState.data.value);
 
-// === 选中数据（用于导出） ===
-const selectionData = computed(() => tableState.selection.value);
+// === 加载态：250ms 阈值，避免快响应下 spinner 一闪而过 ===
+// 与 react 端 ListTable 的 loading.delay 同值，见 docs/design-language.md §4「列表加载态」。
+const LOADING_DELAY = 250;
+const delayedLoading = ref(false);
+let loadingDelayTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearLoadingDelayTimer() {
+  if (loadingDelayTimer !== null) {
+    clearTimeout(loadingDelayTimer);
+    loadingDelayTimer = null;
+  }
+}
+
+watch(
+  () => tableState.loading.value,
+  (isLoading) => {
+    clearLoadingDelayTimer();
+    if (isLoading) {
+      // 已在显示则不重新计时，否则慢响应会让 spinner 反复消失又出现。
+      if (!delayedLoading.value) {
+        loadingDelayTimer = setTimeout(() => {
+          delayedLoading.value = true;
+          loadingDelayTimer = null;
+        }, LOADING_DELAY);
+      }
+    } else {
+      delayedLoading.value = false;
+    }
+  }
+);
+
+const errorText = computed(
+  () => tableState.error.value || t("common.message.loadDataFailed")
+);
+
+function handleRetry() {
+  tableState.fetch(searchParams);
+}
 
 // === filter 列显隐 ===
 // vxe-table 引擎由 customConfig 接管列显隐；el-table 引擎使用 checkbox
@@ -191,10 +251,24 @@ const filterColumns = computed(() => {
   );
 });
 
-// === 可导出的列（有 prop 和 label 的普通列） ===
-const exportableColumns = computed(() =>
-  props.config.table.columns.filter((col: any) => col.prop && col.label && !col.type)
+// === 导出全部：exports 工具的落地形态 ===
+// defaultToolbar 含 "exports" 即渲染「导出全部」下拉（图标弹窗形态已退役）。
+const hasExportAllDropdown = computed(() =>
+  (props.config.table.defaultToolbar ?? []).some((item) => item === "exports")
 );
+
+// 聚合 fetcher：复用页面 listAction（与表格加载同一入口、同一参数映射），
+// 分页字段摊平 + 搜索条件原样透传——导出的即当前搜索看到的。
+const exportFetcher = async (query: PaginationQuery) => {
+  const listAction = props.config.table.listAction as unknown as (
+    q: Record<string, any>
+  ) => Promise<{ items?: any[]; total?: number }>;
+  return await listAction({
+    page: query.paging?.page ?? 1,
+    pageSize: query.paging?.pageSize ?? 1000,
+    ...(query.formValues ?? {}),
+  });
+};
 
 // === 区分表格插槽和弹窗插槽 ===
 const tableColumnProps = computed(() =>
@@ -256,22 +330,27 @@ const rightButtons = computed(() => toToolbarButtons(props.config.table.toolbarR
 const defaultToolbarButtons = computed(() => {
   const dt = props.config.table.defaultToolbar;
   if (!dt?.length)
-    return ["refresh", "filter", "search"] as Array<ToolbarRightType | ToolbarCustomButton>;
-  return dt.map((item) => {
-    if (typeof item === "string") return item as ToolbarRightType;
-    // ToolsButton (label) -> ToolbarCustomButton (text)
-    return {
-      name: item.name,
-      text: item.label,
-      icon: item.icon,
-      auth: item.auth,
-      attrs: item.attrs,
-      hidden: item.hidden,
-      disabled: item.disabled,
-      loading: item.loading,
-      visible: item.visible,
-    } as ToolbarCustomButton;
-  });
+    return ["refresh", "filter", "search", "zoom"] as Array<
+      ToolbarRightType | ToolbarCustomButton
+    >;
+  // "exports" 已由 before-tools 区的「导出全部」下拉承载，不再渲染图标钮
+  return dt
+    .filter((item) => item !== "exports")
+    .map((item) => {
+      if (typeof item === "string") return item as ToolbarRightType;
+      // ToolsButton (label) -> ToolbarCustomButton (text)
+      return {
+        name: item.name,
+        text: item.label,
+        icon: item.icon,
+        auth: item.auth,
+        attrs: item.attrs,
+        hidden: item.hidden,
+        disabled: item.disabled,
+        loading: item.loading,
+        visible: item.visible,
+      } as ToolbarCustomButton;
+    });
 });
 
 // === 搜索处理 ===
@@ -314,10 +393,6 @@ function handleToolbarClick(name: string) {
       break;
     case "delete":
       handleBatchDelete();
-      break;
-    case "export":
-    case "exports":
-      openExportsModal();
       break;
     case "import":
     case "imports":
@@ -407,18 +482,21 @@ async function handleDelete(row: T) {
 }
 
 // === 全屏缩放 ===
+// 全屏目标是整页根节点（搜索卡 + 工具栏 + 表格），对齐 react ProTable fullScreen /
+// vben vxe zoom 的范围（两端都把搜索区一起带进全屏）。
 function handleZoom(isFullscreen: boolean) {
-  const el = contentRef.value;
+  const el = rootRef.value;
   if (!el) return;
   if (isFullscreen) {
-    el.requestFullscreen?.();
+    // requestFullscreen 可能被拒绝（iframe 未授权 / 用户拒绝权限提示），拒绝是正常路径
+    el.requestFullscreen?.()?.catch((error: unknown) => {
+      console.error("[ProPage] 进入全屏失败", error);
+    });
   } else {
-    document.exitFullscreen?.();
+    document.exitFullscreen?.()?.catch((error: unknown) => {
+      console.error("[ProPage] 退出全屏失败", error);
+    });
   }
-}
-
-function openExportsModal() {
-  exportModalRef.value?.open();
 }
 
 function openImportsModal() {
@@ -465,16 +543,22 @@ function handleModalSubmit() {
 tableState.fetch(searchParams);
 
 // === 骨架屏：追踪首次加载 ===
+// 页面 config.skeleton 决定「这页允不允许上骨架」，偏好设置 transition.loading 决定
+// 「全局要不要用骨架代替 spinner」——两者都为真才渲染骨架。关掉开关后回落到表内 delayed Spin，
+// 这条开关从此名副其实（此前它只有 schema 和抽屉开关，0 个消费者）。
 const skeletonEnabled = computed(
   () => props.config.skeleton !== undefined && props.config.skeleton !== false
 );
+const globalLoadingSkeleton = computed(() => preferences.transition.loading);
 const skeletonProps = computed<SkeletonConfig>(() => {
   const s = props.config.skeleton;
   if (s === true || s === undefined || s === false) return {} as SkeletonConfig;
   return s;
 });
 const hasLoaded = ref(false);
-const showSkeleton = computed(() => skeletonEnabled.value && !hasLoaded.value);
+const showSkeleton = computed(
+  () => skeletonEnabled.value && globalLoadingSkeleton.value && !hasLoaded.value
+);
 
 watch(
   () => tableState.loading.value,
@@ -482,6 +566,8 @@ watch(
     if (!loading) hasLoaded.value = true;
   }
 );
+
+onBeforeUnmount(clearLoadingDelayTimer);
 
 defineExpose({
   tableRef,
@@ -500,6 +586,8 @@ defineExpose({
 .pro-page {
   display: flex;
   flex-direction: column;
+  /* 搜索卡 → 列表卡 12px：8px 太挤，两块"贴一块"；16px 又让列表数据显示空间被压缩。
+     取中间值，既保留两张卡的独立感，又不浪费垂直空间。 */
   gap: 12px;
   height: 100%;
 
@@ -509,11 +597,38 @@ defineExpose({
     flex-direction: column;
     min-height: 0;
     overflow: hidden;
-    padding: 12px;
+    /* 卡片内缩 20px（§2.2 p-5）：原先 12px 让列表内容（工具条/表头）落在 13px，
+       而搜索卡字段在 21px——盒子对齐了、内容没对齐。改成 20 后两块内容同一条竖线，
+       分页器下方留白也由这一条提供（上下不再各写一份）。 */
+    padding: 20px;
     background: var(--el-bg-color);
-    border: 1px solid var(--el-border-color-lighter);
-    border-radius: 8px;
-    box-shadow: var(--el-box-shadow-light);
+    /* 描边与投影走 §2.2/§2.3 的卡片档（`--gowind-card-*`，定义见 _element-plus.scss）：
+     * `--el-box-shadow-light` 是浮层的 12px 全向晕，静止卡片只要 1px/2px 浅落影。 */
+    border: 1px solid var(--gowind-card-border);
+    /* 卡片圆角 12（§2.4 大容器用 LG）：与 ProSearch 同档，见那里的注；
+       内层表格面仍按 proTableConfig 的 6px（外 > 内），骨架卡 .ts-table-card 是这里的镜像。 */
+    border-radius: 12px;
+    box-shadow: var(--gowind-card-shadow);
+  }
+
+  &__error {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+  }
+
+  &__error-alert {
+    margin-bottom: 8px;
+  }
+
+  // 全屏态：铺满视口时去掉卡片圆角，露出根节点背景色的只有搜索卡与列表卡之间的 12px 缝，
+  // 用页面底色填充；小视口下内容超出时允许滚动兜底。
+  &:fullscreen {
+    background: var(--el-bg-color-page);
+    border-radius: 0;
+    overflow: auto;
   }
 }
 </style>

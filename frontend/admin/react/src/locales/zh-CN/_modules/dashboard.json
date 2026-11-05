@@ -61,5 +61,63 @@
     "oct": "10月",
     "nov": "11月",
     "dec": "12月"
+  },
+  "aiInsights": {
+    "title": "安全与异常洞察",
+    "subtitle": "近 24 小时审计明细 · 行为模式挖掘",
+    "generate": "开始扫描",
+    "regenerate": "重新扫描",
+    "empty": "点击「开始扫描」，AI 将挖掘近 24 小时审计明细中的异常模式。",
+    "noAnomaly": "最近 24 小时未检测到异常行为模式。",
+    "failed": "扫描失败",
+    "assessment": "AI 总体评估",
+    "alerts": {
+      "bruteForce": {
+        "title": "疑似口令尝试：账号 {{username}} 24h 内登录失败 {{count}} 次",
+        "detail": "最近一次失败来源 IP：{{ip}}。建议确认是否本人操作，必要时重置口令并临时封禁来源。"
+      },
+      "nightOps": {
+        "title": "非常规时段操作：账号 {{username}} 在本地 0-6 点执行了 {{count}} 次操作",
+        "detail": "深夜时段的操作偏离常规作息，若非计划内变更/运维窗口，建议与该账号持有人核实。"
+      },
+      "failedOps": {
+        "title": "操作失败集中：账号 {{username}} 24h 内失败操作 {{count}} 次（共 {{total}} 次）",
+        "detail": "连续失败可能意味着权限不足或越权尝试，建议在操作日志中核对失败资源与原因。"
+      },
+      "sensitiveOps": {
+        "title": "存在 {{count}} 条敏感操作（删除/导出/授权变更）"
+      }
+    },
+    "generatedAt": "生成于 {{time}}"
+  },
+  "workspace": {
+    "greeting": {
+      "morning": "早上好",
+      "afternoon": "下午好",
+      "evening": "晚上好",
+      "night": "夜深了",
+      "morningWith": "早上好，{{name}}",
+      "afternoonWith": "下午好，{{name}}",
+      "eveningWith": "晚上好，{{name}}",
+      "nightWith": "夜深了，{{name}}"
+    },
+    "today": "今天是 {{date}}",
+    "quickAccess": {
+      "title": "快捷入口",
+      "subtitle": "常用管理页面一键直达"
+    },
+    "myMessages": {
+      "title": "我的站内信",
+      "unreadCount": "{{count}} 条未读",
+      "viewAll": "查看全部",
+      "empty": "暂无消息"
+    },
+    "mySessions": {
+      "title": "我的活跃会话",
+      "subtitle": "当前账号在线设备",
+      "manage": "管理会话",
+      "empty": "暂无活跃会话",
+      "current": "当前设备"
+    }
   }
 }

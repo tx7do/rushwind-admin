@@ -32,7 +32,6 @@ import {
   useDeleteFile,
   useUploadFile,
   useDownloadFile,
-  createPagedExportAction,
 } from "@/api/composables";
 import { PaginationQuery } from "@/core/transport/rest";
 import { $t } from "@/core/i18n";
@@ -74,7 +73,6 @@ const pageConfig = computed<ProPageConfig>(() => ({
     deleteAction: async (ids: string) => {
       await deleteFile({ id: ids as any });
     },
-    exportsAction: createPagedExportAction(fetchListFiles),
     toolbar: [],
     toolbarRight: [
       {
@@ -83,7 +81,7 @@ const pageConfig = computed<ProPageConfig>(() => ({
         attrs: { type: "primary", icon: "upload" },
       } as ToolsButton,
     ],
-    defaultToolbar: ["refresh", "exports", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     pagination: false,
     tableAttrs: { border: true, stripe: false },
     columns: [

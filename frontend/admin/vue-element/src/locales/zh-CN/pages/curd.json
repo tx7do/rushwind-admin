@@ -6,7 +6,8 @@
     "refresh": "刷新",
     "search": "搜索",
     "batchImport": "批量导入",
-    "batchExport": "批量导出"
+    "fullscreen": "全屏",
+    "columnSetting": "列设置"
   },
   "search": {
     "expand": "展开",
@@ -19,35 +20,12 @@
     "pleaseSelectData": "请选择数据"
   },
   "export": {
-    "title": "导出数据",
-    "filename": "文件名",
-    "filenamePlaceholder": "请输入文件名",
-    "fileType": "保存类型",
-    "dataScope": "选择数据",
-    "fields": "选择字段",
-    "allFields": "全部字段",
-    "export": "导出",
-    "params": "参数设置",
-    "paramsOptions": {
-      "header": "表头",
-      "footer": "表尾",
-      "rawData": "源数据",
-      "groupHeader": "分组表头",
-      "mergeCells": "合并",
-      "style": "样式"
-    },
-    "originOptions": {
-      "current": "当前数据 (当前页的数据)",
-      "selected": "选中数据 (当前页选中的数据)",
-      "all": "全部数据 (按当前筛选条件)"
-    },
-    "fileTypeOptions": {
-      "csv": "CSV (逗号分隔)(*.csv)",
-      "html": "网页(*.html)",
-      "xml": "XML 数据(*.xml)",
-      "txt": "文本文件(制表符分隔)(*.txt)",
-      "xlsx": "Excel 工作簿(*.xlsx)"
-    }
+    "exportAll": "导出全部",
+    "csv": "CSV (逗号分隔)",
+    "xlsx": "Excel 工作簿",
+    "serverXlsx": "服务端全量 (XLSX)",
+    "success": "已导出 {count} 行",
+    "failed": "导出失败"
   },
   "import": {
     "title": "导入数据",
@@ -63,7 +41,6 @@
     "deleteSuccess": "删除成功",
     "noDeleteAction": "未配置 deleteAction",
     "selectFields": "请选择要导出的字段",
-    "selectOrigin": "请选择数据来源",
     "noExportsAction": "未配置 exportsAction",
     "selectFile": "请选择要导入的文件",
     "noImportTemplate": "未配置 importTemplate",

@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import TableExportButton from '@/components/common/TableExportButton';
-import { ProTable } from '@ant-design/pro-components';
-import { Button, Popconfirm, Tag, App } from 'antd';
+import TableActions from '@/components/common/TableActions';
+import ListTable from '@/components/common/ListTable';
+import { Button, Tag, App } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +13,10 @@ import { TABLE } from '@/config/constants';
 import { fetchListLoginPolicies, useDeleteLoginPolicy } from '@/api/hooks/login-policy';
 import { useProTableScrollY } from '@/hooks/useProTableScrollY';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
-import { getPolicyTypeMap, getPolicyMethodMap } from './constants';
+import { getPolicyTypeMap, getPolicyMethodMap, getPolicyMethodOptions } from './constants';
 import LoginPolicyDrawer from './components/LoginPolicyDrawer';
+import { searchOptionRender } from '@/components/common/searchSubmitter';
+import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
 /**
  * 登录策略管理页面
@@ -89,9 +92,11 @@ const LoginPolicyManagement = () => {
       width: 120,
       valueType: 'select',
       valueEnum: Object.fromEntries(
-        Object.entries(policyMethodMap).map(([key, config]) => [
-          key,
-          { text: config.text, status: 'Default' as const },
+        // 与抽屉同源的过滤选项：MAC 不可选（HTTP 请求上下文拿不到，选了也永不命中），
+        // 完整映射 policyMethodMap 仅用于存量 MAC 行的标签渲染
+        getPolicyMethodOptions(t).map(({ label, value }) => [
+          value,
+          { text: label, status: 'Default' as const },
         ]),
       ),
       render: (_, record) => {
@@ -122,29 +127,35 @@ const LoginPolicyManagement = () => {
     {
       title: t('action'),
       valueType: 'option',
-      width: 100,
-      render: (_, record) => [
-        <a
-          key="edit"
-          onClick={() => {
-            setDrawerMode('edit');
-            setSelectedPolicy(record);
-            setDrawerOpen(true);
-          }}
-        >
-          <EditOutlined />
-        </a>,
-        <Popconfirm
-          key="delete"
-          title={t('deleteConfirmTitle')}
-          description={t('deleteConfirmDesc', { moduleName: t('moduleName') })}
-          onConfirm={() => record.id && deleteMutation.mutate({ id: record.id })}
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a style={{ color: 'var(--ant-color-error)' }}><DeleteOutlined /></a>
-        </Popconfirm>,
-      ],
+      width: 150,
+      render: (_, record) => (
+        <TableActions
+          record={record}
+          actions={[
+            {
+              key: 'edit',
+              label: t('common:button.edit'),
+              icon: <EditOutlined />,
+              onClick: () => {
+                setDrawerMode('edit');
+                setSelectedPolicy(record);
+                setDrawerOpen(true);
+              },
+            },
+            {
+              key: 'delete',
+              label: t('common:button.delete'),
+              icon: <DeleteOutlined />,
+              danger: true,
+              confirm: {
+                title: t('deleteConfirmTitle'),
+                description: t('deleteConfirmDesc', { moduleName: t('moduleName') }),
+              },
+              onClick: () => record.id && deleteMutation.mutate({ id: record.id }),
+            },
+          ]}
+        />
+      ),
     },
   ];
 
@@ -152,47 +163,38 @@ const LoginPolicyManagement = () => {
     <>
       <ContentContainer heightMode="fixed" padding="16px" bottomMargin={0}>
         <div ref={containerRef} className="page-container-content">
-          <ProTable<LoginPolicy>
+          <ListTable<LoginPolicy>
             actionRef={actionRef}
             columns={columns}
             request={async (params, sorter, _filter) => {
-              try {
-                const query = new PaginationQuery({
-                  paging: {
-                    page: params.current || 1,
-                    pageSize: params.pageSize || 10,
-                  },
-                  formValues: Object.fromEntries(
-                    Object.entries(params).filter(
-                      ([key]) => !['current', 'pageSize'].includes(key),
-                    ),
+              const query = new PaginationQuery({
+                paging: {
+                  page: params.current || 1,
+                  pageSize: params.pageSize || 10,
+                },
+                formValues: Object.fromEntries(
+                  Object.entries(params).filter(
+                    ([key]) => !['current', 'pageSize'].includes(key),
                   ),
-                  orderBy:
-                    sorter && Object.keys(sorter).length > 0
-                      ? Object.entries(sorter).map(([key, value]) =>
-                          value === 'ascend' ? key : `-${key}`,
-                        )
-                      : undefined,
-                });
+                ),
+                orderBy:
+                  sorter && Object.keys(sorter).length > 0
+                    ? Object.entries(sorter).map(([key, value]) =>
+                        value === 'ascend' ? key : `-${key}`,
+                      )
+                    : undefined,
+              });
 
-                const response = await fetchListLoginPolicies(query);
+              const response = await fetchListLoginPolicies(query);
 
-                return {
-                  data: response.items || [],
-                  total: response.total || 0,
-                  success: true,
-                };
-              } catch (error: any) {
-                message.error(error.message || t('fetchFailed'));
-                return {
-                  data: [],
-                  total: 0,
-                  success: false,
-                };
-              }
+              return {
+                data: response.items || [],
+                total: response.total || 0,
+                success: true,
+              };
             }}
             rowKey="id"
-            search={{
+            search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
               defaultCollapsed: false,
             }}
@@ -205,7 +207,8 @@ const LoginPolicyManagement = () => {
               <TableExportButton key="export" fetcher={fetchListLoginPolicies} columns={columns} filename="login-policies" />,
               <Button
                 key="create"
-                type="primary"
+                color="primary"
+                variant="outlined"
                 icon={<PlusOutlined />}
                 onClick={() => {
                   setDrawerMode('create');
@@ -213,13 +216,13 @@ const LoginPolicyManagement = () => {
                   setDrawerOpen(true);
                 }}
               >
-                {t('create')}
+                {t('common:button.add')}
               </Button>,
             ]}
             options={{
               density: true,
               fullScreen: true,
-              setting: true,
+              setting: { settingIcon: <ColumnSlidersIcon /> },
               reload: true,
             }}
             size="middle"

@@ -25,8 +25,8 @@
   "version": "Version",
   "updatedAt": "Updated At",
   "action": "Actions",
-  "create": "New Script",
-  "edit": "Edit Script",
+  "create": "Create Script",
+  "edit": "Update Script",
   "deleteConfirmTitle": "Confirm Delete",
   "deleteConfirmDesc": "Delete this {{moduleName}}? The change takes effect immediately.",
   "createSuccess": "Created successfully",
@@ -72,5 +72,6 @@
   "logPurge": "Purge >90d",
   "logPurgeConfirmTitle": "Confirm Purge",
   "logPurgeConfirmDesc": "This deletes all execution logs older than 90 days. Continue?",
-  "logPurgeSuccess": "Purged {{count}} log entries"
+  "logPurgeSuccess": "Purged {{count}} log entries",
+  "viewTitle": "View Script Log"
 }

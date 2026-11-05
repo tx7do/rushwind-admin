@@ -163,27 +163,20 @@ const pageConfig = computed<ProPageConfig>(() => ({
   table: {
     listAction: async (query: any) => {
       const { page, pageSize, ...queryParams } = query;
-      try {
-        const result = await fetchListNotificationRules(
-          new PaginationQuery({
-            paging: { page: page || 1, pageSize: pageSize || 20 },
-            formValues: {
-              eventType: queryParams.eventType,
-              channel: queryParams.channel,
-            },
-          })
-        );
-        return { items: result.items || [], total: result.total || 0 };
-      } catch (error: any) {
-        // 不吞错：ElMessage 只是给用户看的文案，排查要靠控制台里的原始错误对象
-        console.error("list notification rules failed", error);
-        ElMessage.error(error?.message || t("pages.notification_rule.fetchFailed"));
-        return { items: [], total: 0 };
-      }
+      const result = await fetchListNotificationRules(
+        new PaginationQuery({
+          paging: { page: page || 1, pageSize: pageSize || 20 },
+          formValues: {
+            eventType: queryParams.eventType,
+            channel: queryParams.channel,
+          },
+        })
+      );
+      return { items: result.items || [], total: result.total || 0 };
     },
     toolbar: [],
     toolbarRight: ["add"],
-    defaultToolbar: ["refresh", "filter"],
+    defaultToolbar: ["refresh", "zoom", "filter"],
     tableAttrs: { border: true, stripe: true },
     emptyActionText: "common.button.add",
     columns: [

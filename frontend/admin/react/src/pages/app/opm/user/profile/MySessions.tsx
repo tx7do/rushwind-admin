@@ -1,4 +1,4 @@
-import { Card, Table, Tag, Typography } from 'antd';
+import { Table, Tag, Typography, App, Popconfirm, Button } from 'antd';
 import type { TableColumnsType } from 'antd';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,8 +7,6 @@ import {
 } from '@/api/hooks/online-session';
 import type { online_sessionservicev1_OnlineSession as OnlineSession } from '@/api/generated/admin/service/v1';
 import { formatDateTime } from '@/utils/date';
-import { App, Popconfirm, Button } from 'antd';
-import { DeleteOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 
@@ -34,6 +32,7 @@ const MySessions = () => {
         jti: record.jti,
       });
     } catch (error: any) {
+      console.error('Failed to revoke session:', error);
       message.error(error.message || t('revokeFailed'));
     }
   };
@@ -80,7 +79,7 @@ const MySessions = () => {
             okButtonProps={{ loading: revokeMutation.isPending }}
             onConfirm={() => handleRevoke(record)}
           >
-            <Button danger type="link" size="small" icon={<DeleteOutlined />}>
+            <Button danger type="link" size="small">
               {t('revoke')}
             </Button>
           </Popconfirm>
@@ -89,11 +88,7 @@ const MySessions = () => {
   ];
 
   return (
-    <Card
-      size="small"
-      title={<Text strong>{t('mySessionsTitle')}</Text>}
-      styles={{ body: { paddingTop: 8 } }}
-    >
+    <div>
       <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
         {t('mySessionsHint')}
       </Text>
@@ -106,7 +101,7 @@ const MySessions = () => {
         columns={columns}
         locale={{ emptyText: t('noSessions') }}
       />
-    </Card>
+    </div>
   );
 };
 

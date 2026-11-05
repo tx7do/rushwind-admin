@@ -22,8 +22,8 @@
   "taskOptionsProcessIn": "Process In",
   "taskOptionsProcessAt": "Process At",
   "action": "Actions",
-  "create": "New Task",
-  "edit": "Edit Task",
+  "create": "Create Task",
+  "edit": "Update Task",
   "startAll": "Start All",
   "stopAll": "Stop All",
   "restartAll": "Restart All",
@@ -54,7 +54,6 @@
   "deleteFailed": "Delete failed",
   "operationFailed": "Operation failed",
   "updateStatusFailed": "Status update failed",
-  "fetchFailed": "Failed to fetch data",
   "requiredTypeName": "Please select type name",
   "requiredType": "Please select task type",
   "taskType": {
@@ -65,5 +64,27 @@
   "enableMap": {
     "true": "Active",
     "false": "Inactive"
-  }
+  },
+  "sysTasksButton": "System Tasks",
+  "sysTasksTitle": "System Resident Tasks",
+  "sysTaskType": "Task Type",
+  "sysTaskCron": "Schedule",
+  "sysTaskNext": "Next Run",
+  "sysTaskPrev": "Last Run",
+  "sysTaskNeverRun": "never run",
+  "sysTaskSchedules": "Schedules",
+  "sysTaskStates": "States",
+  "sysTaskFailures": "Recent Failures",
+  "sysTaskQueueHint": "queue {{queue}} (read-only asynq; tasks evaluated every 5 min show up here)",
+  "sysTaskActive": "Active",
+  "sysTaskPending": "Pending",
+  "sysTaskRetry": "Retry",
+  "sysTaskArchived": "Archived",
+  "sysTaskState": "State",
+  "sysTaskLastError": "Last Error",
+  "sysTaskFailedAt": "Failed At",
+  "sysTaskRetried": "Tried/Max",
+  "sysTaskNoFailures": "No failures recorded.",
+  "sysTaskLoading": "Loading…",
+  "sysTaskLoadFailed": "Load failed"
 }

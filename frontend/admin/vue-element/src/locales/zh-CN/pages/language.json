@@ -8,7 +8,7 @@
   "sortOrder": "排序",
   "createdAt": "创建时间",
   "button": {
-    "create": "创建",
-    "update": "更新"
+    "create": "创建语言",
+    "update": "更新语言"
   }
 }

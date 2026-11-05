@@ -7,7 +7,7 @@
   "reason": "原因",
   "createdAt": "创建时间",
   "button": {
-    "create": "创建",
-    "update": "更新"
+    "create": "创建登录策略",
+    "update": "更新登录策略"
   }
 }

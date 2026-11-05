@@ -46,16 +46,17 @@ export const SourcePieChart = ({ data }: SourcePieChartProps) => {
       tooltip: {
         trigger: 'item',
         formatter: '{b}: {c} ({d}%)',
-        backgroundColor: 'rgba(20,20,30,0.95)',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#e2e8f0' },
+        backgroundColor: token.colorBgElevated,
+        borderColor: token.colorBorder,
+        textStyle: { color: token.colorText },
       },
       legend: {
         orient: 'horizontal',
         bottom: 0,
         data: items.map((it) => statusLabel(it.label)),
+        // 图例文字随主题取 token：原值 #94a3b8 是暗色档，浅色卡片上实测 2.56:1
         textStyle: {
-          color: '#94a3b8',
+          color: token.colorTextSecondary,
           fontSize: 12,
         },
         itemWidth: 10,

@@ -360,7 +360,7 @@ onMounted(async () => {
 
         &:hover {
           background: var(--el-fill-color);
-          color: var(--el-color-primary);
+          color: var(--gowind-primary-text);
         }
       }
     }
@@ -406,7 +406,7 @@ onMounted(async () => {
   }
 
   .highlight-text {
-    color: var(--el-color-danger);
+    color: var(--gowind-danger-text);
     font-weight: 600;
     background: var(--el-color-danger-light-9);
     padding: 0 2px;

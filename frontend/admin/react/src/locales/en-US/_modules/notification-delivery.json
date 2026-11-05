@@ -16,7 +16,6 @@
   "relatedIdHint": "Meaning depends on the event: in-app message = message ID",
   "sentAt": "Completed at",
   "lastError": "Failure reason",
-  "fetchFailed": "Failed to load delivery records",
   "eventTypeMap": {
     "PASSWORD_RESET_CODE": "Password reset code",
     "CONTACT_BIND_CODE": "Contact binding code",
@@ -26,6 +25,7 @@
   "channelMap": {
     "EMAIL": "Email",
     "SMS": "SMS",
+    "EXT": "Extended",
     "WEBHOOK": "Webhook",
     "INTERNAL": "In-app"
   },

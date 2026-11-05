@@ -23,13 +23,16 @@
 | `src/pages/core/login/icons/slogan.vue`（登录页品牌插画） | `overlay/vue-element/` 整文件覆盖；React 版 SloganIcon 的 Vue SFC 移植（同一套 R 字几何与动效，样式走 SFC scoped，`rw-` 前缀防碰撞），浮动动效仍由 login 页父级 `.slogan-icon` 提供 |
 | 品牌文案（偏好配置系统名 / 登录页 headerTitle 与 brandTitle / 版权 / `VITE_APP_TITLE` / `VITE_APP_NAMESPACE` / `APP_PREFIX` / 样式注入 id / CSP meta name） | `apply-brand.sh` vue-element 分支内逐条显式 sed 替换 |
 
-## Vue Vben 版（overlay/vue-vben/，vben5 monorepo）
+## Vue Vben 版（overlay/vue-vben/，vben5 单包结构）
+
+上游自 monorepo（apps/packages/internal）重构为单包（src/ + framework/ + build-config）后，
+overlay 与替换表路径随之上移；旧 monorepo 路径（packages/@core、apps/admin 等）作废。
 
 | 内容 | 覆写方式 |
 |------|---------|
-| `apps/admin/public/logo.png` / `favicon.ico` / `pwa-icon-192.png` / `pwa-icon-512.png` | `overlay/vue-vben/` 整文件覆盖；logo/favicon 与另两版共用同一套生成资产，PWA 两档由 `tools/make-pwa-icons.py` 程序化生成（同一几何源；PWA manifest 引用见 internal/vite-config/src/options.ts）。注意 vben 的 public 在 **apps/admin/public/**，overlay 路径必须镜像之 |
-| `packages/effects/layouts/src/authentication/icons/slogan.vue`（登录页品牌插画） | `overlay/vue-vben/` 整文件覆盖；与 vue-element 版**同一份** RushWind SFC（上游两版该文件字节相同） |
-| 品牌文案（偏好默认值 companyName/companySiteLink / 版权组件默认值 / zh-CN 登录页 pageTitle / 构建产物 license 横幅 / `VITE_APP_TITLE` / `VITE_APP_NAMESPACE`） | `apply-brand.sh` vue-vben 分支内逐条显式 sed 替换；偏好默认值变更**连同其测试快照** `packages/@core/preferences/__tests__/__snapshots__/config.test.ts.snap` 一起替换，保持上游测试语义 |
+| `public/logo.png` / `favicon.ico` / `pwa-icon-192.png` / `pwa-icon-512.png` | `overlay/vue-vben/` 整文件覆盖；logo/favicon 与另两版共用同一套生成资产，PWA 两档由 `tools/make-pwa-icons.py` 程序化生成（同一几何源）。单包结构下 public 在仓库根 **public/**，overlay 路径必须镜像之 |
+| `framework/effects/layouts/authentication/icons/slogan.vue`（登录页品牌插画） | `overlay/vue-vben/` 整文件覆盖；与 vue-element 版**同一份** RushWind SFC（上游两版该文件字节相同） |
+| 品牌文案（偏好默认值 companyName/companySiteLink / 版权组件默认值 / zh-CN 登录页 pageTitle / 构建产物 license 横幅 / `VITE_APP_TITLE` / `VITE_APP_NAMESPACE`） | `apply-brand.sh` vue-vben 分支内逐条显式 sed 替换；目标文件分别为 `framework/core/preferences/config.ts`、`framework/effects/layouts/basic/copyright/copyright.vue`、`framework/locales/langs/zh-CN/authentication.json`、`build-config/vite-config/src/plugins/license.ts`、根 `.env`。monorepo 时代随偏好默认值一起替换的 vitest 测试快照（config.test.ts.snap）在上游单包重构中已不存在，替换表不再携带 |
 
 ## 刻意**不替换**的
 

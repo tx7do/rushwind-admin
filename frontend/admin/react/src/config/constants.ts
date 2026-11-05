@@ -9,8 +9,8 @@ export const ROUTES = {
   LOGIN: '/auth/login',
   /** 注册页 */
 
-  /** 默认首页（登录后跳转） */
-  DEFAULT_HOME: '/dashboard',
+  /** 默认首页（登录后跳转，与 ele/vben 的 DEFAULT_HOME_PATH 对齐） */
+  DEFAULT_HOME: '/dashboard/analytics',
 
   /** 403 无权限页 */
   FORBIDDEN: '/error/403',

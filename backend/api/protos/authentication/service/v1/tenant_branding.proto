@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package authentication.service.v1;
+
+option go_package = "go-wind-admin/api/gen/go/authentication/service/v1;authenticationv1";
+
+// 租户白标查询（免鉴权；登录前按租户编号取展示信息）。
+// 只暴露展示字段（名称/Logo），不泄露任何运营/配置数据。
+message GetTenantBrandingRequest {
+  // 租户编号（登录页 tenant_code 输入框的值）
+  string code = 1;
+}
+
+message GetTenantBrandingResponse {
+  bool found = 1;    // 编号未命中时 false（前端保持默认品牌，不区分"不存在"与"未设置"）
+  string name = 2;   // 租户名称（登录页副标题/欢迎语用）
+  string logo_url = 3 [json_name = "logoUrl"]; // 租户 Logo；未设置为空
+}

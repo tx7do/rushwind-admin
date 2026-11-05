@@ -29,17 +29,6 @@ export class PaginationQuery {
   }
 
   /**
-   * 创建列表查询 JSON 过滤字符串
-   *
-   * 后端 go-crud 的裸 `{"field": value}` 走 EQ 精确匹配；搜索框输入部分关键词
-   * 必须使用 `field__contains` 才是模糊匹配。这里约定：字符串值统一转
-   * `__contains`（contains 是完整值精确匹配的超集，对下拉枚举等完整值查询
-   * 结果一致），非字符串（数字/布尔）保持 EQ 精确语义。
-   * @param formValues - 查询表单值
-   * @param needCleanTenant - 是否需要清理租户字段
-   * @returns JSON 字符串或 undefined
-   */
-  /**
    * key 末段是否已是 go-crud 支持的查询操作符（created_at__gte、type__not 等）。
    * 这类 key 不能再叠加 __contains：go-crud 会把 `a__gte__contains`
    * 解析成 `a CONTAINS value`，对时间/布尔列直接 SQL 报错（500），
@@ -73,6 +62,17 @@ export class PaginationQuery {
     ].includes(key.slice(idx + 2).toLowerCase());
   }
 
+  /**
+   * 创建列表查询 JSON 过滤字符串
+   *
+   * 后端 go-crud 的裸 `{"field": value}` 走 EQ 精确匹配；搜索框输入部分关键词
+   * 必须使用 `field__contains` 才是模糊匹配。这里约定：字符串值统一转
+   * `__contains`（contains 是完整值精确匹配的超集，对下拉枚举等完整值查询
+   * 结果一致），非字符串（数字/布尔）保持 EQ 精确语义。
+   * @param formValues - 查询表单值
+   * @param needCleanTenant - 是否需要清理租户字段
+   * @returns JSON 字符串或 undefined
+   */
   private static makeQueryString(
     formValues?: null | Record<string, unknown>,
     needCleanTenant: boolean = false,

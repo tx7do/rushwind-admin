@@ -270,22 +270,22 @@ html.sidebar-color-blue {
 .el-sub-menu {
   // 亮色：仅主色文字，无背景，不抢子菜单焦点
   &.has-active-child > .el-sub-menu__title {
-    color: var(--el-color-primary) !important;
+    color: var(--gowind-primary-text) !important;
     font-weight: 500 !important;
 
     .menu-icon {
-      color: var(--el-color-primary) !important;
+      color: var(--gowind-primary-text) !important;
     }
   }
 
   // 暗色：同源同色
   html.dark & {
     &.has-active-child > .el-sub-menu__title {
-      color: var(--el-color-primary) !important;
+      color: var(--gowind-primary-text) !important;
       font-weight: 500 !important;
 
       .menu-icon {
-        color: var(--el-color-primary) !important;
+        color: var(--gowind-primary-text) !important;
       }
     }
   }
@@ -293,11 +293,11 @@ html.sidebar-color-blue {
   // 深蓝色侧边栏
   html.sidebar-color-blue & {
     &.has-active-child > .el-sub-menu__title {
-      color: var(--el-color-primary) !important;
+      color: var(--gowind-primary-text) !important;
       font-weight: 500 !important;
 
       .menu-icon {
-        color: var(--el-color-primary) !important;
+        color: var(--gowind-primary-text) !important;
       }
     }
   }

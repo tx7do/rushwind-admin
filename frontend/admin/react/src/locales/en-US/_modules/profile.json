@@ -2,8 +2,15 @@
   "pageTitle": "Profile",
   "tab": {
     "basicInfo": "Basic Info",
+    "basicSettings": "Basic Settings",
+    "editPassword": "Edit Password",
     "security": "Security",
-    "sessions": "Active Sessions"
+    "securitySettings": "Security Settings",
+    "sessions": "Active Sessions",
+    "activeSessions": "Active Sessions",
+    "notification": "Notifications",
+    "tenantUsage": "Plan Usage",
+    "accountBind": "Account Bind"
   },
   "avatar": "Avatar",
   "username": "Username",
@@ -34,7 +41,6 @@
   "save": "Save Changes",
   "saveSuccess": "Saved successfully",
   "saveFailed": "Save failed",
-  "fetchFailed": "Failed to fetch user info",
   "oldPassword": "Current Password",
   "oldPasswordPlaceholder": "Enter current password",
   "requiredOldPassword": "Please enter current password",
@@ -75,5 +81,98 @@
     "unbindConfirmContent": "After unbinding, login will no longer require a verification code. This reduces account security.",
     "cancel": "Cancel",
     "totpDevice": "TOTP device"
+  },
+  "notification": {
+    "quietTitle": "Quiet Hours",
+    "quietDesc": "During quiet hours, internal message notifications are not pushed in real time (no instant desktop toasts or badge updates). Messages still arrive in your inbox.",
+    "quietEnable": "Enable quiet hours",
+    "quietTimeRange": "Quiet window (supports overnight spans, e.g. 22:00 to 08:00)",
+    "startTime": "Start",
+    "endTime": "End",
+    "quietTimeRequired": "Please select the quiet window",
+    "quietZeroWidth": "Quiet start and end time cannot be the same",
+    "muteTitle": "Category Unsubscribe",
+    "muteDesc": "After unsubscribing, you will no longer receive all-hands broadcast messages of that category. Direct messages addressed to you are not affected.",
+    "noCategories": "No categories available in this tenant",
+    "save": "Save Preferences",
+    "saving": "Saving…",
+    "saveSuccess": "Notification preferences saved",
+    "saveFailed": "Failed to save notification preferences",
+    "transactionalNote": "Transactional emails such as verification codes are not affected by this page and are always sent.",
+    "on": "ON",
+    "off": "OFF"
+  },
+  "tenantUsage": {
+    "plan": "Current plan: ",
+    "noPlan": "No plan subscribed",
+    "empty": "No plan usage data for this account.",
+    "reached": "limit reached",
+    "quota": {
+      "USER_LIMIT": "Users",
+      "STORAGE": "Storage (MB)",
+      "API_CALL": "API calls",
+      "AI_TOKENS": "AI tokens"
+    }
+  },
+  "locale": "Preferred language",
+  "localePlaceholder": "Follow browser language",
+  "field": {
+    "nickname": "Nickname",
+    "realname": "Name",
+    "email": "Email",
+    "mobile": "Mobile",
+    "telephone": "Telephone",
+    "gender": "Gender",
+    "region": "Region",
+    "address": "Address",
+    "description": "Description",
+    "locale": "Preferred Language",
+    "avatar": "Avatar"
+  },
+  "info": {
+    "username": "Username",
+    "roleNames": "Roles",
+    "orgUnitNames": "Organizations",
+    "positionNames": "Positions",
+    "tenantName": "Tenant",
+    "lastLoginAt": "Last Login At",
+    "lastLoginIp": "Last Login IP",
+    "createdAt": "Created At"
+  },
+  "button": {
+    "uploadAvatar": "Upload Avatar",
+    "deleteAvatar": "Delete Avatar"
+  },
+  "avatarUploadSuccess": "Avatar uploaded",
+  "avatarUploadFailed": "Failed to upload avatar",
+  "avatarNotImage": "Only image files are allowed",
+  "avatarTooLarge": "Image must be less than 5MB",
+  "avatarDeleted": "Avatar deleted",
+  "avatarDeleteFailed": "Failed to delete avatar",
+  "secureSetting": {
+    "password": "Login Password",
+    "passwordDesc": "Change your password regularly and pair it with MFA for better security",
+    "modify": "Modify"
+  },
+  "accountBind": {
+    "email": "Email Account",
+    "phone": "Phone Number",
+    "bound": "Bound: {{value}}",
+    "unbound": "Not bound; fill it in Basic Settings",
+    "modify": "Modify",
+    "bindNow": "Bind Now",
+    "rebind": "Rebind",
+    "bindEmailTitle": "Bind Email",
+    "newEmail": "New Email",
+    "newEmailPlaceholder": "Enter new email address",
+    "vcode": "Code",
+    "vcodePlaceholder": "Enter the email code",
+    "sendVcode": "Send Code",
+    "codeSent": "Sent, please check inbox",
+    "vcodeSendFailed": "Failed to send code",
+    "newEmailRequired": "New email is required",
+    "vcodeRequired": "Code is required",
+    "bindSuccess": "Email bound successfully",
+    "bindFailed": "Failed to bind"
   }
 }

@@ -34,16 +34,19 @@ export const LineChart = ({ data }: LineChartProps) => {
     return {
       tooltip: {
         trigger: 'axis',
-        backgroundColor: 'rgba(20,20,30,0.95)',
-        borderColor: 'rgba(255,255,255,0.1)',
-        textStyle: { color: '#e2e8f0' },
+        backgroundColor: token.colorBgElevated,
+        borderColor: token.colorBorder,
+        textStyle: { color: token.colorText },
       },
       grid: {
         left: '3%',
         right: '4%',
         bottom: '3%',
         top: '8%',
-        containLabel: true,
+        // echarts 6：containLabel 需显式 use(LegacyGridContainLabel) 才生效，否则整条被忽略；
+        // 等价写法为 outerBoundsMode/outerBoundsContain（与 ele 端同一迁移）。
+        outerBoundsMode: 'same',
+        outerBoundsContain: 'axisLabel',
       },
       xAxis: {
         type: 'category',
@@ -51,12 +54,12 @@ export const LineChart = ({ data }: LineChartProps) => {
         data: points.map((p) => p.date),
         axisLine: {
           lineStyle: {
-            color: 'rgba(255,255,255,0.06)',
+            color: token.colorSplit,
           },
         },
         axisTick: {
           lineStyle: {
-            color: 'rgba(255,255,255,0.06)',
+            color: token.colorSplit,
           },
         },
         axisLabel: {
@@ -78,7 +81,7 @@ export const LineChart = ({ data }: LineChartProps) => {
         },
         splitLine: {
           lineStyle: {
-            color: 'rgba(255,255,255,0.05)',
+            color: token.colorSplit,
             type: 'dashed',
           },
         },

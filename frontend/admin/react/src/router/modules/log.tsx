@@ -23,7 +23,8 @@ export const logRoutes: AppRouteObject[] = [
         element: createLazyRoute(() => import('@/pages/app/log/login-audit-log')),
         meta: {
           title: 'routes:login-audit-log',
-          icon: 'lucide:user-lock', // Iconify 格式
+          icon: 'lucide:user-lock',
+          order: 1,
           // permission: 'sys:platform_admin', // 平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -33,7 +34,8 @@ export const logRoutes: AppRouteObject[] = [
         element: createLazyRoute(() => import('@/pages/app/log/api-audit-log')),
         meta: {
           title: 'routes:api-audit-log',
-          icon: 'lucide:file-clock', // Iconify 格式
+          icon: 'lucide:file-clock',
+          order: 2,
           // permission: 'sys:platform_admin', // 平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -44,6 +46,7 @@ export const logRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:operation-audit-log',
           icon: 'lucide:shield-ellipsis', // Iconify 格式
+          order: 3,
           // permission: 'sys:platform_admin', // 平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -53,7 +56,8 @@ export const logRoutes: AppRouteObject[] = [
         element: createLazyRoute(() => import('@/pages/app/log/data-access-audit-log')),
         meta: {
           title: 'routes:data-access-audit-log',
-          icon: 'lucide:shield-check', // Iconify 格式
+          icon: 'lucide:shield-check',
+          order: 4,
           // permission: 'sys:platform_admin', // 平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -63,7 +67,8 @@ export const logRoutes: AppRouteObject[] = [
         element: createLazyRoute(() => import('@/pages/app/log/permission-audit-log')),
         meta: {
           title: 'routes:permission-audit-log',
-          icon: 'lucide:shield-alert', // Iconify 格式
+          icon: 'lucide:shield-alert',
+          order: 5,
           // permission: 'sys:platform_admin', // 平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -73,7 +78,8 @@ export const logRoutes: AppRouteObject[] = [
         element: createLazyRoute(() => import('@/pages/app/log/policy-evaluation-log')),
         meta: {
           title: 'routes:policy-evaluation-log',
-          icon: 'lucide:gavel', // Iconify 格式
+          icon: 'lucide:gavel',
+          order: 6,
           // permission: 'sys:platform_admin', // 平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -83,7 +89,8 @@ export const logRoutes: AppRouteObject[] = [
         element: createLazyRoute(() => import('@/pages/app/log/redis-cache-monitor')),
         meta: {
           title: 'routes:redis-cache-monitor',
-          icon: 'lucide:database', // Iconify 格式
+          icon: 'lucide:database',
+          order: 7,
           // permission: 'sys:platform_admin', // 平台管理员权限（开发阶段暂时注释）
         },
       },

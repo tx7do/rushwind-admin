@@ -1,18 +1,30 @@
 {
   "button": {
+    "add": "新增",
+    "search": "搜索",
     "back": "返回",
     "ok": "确定",
+    "confirm": "确定",
     "cancel": "取消",
     "edit": "编辑",
     "delete": "删除",
     "submit": "确定",
-    "reset": "取消"
+    "reset": "取消",
+    "retry": "重试",
+    "more": "更多",
+    "copy": "复制",
+    "save": "保存",
+    "close": "关闭"
   },
   "home": "首页",
   "header": {
     "profile": "个人中心",
     "settings": "偏好设置",
+    "inbox": "收件箱",
+    "lockScreen": "锁定屏幕",
     "logout": "退出登录",
+    "logoutConfirmTitle": "提示",
+    "logoutConfirmMessage": "确定要退出登录吗？",
     "fullscreen": "全屏",
     "exitFullscreen": "退出全屏",
     "helpDoc": "帮助文档",
@@ -26,7 +38,24 @@
     "switchLanguage": "切换语言",
     "search": "搜索",
     "searchPlaceholder": "搜索菜单或功能...",
-    "searchShortcut": "Ctrl K"
+    "searchShortcut": "Ctrl K",
+    "searching": "搜索中…",
+    "noResults": "未找到相关页面",
+    "noHistory": "暂无最近搜索",
+    "searchRecent": "最近",
+    "semanticTitle": "语义搜索",
+    "searchSelect": "选择",
+    "searchSwitch": "切换",
+    "searchClose": "关闭"
+  },
+  "lockScreen": {
+    "title": "锁定屏幕",
+    "placeholder": "请输入锁屏密码",
+    "lock": "锁定",
+    "unlock": "点击解锁",
+    "entry": "进入系统",
+    "backToLogin": "返回登录",
+    "errorTip": "密码错误，请重新输入"
   },
   "refresh": "刷新",
   "iframe": {
@@ -81,6 +110,9 @@
     "initializing": "初始化中",
     "loadingRouter": "正在加载路由配置..."
   },
+  "table": {
+    "columnResizeHint": "拖动调整列宽，双击恢复自适应"
+  },
   "unknownPage": "未知页面",
   "pageContainer": {
     "defaultTitle": "页面",
@@ -108,7 +140,9 @@
     "copyDenied": "复制操作被拒绝"
   },
   "placeholder": {
-    "underDevelopment": "{{pageName}} - 开发中"
+    "underDevelopment": "{{pageName}} - 开发中",
+    "input": "请输入",
+    "select": "请选择"
   },
   "requestError": {
     "networkError": "网络连接错误,请检查网络设置后重试",
@@ -242,10 +276,30 @@
     "readFileFailed": "读取文件失败"
   },
   "export": {
-    "title": "导出",
+    "title": "导出全部",
     "csv": "CSV (逗号分隔)",
     "xlsx": "Excel 工作簿",
-    "success": "已导出 {count} 行",
-    "failed": "导出失败"
+    "success": "已导出 {{count}} 行",
+    "failed": "导出失败",
+    "serverXlsx": "服务端全量 (XLSX)",
+    "serverSuccess": "导出文件已生成",
+    "serverFailed": "服务端导出失败"
+  },
+  "dateRange": {
+    "today": "今天",
+    "yesterday": "昨天",
+    "thisWeek": "本周",
+    "lastWeek": "上周",
+    "thisMonth": "本月",
+    "lastMonth": "上月"
+  },
+  "modal": {
+    "create": "创建{{moduleName}}",
+    "update": "更新{{moduleName}}",
+    "view": "查看{{moduleName}}"
+  },
+  "drawer": {
+    "unsavedMessage": "表单内容已修改，是否放弃本次编辑？",
+    "discardButton": "确定放弃"
   }
 }

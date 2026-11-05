@@ -16,7 +16,6 @@
   "relatedIdHint": "按业务事件解释：站内信 = 消息ID",
   "sentAt": "完成时间",
   "lastError": "失败原因",
-  "fetchFailed": "获取投递记录失败",
   "eventTypeMap": {
     "PASSWORD_RESET_CODE": "密码重置码",
     "CONTACT_BIND_CODE": "联系人绑定码",
@@ -26,6 +25,7 @@
   "channelMap": {
     "EMAIL": "邮件",
     "SMS": "短信",
+    "EXT": "扩展渠道",
     "WEBHOOK": "Webhook",
     "INTERNAL": "站内信"
   },

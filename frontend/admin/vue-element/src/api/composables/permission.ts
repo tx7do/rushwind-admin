@@ -86,6 +86,17 @@ export function useDeletePermission(
 }
 
 // ==============================
+// 同步权限点（按菜单树重建业务权限分组与权限点）
+// ==============================
+
+export function useSyncPermissions(options?: UseMutationOptions<{}, Error>) {
+  return useMutation({
+    mutationFn: () => apiClient.permissionService.SyncPermissions({}),
+    ...options,
+  });
+}
+
+// ==============================
 // 权限枚举与工具函数
 // ==============================
 

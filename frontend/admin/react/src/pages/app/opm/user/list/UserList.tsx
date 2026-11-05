@@ -1,12 +1,15 @@
 import { useRef, useState, useEffect } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import TableExportButton from '@/components/common/TableExportButton';
-import { ProTable } from '@ant-design/pro-components';
-import { Button, Popconfirm, Tag, App } from 'antd';
-import { EditOutlined, DeleteOutlined, PlusOutlined, InfoCircleOutlined , SafetyOutlined } from '@ant-design/icons';
+import TableActions from '@/components/common/TableActions';
+import ListTable from '@/components/common/ListTable';
+import { Button, Tag, App } from 'antd';
+import { EditOutlined, DeleteOutlined, PlusOutlined, InfoCircleOutlined , SafetyOutlined, PrinterOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
+
+import { usePrintTemplateDialog } from '@/components/common/PrintTemplatePrint';
 
 import { PaginationQuery } from '@/core';
 import { TABLE } from '@/config/constants';
@@ -18,6 +21,8 @@ import { useUserStore } from '@/stores/user';
 import { parseResourceHiddenFields } from '@/core/access';
 import { getUserStatusMap, getUserStatusOptions } from '../constants';
 import UserDrawer from './UserDrawer';
+import { searchOptionRender } from '@/components/common/searchSubmitter';
+import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
 interface UserListProps {
   tenantId: number | undefined;
@@ -36,6 +41,11 @@ const UserList: React.FC<UserListProps> = ({ tenantId, orgUnitId }) => {
   const { message } = App.useApp();
 
   const navigate = useNavigate();
+
+  // 行打印定式（docs/print_template.md §5）：模板按 resourceKey 匹配，无绑定回退通用模板；
+  // print 入参传数组即批量（内核份数合并单文档）
+  const { node: printDialogNode, print: printRow } = usePrintTemplateDialog();
+  const [selectedRows, setSelectedRows] = useState<any[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create');
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -191,54 +201,56 @@ const UserList: React.FC<UserListProps> = ({ tenantId, orgUnitId }) => {
     {
       title: t('action'),
       valueType: 'option',
-      width: 100,
-      render: (_, record) => [
-        <a
-          key="detail"
-          title={t('detail')}
-          onClick={() => navigate(`/opm/users/detail/${record.id}`)}
-        >
-          <InfoCircleOutlined />
-        </a>,
-        <a
-          key="edit"
-          onClick={() => {
-            setEditingUser(record);
-            setDrawerMode('edit');
-            setDrawerOpen(true);
-          }}
-        >
-          <EditOutlined />
-        </a>,
-        isPlatformSide ? (
-        <Popconfirm
-          key="reset-mfa"
-          title={t('resetMfaConfirmTitle')}
-          description={t('resetMfaConfirmDesc')}
-          onConfirm={() =>
-            record.id && adminResetMfa.mutate({ userId: record.id, method: 'TOTP' } as any)
-          }
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a title={t('resetMfa')}>
-            <SafetyOutlined />
-          </a>
-        </Popconfirm>
-        ) : null,
-        <Popconfirm
-          key="delete"
-          title={t('deleteConfirmTitle')}
-          description={t('deleteConfirmDesc', { moduleName: t('moduleName') })}
-          onConfirm={() => record.id && deleteMutation.mutate(record.id)}
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a style={{ color: 'var(--ant-color-error)' }}>
-            <DeleteOutlined />
-          </a>
-        </Popconfirm>,
-      ],
+      width: 370,
+      render: (_, record) => (
+        <TableActions
+          record={record}
+          actions={[
+            {
+              key: 'detail',
+              label: t('detail'),
+              icon: <InfoCircleOutlined />,
+              onClick: () => navigate(`/opm/users/detail/${record.id}`),
+            },
+            {
+              key: 'print',
+              label: t('printTemplate:print'),
+              icon: <PrinterOutlined />,
+              onClick: () => printRow('system/user', record),
+            },
+            {
+              key: 'edit',
+              label: t('common:button.edit'),
+              icon: <EditOutlined />,
+              onClick: () => {
+                setEditingUser(record);
+                setDrawerMode('edit');
+                setDrawerOpen(true);
+              },
+            },
+            {
+              key: 'reset-mfa',
+              label: t('resetMfa'),
+              icon: <SafetyOutlined />,
+              hidden: !isPlatformSide,
+              confirm: { title: t('resetMfaConfirmTitle'), description: t('resetMfaConfirmDesc') },
+              onClick: () =>
+                record.id && adminResetMfa.mutate({ userId: record.id, method: 'TOTP' } as any),
+            },
+            {
+              key: 'delete',
+              label: t('common:button.delete'),
+              icon: <DeleteOutlined />,
+              danger: true,
+              confirm: {
+                title: t('deleteConfirmTitle'),
+                description: t('deleteConfirmDesc', { moduleName: t('moduleName') }),
+              },
+              onClick: () => record.id && deleteMutation.mutate(record.id),
+            },
+          ]}
+        />
+      ),
     },
   ] satisfies ProColumns<any>[]).filter((col) => {
     const key = typeof col.dataIndex === 'string' ? col.dataIndex : undefined;
@@ -252,50 +264,49 @@ const UserList: React.FC<UserListProps> = ({ tenantId, orgUnitId }) => {
         className="page-container-content"
         style={{ padding: '0 8px', height: '100%' }}
       >
-        <ProTable<any>
+        <ListTable<any>
           actionRef={actionRef}
           columns={columns}
           headerTitle={false}
           params={{ tenantId, orgUnitId }}
           request={async (params) => {
-            try {
-              const formValues: Record<string, any> = {
-                ...Object.fromEntries(
-                  Object.entries(params).filter(
-                    ([key]) => !['current', 'pageSize', 'tenantId', 'orgUnitId'].includes(key),
-                  ),
+            const formValues: Record<string, any> = {
+              ...Object.fromEntries(
+                Object.entries(params).filter(
+                  ([key]) => !['current', 'pageSize', 'tenantId', 'orgUnitId'].includes(key),
                 ),
-              };
-              // tenantId 存在时带上租户筛选
-              if (tenantId != null) {
-                formValues.tenant_id = tenantId;
-              }
-              // orgUnitId 存在时带上组织筛选
-              if (orgUnitId != null) {
-                formValues.org_unit_id = orgUnitId;
-              }
-              const query = new PaginationQuery({
-                paging: {
-                  page: params.current || 1,
-                  pageSize: params.pageSize || TABLE.DEFAULT_PAGE_SIZE,
-                },
-                formValues,
-              });
-
-              const response = await fetchListUsers(query);
-
-              return {
-                data: response.items || [],
-                total: response.total || 0,
-                success: true,
-              };
-            } catch (error: any) {
-              message.error(error.message || t('fetchFailed'));
-              return { data: [], total: 0, success: false };
+              ),
+            };
+            // tenantId 存在时带上租户筛选
+            if (tenantId != null) {
+              formValues.tenant_id = tenantId;
             }
+            // orgUnitId 存在时带上组织筛选
+            if (orgUnitId != null) {
+              formValues.org_unit_id = orgUnitId;
+            }
+            const query = new PaginationQuery({
+              paging: {
+                page: params.current || 1,
+                pageSize: params.pageSize || TABLE.DEFAULT_PAGE_SIZE,
+              },
+              formValues,
+            });
+
+            const response = await fetchListUsers(query);
+
+            return {
+              data: response.items || [],
+              total: response.total || 0,
+              success: true,
+            };
           }}
           rowKey="id"
-          search={{
+          rowSelection={{
+            onChange: (_keys, rows) => setSelectedRows(rows),
+            selections: true,
+          }}
+          search={{ optionRender: searchOptionRender,
             labelWidth: 'auto',
             defaultCollapsed: true,
           }}
@@ -307,23 +318,31 @@ const UserList: React.FC<UserListProps> = ({ tenantId, orgUnitId }) => {
           toolBarRender={() => [
             <TableExportButton key="export" fetcher={fetchListUsers} columns={columns} filename="users" />,
             <Button
+              key="print-batch"
+              icon={<PrinterOutlined />}
+              disabled={selectedRows.length === 0}
+              onClick={() => printRow('system/user', selectedRows)}
+            >
+              {t('printTemplate:batchPrint')}
+            </Button>,
+            <Button
               key="create"
-              type="primary"
+              color="primary"
+              variant="outlined"
               icon={<PlusOutlined />}
-              size="small"
               onClick={() => {
                 setEditingUser(null);
                 setDrawerMode('create');
                 setDrawerOpen(true);
               }}
             >
-              {t('create')}
+              {t('common:button.add')}
             </Button>,
           ]}
           options={{
             density: true,
             fullScreen: true,
-            setting: true,
+            setting: { settingIcon: <ColumnSlidersIcon /> },
             reload: true,
           }}
           size="small"
@@ -346,6 +365,8 @@ const UserList: React.FC<UserListProps> = ({ tenantId, orgUnitId }) => {
           actionRef.current?.reload();
         }}
       />
+
+      {printDialogNode}
     </>
   );
 };

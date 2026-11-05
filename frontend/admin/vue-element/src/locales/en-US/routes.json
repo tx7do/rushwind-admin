@@ -1,7 +1,8 @@
 {
   "dashboard": {
     "title": "Overview",
-    "analytics": "Analytics"
+    "analytics": "Analytics",
+    "workspace": "Workbench"
   },
   "opm": {
     "moduleName": "Organization & Personnel",
@@ -32,6 +33,15 @@
     "policyEvaluationLog": "Policy Evaluation Logs",
     "redisCacheMonitor": "Redis Cache Monitor"
   },
+  "ai": {
+    "moduleName": "AI Assistant",
+    "agents": "Agent Apps",
+    "chat": "AI Assistant",
+    "providers": "AI Providers",
+    "knowledge": "Knowledge Bases",
+    "query": "AI Query",
+    "usage": "Usage"
+  },
   "system": {
     "moduleName": "System Management",
     "dict": "Dictionary Management",
@@ -43,13 +53,16 @@
     "serverMonitor": "Server Monitor",
     "scripts": "Scripts",
     "config": "Config Management",
-    "accessKeys": "OpenAPI Credentials"
+    "printTemplates": "Print Templates",
+    "accessKeys": "OpenAPI Credentials",
+    "monitorAlerts": "Monitor Alerts"
   },
   "notification": {
     "moduleName": "Notifications",
     "channels": "Notification Channels",
     "rules": "Notification Routing Rules",
-    "deliveries": "Notification Deliveries"
+    "deliveries": "Notification Deliveries",
+    "templates": "Templates"
   },
   "tenant": {
     "moduleName": "Tenant Management",
@@ -59,5 +72,11 @@
   "profile": {
     "settings": "Profile Center",
     "internalMessage": "Inbox"
+  },
+  "bi": {
+    "title": "BI Analytics",
+    "dashboard": "Dashboard",
+    "designer": "Designer",
+    "manage": "Dashboard Manager"
   }
 }

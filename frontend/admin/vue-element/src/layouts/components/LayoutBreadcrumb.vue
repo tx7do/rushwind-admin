@@ -177,33 +177,33 @@ onBeforeMount(() => {
     gap: 4px;
     font-weight: 400 !important;
     font-size: 15px !important; // 从 14px 增大到 15px
-    color: #909399 !important;
+    color: var(--el-text-color-regular) !important;
     transition: color 0.2s ease;
     line-height: normal !important;
     height: auto !important;
     padding: 0 4px; // 与按钮视觉对齐
   }
 
-  // 当前页（最后一项）：深黑 + 半粗体，视觉焦点
+  // 当前页（最后一项）：主文字色 + 半粗体，视觉焦点
   .el-breadcrumb__item:last-child .el-breadcrumb__inner {
-    color: #303133 !important;
+    color: var(--el-text-color-primary) !important;
     font-weight: 600 !important;
   }
 
-  // 当前页（最后一项）内部 .breadcrumb__current span 也必须深色
+  // 当前页（最后一项）内部 .breadcrumb__current span 也必须与 inner 同色
   .el-breadcrumb__item:last-child .breadcrumb__current {
-    color: #303133 !important;
+    color: var(--el-text-color-primary) !important;
     font-weight: 600 !important;
   }
 
   // 可点击链接 hover
   .el-breadcrumb__inner a:hover {
-    color: var(--el-color-primary) !important;
+    color: var(--gowind-primary-text) !important;
   }
 
   // 分隔符
   .el-breadcrumb__separator {
-    color: #c0c4cc;
+    color: var(--el-text-color-secondary);
   }
 
   // background 风格：浅色分支使用 Element Plus fill token，避免白底白芯片在亮色模式下不可见
@@ -218,30 +218,10 @@ onBeforeMount(() => {
   }
 
   // ======== 暗色模式 ========
+  // 文字色不再在此重写：上面各条已改用 --el-text-color-* 变量，暗色分支由
+  // styles/_dark-mode.scss 统一供值（此前这里写死 #d9d9d9/#ffffff/#595959，
+  // 其中分隔符 #595959 在 L1 表面 #111827 上实测仅 2.53:1）。
   html.dark & {
-    .el-breadcrumb__inner,
-    .el-breadcrumb__inner a {
-      color: #d9d9d9 !important;
-    }
-
-    .el-breadcrumb__item:last-child .el-breadcrumb__inner {
-      color: #ffffff !important;
-      font-weight: 600 !important;
-    }
-
-    .el-breadcrumb__item:last-child .breadcrumb__current {
-      color: #ffffff !important;
-      font-weight: 600 !important;
-    }
-
-    .el-breadcrumb__separator {
-      color: #595959 !important;
-    }
-
-    .el-breadcrumb__inner a:hover {
-      color: var(--el-color-primary) !important;
-    }
-
     &.breadcrumb--background {
       .el-breadcrumb__item:not(:last-child) .el-breadcrumb__inner {
         background-color: rgba(255, 255, 255, 0.06);

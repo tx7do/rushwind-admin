@@ -1,0 +1,46 @@
+﻿import type { RouteRecordRaw } from 'vue-router';
+
+import { BasicLayout } from '#/layouts';
+import { $t } from '#/locales';
+
+const routes: RouteRecordRaw[] = [
+  {
+    name: 'Dashboard',
+    path: '/dashboard',
+    component: BasicLayout,
+    meta: {
+      icon: 'lucide:layout-dashboard',
+      order: 1,
+      title: $t('page.dashboard.title'),
+      authority: ['sys:platform_admin', 'sys:tenant_manager'],
+    },
+
+    children: [
+      {
+        name: 'Analytics',
+        path: '/analytics',
+        component: () => import('#/views/dashboard/analytics/index.vue'),
+        meta: {
+          order: 1,
+          affixTab: true,
+          icon: 'lucide:area-chart',
+          title: $t('page.dashboard.analytics'),
+          authority: ['sys:platform_admin', 'sys:tenant_manager'],
+        },
+      },
+      {
+        name: 'Workspace',
+        path: '/workspace',
+        component: () => import('#/views/dashboard/workspace/index.vue'),
+        meta: {
+          order: 2,
+          icon: 'lucide:armchair',
+          title: $t('page.dashboard.workspace'),
+          authority: ['sys:platform_admin', 'sys:tenant_manager'],
+        },
+      },
+    ],
+  },
+];
+
+export default routes;

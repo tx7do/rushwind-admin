@@ -8,7 +8,7 @@ const routes: RouteRecordRaw[] = [
     component: Layout,
     meta: {
       icon: "lucide:layout-dashboard",
-      order: -1,
+      order: 1,
       title: "routes.dashboard.title",
       authority: ["sys:platform_admin", "sys:tenant_manager"],
     },
@@ -19,9 +19,21 @@ const routes: RouteRecordRaw[] = [
         path: "/analytics",
         component: () => import("@/pages/app/dashboard/analytics/index.vue"),
         meta: {
+          order: 1,
           affixTab: true,
           icon: "lucide:area-chart",
           title: "routes.dashboard.analytics",
+          authority: ["sys:platform_admin", "sys:tenant_manager"],
+        },
+      },
+      {
+        name: "Workspace",
+        path: "/workspace",
+        component: () => import("@/pages/app/dashboard/workspace/index.vue"),
+        meta: {
+          order: 2,
+          icon: "lucide:armchair",
+          title: "routes.dashboard.workspace",
           authority: ["sys:platform_admin", "sys:tenant_manager"],
         },
       },

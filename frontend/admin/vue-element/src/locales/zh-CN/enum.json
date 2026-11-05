@@ -314,5 +314,15 @@
       "UNIT_ONLY": "本部门",
       "SELF": "仅本人"
     }
+  },
+  "membershipPosition": {
+    "status": {
+      "PROBATION": "试用期",
+      "ACTIVE": "在职",
+      "LEAVE": "离职",
+      "RESIGNED": "辞职",
+      "TERMINATED": "解聘",
+      "EXPIRED": "已过期"
+    }
   }
 }

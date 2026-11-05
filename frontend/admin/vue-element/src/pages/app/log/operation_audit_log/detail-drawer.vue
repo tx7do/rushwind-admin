@@ -120,7 +120,7 @@ const data = ref<auditservicev1_OperationAuditLog>();
 
 function open(payload: { row: auditservicev1_OperationAuditLog }) {
   data.value = payload.row;
-  title.value = $t("pages.operation_audit_log.moduleName");
+  title.value = $t("common.modal.view", { moduleName: $t("pages.operation_audit_log.moduleName") });
   visible.value = true;
 }
 

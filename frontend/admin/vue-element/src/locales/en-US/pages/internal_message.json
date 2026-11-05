@@ -1,5 +1,5 @@
 {
-  "moduleName": "Internal Message",
+  "moduleName": "Message",
   "title": "Title",
   "status": "Status",
   "type": "Type",
@@ -7,19 +7,22 @@
   "categoryName": "Category Name",
   "content": "Content",
   "senderName": "Sender",
-  "createdAt": "Created At",
+  "createdAt": "Received At",
   "readAt": "Read At",
   "recipientUserInbox": "User Inbox",
   "button": {
-    "create": "New Message"
+    "create": "New Message",
+    "markAsRead": "Mark as Read",
+    "markAllRead": "Mark All Read"
   },
   "drawer": {
-    "create": "New Message",
-    "update": "Edit Message"
+    "create": "Create Message",
+    "update": "Update Message"
   },
   "sendScope": "Send To",
   "sendScopeAll": "All Users",
   "sendScopeUsers": "Selected Users",
   "targetUsers": "Recipients",
-  "requiredTargetUsers": "Please select recipients"
+  "requiredTargetUsers": "Please select recipients",
+  "senderSystem": "System"
 }

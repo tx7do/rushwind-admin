@@ -107,9 +107,7 @@ impl MfaService {
             token_type: 0,
             access_token: access,
             expires_in: self.state.tokens.access_expires_secs,
-            refresh_token: None,
             scope: None,
-            refresh_expires_in: None,
             id_token: None,
             mfa_operation_id: None,
         })

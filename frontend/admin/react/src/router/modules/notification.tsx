@@ -50,6 +50,17 @@ export const notificationRoutes: AppRouteObject[] = [
           // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
         },
       },
+      {
+        name: 'notification-templates',
+        path: 'templates', // 相对路径，最终为 /notification/templates
+        element: createLazyRoute(() => import('@/pages/app/notification/template')),
+        meta: {
+          title: 'routes:notification-templates',
+          icon: 'lucide:layout-template',
+          order: 4,
+          // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
+        },
+      },
     ],
   },
 ];

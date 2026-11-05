@@ -30,7 +30,6 @@ import type { ProPageConfig } from "@/components/Pro/ProPage/types";
 import LanguageDrawer from "./language-drawer.vue";
 
 import { enableBoolToName, fetchListLanguages, useDeleteLanguage,
-  createPagedExportAction,
 } from "@/api/composables";
 import { PaginationQuery } from "@/core/transport/rest";
 import { $t } from "@/core/i18n";
@@ -74,10 +73,9 @@ const pageConfig = computed<ProPageConfig>(() => ({
     deleteAction: async (ids: string) => {
       await deleteLanguage({ id: ids as any });
     },
-    exportsAction: createPagedExportAction(fetchListLanguages),
     toolbar: [],
     toolbarRight: ["add"],
-    defaultToolbar: ["refresh", "exports", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     tableAttrs: { border: true, stripe: false },
     columns: [
       { type: "index", label: $t("common.table.seq"), width: 60 },

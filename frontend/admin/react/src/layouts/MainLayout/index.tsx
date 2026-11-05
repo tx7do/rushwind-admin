@@ -8,6 +8,7 @@ import HeaderContent from './components/HeaderContent';
 import SiderMenu from './components/SiderMenu';
 import TabsBar from './components/TabsBar';
 import AppFooter from './components/Footer';
+import { LockScreen } from './components/LockScreen';
 import { PageContainer } from '@/layouts/components/PageContainer';
 
 // Hooks
@@ -15,7 +16,7 @@ import { useMenuData } from './hooks/useMenuData';
 import { useLayoutState } from './hooks/useLayoutState';
 
 // Stores & Preferences
-import { useUserStore, useAuthStore, usePageRefreshStore } from '@/stores';
+import { useUserStore, useAuthStore, usePageRefreshStore, useLockStore } from '@/stores';
 import { useAccess } from '@/core/access';
 import { usePreferencesStore } from '@/core/preferences/store';
 import { useThemeConfig } from '@/core/preferences/hooks/useThemeConfig';
@@ -48,6 +49,7 @@ export const MainLayout = ({ routes: dynamicRoutes }: MainLayoutProps) => {
   // Stores
   const { userInfo } = useUserStore();
   const { logout } = useAuthStore();
+  const unlockScreen = useLockStore((state) => state.unlockScreen);
 
   // Preferences
   const preferences = usePreferencesStore((state) => state.preferences);
@@ -245,6 +247,7 @@ export const MainLayout = ({ routes: dynamicRoutes }: MainLayoutProps) => {
         isDark={isDark}
         onToggleTheme={toggleTheme}
         onOpenSettings={() => setSettingsOpen(true)}
+        menuData={menuData}
         widgetConfig={{
           fullscreen: preferences.widget?.fullscreen ?? true,
           globalSearch: preferences.widget?.globalSearch ?? true,
@@ -256,7 +259,7 @@ export const MainLayout = ({ routes: dynamicRoutes }: MainLayoutProps) => {
         }}
       />
     );
-  }, [userInfo, sidebarHidden, isFullscreen, logout, isDark, setPreferences, triggerPageRefresh, preferences.widget]);
+  }, [userInfo, sidebarHidden, isFullscreen, logout, isDark, setPreferences, triggerPageRefresh, preferences.widget, menuData]);
 
   // 主题切换
   useCallback(() => {
@@ -342,8 +345,26 @@ export const MainLayout = ({ routes: dynamicRoutes }: MainLayoutProps) => {
                 background: 'transparent',
               }}
             >
-              {/* 使用 refreshTrigger 作为 key，触发页面重新渲染 */}
-              <Outlet key={refreshTrigger} />
+              {/* key 沿用 refreshTrigger：点刷新时整棵子树重建。外层 div 承担两件事——
+                  ① 保住原来的 flex 高度链（列表页表格靠 flex:1 + min-height:0 撑满，
+                     直接给 Outlet 套动画会把这条链压断）；
+                  ② 承载路由入场动效。此前这里是裸 <Outlet/>，两态实测内容区
+                     transition 为 all/0s、切页 opacity 恒 1 ⇒ 页面硬切，
+                     而 preferences.transition.{enable,name} 这个开关在路由层从未被消费
+                     （只有错误页 Fallback 读它），选动画方案时 UI 上会显示"已生效"的假象。
+                  时长与位移在 global.css 的 .page-transition。 */}
+              <div
+                key={refreshTrigger}
+                className={[
+                  'page-transition',
+                  `transition-${preferences.transition.name}`,
+                  preferences.transition.enable ? '' : 'transition-disabled',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                <Outlet />
+              </div>
             </PageContainer>
           </div>
 
@@ -354,6 +375,17 @@ export const MainLayout = ({ routes: dynamicRoutes }: MainLayoutProps) => {
 
       {/* 设置面板 */}
       <PreferencesPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
+      {/* 锁屏遮罩：组件内按 preferences.widget.lockScreen 与锁屏状态自行门控 */}
+      <LockScreen
+        avatar={userInfo?.avatar || preferences.app.defaultAvatar}
+        onToLogin={() => {
+          // 必须先撤遮罩：logout 只清 auth-storage / user-storage，不碰 lock-storage，
+          // 否则重新登录后遮罩仍在。
+          unlockScreen();
+          void logout();
+        }}
+      />
     </ConfigProvider>
   );
 };

@@ -1,10 +1,11 @@
 <template>
   <ProModal
     v-model:visible="drawer.visible.value"
+    :close-guard="drawer.closeGuard"
     :title="drawer.title.value"
     :config="{
       component: 'drawer',
-      drawer: { size: drawer.drawerWidth, closeOnClickModal: false },
+      drawer: { size: drawer.drawerWidth },
     }"
   >
     <ElForm
@@ -37,7 +38,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="drawer.close">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="drawer.guard.requestClose(drawer.close)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton
           type="primary"
           :loading="drawer.submitLoading.value"

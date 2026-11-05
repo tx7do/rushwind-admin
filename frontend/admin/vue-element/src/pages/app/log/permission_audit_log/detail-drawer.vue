@@ -96,7 +96,7 @@ const data = ref<auditservicev1_PermissionAuditLog>();
 
 function open(payload: { row: auditservicev1_PermissionAuditLog }) {
   data.value = payload.row;
-  title.value = $t("pages.permission_audit_log.moduleName");
+  title.value = $t("common.modal.view", { moduleName: $t("pages.permission_audit_log.moduleName") });
   visible.value = true;
 }
 

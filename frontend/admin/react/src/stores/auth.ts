@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import i18next from 'i18next';
 
 import { encryptPassword } from '@/utils';
+import { apiClient } from '@/api/client';
 import {
   type authenticationservicev1_LoginRequest,
   type authenticationservicev1_LoginResponse,
@@ -58,6 +59,12 @@ export interface AuthState {
    */
   completeMfaChallenge: (
     totpCode: string,
+    onSuccess?: () => void,
+  ) => Promise<void>;
+  /** 完成 OIDC SSO 登录：code+state 换令牌，复用登录成功流程；失败抛错 */
+  completeSsoLogin: (
+    code: string,
+    state: string,
     onSuccess?: () => void,
   ) => Promise<void>;
   logout: (redirect?: boolean) => Promise<void>;
@@ -211,6 +218,19 @@ export const useAuthStore = create<AuthState>()(
           throw err;
         } finally {
           set({ loginLoading: false });
+        }
+      },
+
+      // 完成 OIDC SSO 登录：后端已用 code+state 验证并返回含真 token 的 LoginResponse，
+      // 复用登录成功流程（存 token / 拉用户信息 / 跳转）。
+      completeSsoLogin: async (code, state, onSuccess) => {
+        set({ loginLoading: true, error: null });
+        try {
+          const response = await apiClient.authenticationService.SsoLogin({ code, state });
+          await applySuccessfulLogin(set, response, Date.now(), onSuccess);
+        } catch (err: any) {
+          set({ error: err?.message || i18next.t('auth:ssoLoginFailed'), loginLoading: false });
+          throw err;
         }
       },
 

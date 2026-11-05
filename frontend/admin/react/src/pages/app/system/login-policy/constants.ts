@@ -55,9 +55,10 @@ export function getPolicyMethodMap(t: TFn) {
 export function getPolicyMethodOptions(t: TFn) {
   return [
     { label: t('policyMethod.IP'), value: 'IP' },
-    { label: t('policyMethod.MAC'), value: 'MAC' },
     { label: t('policyMethod.REGION'), value: 'REGION' },
     { label: t('policyMethod.TIME'), value: 'TIME' },
     { label: t('policyMethod.DEVICE'), value: 'DEVICE' },
+    // MAC 不在下拉中：HTTP 请求上下文拿不到 MAC 地址，选了也永不命中
+    // （后端枚举保留兼容存量数据，表格对存量 MAC 行仍正常渲染）。
   ];
 }

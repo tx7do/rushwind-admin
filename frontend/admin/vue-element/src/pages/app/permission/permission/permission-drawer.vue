@@ -5,9 +5,10 @@
     :loading="pageLoading"
     :config="{
       component: 'drawer',
-      drawer: { size: '700px', closeOnClickModal: false },
+      drawer: { size: '700px' },
     }"
-  >
+  
+    :close-guard="guard.allowClose">
     <ElForm
       ref="formRef"
       v-loading="pageLoading"
@@ -120,7 +121,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="handleClose">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="guard.requestClose(handleClose)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
           {{ $t("common.button.confirm") }}
         </ElButton>
@@ -134,6 +135,7 @@ import { computed, nextTick, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 
 import ProModal from "@/components/Pro/ProModal/index.vue";
+import { useDrawerCloseGuard } from "@/components/Pro/composables/use-drawer-close-guard";
 import {
   statusList,
   fetchListPermissionGroups,
@@ -405,6 +407,14 @@ function resetForm() {
   apiTreeRef.value?.setCheckedKeys([]);
 }
 
+// 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）；
+// 关联菜单/API 勾选树的选中态也是编辑态，纳入脏判定
+const guard = useDrawerCloseGuard(() => ({
+  ...formData,
+  menuKeys: menuTreeRef.value?.getCheckedKeys(),
+  apiKeys: apiTreeRef.value?.getCheckedKeys(),
+}));
+
 // 打开抽屉
 async function open(data?: { create: boolean; row?: any }) {
   visible.value = true;
@@ -428,14 +438,16 @@ async function open(data?: { create: boolean; row?: any }) {
         status: data.row.status || "ON",
       });
       // 等待树渲染后设置选中节点
-      nextTick(() => {
-        menuTreeRef.value?.setCheckedKeys(data.row.menuIds || []);
-        apiTreeRef.value?.setCheckedKeys(data.row.apiIds || []);
-      });
+      await nextTick();
+      menuTreeRef.value?.setCheckedKeys(data.row.menuIds || []);
+      apiTreeRef.value?.setCheckedKeys(data.row.apiIds || []);
     }
   } finally {
     pageLoading.value = false;
   }
+
+  // 填充完成后记录基线快照（回填不算脏）
+  guard.syncBaseline();
 }
 
 // 关闭抽屉

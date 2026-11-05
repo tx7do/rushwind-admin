@@ -14,6 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { scriptservicev1_Script as Script } from '@/api/generated/admin/service/v1';
 import { useCreateScript, useUpdateScript, useListHookPoints } from '@/api/hooks/script';
+import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 import { Editor, EditorType } from '@/components/common/Editor';
 
 interface ScriptDrawerProps {
@@ -53,6 +54,9 @@ const skeletonFor = (lang: 'LUA' | 'JAVASCRIPT') =>
 const ScriptDrawer: React.FC<ScriptDrawerProps> = ({ open, mode, data, onClose, onSuccess }) => {
   const { t } = useTranslation('script');
   const formRef = useRef<ProFormInstance>(null);
+
+  // 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+  const { guardClose, handleValuesChange } = useDrawerCloseGuard(open, onClose);
   const queryClient = useQueryClient();
   const { message, modal } = App.useApp();
 
@@ -140,13 +144,7 @@ const ScriptDrawer: React.FC<ScriptDrawerProps> = ({ open, mode, data, onClose, 
       formRef={formRef}
       title={mode === 'create' ? t('create') : t('edit')}
       open={open}
-      onOpenChange={(visible) => {
-        if (!visible) {
-          formRef.current?.resetFields();
-          setSource('');
-          onClose();
-        }
-      }}
+      onValuesChange={handleValuesChange}
       initialValues={{
         language: 'LUA',
         priority: 0,
@@ -162,9 +160,12 @@ const ScriptDrawer: React.FC<ScriptDrawerProps> = ({ open, mode, data, onClose, 
         submitButtonProps: {
           loading: confirmLoading || createMutation.isPending || updateMutation.isPending,
         },
-        resetButtonProps: { onClick: onClose },
+        resetButtonProps: { onClick: guardClose },
       }}
-      drawerProps={{ destroyOnHidden: true, onClose, size: 720 }}
+      drawerProps={{ destroyOnHidden: true, onClose: guardClose, size: 720 }}
+      layout="horizontal"
+      labelCol={{ flex: '0 0 120px' }}
+      wrapperCol={{ flex: 'auto' }}
     >
       <ProFormText
         name="name"
@@ -217,7 +218,11 @@ const ScriptDrawer: React.FC<ScriptDrawerProps> = ({ open, mode, data, onClose, 
         extra={language === 'LUA' ? t('languageLuaTip') : t('languageJavascriptTip')}
       />
 
-      <ProFormItem name="hookPoint" label={t('hookPoint')} extra={t('hookPointPlaceholder')}>
+      <ProFormItem
+        name="hookPoint"
+        label={t('hookPoint')}
+        extra={t('hookPointPlaceholder')}
+      >
         <AutoComplete
           options={hookPointOptions}
           filterOption
@@ -250,7 +255,7 @@ const ScriptDrawer: React.FC<ScriptDrawerProps> = ({ open, mode, data, onClose, 
           <span className="text-[color:var(--ant-color-error)]">* </span>
           {t('source')}
         </label>
-        <div className="rounded-lg border border-white/10 dark:border-white/8">
+        <div className="rounded-lg border border-[color:var(--ant-color-border-secondary)]">
           <Editor
             key={language}
             editorType={EditorType.CODE}

@@ -5,9 +5,10 @@
     :loading="pageLoading"
     :config="{
       component: 'drawer',
-      drawer: { size: DRAWER_WIDTH, closeOnClickModal: false },
+      drawer: { size: 600 }, // 600：容纳 6 个状态按钮一行排开（对齐 react 基线）
     }"
-  >
+  
+    :close-guard="guard.allowClose">
     <ElForm
       ref="formRef"
       v-loading="pageLoading"
@@ -156,7 +157,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="handleClose">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="guard.requestClose(handleClose)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
           {{ $t("common.button.confirm") }}
         </ElButton>
@@ -170,6 +171,7 @@ import { computed, reactive, ref } from "vue";
 import { ElMessage } from "element-plus";
 
 import ProModal from "@/components/Pro/ProModal/index.vue";
+import { useDrawerCloseGuard } from "@/components/Pro/composables/use-drawer-close-guard";
 
 import {
   genderList,
@@ -184,7 +186,6 @@ import { PaginationQuery } from "@/core/transport/rest";
 import { $t } from "@/core/i18n";
 import { isFieldHidden as isFieldHiddenBase } from "@/core/access";
 import { useAccessStore } from "@/stores";
-import { DRAWER_WIDTH } from "@/constants";
 
 const emit = defineEmits<{
   success: [];
@@ -306,6 +307,9 @@ function resetForm() {
 }
 
 // 打开抽屉
+// 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+const guard = useDrawerCloseGuard(() => ({ ...formData }));
+
 async function open(data?: { create: boolean; row?: any }) {
   visible.value = true;
   isCreate.value = data?.create ?? true;
@@ -339,6 +343,9 @@ async function open(data?: { create: boolean; row?: any }) {
   } finally {
     pageLoading.value = false;
   }
+
+  // 填充完成后记录基线快照（回填不算脏）
+  guard.syncBaseline();
 }
 
 // 关闭抽屉

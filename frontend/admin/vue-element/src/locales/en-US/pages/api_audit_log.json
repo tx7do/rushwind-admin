@@ -31,5 +31,7 @@
   "browserName": "Browser",
   "userAgent": "User-Agent",
   "province": "Province",
-  "city": "City"
+  "city": "City",
+  "exportServerSuccess": "Download started",
+  "exportServerFailed": "Server-side export failed"
 }

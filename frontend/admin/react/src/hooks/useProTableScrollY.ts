@@ -8,18 +8,48 @@ import { useEffect, type RefObject } from 'react';
  *   2. JS 测量容器高度、分页器位置，直接操作 .ant-table-body.style.maxHeight
  *   3. 不依赖 CSS flex 穿透 antd 内部 DOM（因为 antd 内部层级不可控）
  *
+ * 注意：列表页通常不需要直接使用本 hook——ListTable 已内置同样的撑满逻辑
+ * （页面不传 scroll.y 时自动接管）。手写样板会被 eslint 警告。
+ *
  * @param containerRef - .page-container-content 容器 div 的 ref
+ * @param options.enabled - 是否启用（默认 true）。ListTable 内部用它做按需接管。
+ * @param options.requireFlexParent - 要求容器父级必须是 flex column（默认 false，
+ *   即维持历史行为）。ListTable 的自动撑满开它：外层不是 ContentContainer 这类
+ *   flex 列容器（如 Drawer 内嵌表）时不接管，避免把自然高度的表压瘪。
  */
 export function useProTableScrollY(
   containerRef: RefObject<HTMLElement | null>,
+  options?: { enabled?: boolean; requireFlexParent?: boolean },
 ): string {
+  const { enabled = true, requireFlexParent = false } = options ?? {};
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
+    if (!enabled) return;
     let rafId = 0;
+    // 容器可能晚于本 hook 挂载（如 Drawer 首帧不渲染 children）：
+    // 先观察 body 等容器出现，resize() 内再把观察迁移到真实容器。
+    let observedContainer: HTMLElement | null = null;
 
     const resize = () => {
+      const container = containerRef.current;
+      if (!container) return;
+
+      if (requireFlexParent) {
+        // 外层不是可撑高的 flex 列容器（无确定高度的普通块级父级）时，
+        // 按 containerHeight-natural 的差值改写 body 会把表越压越瘪，直接不接管。
+        const parentStyle = container.parentElement ? getComputedStyle(container.parentElement) : null;
+        if (!parentStyle || !parentStyle.display.includes('flex') || parentStyle.flexDirection !== 'column') {
+          return;
+        }
+      }
+
+      if (observedContainer !== container) {
+        observedContainer = container;
+        resizeObserver.disconnect();
+        resizeObserver.observe(container);
+        mutationObserver.disconnect();
+        mutationObserver.observe(container, { childList: true, subtree: true });
+      }
+
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         const tableBody = container.querySelector('.ant-table-body') as HTMLElement | null;
@@ -53,6 +83,15 @@ export function useProTableScrollY(
         tableBody.style.maxHeight = `${availableHeight}px`;
         tableBody.style.minHeight = `${availableHeight}px`;
 
+        // 空列表时占位行只占自然高度，被 minHeight 撑高的 body 会露出大段白底。
+        // body 高度是 min/max 撑出来的（height 仍为 auto），内层表格写 height:100% 解析不到，
+        // 必须给显式像素值；有数据时还原，行高由内容决定。
+        const bodyTable = tableBody.querySelector(':scope > table') as HTMLElement | null;
+        if (bodyTable) {
+          const isEmpty = !!tableBody.querySelector('.ant-table-placeholder');
+          bodyTable.style.height = isEmpty ? `${availableHeight}px` : '';
+        }
+
         // 根据内容是否溢出动态切换 overflow-y
         // antd 默认设置 overflow-y: scroll，在 Windows 上会始终显示滚动条轨道
         // 内容不超出时用 hidden 隐藏滚动条，超出时用 auto 按需显示
@@ -74,11 +113,16 @@ export function useProTableScrollY(
 
     // 监听容器尺寸变化
     const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(container);
-
     // 监听 DOM 变化（antd 重新渲染）
     const mutationObserver = new MutationObserver(resize);
-    mutationObserver.observe(container, { childList: true, subtree: true });
+    if (containerRef.current) {
+      observedContainer = containerRef.current;
+      resizeObserver.observe(containerRef.current);
+      mutationObserver.observe(containerRef.current, { childList: true, subtree: true });
+    } else {
+      // 容器尚未挂载（Drawer 首帧不渲染 children）：观察 body，等 resize() 迁移
+      mutationObserver.observe(document.body, { childList: true, subtree: true });
+    }
 
     return () => {
       cancelAnimationFrame(rafId);
@@ -86,7 +130,7 @@ export function useProTableScrollY(
       resizeObserver.disconnect();
       mutationObserver.disconnect();
     };
-  }, [containerRef]);
+  }, [containerRef, enabled, requireFlexParent]);
 
   // 返回初始像素值，仅用于触发 antd 创建 .ant-table-body
   return '100px';

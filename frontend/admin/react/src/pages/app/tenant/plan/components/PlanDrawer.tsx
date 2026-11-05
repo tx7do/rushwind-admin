@@ -19,6 +19,7 @@ import {
   useDeletePlanModule,
 } from '@/api/hooks/plan';
 import { PaginationQuery } from '@/core/transport/rest';
+import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 import { getPlanVersionOptions, getExpiryPolicyOptions, getModuleOptions } from '../constants';
 import { SELECT_FILTER_PROPS } from '../constants';
 
@@ -58,6 +59,9 @@ const PlanDrawer: React.FC<PlanDrawerProps> = ({
 }) => {
   const { t } = useTranslation('plan');
   const formRef = useRef<ProFormInstance>(null);
+
+  // 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+  const { guardClose, handleValuesChange } = useDrawerCloseGuard(open, onClose);
   const queryClient = useQueryClient();
   const { message } = App.useApp();
 
@@ -180,12 +184,7 @@ const PlanDrawer: React.FC<PlanDrawerProps> = ({
       formRef={formRef}
       title={mode === 'create' ? t('create') : t('edit')}
       open={open}
-      onOpenChange={(visible) => {
-        if (!visible) {
-          formRef.current?.resetFields();
-          onClose();
-        }
-      }}
+      onValuesChange={handleValuesChange}
       onFinish={handleSubmit}
       submitter={{
         searchConfig: {
@@ -195,9 +194,12 @@ const PlanDrawer: React.FC<PlanDrawerProps> = ({
         submitButtonProps: {
           loading: confirmLoading || createMutation.isPending || updateMutation.isPending,
         },
-        resetButtonProps: { onClick: onClose },
+        resetButtonProps: { onClick: guardClose },
       }}
-      drawerProps={{ destroyOnHidden: true, onClose, size: 600 }}
+      drawerProps={{ destroyOnHidden: true, onClose: guardClose, size: 600 }}
+      layout="horizontal"
+      labelCol={{ flex: '0 0 120px' }}
+      wrapperCol={{ flex: 'auto' }}
     >
       <ProFormText
         name="name"

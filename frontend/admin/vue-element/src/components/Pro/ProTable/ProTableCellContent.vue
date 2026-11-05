@@ -51,6 +51,7 @@ function isEmptyValue(val: any): boolean {
 <style scoped lang="scss">
 // 空值单元格样式：使用 Element Plus 主题 placeholder 文字色（亮/暗模式自动切换）
 .pro-table__empty-cell {
-  color: var(--el-text-color-placeholder);
+  // 空值占位符「-」是表格内容而不是输入框 placeholder，用占位档只有 2.30:1
+  color: var(--el-text-color-secondary);
 }
 </style>

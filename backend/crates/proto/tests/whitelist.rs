@@ -69,8 +69,10 @@ fn shadowed_routes_match_the_registered_set() {
         .collect();
     let expected: Vec<(usize, &str, &str)> = vec![
         // i_api.proto: /admin/v1/apis/{id} (GET, registered earlier in the
-        // same file) absorbs the walk-route literal path.
-        (16, "GET", "/admin/v1/apis/walk-route"),
+        // same file) absorbs the walk-route literal path. The index moved
+        // 16 → 52 with the ce8ab49 vintage acceptance (the AI/BI/print/
+        // monitor-alert BFF services register ahead of i_api.proto).
+        (52, "GET", "/admin/v1/apis/walk-route"),
     ];
     assert_eq!(
         observed, expected,

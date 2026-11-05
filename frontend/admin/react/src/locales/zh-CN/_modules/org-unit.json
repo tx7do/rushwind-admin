@@ -32,8 +32,8 @@
   "remarkPlaceholder": "请输入备注",
   "createdAt": "创建时间",
   "action": "操作",
-  "create": "新建组织",
-  "edit": "编辑组织",
+  "create": "创建组织",
+  "edit": "更新组织",
   "expandAll": "全部展开",
   "collapseAll": "全部折叠",
   "deleteConfirmTitle": "确认删除",
@@ -44,7 +44,6 @@
   "createFailed": "创建失败",
   "updateFailed": "更新失败",
   "deleteFailed": "删除失败",
-  "fetchFailed": "获取数据失败",
   "statusMap": {
     "ON": "启用",
     "OFF": "禁用"

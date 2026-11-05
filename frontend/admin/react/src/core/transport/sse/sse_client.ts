@@ -241,7 +241,7 @@ export class SSEClient {
    * @param eventName
    * @param handler
    */
-  off(eventName: SSEEventName, handler?: SSEEventHandler): void {
+  off<T = unknown>(eventName: SSEEventName, handler?: SSEEventHandler<T>): void {
     const handlers = this.handlers.get(eventName);
     if (!handlers) return;
 

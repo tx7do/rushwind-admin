@@ -30,9 +30,11 @@ service NotificationService {
 enum Channel {
   CHANNEL_UNSPECIFIED = 0; // 未指定：由 event_type 的路由规则决定
   EMAIL = 1;               // 邮件（SMTP）
-  SMS = 2;                 // 短信（预留：注册表里没有实现，路由到它 = 台账 FAILED）
+  SMS = 2;                 // 短信（阿里云/腾讯云：验证码类事件，走渠道行配的审核模板）
   WEBHOOK = 3;             // Webhook（HTTP 回调，P2-C 落地）
   INTERNAL = 4;            // 站内信
+  EXT = 5;                 // 扩展渠道（go-utils/notify 全量接入：telegram/wecom_app/bark/ntfy…，
+                           // 具体渠道由台账 channel_id → 渠道行的 type 回答）
 }
 
 // 业务事件类型。路由（事件 → 渠道 / 是否异步）由 sys_notification_rules 表决定，
@@ -48,6 +50,20 @@ enum EventType {
   // 它与其他三个事件的区别：那三个由业务动作触发、渠道由路由表决定；这一个本身就是
   // "站内信内容域经缝投递了一次"，related_id 必填，否则台账行无法回答"发的是哪条消息"。
   INTERNAL_MESSAGE = 4;
+
+  // 监控告警：监控扫描任务对规则求值后触发（explicit channel + target，不经路由表）。
+  // related_id 指向 sys_monitor_alert_rules.id。
+  MONITOR_ALERT = 5;
+
+  // 渠道配置测试短信（渠道页"测试发送"）：与 CHANNEL_TEST_EMAIL 同因同果，只差渠道。
+  CHANNEL_TEST_SMS = 6;
+
+  // 手机号绑定验证码短信：由 SMS 渠道显式投递（调用方带 channel=SMS，不经路由表），
+  // 正文来自渠道行配置的审核模板，占位值走 params.code。
+  PHONE_BIND_CODE = 7;
+
+  // 渠道测试消息（扩展渠道 EXT_* 的"测试发送"）。
+  CHANNEL_TEST_EXT = 8;
 }
 
 // 投递状态
@@ -180,6 +196,13 @@ message SendDirectNotificationRequest {
     (gnostic.openapi.v3.property) = { description: "指定渠道配置ID，留空取第一个启用的" }
   ]; // 指定渠道配置ID
 
+
+  // 服务商侧的消息/请求 ID（阿里云 RequestId、腾讯云 SerialNo 等，扩展渠道回执带回）
+  optional string provider_id = 20 [
+    json_name = "providerId",
+    (gnostic.openapi.v3.property) = { description: "服务商侧消息 ID（对账用）" }
+  ]; // 服务商消息 ID
+
   optional Channel channel = 6 [
     json_name = "channel",
     (gnostic.openapi.v3.property) = { description: "投递渠道，留空由事件类型路由决定" }
@@ -207,6 +230,26 @@ message SendDirectNotificationRequest {
     json_name = "requestId",
     (gnostic.openapi.v3.property) = { description: "派发请求ID（留空则服务端生成）" }
   ]; // 派发请求ID
+
+  // 通知模板编码：给出时 title/content 由模板渲染得出，请求里的 title/content 被覆盖。
+  // 渲染发生在落台账之前——异步派发的载荷里装的就是渲染结果，重试不重新解析模板。
+  optional string template_code = 11 [
+    json_name = "templateCode",
+    (gnostic.openapi.v3.property) = { description: "通知模板编码（给出时覆盖 title/content）" }
+  ]; // 通知模板编码
+
+  // 模板变量：占位符名 → 值；模板引用了变量集里没有的占位符时整个渲染报错。
+  map<string, string> template_vars = 12 [
+    json_name = "templateVars",
+    (gnostic.openapi.v3.property) = { description: "模板变量（占位符名 → 值）" }
+  ]; // 模板变量
+
+  // 渠道原生参数：不走模板渲染、由渠道实现直接消费的键值（当前仅 SMS 用：
+  // params.code 是发给服务商审核模板的验证码占位值；SMS 没有它等于这条投递发不出去）。
+  map<string, string> params = 13 [
+    json_name = "params",
+    (gnostic.openapi.v3.property) = { description: "渠道原生参数（SMS 验证码等）" }
+  ]; // 渠道原生参数
 }
 
 // 直发通知 - 回应

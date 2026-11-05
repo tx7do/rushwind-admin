@@ -231,14 +231,14 @@ function handleBuiltinThemeChange(type: BuiltinThemeType) {
     background: var(--el-color-primary-light-9);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    color: var(--el-color-primary);
+    color: var(--gowind-primary-text);
   }
 
   &.active {
     border: 2px solid var(--el-color-primary);
     background: var(--el-fill-color-light);
     box-shadow: 0 0 0 1px var(--el-color-primary);
-    color: var(--el-color-primary);
+    color: var(--gowind-primary-text);
   }
 }
 
@@ -328,13 +328,13 @@ function handleBuiltinThemeChange(type: BuiltinThemeType) {
   transition: all 0.2s;
 
   &:hover {
-    color: var(--el-color-primary);
+    color: var(--gowind-primary-text);
   }
 
   &.active {
     background: var(--el-bg-color);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    color: var(--el-color-primary);
+    color: var(--gowind-primary-text);
   }
 }
 </style>

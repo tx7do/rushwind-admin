@@ -3,6 +3,7 @@ import { ElMessage } from "element-plus";
 import { $t } from "@/core/i18n";
 import { DRAWER_WIDTH } from "@/constants";
 import { cloneDeep } from "@/utils";
+import { useDrawerCloseGuard } from "./use-drawer-close-guard";
 
 /**
  * Drawer 表单通用状态管理
@@ -83,6 +84,10 @@ export function useDrawerForm<T extends Record<string, any>>(options: {
     Object.assign(formData, fresh);
   }
 
+  // === 关闭守卫（docs/form_drawer_close_guard.md） ===
+  // 遮罩/ESC/X/取消四路径统一：脏则弹确认。基线快照在 open() 填充完成后记录。
+  const guard = useDrawerCloseGuard(() => ({ ...formData }));
+
   // === 打开 ===
   async function open(data?: { create?: boolean; row?: any }, onEditFill?: (row: any) => void) {
     visible.value = true;
@@ -103,6 +108,9 @@ export function useDrawerForm<T extends Record<string, any>>(options: {
         pageLoading.value = false;
       }
     }
+
+    // 填充完成后记录基线快照（回填不算脏）
+    guard.syncBaseline();
   }
 
   // 确保关闭时自动重置表单（兼容 ProModal handleClose 仅置 visible=false 的情况）
@@ -172,5 +180,8 @@ export function useDrawerForm<T extends Record<string, any>>(options: {
     close,
     resetForm,
     handleSubmit,
+    // 关闭守卫：接 ProModal :close-guard="drawer.closeGuard"
+    closeGuard: guard.allowClose,
+    guard,
   };
 }

@@ -22,11 +22,11 @@ export const staticRoutes: AppRouteObject[] = [
       hideInTab: true,
     },
     children: [
-      // 根路径重定向到 dashboard
+      // 根路径重定向到分析页（登录落地页，与 ele/vben 的 DEFAULT_HOME_PATH=/analytics 对齐）
       {
         path: '/',
         index: true,
-        element: <Navigate to="/dashboard" replace />,
+        element: <Navigate to="/dashboard/analytics" replace />,
         meta: { title: 'routes:home', hideInMenu: true, hideInTab: true },
       },
     ],

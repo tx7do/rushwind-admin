@@ -4,6 +4,9 @@ import type { RequestClient } from "./request-client";
 import type { MakeErrorMessageFn, ResponseInterceptorConfig } from "./types";
 import { getDefaultErrorMsg } from "./utils";
 
+/** 排队等待刷新的超时兜底：刷新请求自身有 10s 客户端超时，此值仅防异常挂起 */
+const REFRESH_QUEUE_TIMEOUT_MS = 30_000;
+
 /**
  * 认证响应拦截器：处理 401 错误，支持自动刷新 token 和重新认证
  * @param client 请求客户端实例
@@ -13,8 +16,6 @@ import { getDefaultErrorMsg } from "./utils";
  * @param formatToken 格式化 token 的函数，接受原始 token 字符串，返回格式化后的 token 字符串（如添加 "Bearer " 前缀），如果返回 null 则不设置 Authorization 头
  * @returns 响应拦截器配置对象
  */
-/** 排队等待刷新的超时兜底：刷新请求自身有 10s 客户端超时，此值仅防异常挂起 */
-const REFRESH_QUEUE_TIMEOUT_MS = 30_000;
 
 export const authenticateResponseInterceptor = ({
   client,
@@ -38,13 +39,18 @@ export const authenticateResponseInterceptor = ({
         throw error;
       }
 
-      // 刷新 token 请求本身返回 401 → refresh_token 已失效，直接重新认证
-      // 避免将 refresh 请求加入队列导致死锁（队列等待 refresh 完成，但 refresh 本身在队列中）
-      const isRefreshTokenRequest = config.url?.includes("/refresh-token");
+      // refresh-token 请求自身返回 401，说明 refresh token 已失效
+      // 必须直接走重新认证，否则会死锁（刷新请求进入队列等待自己完成）
+      if (config.url?.includes("/refresh-token")) {
+        await doReAuthenticate();
+        throw Object.assign(error, {
+          __handledByAuthInterceptor: true,
+        });
+      }
 
       // 判断是否启用了 refreshToken 功能
       // 如果没有启用或者已经是重试请求了，直接跳转到重新登录
-      if (!enableRefreshToken || config.__isRetryRequest || isRefreshTokenRequest) {
+      if (!enableRefreshToken || config.__isRetryRequest) {
         await doReAuthenticate();
         // 标记错误已由认证拦截器处理
 
@@ -96,6 +102,17 @@ export const authenticateResponseInterceptor = ({
 
       try {
         const newToken = await doRefreshToken();
+
+        // refreshToken 返回空字符串表示无法刷新，直接走重新认证
+        if (!newToken) {
+          client.refreshTokenQueue.forEach((callback) => callback(""));
+          client.refreshTokenQueue = [];
+          await doReAuthenticate();
+          const handledError = Object.assign(new Error("Authentication required"), {
+            __handledByAuthInterceptor: true,
+          });
+          return Promise.reject(handledError);
+        }
 
         // 处理队列中的请求
         client.refreshTokenQueue.forEach((callback) => callback(newToken));

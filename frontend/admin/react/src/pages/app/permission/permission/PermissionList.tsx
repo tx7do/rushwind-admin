@@ -1,18 +1,21 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import TableExportButton from '@/components/common/TableExportButton';
-import { ProTable } from '@ant-design/pro-components';
-import { Button, Popconfirm, Tag, App, Empty } from 'antd';
-import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import TableActions from '@/components/common/TableActions';
+import ListTable from '@/components/common/ListTable';
+import { Button, Tag, App, Empty, Popconfirm } from 'antd';
+import { EditOutlined, DeleteOutlined, PlusOutlined, SyncOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
 import { PaginationQuery } from '@/core';
 import { TABLE } from '@/config/constants';
 import { useProTableScrollY } from '@/hooks/useProTableScrollY';
-import { fetchListPermissions, useDeletePermission } from '@/api/hooks/permission';
+import { fetchListPermissions, useDeletePermission, useSyncPermissions } from '@/api/hooks/permission';
 import { getStatusMap, getStatusOptions } from './constants';
 import PermissionDrawer from './PermissionDrawer';
+import { searchOptionRender } from '@/components/common/searchSubmitter';
+import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
 interface PermissionListProps {
   groupId: number | null;
@@ -44,6 +47,19 @@ const PermissionList: React.FC<PermissionListProps> = ({ groupId }) => {
     },
     onError: (error: Error) => {
       message.error(error.message || t('deleteFailed'));
+    },
+  });
+
+  // 同步权限点：按菜单树重建业务权限分组与权限点
+  const syncMutation = useSyncPermissions({
+    onSuccess: () => {
+      message.success(t('syncSuccess'));
+      actionRef.current?.reload();
+      queryClient.invalidateQueries({ queryKey: ['listPermissions'] });
+      queryClient.invalidateQueries({ queryKey: ['listPermissionGroups'] });
+    },
+    onError: (error: Error) => {
+      message.error(error.message || t('syncFailed'));
     },
   });
 
@@ -84,29 +100,35 @@ const PermissionList: React.FC<PermissionListProps> = ({ groupId }) => {
     {
       title: t('action'),
       valueType: 'option',
-      width: 90,
-      render: (_, record) => [
-        <a
-          key="edit"
-          onClick={() => {
-            setEditingPermission(record);
-            setDrawerMode('edit');
-            setDrawerOpen(true);
-          }}
-        >
-          <EditOutlined />
-        </a>,
-        <Popconfirm
-          key="delete"
-          title={t('deleteConfirmTitle')}
-          description={t('deleteConfirmDesc', { moduleName: t('moduleName') })}
-          onConfirm={() => record.id && deleteMutation.mutate({ id: record.id })}
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a style={{ color: 'var(--ant-color-error)' }}><DeleteOutlined /></a>
-        </Popconfirm>,
-      ],
+      width: 150,
+      render: (_, record) => (
+        <TableActions
+          record={record}
+          actions={[
+            {
+              key: 'edit',
+              label: t('common:button.edit'),
+              icon: <EditOutlined />,
+              onClick: () => {
+                setEditingPermission(record);
+                setDrawerMode('edit');
+                setDrawerOpen(true);
+              },
+            },
+            {
+              key: 'delete',
+              label: t('common:button.delete'),
+              icon: <DeleteOutlined />,
+              danger: true,
+              confirm: {
+                title: t('deleteConfirmTitle'),
+                description: t('deleteConfirmDesc', { moduleName: t('moduleName') }),
+              },
+              onClick: () => record.id && deleteMutation.mutate({ id: record.id }),
+            },
+          ]}
+        />
+      ),
     },
   ];
 
@@ -114,42 +136,37 @@ const PermissionList: React.FC<PermissionListProps> = ({ groupId }) => {
     <>
       <div ref={containerRef} className="page-container-content" style={{ padding: '0 8px', height: '100%' }}>
         {groupId ? (
-          <ProTable<any>
+          <ListTable<any>
             actionRef={actionRef}
             columns={columns}
             headerTitle={false}
             params={{ groupId }}
             request={async (params) => {
-              try {
-                const query = new PaginationQuery({
-                  paging: {
-                    page: params.current || 1,
-                    pageSize: params.pageSize || TABLE.DEFAULT_PAGE_SIZE,
-                  },
-                  formValues: {
-                    ...Object.fromEntries(
-                      Object.entries(params).filter(
-                        ([key]) => !['current', 'pageSize', 'groupId'].includes(key),
-                      ),
+              const query = new PaginationQuery({
+                paging: {
+                  page: params.current || 1,
+                  pageSize: params.pageSize || TABLE.DEFAULT_PAGE_SIZE,
+                },
+                formValues: {
+                  ...Object.fromEntries(
+                    Object.entries(params).filter(
+                      ([key]) => !['current', 'pageSize', 'groupId'].includes(key),
                     ),
-                    group_id: groupId,
-                  },
-                });
+                  ),
+                  group_id: groupId,
+                },
+              });
 
-                const response = await fetchListPermissions(query);
+              const response = await fetchListPermissions(query);
 
-                return {
-                  data: response.items || [],
-                  total: response.total || 0,
-                  success: true,
-                };
-              } catch (error: any) {
-                message.error(error.message || t('fetchFailed'));
-                return { data: [], total: 0, success: false };
-              }
+              return {
+                data: response.items || [],
+                total: response.total || 0,
+                success: true,
+              };
             }}
             rowKey="id"
-            search={{
+            search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
               defaultCollapsed: false,
             }}
@@ -160,24 +177,36 @@ const PermissionList: React.FC<PermissionListProps> = ({ groupId }) => {
             }}
             toolBarRender={() => [
               <TableExportButton key="export" fetcher={fetchListPermissions} columns={columns} filename="permissions" />,
+              <Popconfirm
+                key="syncPermissions"
+                title={t('syncConfirmTitle')}
+                description={t('syncConfirmDesc')}
+                onConfirm={() => syncMutation.mutateAsync()}
+                okText={t('common:button.ok')}
+                cancelText={t('common:button.cancel')}
+              >
+                <Button color="orange" variant="outlined" icon={<SyncOutlined />} loading={syncMutation.isPending}>
+                  {t('syncPermissions')}
+                </Button>
+              </Popconfirm>,
               <Button
                 key="create"
-                type="primary"
+                color="primary"
+                variant="outlined"
                 icon={<PlusOutlined />}
-                size="small"
                 onClick={() => {
                   setEditingPermission(null);
                   setDrawerMode('create');
                   setDrawerOpen(true);
                 }}
               >
-                {t('create')}
+                {t('common:button.add')}
               </Button>,
             ]}
             options={{
               density: true,
               fullScreen: true,
-              setting: true,
+              setting: { settingIcon: <ColumnSlidersIcon /> },
               reload: true,
             }}
             size="small"

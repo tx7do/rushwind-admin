@@ -1,7 +1,8 @@
 {
   "dashboard": {
     "title": "概览",
-    "analytics": "分析页"
+    "analytics": "分析页",
+    "workspace": "工作台"
   },
   "opm": {
     "moduleName": "组织人员",
@@ -32,6 +33,15 @@
     "policyEvaluationLog": "策略评估日志",
     "redisCacheMonitor": "Redis缓存监控"
   },
+  "ai": {
+    "moduleName": "AI 助手",
+    "agents": "Agent 编排",
+    "chat": "AI 助手",
+    "providers": "AI 提供商",
+    "knowledge": "知识库",
+    "query": "智能问数",
+    "usage": "用量统计"
+  },
   "system": {
     "moduleName": "系统管理",
     "dict": "字典管理",
@@ -43,13 +53,16 @@
     "serverMonitor": "服务监控",
     "scripts": "脚本管理",
     "config": "参数管理",
-    "accessKeys": "OpenAPI 凭证"
+    "printTemplates": "打印模板",
+    "accessKeys": "OpenAPI 凭证",
+    "monitorAlerts": "监控告警"
   },
   "notification": {
     "moduleName": "通知管理",
     "channels": "通知渠道",
     "rules": "通知路由规则",
-    "deliveries": "通知投递台账"
+    "deliveries": "通知投递台账",
+    "templates": "通知模板"
   },
   "tenant": {
     "moduleName": "租户管理",
@@ -59,5 +72,11 @@
   "profile": {
     "settings": "个人中心",
     "internalMessage": "收件箱"
+  },
+  "bi": {
+    "title": "BI 分析",
+    "dashboard": "仪表盘",
+    "designer": "设计器",
+    "manage": "仪表盘管理"
   }
 }

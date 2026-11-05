@@ -112,7 +112,7 @@ function fmtUptime(seconds?: number | string): string {
   padding: 12px 4px;
 }
 .error-text {
-  color: var(--el-color-danger);
+  color: var(--gowind-danger-text);
 }
 .disclaimer {
   margin-top: 12px;

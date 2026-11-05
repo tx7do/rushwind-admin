@@ -5,9 +5,10 @@
     :loading="pageLoading"
     :config="{
       component: 'drawer',
-      drawer: { size: '800px', closeOnClickModal: false },
+      drawer: { size: '800px' },
     }"
-  >
+  
+    :close-guard="guard.allowClose">
     <ElForm
       ref="formRef"
       v-loading="pageLoading"
@@ -177,7 +178,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="handleClose">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="guard.requestClose(handleClose)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
           {{ $t("common.button.confirm") }}
         </ElButton>
@@ -191,6 +192,7 @@ import { computed, reactive, ref, watch } from "vue";
 import { ElMessage } from "element-plus";
 
 import ProModal from "@/components/Pro/ProModal/index.vue";
+import { useDrawerCloseGuard } from "@/components/Pro/composables/use-drawer-close-guard";
 import IconSelect from "@/components/IconSelect/index.vue";
 import {
   buildMenuTree,
@@ -269,6 +271,10 @@ watch(
 );
 
 // 打开抽屉
+// 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）；
+// titleSuffix（i18n 标题后缀输入）也是编辑态，纳入脏判定
+const guard = useDrawerCloseGuard(() => ({ ...formData, titleSuffix: titleSuffix.value }));
+
 async function open(row?: any) {
   visible.value = true;
   pageLoading.value = true;
@@ -315,6 +321,9 @@ async function open(row?: any) {
   } finally {
     pageLoading.value = false;
   }
+
+  // 填充完成后记录基线快照（回填不算脏）
+  guard.syncBaseline();
 }
 
 // 关闭抽屉

@@ -6,7 +6,8 @@
     "refresh": "Refresh",
     "search": "Search",
     "batchImport": "Batch Import",
-    "batchExport": "Batch Export"
+    "fullscreen": "Fullscreen",
+    "columnSetting": "Column Settings"
   },
   "search": {
     "expand": "Expand",
@@ -19,35 +20,12 @@
     "pleaseSelectData": "Please select data"
   },
   "export": {
-    "title": "Export Data",
-    "filename": "Filename",
-    "filenamePlaceholder": "Please enter filename",
-    "fileType": "Save as Type",
-    "dataScope": "Select Data",
-    "fields": "Select Fields",
-    "allFields": "All Fields",
-    "export": "Export",
-    "params": "Parameters",
-    "paramsOptions": {
-      "header": "Header",
-      "footer": "Footer",
-      "rawData": "Raw Data",
-      "groupHeader": "Group Header",
-      "mergeCells": "Merge",
-      "style": "Style"
-    },
-    "originOptions": {
-      "current": "Current Data (current page data)",
-      "selected": "Selected Data (selected data on current page)",
-      "all": "All Data (current filters)"
-    },
-    "fileTypeOptions": {
-      "csv": "CSV (Comma Separated)(*.csv)",
-      "html": "Web Page(*.html)",
-      "xml": "XML Data(*.xml)",
-      "txt": "Text File(Tab Delimited)(*.txt)",
-      "xlsx": "Excel Workbook(*.xlsx)"
-    }
+    "exportAll": "Export All",
+    "csv": "CSV (Comma Separated)",
+    "xlsx": "Excel Workbook",
+    "serverXlsx": "Server-side full (XLSX)",
+    "success": "Exported {count} rows",
+    "failed": "Export failed"
   },
   "import": {
     "title": "Import Data",
@@ -63,7 +41,6 @@
     "deleteSuccess": "Delete successful",
     "noDeleteAction": "deleteAction not configured",
     "selectFields": "Please select fields",
-    "selectOrigin": "Please select data source",
     "noExportsAction": "exportsAction not configured",
     "selectFile": "Please select file",
     "noImportTemplate": "importTemplate not configured",

@@ -14,7 +14,7 @@
             <span class="flex items-center gap-1">
               {{ field.label }}
               <ElTooltip v-if="field.tips" v-bind="getTooltipProps(field.tips)">
-                <ElIcon class="text-gray-400"><QuestionFilled /></ElIcon>
+                <ElIcon style="--color: var(--el-text-color-secondary)"><QuestionFilled /></ElIcon>
               </ElTooltip>
               <span v-if="colon" class="ml-0.5">:</span>
             </span>

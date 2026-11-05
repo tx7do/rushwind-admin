@@ -1,17 +1,29 @@
 {
   "button": {
+    "add": "Add",
+    "search": "Search",
     "back": "Back",
     "ok": "OK",
+    "confirm": "Confirm",
     "cancel": "Cancel",
     "edit": "Edit",
     "delete": "Delete",
     "submit": "Submit",
-    "reset": "Reset"
+    "reset": "Reset",
+    "retry": "Retry",
+    "more": "More",
+    "copy": "Copy",
+    "save": "Save",
+    "close": "Close"
   },
   "header": {
     "profile": "Profile",
     "settings": "Preferences",
+    "inbox": "Inbox",
+    "lockScreen": "Lock Screen",
     "logout": "Logout",
+    "logoutConfirmTitle": "Notice",
+    "logoutConfirmMessage": "Do you want to logout?",
     "fullscreen": "Fullscreen",
     "exitFullscreen": "Exit Fullscreen",
     "helpDoc": "Help Docs",
@@ -25,7 +37,24 @@
     "switchLanguage": "Switch Language",
     "search": "Search",
     "searchPlaceholder": "Search menu or features...",
-    "searchShortcut": "Ctrl K"
+    "searchShortcut": "Ctrl K",
+    "searching": "Searching…",
+    "noResults": "No matching pages found",
+    "noHistory": "No recent searches",
+    "searchRecent": "Recent",
+    "semanticTitle": "Semantic Search",
+    "searchSelect": "Select",
+    "searchSwitch": "Switch",
+    "searchClose": "Close"
+  },
+  "lockScreen": {
+    "title": "Lock Screen",
+    "placeholder": "Please enter password",
+    "lock": "Locking",
+    "unlock": "Click to unlock",
+    "entry": "Enter the system",
+    "backToLogin": "Back to login",
+    "errorTip": "Password error, please re-enter"
   },
   "refresh": "Refresh",
   "home": "Home",
@@ -81,6 +110,9 @@
     "initializing": "Initializing",
     "loadingRouter": "Loading route configuration..."
   },
+  "table": {
+    "columnResizeHint": "Drag to resize column, double-click to auto-fit"
+  },
   "unknownPage": "Unknown Page",
   "pageContainer": {
     "defaultTitle": "Page",
@@ -108,7 +140,9 @@
     "copyDenied": "Copy operation was denied"
   },
   "placeholder": {
-    "underDevelopment": "{{pageName}} - Under Development"
+    "underDevelopment": "{{pageName}} - Under Development",
+    "input": "Please enter",
+    "select": "Please select"
   },
   "requestError": {
     "networkError": "Network connection error, please check your network settings and try again",
@@ -242,10 +276,30 @@
     "readFileFailed": "Failed to read file"
   },
   "export": {
-    "title": "Export",
+    "title": "Export All",
     "csv": "CSV (Comma Separated)",
     "xlsx": "Excel Workbook",
-    "success": "Exported {count} rows",
-    "failed": "Export failed"
+    "success": "Exported {{count}} rows",
+    "failed": "Export failed",
+    "serverXlsx": "Server-side full (XLSX)",
+    "serverSuccess": "Export file generated",
+    "serverFailed": "Server-side export failed"
+  },
+  "dateRange": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "lastWeek": "Last Week",
+    "thisMonth": "This Month",
+    "lastMonth": "Last Month"
+  },
+  "modal": {
+    "create": "Create {{moduleName}}",
+    "update": "Update {{moduleName}}",
+    "view": "View {{moduleName}}"
+  },
+  "drawer": {
+    "unsavedMessage": "The form has been modified. Do you want to discard this edit?",
+    "discardButton": "Discard"
   }
 }

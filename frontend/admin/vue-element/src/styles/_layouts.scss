@@ -199,7 +199,7 @@ html.sidebar-color-blue .layout-mix .layout__sidebar--left .el-menu {
 
   // ---- Primary（编辑/查看/下载/重启） ----
   &--primary {
-    color: var(--el-color-primary) !important;
+    color: var(--gowind-primary-text) !important;
 
     svg,
     i,
@@ -215,7 +215,7 @@ html.sidebar-color-blue .layout-mix .layout__sidebar--left .el-menu {
 
   // ---- Danger（删除/停止） ----
   &--danger {
-    color: var(--el-color-danger) !important;
+    color: var(--gowind-danger-text) !important;
 
     svg,
     i,
@@ -231,7 +231,7 @@ html.sidebar-color-blue .layout-mix .layout__sidebar--left .el-menu {
 
   // ---- Success（启动） ----
   &--success {
-    color: var(--el-color-success) !important;
+    color: var(--gowind-success-text) !important;
 
     svg,
     i,
@@ -247,7 +247,7 @@ html.sidebar-color-blue .layout-mix .layout__sidebar--left .el-menu {
 
   // ---- Warning ----
   &--warning {
-    color: var(--el-color-warning) !important;
+    color: var(--gowind-warning-text) !important;
 
     svg,
     i,

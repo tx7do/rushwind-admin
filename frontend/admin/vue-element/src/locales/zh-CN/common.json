@@ -7,6 +7,7 @@
     "delete": "删除",
     "search": "搜索",
     "reset": "重置",
+    "retry": "重试",
     "export": "导出",
     "import": "导入",
     "add": "新增",
@@ -21,7 +22,9 @@
     "ok": "确定",
     "detail": "详情",
     "expand": "展开",
-    "collapse": "收起"
+    "collapse": "收起",
+    "more": "更多",
+    "copy": "复制"
   },
   "status": {
     "enabled": "启用",
@@ -67,7 +70,7 @@
     "operationFailed": "操作失败",
     "getDetailFailed": "获取详情失败",
     "confirmDelete": "确定要删除该{moduleName}吗？",
-    "confirmSyncPermissions": "确定要同步{moduleName}权限吗？",
+    "confirmSyncPermissions": "确定要同步{moduleName}吗？",
     "developing": "开发中 ...",
     "loadDataFailed": "数据加载失败"
   },
@@ -131,7 +134,12 @@
     "syncFailed": "同步失败",
     "password_mismatch": "两次输入的密码不一致",
     "update_status_success": "状态更新成功",
-    "passwordChanged": "密码修改成功，请重新登录"
+    "passwordChanged": "密码修改成功，请重新登录",
+    "create_success": "创建成功",
+    "create_failed": "创建失败",
+    "operation_success": "操作成功",
+    "operation_failed": "操作失败",
+    "update_status_failed": "状态更新失败"
   },
   "title": {
     "confirm": "确认",
@@ -143,7 +151,12 @@
   },
   "modal": {
     "create": "创建{moduleName}",
-    "update": "编辑{moduleName}"
+    "update": "更新{moduleName}",
+    "view": "查看{moduleName}"
+  },
+  "drawer": {
+    "unsavedMessage": "表单内容已修改，是否放弃本次编辑？",
+    "discardButton": "确定放弃"
   },
   "confirm": {
     "do_you_want_delete": "确定要删除该{moduleName}吗？",
@@ -153,15 +166,30 @@
     "searchMenu": "搜索菜单",
     "openSearch": "打开搜索面板",
     "close": "关闭",
-    "noHistory": "没有搜索历史",
+    "noHistory": "暂无最近搜索",
+    "noResults": "未找到相关页面",
+    "recent": "最近",
+    "semanticTitle": "语义搜索",
+    "searching": "正在搜索…",
     "switch": "切换",
     "select": "选择"
   },
   "navbar": {
     "profile": "个人中心",
+    "inbox": "收件箱",
+    "lockScreen": "锁定屏幕",
     "logout": "退出登录",
     "logoutConfirmTitle": "提示",
     "logoutConfirmMessage": "确定注销并退出系统吗？"
+  },
+  "lockScreen": {
+    "title": "锁定屏幕",
+    "placeholder": "请输入锁屏密码",
+    "lock": "锁定",
+    "unlock": "点击解锁",
+    "entry": "进入系统",
+    "backToLogin": "返回登录",
+    "errorTip": "密码错误，请重新输入"
   },
   "sidebar": {
     "collapseMenu": "折叠菜单",
@@ -388,6 +416,21 @@
     "json_parse_error": "JSON解析错误",
     "json_serialize_error": "JSON序列化错误",
     "unknown_error": "未知错误",
-    "image_upload_failed": "图片上传失败"
+    "image_upload_failed": "图片上传失败",
+    "clear_content_confirm": "确定要清空所有内容吗？"
+  },
+  "loading": "加载中...",
+  "loadingMenu": "正在加载菜单",
+  "operationFailed": "操作失败",
+  "header": {
+    "settings": "系统设置",
+    "fullscreen": "全屏",
+    "layout": "布局",
+    "language": "语言",
+    "notification": "通知",
+    "sidebar": "侧边栏",
+    "refresh": "刷新内容",
+    "preferences": "偏好设置",
+    "theme": "主题切换"
   }
 }

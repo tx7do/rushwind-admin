@@ -1,255 +1,129 @@
 /**
- * 通知中心逻辑
+ * 站内信浮窗（顶栏铃铛下拉）逻辑。
+ * 行为以 react 端 HeaderContent 的 inboxContent 为基准：
+ * - 未读数走独立 COUNT（pageSize=1 取服务端 total）
+ * - 列表为最近 5 条「已读+未读混合」（不按状态过滤）
+ * - 点击条目/底部链接进入收件箱页；「全部已读」一键标记
+ * - SSE notification 事件触发重拉，另有 5 分钟兜底轮询
  */
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import {
   fetchListUserInbox,
-  fetchGetInternalMessage,
-  useDeleteNotificationFromInbox,
   useMarkNotificationAsRead,
 } from "@/api/composables";
 import { useAppUserStore } from "@/stores";
 import { PaginationQuery } from "@/core/transport/rest";
 import { router } from "@/router";
 import type { internal_messageservicev1_InternalMessageRecipient as InternalMessageRecipient } from "@/api/generated/admin/service/v1";
-import { dateUtil } from "@/utils";
 import { globalSSEClient, SSE_EVENT } from "@/core/transport/sse";
 import { i18n } from "@/core/i18n";
 
 const t = i18n.global.t;
 
 const PAGE_SIZE = 5;
+// 兜底轮询：实时更新靠 SSE notification 事件触发重拉，这里只在 SSE 失联时补拉
+const POLL_INTERVAL = 300_000;
 
 export function useNotice() {
   const { mutateAsync: markNotificationAsRead } = useMarkNotificationAsRead();
-  const { mutateAsync: deleteNotificationFromInbox } = useDeleteNotificationFromInbox();
   const userStore = useAppUserStore();
 
-  // 状态
   const list = ref<InternalMessageRecipient[]>([]);
   const unreadTotal = ref(0);
-  const detail = ref<any | null>(null);
-  const dialogVisible = ref(false);
+  const listLoading = ref(false);
+  const markAllLoading = ref(false);
 
-  // ============================================
-  // 数据获取
-  // ============================================
-
-  async function fetchList(params?: any) {
+  async function fetchUnreadCount() {
     const userId = userStore.userInfo?.id;
     if (!userId) return;
-
     const result = await fetchListUserInbox(
       new PaginationQuery({
-        paging: { page: 1, pageSize: PAGE_SIZE },
+        paging: { page: 1, pageSize: 1 },
+        // recipient_user_id 必传：不传只靠租户过滤，会查到同租户其他用户的收件记录
         formValues: {
           recipient_user_id: userId.toString(),
           status: "RECEIVED",
-          ...params,
         },
-        orderBy: ["-created_at"],
       })
     );
-    // 转换数据格式
-    list.value = (result.items || []).map((item) => convertInternalMessageRecipient(item));
-    unreadTotal.value = result.total ?? 0;
+    // proto int64 经 protojson 运行时是字符串（TS 类型却标 number），须显式转数字。
+    // 未读数用列表响应的服务端 total（独立 COUNT），不能用当前页条数——后者封顶在 pageSize。
+    unreadTotal.value = Number(result.total ?? 0);
   }
 
-  async function read(item: { id?: number; messageId?: number }) {
-    // 注意区分两种 id：
-    // - item.id 是收件记录 id (InternalMessageRecipient.id)，用于标记已读 recipientIds
-    // - item.messageId 是消息本身 id，用于 fetchGetInternalMessage 取详情
-    // 之前错误地把收件记录 id 当作消息 id 传给 fetchGetInternalMessage，
-    // 导致详情取错或 404。
-    const recipientId = item.id;
-    const messageId = item.messageId;
-    if (recipientId == null && messageId == null) return;
-
-    detail.value = await fetchGetInternalMessage({ id: messageId });
-    dialogVisible.value = true;
-
-    // 标记为已读（用收件记录 id）
+  async function fetchList() {
     const userId = userStore.userInfo?.id;
-    if (userId && recipientId != null) {
-      try {
-        await markNotificationAsRead({ userId, recipientIds: [recipientId] });
-        ElMessage.success(t("common.notice.markedRead"));
-      } catch {
-        ElMessage.error(t("common.notice.markFailed"));
-      }
+    if (!userId) return;
+    listLoading.value = true;
+    try {
+      const result = await fetchListUserInbox(
+        new PaginationQuery({
+          paging: { page: 1, pageSize: PAGE_SIZE },
+          formValues: { recipient_user_id: userId.toString() },
+          orderBy: ["-created_at"],
+        })
+      );
+      list.value = result.items || [];
+    } finally {
+      listLoading.value = false;
     }
+  }
 
-    // 从列表中移除已读项
-    if (recipientId != null) {
-      const idx = list.value.findIndex((row) => row.id === recipientId);
-      if (idx >= 0) {
-        list.value.splice(idx, 1);
-        if (unreadTotal.value > 0) unreadTotal.value -= 1;
-      }
-    }
-
-    await fetchList();
+  function reloadAll() {
+    fetchUnreadCount();
+    fetchList();
   }
 
   async function readAll() {
     const userId = userStore.userInfo?.id;
-    if (!userId) return;
+    if (!userId || unreadTotal.value <= 0 || markAllLoading.value) return;
 
-    if (unreadTotal.value === 0) {
-      ElMessage.info(t("common.notice.noUnread"));
-      return;
-    }
-
+    markAllLoading.value = true;
     try {
-      // 空 recipientIds 表示标记该用户全部未读（服务端按用户维度兜底）：
-      // 下拉只加载了当前页，无法枚举全部未读ID。
+      // 后端约定：recipientIds 为空 = 标记该用户全部未读
+      // （下拉只加载了当前页，无法枚举全部未读ID）。
       await markNotificationAsRead({ userId, recipientIds: [] });
-      ElMessage.success(t("common.notice.allMarkedRead"));
-    } catch {
-      ElMessage.error(t("common.message.error"));
-      return;
+      ElMessage.success(t("core.notice.markAllReadSuccess"));
+      reloadAll();
+    } catch (error) {
+      console.error("markAllRead failed:", error);
+      ElMessage.error(t("core.notice.markAllReadFailed"));
+    } finally {
+      markAllLoading.value = false;
     }
-
-    // 清空列表并重置计数
-    list.value = [];
-    unreadTotal.value = 0;
-  }
-
-  async function clearAll() {
-    const userId = userStore.userInfo?.id;
-    if (!userId) return;
-
-    try {
-      await ElMessageBox.confirm(t("common.notice.confirmClear"), t("common.message.info"), {
-        confirmButtonText: t("common.button.confirm"),
-        cancelButtonText: t("common.button.cancel"),
-        type: "warning",
-      });
-    } catch {
-      return;
-    }
-
-    if (list.value.length === 0 && unreadTotal.value === 0) {
-      ElMessage.info(t("common.notice.noMessages"));
-      return;
-    }
-
-    try {
-      // 空 recipientIds 表示清空该用户收件箱（服务端按用户维度兜底，
-      // 下拉只加载了当前页，无法枚举全部ID），危险操作已有上方二次确认。
-      await deleteNotificationFromInbox({ userId, recipientIds: [] });
-      ElMessage.success(t("common.notice.cleared"));
-    } catch {
-      ElMessage.error(t("common.message.error"));
-      return;
-    }
-
-    // 清空列表并重置计数
-    list.value = [];
-    unreadTotal.value = 0;
   }
 
   function goMore() {
     router.push("/internal-message/inbox");
   }
 
-  /**
-   * 检查消息是否已存在
-   */
-  function hasMessage(data: InternalMessageRecipient): boolean {
-    return list.value.some((item) => item.messageId === data.messageId);
+  // SSE 实时通知：收到新站内信即整体重拉（不做增量插入，避免去重/截断逻辑分叉）
+  function handleSseNotification() {
+    reloadAll();
   }
 
-  /**
-   * 转换内部消息为UI数据
-   */
-  function convertInternalMessageRecipient(item: InternalMessageRecipient) {
-    const date = dateUtil(item.createdAt as string).fromNow();
-    return {
-      id: item.id ?? 0,
-      messageId: item.messageId ?? 0,
-      title: item.title || "",
-      content: item.content || "",
-      status: item.status,
-      createdAt: item.createdAt,
-      date,
-      isRead: item.status === "READ",
-    };
-  }
-
-  /**
-   * 处理SSE通知事件
-   */
-  function handleSseNotification(data: InternalMessageRecipient) {
-    try {
-      if (!data.id || !data.messageId) return;
-
-      // 避免重复
-      if (hasMessage(data)) return;
-
-      // 转换数据格式并添加到列表头部
-      const convertedData = convertInternalMessageRecipient(data);
-      list.value.unshift(convertedData);
-
-      // 如果超过页面大小，移除最后一个
-      if (list.value.length > PAGE_SIZE) {
-        list.value.pop();
-      }
-
-      // 更新未读总数
-      unreadTotal.value += 1;
-
-      // 显示桌面通知
-      ElNotification({
-        title: t("common.notice.newNotificationTitle"),
-        message: data.title || t("common.notice.newMessage"),
-        type: "success",
-        position: "bottom-right",
-      });
-    } catch (e) {
-      console.error("解析通知消息失败", e);
-    }
-  }
-
-  // ============================================
-  // SSE 订阅
-  // ============================================
-
-  function setupSubscription() {
-    // 后端目前只推送 SSE_EVENT.Notification 一种事件；撤回不推送——收件行在库侧已被删除，
-    // 下次拉取（fetchList / 轮询）自然消失，无需增量同步。
-    globalSSEClient.on<InternalMessageRecipient>(
-      SSE_EVENT.Notification,
-      handleSseNotification,
-    );
-  }
-
-  // ============================================
-  // 生命周期
-  // ============================================
+  let pollTimer: ReturnType<typeof setInterval> | undefined;
 
   onMounted(() => {
-    fetchList();
-    setupSubscription();
+    reloadAll();
+    globalSSEClient.on(SSE_EVENT.Notification, handleSseNotification);
+    pollTimer = setInterval(reloadAll, POLL_INTERVAL);
   });
 
   onBeforeUnmount(() => {
     // 必须按回调引用显式注销，否则 globalSSEClient.handlers 会持续累加：
     // NoticeDropdown 每次重新挂载（布局切换/路由往返/热重载）都会重新 on()，
-    // 若不 off()，一条新消息会触发 N 次回调（N=累计挂载次数），
-    // 导致 unreadTotal 重复自增、桌面通知重复弹出、list 反复 unshift。
+    // 若不 off()，一条新消息会触发 N 次回调（N=累计挂载次数）。
     globalSSEClient.off(SSE_EVENT.Notification, handleSseNotification);
+    if (pollTimer) clearInterval(pollTimer);
   });
 
   return {
     list,
     unreadTotal,
-    detail,
-    dialogVisible,
-    fetchList,
-    read,
+    listLoading,
+    markAllLoading,
     readAll,
-    clearAll,
     goMore,
   };
 }

@@ -8,14 +8,16 @@ interface StatsCardProps {
   tone?: 'blue' | 'cyan' | 'violet' | 'emerald';
 }
 
+// 图标色分亮/暗两档：-400 是为深底校准的（浅底实测 1.8~2.9:1，连图形 3:1 都不够），
+// 亮色侧改用 -600；色块底 12% 透明度两态通用，无需分支。
 const TONE_STYLES: Record<
   NonNullable<StatsCardProps['tone']>,
   { chip: string; glow: string }
 > = {
-  blue: { chip: 'bg-blue-500/12 text-blue-400', glow: 'from-blue-500/10' },
-  cyan: { chip: 'bg-cyan-500/12 text-cyan-400', glow: 'from-cyan-500/10' },
-  violet: { chip: 'bg-violet-500/12 text-violet-400', glow: 'from-violet-500/10' },
-  emerald: { chip: 'bg-emerald-500/12 text-emerald-400', glow: 'from-emerald-500/10' },
+  blue: { chip: 'bg-blue-500/12 text-blue-600 dark:text-blue-400', glow: 'from-blue-500/10' },
+  cyan: { chip: 'bg-cyan-500/12 text-cyan-700 dark:text-cyan-400', glow: 'from-cyan-500/10' },
+  violet: { chip: 'bg-violet-500/12 text-violet-600 dark:text-violet-400', glow: 'from-violet-500/10' },
+  emerald: { chip: 'bg-emerald-500/12 text-emerald-700 dark:text-emerald-400', glow: 'from-emerald-500/10' },
 };
 
 /**
@@ -27,9 +29,11 @@ export const StatsCard = ({ title, value, icon, tone = 'blue' }: StatsCardProps)
   return (
     <div
       className={
-        'group relative h-full overflow-hidden rounded-xl border border-white/8 ' +
+        'group relative h-full overflow-hidden rounded-xl border ' +
+        'border-[color:var(--ant-color-border-secondary)] ' +
         'bg-[color:var(--ant-color-bg-container)] p-5 transition-all duration-200 ' +
-        'hover:-translate-y-0.5 hover:border-white/15 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
+        'hover:-translate-y-0.5 hover:border-[color:var(--ant-color-primary-border-hover)] ' +
+        'hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)]'
       }
     >
       {/* 左上角主色微光，给卡片一点生气 */}

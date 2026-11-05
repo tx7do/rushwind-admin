@@ -3,7 +3,7 @@
 }
 
 .breadcrumb-item:hover {
-    color: var(--ant-color-primary);
+    color: var(--gowind-primary-text);
 }
 
 .breadcrumb-item-bg {

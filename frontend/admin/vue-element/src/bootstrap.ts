@@ -13,7 +13,7 @@ import { setupI18n } from "@/core/i18n";
 import { router, setupRouter } from "@/router";
 import { initStores } from "@/stores/setup";
 import { registerGlobComp } from "@/registerGlobComp";
-import { initPreferences } from "@/core/preferences";
+import { initPreferences, preferences } from "@/core/preferences";
 import { RequestClient } from "@/core/transport/rest";
 import {
   connectSSEServer,
@@ -116,7 +116,10 @@ async function bootstrap(namespace: string) {
   setupRouter(app);
 
   // 国际化 i18n 配置
-  await setupI18n(app);
+  // defaultLocale 必须取已持久化的偏好 locale：initPreferences 内部的 handleUpdates
+  // 会先按偏好 locale 预载语言包，这里若固定 zh-CN 会把已保存的 en-US 等偏好
+  // 强行盖回默认值（实测 en-US 偏好启动后 html.lang 仍为 zh-CN）。
+  await setupI18n(app, { defaultLocale: preferences.app.locale });
 
   // 全局错误观测：渲染函数/守卫抛出的异常若无人接管会静默吞掉，
   // 表现为 router-view 塌空白屏且零控制台输出，极难定位。这里强制落到

@@ -173,6 +173,12 @@ message User {
     (gnostic.openapi.v3.property) = {description: "国家地区"}
   ]; // 国家地区
 
+  // 偏好语言：事务性邮件（找回密码/换绑验证码）按此渲染；空 = 按请求 Accept-Language。
+  optional string locale = 32 [
+    json_name = "locale",
+    (gnostic.openapi.v3.property) = {description: "偏好语言（zh-CN/en-US，空=跟随请求）"}
+  ]; // 偏好语言
+
   optional string description = 30 [
     json_name = "description",
     (gnostic.openapi.v3.property) = {description: "个人描述"}

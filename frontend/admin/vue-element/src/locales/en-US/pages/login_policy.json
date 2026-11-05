@@ -7,7 +7,7 @@
   "reason": "Reason",
   "createdAt": "Created At",
   "button": {
-    "create": "Create",
-    "update": "Update"
+    "create": "Create Login Policy",
+    "update": "Update Login Policy"
   }
 }

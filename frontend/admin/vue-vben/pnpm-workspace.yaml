@@ -1,16 +1,3 @@
-packages:
-  - internal/*
-  - internal/lint-configs/*
-  - packages/*
-  - packages/@core/base/*
-  - packages/@core/ui-kit/*
-  - packages/@core/forward/*
-  - packages/@core/*
-  - packages/effects/*
-  - packages/business/*
-  - apps/*
-  - scripts/*
-
 # 这些依赖的 postinstall 从未参与构建（pnpm 10 时代即被默认拦截），显式 false 保持行为一致。
 allowBuilds:
   '@parcel/watcher': false
@@ -214,3 +201,7 @@ catalog:
   watermark-js-plus: ^1.5.7
   zod: ^3.24.1
   zod-defaults: ^0.1.3
+
+minimumReleaseAgeExclude:
+  - '@worm-vue3-print/canvas@1.3.11'
+  - '@worm-vue3-print/core@1.3.11'

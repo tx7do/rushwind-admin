@@ -20,7 +20,7 @@
     <rect fill="var(--fb-paper)" height="40" width="16" x="292" y="320" />
 
     <!-- Warning triangle -->
-    <path d="M280 140 L320 140 L300 100 Z" fill="#ff6b6b" />
+    <path d="M280 140 L320 140 L300 100 Z" fill="var(--fb-coral)" />
 
     <!-- Exclamation mark -->
     <rect fill="var(--fb-paper)" height="20" width="6" x="297" y="112" />

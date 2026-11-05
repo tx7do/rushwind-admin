@@ -1,15 +1,16 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import TableExportButton from '@/components/common/TableExportButton';
-import { ProTable } from '@ant-design/pro-components';
+import TableActions from '@/components/common/TableActions';
+import ListTable from '@/components/common/ListTable';
 import { Button, Popconfirm, Tag, Switch, App } from 'antd';
-import {
-  EditOutlined,
+import { EditOutlined,
   DeleteOutlined,
   PlusOutlined,
   CaretRightOutlined,
   PauseOutlined,
   ReloadOutlined,
+  CloudServerOutlined,
 } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
@@ -26,8 +27,11 @@ import {
 } from '@/api/hooks/task';
 import { useProTableScrollY } from '@/hooks/useProTableScrollY';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
+import SystemTasksModal from './SystemTasksModal';
 import { getTaskTypeMap, getTaskTypeOptions } from './constants';
 import TaskDrawer from './components/TaskDrawer';
+import { searchOptionRender } from '@/components/common/searchSubmitter';
+import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
 /**
  * 任务管理页面
@@ -42,6 +46,7 @@ const TaskManagement = () => {
   const tableScrollY = useProTableScrollY(containerRef);
 
   // Drawer 状态管理
+const [sysTasksOpen, setSysTasksOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<'create' | 'edit'>('create');
   const [selectedTask, setSelectedTask] = useState<Task | undefined>();
@@ -206,65 +211,75 @@ const TaskManagement = () => {
     {
       title: t('action'),
       valueType: 'option',
-      width: 200,
-      render: (_, record) => [
-        <a
-          key="edit"
-          onClick={() => {
-            setDrawerMode('edit');
-            setSelectedTask(record);
-            setDrawerOpen(true);
-          }}
-        >
-          <EditOutlined />
-        </a>,
-        <Popconfirm
-          key="start"
-          title={t('startTaskConfirmTitle')}
-          description={t('startTaskConfirmDesc', { moduleName: t('moduleName') })}
-          onConfirm={() =>
-            controlMutation.mutate({ typeName: record.typeName as string, controlType: 'Start' })
-          }
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a style={{ color: '#52c41a' }}><CaretRightOutlined /></a>
-        </Popconfirm>,
-        <Popconfirm
-          key="stop"
-          title={t('stopTaskConfirmTitle')}
-          description={t('stopTaskConfirmDesc', { moduleName: t('moduleName') })}
-          onConfirm={() =>
-            controlMutation.mutate({ typeName: record.typeName as string, controlType: 'Stop' })
-          }
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a style={{ color: 'var(--ant-color-error)' }}><PauseOutlined /></a>
-        </Popconfirm>,
-        <Popconfirm
-          key="restart"
-          title={t('restartTaskConfirmTitle')}
-          description={t('restartTaskConfirmDesc', { moduleName: t('moduleName') })}
-          onConfirm={() =>
-            controlMutation.mutate({ typeName: record.typeName as string, controlType: 'Restart' })
-          }
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a><ReloadOutlined /></a>
-        </Popconfirm>,
-        <Popconfirm
-          key="delete"
-          title={t('deleteConfirmTitle')}
-          description={t('deleteConfirmDesc', { moduleName: t('moduleName') })}
-          onConfirm={() => record.id && deleteMutation.mutate({ id: record.id })}
-          okText={t('common:button.ok')}
-          cancelText={t('common:button.cancel')}
-        >
-          <a style={{ color: 'var(--ant-color-error)' }}><DeleteOutlined /></a>
-        </Popconfirm>,
-      ],
+      width: 310,
+      render: (_, record) => (
+        <TableActions
+          record={record}
+          actions={[
+            {
+              key: 'edit',
+              label: t('common:button.edit'),
+              icon: <EditOutlined />,
+              onClick: () => {
+                setDrawerMode('edit');
+                setSelectedTask(record);
+                setDrawerOpen(true);
+              },
+            },
+            {
+              key: 'start',
+              label: t('start'),
+              icon: <CaretRightOutlined />,
+              success: true,
+              // 取 §2.1 的文字档而不是 var(--ant-color-success)：浅色 success #57D188 在白底实测
+              // 只有 1.93:1（旧值 #52c41a 也才 2.27:1），连图标的 3:1 档都不够
+              confirm: {
+                title: t('startTaskConfirmTitle'),
+                description: t('startTaskConfirmDesc', { moduleName: t('moduleName') }),
+              },
+              onClick: () =>
+                controlMutation.mutate({ typeName: record.typeName as string, controlType: 'Start' }),
+            },
+            {
+              key: 'stop',
+              label: t('stop'),
+              icon: <PauseOutlined />,
+              danger: true,
+              confirm: {
+                title: t('stopTaskConfirmTitle'),
+                description: t('stopTaskConfirmDesc', { moduleName: t('moduleName') }),
+              },
+              onClick: () =>
+                controlMutation.mutate({ typeName: record.typeName as string, controlType: 'Stop' }),
+            },
+            {
+              key: 'restart',
+              label: t('restart'),
+              icon: <ReloadOutlined />,
+              confirm: {
+                title: t('restartTaskConfirmTitle'),
+                description: t('restartTaskConfirmDesc', { moduleName: t('moduleName') }),
+              },
+              onClick: () =>
+                controlMutation.mutate({
+                  typeName: record.typeName as string,
+                  controlType: 'Restart',
+                }),
+            },
+            {
+              key: 'delete',
+              label: t('common:button.delete'),
+              icon: <DeleteOutlined />,
+              danger: true,
+              confirm: {
+                title: t('deleteConfirmTitle'),
+                description: t('deleteConfirmDesc', { moduleName: t('moduleName') }),
+              },
+              onClick: () => record.id && deleteMutation.mutate({ id: record.id }),
+            },
+          ]}
+        />
+      ),
     },
   ];
 
@@ -272,54 +287,43 @@ const TaskManagement = () => {
     <>
       <ContentContainer heightMode="fixed" padding="16px" bottomMargin={0}>
         <div ref={containerRef} className="page-container-content">
-          <ProTable<Task>
+          <ListTable<Task>
             actionRef={actionRef}
             columns={columns}
             request={async (params, _sorter, _filter) => {
-              try {
-                const query = new PaginationQuery({
-                  paging: {
-                    page: params.current || 1,
-                    pageSize: params.pageSize || 10,
-                  },
-                  formValues: Object.fromEntries(
-                    Object.entries(params).filter(
-                      ([key]) => !['current', 'pageSize'].includes(key),
-                    ),
+              const query = new PaginationQuery({
+                paging: {
+                  page: params.current || 1,
+                  pageSize: params.pageSize || 10,
+                },
+                formValues: Object.fromEntries(
+                  Object.entries(params).filter(
+                    ([key]) => !['current', 'pageSize'].includes(key),
                   ),
-                });
+                ),
+              });
 
-                const response = await fetchListTasks(query);
+              const response = await fetchListTasks(query);
 
-                return {
-                  data: response.items || [],
-                  total: response.total || 0,
-                  success: true,
-                };
-              } catch (error: any) {
-                message.error(error.message || t('fetchFailed'));
-                return { data: [], total: 0, success: false };
-              }
+              return {
+                data: response.items || [],
+                total: response.total || 0,
+                success: true,
+              };
             }}
             rowKey="id"
-            search={{
+            search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
               defaultCollapsed: false,
             }}
             pagination={false}
             toolBarRender={() => [
-              <TableExportButton key="export" fetcher={fetchListTasks} columns={columns} filename="tasks" />,
               <Button
-                key="create"
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => {
-                  setDrawerMode('create');
-                  setSelectedTask(undefined);
-                  setDrawerOpen(true);
-                }}
+                key="sysTasks"
+                icon={<CloudServerOutlined />}
+                onClick={() => setSysTasksOpen(true)}
               >
-                {t('create')}
+                {t('sysTasksButton')}
               </Button>,
               <Popconfirm
                 key="startAll"
@@ -329,11 +333,7 @@ const TaskManagement = () => {
                 okText={t('common:button.ok')}
                 cancelText={t('common:button.cancel')}
               >
-                <Button
-                  style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: '#fff' }}
-                  icon={<CaretRightOutlined />}
-                  loading={startAllMutation.isPending}
-                >
+                <Button color="green" variant="outlined" icon={<CaretRightOutlined />} loading={startAllMutation.isPending}>
                   {t('startAll')}
                 </Button>
               </Popconfirm>,
@@ -345,7 +345,7 @@ const TaskManagement = () => {
                 okText={t('common:button.ok')}
                 cancelText={t('common:button.cancel')}
               >
-                <Button danger icon={<PauseOutlined />} loading={stopAllMutation.isPending}>
+                <Button color="danger" variant="outlined" icon={<PauseOutlined />} loading={stopAllMutation.isPending}>
                   {t('stopAll')}
                 </Button>
               </Popconfirm>,
@@ -357,15 +357,29 @@ const TaskManagement = () => {
                 okText={t('common:button.ok')}
                 cancelText={t('common:button.cancel')}
               >
-                <Button icon={<ReloadOutlined />} loading={restartAllMutation.isPending}>
+                <Button color="orange" variant="outlined" icon={<ReloadOutlined />} loading={restartAllMutation.isPending}>
                   {t('restartAll')}
                 </Button>
               </Popconfirm>,
+              <TableExportButton key="export" fetcher={fetchListTasks} columns={columns} filename="tasks" />,
+              <Button
+                key="create"
+                color="primary"
+                variant="outlined"
+                icon={<PlusOutlined />}
+                onClick={() => {
+                  setDrawerMode('create');
+                  setSelectedTask(undefined);
+                  setDrawerOpen(true);
+                }}
+              >
+                {t('common:button.add')}
+              </Button>,
             ]}
             options={{
               density: true,
               fullScreen: true,
-              setting: true,
+              setting: { settingIcon: <ColumnSlidersIcon /> },
               reload: true,
             }}
             size="middle"
@@ -375,6 +389,10 @@ const TaskManagement = () => {
           />
         </div>
       </ContentContainer>
+      <SystemTasksModal
+        open={sysTasksOpen}
+        onClose={() => setSysTasksOpen(false)}
+      />
 
       {/* 任务编辑/创建 Drawer */}
       <TaskDrawer

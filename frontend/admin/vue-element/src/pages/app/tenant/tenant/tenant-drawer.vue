@@ -2,7 +2,8 @@
   <ProModal
     v-model:visible="visible"
     :title="title"
-    :config="{ component: 'drawer', drawer: { size: DRAWER_WIDTH, closeOnClickModal: false } }"
+    :config="{ component: 'drawer', drawer: { size: DRAWER_WIDTH } }"
+    :close-guard="guard.allowClose"
   >
     <ElForm ref="formRef" :model="formData" :rules="formRules" label-width="120px">
       <!-- 基本信息 -->
@@ -210,7 +211,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="handleClose">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="guard.requestClose(handleClose)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton type="primary" :loading="loading" @click="handleSubmit">
           {{ $t("common.button.confirm") }}
         </ElButton>
@@ -243,6 +244,7 @@ import { $t } from "@/core/i18n";
 import { DRAWER_WIDTH } from "@/constants";
 import { injectProModalApi } from "@/components/Pro";
 import ProModal from "@/components/Pro/ProModal/index.vue";
+import { useDrawerCloseGuard } from "@/components/Pro/composables/use-drawer-close-guard";
 
 // 通过 inject 获取列表页传入的 modalApi
 const modalApi = injectProModalApi();
@@ -373,6 +375,9 @@ const title = computed(() =>
 );
 
 // 监听弹窗打开/关闭
+// 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+const guard = useDrawerCloseGuard(() => ({ ...formData.value }));
+
 watch(visible, async (val) => {
   if (val) {
     if (!isCreate.value && data.value.row) {
@@ -423,6 +428,9 @@ watch(visible, async (val) => {
       console.error("Failed to load plan options:", err);
       planOptions.value = [];
     }
+
+    // 填充完成后记录基线快照（回填不算脏）
+    guard.syncBaseline();
   } else {
     // ProModal 关闭时自动重置表单
     resetForm();
@@ -484,7 +492,7 @@ const handleSubmit = async () => {
 async function createTenantWithAdminUser() {
   // 检查密码和确认密码是否一致
   if (formData.value.password !== formData.value.passwordConfirm) {
-    ElMessage.error($t("pages.notification.password_mismatch"));
+    ElMessage.error($t("common.notification.password_mismatch"));
     return;
   }
 

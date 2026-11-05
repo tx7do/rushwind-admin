@@ -25,7 +25,7 @@ import { ref, watch, onMounted } from "vue";
 import { ElTag, ElMessage, ElMessageBox } from "element-plus";
 
 import ProPage from "@/components/Pro/ProPage/index.vue";
-import type { ProPageConfig } from "@/components/Pro/ProPage/types";
+import type { ProPageConfig, ToolsButton } from "@/components/Pro/ProPage/types";
 import PermissionDrawer from "./permission-drawer.vue";
 
 import {
@@ -33,12 +33,13 @@ import {
   statusToType,
   statusToName,
   useDeletePermission,
-  createPagedExportAction,
+  useSyncPermissions,
 } from "@/api/composables";
 import { $t } from "@/core/i18n";
 import { usePermissionViewStore } from "@/pages/app/permission/permission/permission-view.state";
 
 const { mutateAsync: deletePermission } = useDeletePermission();
+const { mutateAsync: syncPermissions, isPending: isSyncing } = useSyncPermissions();
 const permissionViewStore = usePermissionViewStore();
 
 const pageRef = ref();
@@ -102,16 +103,15 @@ const pageConfig = computed<ProPageConfig>(() => ({
     deleteAction: async (ids: string) => {
       await deletePermission({ id: ids as any });
     },
-    toolbar: [],
+    toolbar: [
+      {
+        name: "syncPermissions",
+        label: $t("pages.permission.syncPermissions"),
+        attrs: { type: "warning", plain: true, icon: "Refresh", loading: isSyncing.value },
+      } as ToolsButton,
+    ],
     toolbarRight: ["add"],
-    exportsAction: createPagedExportAction(async (query: any) =>
-      permissionViewStore.fetchPermissionList(
-        permissionViewStore.currentGroupId,
-        Number(query.paging?.page) || 1,
-        Number(query.paging?.pageSize) || 1000,
-        query.formValues ?? {},
-      )),
-    defaultToolbar: ["refresh", "filter", "exports"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     tableAttrs: { border: true, stripe: true, height: "auto" },
     columns: [
       {
@@ -165,27 +165,37 @@ function handleEdit(row: any) {
   drawerRef.value?.open({ create: false, row });
 }
 
+/* 同步权限点：按菜单树重建业务权限分组与权限点 */
+async function handleSyncPermissions() {
+  try {
+    await ElMessageBox.confirm(
+      $t("common.message.confirmSyncPermissions", {
+        moduleName: $t("pages.permission.moduleName"),
+      }),
+      $t("pages.permission.syncPermissions"),
+      {
+        type: "warning",
+        confirmButtonText: $t("common.button.confirm"),
+        cancelButtonText: $t("common.button.cancel"),
+      }
+    );
+  } catch {
+    return; // 用户取消确认框，非错误
+  }
+
+  try {
+    await syncPermissions();
+    ElMessage.success($t("common.notification.syncSuccess"));
+    permissionViewStore.reloadGroupList();
+  } catch (error) {
+    console.error("sync permissions failed:", error);
+    ElMessage.error($t("common.notification.syncFailed"));
+  }
+}
+
 async function handleToolbar(name: string) {
   if (name === "syncPermissions") {
-    try {
-      await ElMessageBox.confirm(
-        $t("common.message.confirmSyncPermissions", {
-          moduleName: $t("pages.permission.moduleName"),
-        }),
-        $t("common.title.warning"),
-        {
-          confirmButtonText: $t("common.button.confirm"),
-          cancelButtonText: $t("common.button.cancel"),
-          type: "warning",
-        }
-      );
-      permissionViewStore.reloadGroupList();
-      ElMessage.success($t("common.notification.syncSuccess"));
-    } catch (error) {
-      if (error !== "cancel") {
-        ElMessage.error($t("common.notification.syncFailed"));
-      }
-    }
+    await handleSyncPermissions();
   }
 }
 

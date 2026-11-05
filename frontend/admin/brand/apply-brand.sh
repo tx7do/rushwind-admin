@@ -38,11 +38,11 @@ case "$FRONTEND" in
 
     replace src/locales/zh-CN/_core/auth.json \
       -e 's/风行中后台管理系统/锐风中后台管理系统/' \
-      -e 's/Copyright © {year} GoWind/Copyright © {year} RushWind/'
+      -e 's/Copyright © {{year}} GoWind/Copyright © {{year}} RushWind/'
 
     replace src/locales/en-US/_core/auth.json \
       -e 's/GoWind Admin Management System/RushWind Admin Management System/' \
-      -e 's/Copyright © {year} GoWind/Copyright © {year} RushWind/'
+      -e 's/Copyright © {{year}} GoWind/Copyright © {{year}} RushWind/'
 
     replace index.html \
       -e 's/content="GoWind Admin React AntD Vite"/content="RushWind Admin React AntD Vite"/' \
@@ -89,28 +89,24 @@ case "$FRONTEND" in
     ;;
 
   vue-vben)
-    # vben5 monorepo：偏好默认值在 packages/@core，登录插画与版权组件在
-    # packages/effects/layouts，多语言在 packages/locales，应用面在 apps/admin。
-    # 测试快照（config.test.ts.snap）随默认值同步替换，保持上游测试语义。
-    replace packages/@core/preferences/src/config.ts \
+    # vben5 单包结构（上游自 monorepo 重构）：偏好默认值在 framework/core/preferences，
+    # 登录插画与版权组件在 framework/effects/layouts，多语言在 framework/locales，
+    # license 横幅插件在 build-config/vite-config，应用面在 src/，env 在仓库根。
+    replace framework/core/preferences/config.ts \
       -e "s/companyName: 'GoWind'/companyName: 'RushWind'/" \
       -e "s|companySiteLink: 'https://www.gowind.cloud'|companySiteLink: 'https://github.com/tx7do/rushwind'|"
 
-    replace packages/@core/preferences/__tests__/__snapshots__/config.test.ts.snap \
-      -e 's/"companyName": "GoWind"/"companyName": "RushWind"/' \
-      -e 's|"companySiteLink": "https://www.gowind.cloud"|"companySiteLink": "https://github.com/tx7do/rushwind"|'
-
-    replace packages/effects/layouts/src/basic/copyright/copyright.vue \
+    replace framework/effects/layouts/basic/copyright/copyright.vue \
       -e "s/companyName: 'GoWind Admin'/companyName: 'RushWind Admin'/"
 
-    replace packages/locales/src/langs/zh-CN/authentication.json \
+    replace framework/locales/langs/zh-CN/authentication.json \
       -e 's/风行中后台管理系统/锐风中后台管理系统/'
 
-    replace internal/vite-config/src/plugins/license.ts \
+    replace build-config/vite-config/src/plugins/license.ts \
       -e 's/ \* GoWind Admin/ * RushWind Admin/' \
       -e 's/Copyright (C) 2026 GoWind/Copyright (C) 2026 RushWind/'
 
-    replace apps/admin/.env \
+    replace .env \
       -e 's/VITE_APP_TITLE="GoWind Admin"/VITE_APP_TITLE="RushWind Admin"/' \
       -e 's/VITE_APP_NAMESPACE=gowind-admin/VITE_APP_NAMESPACE=rushwind-admin/'
     ;;

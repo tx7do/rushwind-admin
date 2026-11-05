@@ -20,8 +20,8 @@
   "isEnabled": "启用",
   "version": "版本",
   "updatedAt": "更新时间",
-  "create": "新建脚本",
-  "edit": "编辑脚本",
+  "create": "创建脚本",
+  "edit": "更新脚本",
   "testRun": "试运行",
   "testRunTitle": "试运行：{name}",
   "testRunInput": "输入（键值对，值须为合法 JSON）",
@@ -47,5 +47,6 @@
   "logCreatedAt": "执行时间",
   "logPurge": "清理90天前",
   "logPurgeConfirmDesc": "将删除 90 天前的全部执行日志，确定继续吗？",
-  "logPurgeSuccess": "已清理 {count} 条日志"
+  "logPurgeSuccess": "已清理 {count} 条日志",
+  "viewLogTitle": "查看脚本日志"
 }

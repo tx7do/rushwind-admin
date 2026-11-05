@@ -229,26 +229,14 @@ message LoginResponse {
     }
   ]; // 访问令牌过期时间（秒）
 
-  optional string refresh_token = 4 [
-    json_name = "refresh_token",
-    (gnostic.openapi.v3.property) = {
-      description: "更新令牌，用来获取下一次的访问令牌，可选项。如果访问令牌将过期，则返回刷新令牌很有用，应用程序可以使用该刷新令牌来获取另一个访问令牌。但是，通过隐式授予颁发的令牌不能颁发刷新令牌。"
-    }
-  ]; // 更新令牌，用来获取下一次的访问令牌，可选项。
-
+  // refresh token 已迁移 HttpOnly Cookie 传输（2026-08 迁移），不再进响应体：
+  // refresh_token / refresh_expires_in 字段已删除（历史残留，所有路径均未赋值）。
   optional string scope = 5 [
     json_name = "scope",
     (gnostic.openapi.v3.property) = {
       description: "以空格分隔的用户授予范围列表。如果未提供，scope则授权任何范围，默认为空列表。"
     }
   ]; // 以空格分隔的用户授予范围列表。如果未提供，scope则授权任何范围，默认为空列表。
-
-  optional int64 refresh_expires_in = 6 [
-    json_name = "refresh_expires_in",
-    (gnostic.openapi.v3.property) = {
-      description: "刷新令牌过期时间（秒）"
-    }
-  ]; // 刷新令牌过期时间（秒）
 
   optional string id_token = 7 [
     json_name = "id_token",

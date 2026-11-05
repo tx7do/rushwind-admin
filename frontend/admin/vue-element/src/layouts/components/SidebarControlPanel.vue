@@ -74,7 +74,7 @@ const { t } = useI18n();
     transition: all 0.2s ease;
 
     &:hover {
-      color: var(--el-color-primary);
+      color: var(--gowind-primary-text);
       background: rgba(0, 0, 0, 0.04);
       transform: scale(1.05);
     }

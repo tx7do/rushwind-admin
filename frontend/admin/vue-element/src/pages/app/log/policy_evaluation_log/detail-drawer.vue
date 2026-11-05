@@ -102,7 +102,7 @@ const data = ref<permissionservicev1_PolicyEvaluationLog>();
 
 function open(payload: { row: permissionservicev1_PolicyEvaluationLog }) {
   data.value = payload.row;
-  title.value = $t("pages.policy_evaluation_log.moduleName");
+  title.value = $t("common.modal.view", { moduleName: $t("pages.policy_evaluation_log.moduleName") });
   visible.value = true;
 }
 

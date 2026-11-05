@@ -117,6 +117,18 @@ html.dark {
     background-color: var(--el-bg-color);
   }
 
+  // border-card 标签盒（el-tabs--border-card）同病同修：
+  // EP 把标签盒与激活页签背景都映射到 --el-bg-color-overlay（浮层色 #1C2128 中性灰），
+  // 在 #111827 冷调表面上是「死灰大面板」。标签盒是容器 = L1 表面不是浮层；
+  // 激活页签背景必须与内容区同色，保住 border-card「文件夹页签」的连通视觉。
+  .el-tabs--border-card {
+    background-color: var(--el-bg-color);
+
+    > .el-tabs__header .el-tabs__item.is-active {
+      background-color: var(--el-bg-color);
+    }
+  }
+
   // ============================================
   // 全局暗色滚动条（浏览器默认亮灰滚动条在暗底上刺眼）
   // 与 Drawer 内滚动条（6px 细条）保持同一形态
@@ -189,43 +201,6 @@ html.dark {
             border-color: var(--dark-primary) !important;
             box-shadow: 0 0 0 1px var(--dark-primary) inset !important;
           }
-        }
-      }
-    }
-
-    // 按钮组
-    .button-group {
-      .el-button {
-        // 搜索按钮（主色）
-        &.el-button--primary {
-          background-color: var(--dark-primary) !important;
-          border-color: var(--dark-primary) !important;
-
-          &:hover {
-            filter: brightness(1.15);
-          }
-        }
-
-        // 重置按钮（默认）
-        &:not(.el-button--primary) {
-          background-color: var(--dark-bg-table) !important;
-          border-color: var(--dark-border) !important;
-          color: var(--dark-text-primary) !important;
-
-          &:hover {
-            background-color: var(--dark-bg-hover) !important;
-            border-color: var(--dark-primary) !important;
-            color: var(--dark-primary) !important;
-          }
-        }
-      }
-
-      // 展开/收起链接
-      .el-link.el-link--primary {
-        color: var(--dark-primary) !important;
-
-        &:hover {
-          filter: brightness(1.15);
         }
       }
     }
@@ -607,48 +582,59 @@ html.dark {
   // 注意：is-link / is-text 是 Element Plus 的弱化按钮（透明背景、主色文字），
   // 实心样式会破坏其语义，故用 :not() 排除，交由 Element Plus 内置样式接管。
   .el-button:not(.pro-toolbar .el-button):not(.pro-search__actions .el-button) {
+    // hover 态与浅色同机制：改 background-color（EP 原生也是走 background-color），
+    // 不用 filter: brightness —— 静止态背景是 !important，filter 成了暗色独有的装饰层。
+    // 取值见 design-language.md §4「按钮质感」。
+    // 四个类型选择器一律 :not(.is-disabled)：这里刷的是 !important 实底，不排除的话禁用态会被
+    // 一起画成"可点的蓝药丸"（2026-09-29 /ai/chat 发送按钮实测空态与有字态底色/文字/边框零差异，
+    // 只剩 cursor 一条线索）。排除后禁用态回落到 EP 的 --el-button-disabled-* 通道，
+    // 其值由 vendors/_element-plus.scss 指到中性 rgba，与 react/vben 的禁用配方同档。
+    // 注：:not(.is-disabled) 挂在父选择器上，嵌套的 &:hover 因此也带排除，禁用后 hover 不动。
     // 主按钮
-    &.el-button--primary:not(.is-link):not(.is-text) {
+    &.el-button--primary:not(.is-link):not(.is-text):not(.is-disabled) {
       background-color: var(--dark-primary) !important;
       border-color: var(--dark-primary) !important;
       color: #fff !important;
 
-      // hover 态：亮度微增，强化主操作的交互感
       &:hover {
-        filter: brightness(1.15);
+        background-color: color-mix(in srgb, var(--dark-primary) 85%, #ffffff) !important;
+        border-color: color-mix(in srgb, var(--dark-primary) 85%, #ffffff) !important;
       }
     }
 
     // 成功按钮
-    &.el-button--success:not(.is-link):not(.is-text) {
+    &.el-button--success:not(.is-link):not(.is-text):not(.is-disabled) {
       background-color: var(--dark-success) !important;
       border-color: var(--dark-success) !important;
       color: #fff !important;
 
       &:hover {
-        filter: brightness(1.15);
+        background-color: color-mix(in srgb, var(--dark-success) 85%, #ffffff) !important;
+        border-color: color-mix(in srgb, var(--dark-success) 85%, #ffffff) !important;
       }
     }
 
     // 警告按钮
-    &.el-button--warning:not(.is-link):not(.is-text) {
+    &.el-button--warning:not(.is-link):not(.is-text):not(.is-disabled) {
       background-color: var(--dark-accent) !important;
       border-color: var(--dark-accent) !important;
       color: #fff !important;
 
       &:hover {
-        filter: brightness(1.15);
+        background-color: color-mix(in srgb, var(--dark-accent) 85%, #ffffff) !important;
+        border-color: color-mix(in srgb, var(--dark-accent) 85%, #ffffff) !important;
       }
     }
 
     // 危险按钮
-    &.el-button--danger:not(.is-link):not(.is-text) {
+    &.el-button--danger:not(.is-link):not(.is-text):not(.is-disabled) {
       background-color: var(--dark-error) !important;
       border-color: var(--dark-error) !important;
       color: #fff !important;
 
       &:hover {
-        filter: brightness(1.15);
+        background-color: color-mix(in srgb, var(--dark-error) 85%, #ffffff) !important;
+        border-color: color-mix(in srgb, var(--dark-error) 85%, #ffffff) !important;
       }
     }
   }
@@ -786,7 +772,7 @@ html.dark {
   .pagination-container {
     background-color: var(--dark-bg-table) !important; // 和表格容器统一，避免模块割裂
     border-top-color: var(--dark-border) !important;
-    padding: 12px 0 !important;
+    padding: 16px 0 0 !important;
   }
 
   .el-pagination {
@@ -866,7 +852,7 @@ html.dark {
         color: var(--dark-error) !important;
 
         &:hover {
-          filter: brightness(1.15);
+          color: color-mix(in srgb, var(--dark-error) 85%, #ffffff) !important;
         }
       }
     }

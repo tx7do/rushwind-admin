@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package authentication.service.v1;
+
+option go_package = "go-wind-admin/api/gen/go/authentication/service/v1;authenticationv1";
+
+// SSO 登录能力开关查询（登录页按钮显隐用；免鉴权）。
+message GetSsoLoginInfoRequest {}
+
+message GetSsoLoginInfoResponse {
+  // OIDC SSO 是否已配置（issuer/client_id/client_secret/redirect_url 齐备）
+  bool enabled = 1;
+}
+
+// 生成 OIDC 授权跳转 URL（免鉴权）。state 由服务端生成并存 Redis（10 分钟
+// 单次有效），SsoLogin 时验证并取删——防 CSRF 与回调重放。
+message GetSsoLoginUrlRequest {}
+
+message GetSsoLoginUrlResponse {
+  // 完整授权跳转 URL（前端 window.location 前往）
+  string authorization_url = 1;
+  // 本次登录的 state（前端原样带到回调，SsoLogin 时一并提交）
+  string state = 2;
+}
+
+// OIDC 回调换令牌（免鉴权）：code+state 换本系统 JWT。
+// 流程：state 验证取删 → code 在 IdP token 端点换 access_token →
+// 拉 userinfo 取 email → 按邮箱在本系统查用户（未找到且允许预置时自动建）→
+// 签发标准 JWT 对（refresh token 走 HttpOnly Cookie，与密码登录同形）。
+// V1 边界：SSO 登录不触发本系统 TOTP MFA 闸门（认证已在 IdP 完成）。
+message SsoLoginRequest {
+  // IdP 回调带回的授权码
+  string code = 1;
+  // GetSsoLoginUrl 返回的 state
+  string state = 2;
+}

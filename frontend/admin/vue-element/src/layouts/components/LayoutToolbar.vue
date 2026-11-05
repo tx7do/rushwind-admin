@@ -7,7 +7,8 @@
         <CommandPalette />
       </div>
 
-      <!-- 系统设置 -->
+      <ElTooltip :content="$t('common.header.settings')" placement="bottom">
+              <!-- 系统设置 -->
       <div
         v-if="preferences.app.enablePreferences"
         class="navbar-actions__item"
@@ -15,60 +16,47 @@
       >
         <SvgIcon icon="setting" />
       </div>
+      </ElTooltip>
 
-      <!-- 全屏 -->
+      <ElTooltip :content="$t('common.header.fullscreen')" placement="bottom">
+              <!-- 全屏 -->
       <div class="navbar-actions__item">
         <LayoutFullscreen />
       </div>
+      </ElTooltip>
 
-      <!-- 布局大小 -->
+      <ElTooltip :content="$t('common.header.layout')" placement="bottom">
+              <!-- 布局大小 -->
       <div class="navbar-actions__item">
         <LayoutSizeSelect />
       </div>
+      </ElTooltip>
 
-      <!-- 语言选择 -->
+      <ElTooltip :content="$t('common.header.language')" placement="bottom">
+              <!-- 语言选择 -->
       <div class="navbar-actions__item">
         <LangSelect />
       </div>
+      </ElTooltip>
 
-      <!-- 通知 -->
+      <ElTooltip :content="$t('common.header.notification')" placement="bottom">
+              <!-- 通知 -->
       <div class="navbar-actions__item">
         <NoticeDropdown />
       </div>
+      </ElTooltip>
     </template>
 
     <!-- 用户菜单 -->
     <div class="navbar-actions__item navbar-actions__item--profile">
-      <el-dropdown trigger="click">
-        <div class="user-profile">
-          <img
-            :src="userStore.userInfo?.avatar || '/default-avatar.png'"
-            class="user-profile__avatar"
-          />
-          <span class="user-profile__name">{{ userStore.userInfo?.username || "" }}</span>
-        </div>
-        <template #dropdown>
-          <el-dropdown-menu>
-            <el-dropdown-item @click="handleProfileClick">
-              {{ t("common.navbar.profile") }}
-            </el-dropdown-item>
-            <el-dropdown-item divided @click="logout">
-              {{ t("common.navbar.logout") }}
-            </el-dropdown-item>
-          </el-dropdown-menu>
-        </template>
-      </el-dropdown>
+      <UserDropdown />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
-import { useRoute, useRouter } from "vue-router";
-
-import { useAppUserStore } from "@/stores";
-import { useAuth } from "@/composables/use-auth";
 import { preferences, usePreferences } from "@/core/preferences";
+import { ElTooltip } from "element-plus";
 import SvgIcon from "@/components/SvgIcon/index.vue";
 
 // 导入子组件
@@ -77,27 +65,15 @@ import LayoutFullscreen from "./LayoutFullscreen.vue";
 import LayoutSizeSelect from "./LayoutSizeSelect.vue";
 import LangSelect from "@/components/LangSelect/index.vue";
 import NoticeDropdown from "@/components/NoticeDropdown/index.vue";
+import UserDropdown from "./UserDropdown.vue";
 
-const { t } = useI18n();
-const userStore = useAppUserStore();
-const authStore = useAuth();
 const { isMobile, appPreferences } = usePreferences();
-
-const route = useRoute();
-const router = useRouter();
 
 // 是否为桌面设备
 const isDesktop = computed(() => !isMobile.value);
 
 // 注入设置面板可见性状态
 const settingsVisible = inject<Ref<boolean>>("settingsVisible", ref(false));
-
-/**
- * 打开个人中心页面
- */
-function handleProfileClick() {
-  router.push({ name: "Profile" });
-}
 
 // 根据主题和布局选择样式类
 const navbarActionsClass = computed(() => {
@@ -119,26 +95,6 @@ const navbarActionsClass = computed(() => {
 
   return "navbar-actions--dark-text";
 });
-
-/**
- * 退出登录
- */
-function logout() {
-  ElMessageBox.confirm(
-    t("common.navbar.logoutConfirmMessage"),
-    t("common.navbar.logoutConfirmTitle"),
-    {
-      confirmButtonText: t("common.button.confirm"),
-      cancelButtonText: t("common.button.cancel"),
-      type: "warning",
-      lockScroll: false,
-    }
-  ).then(() => {
-    authStore.logout().then(() => {
-      router.push(`/login?redirect=${route.fullPath}`);
-    });
-  });
-}
 
 /**
  * 打开系统设置页面
@@ -199,7 +155,7 @@ function handleSettingsClick() {
       transform: scale(1.05);
 
       :deep(.svg-local-icon) {
-        color: var(--el-color-primary);
+        color: var(--gowind-primary-text);
       }
     }
 
@@ -223,43 +179,17 @@ function handleSettingsClick() {
       }
     }
     // 用户头像区域：不放大，仅显示柔和背景
+    // 文字色在此设定，UserDropdown 内部用 currentColor 继承（子组件拿不到本文件的 scoped 类）
     &--profile {
       min-width: auto;
       padding: 0 4px;
+      color: var(--el-text-color-regular);
       transform: none !important;
 
       &:hover {
         background: rgba(0, 0, 0, 0.04);
         transform: none;
       }
-    }
-  }
-
-  .user-profile {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 44px;
-    padding: 0 4px;
-    border-radius: 8px;
-    transition: background-color 0.2s ease;
-
-    &__avatar {
-      flex-shrink: 0;
-      width: 28px;
-      height: 28px;
-      overflow: hidden;
-      border-radius: 50%;
-      object-fit: cover;
-      object-position: center;
-    }
-
-    &__name {
-      margin-left: 8px;
-      font-size: 14px;
-      color: var(--el-text-color-regular);
-      white-space: nowrap;
-      transition: color 0.2s ease;
     }
   }
 }
@@ -281,12 +211,9 @@ function handleSettingsClick() {
     }
   }
 
-  .user-profile__name {
-    color: rgba(255, 255, 255, 0.85);
-  }
-
-  // profile 按钮不放大
+  // profile 按钮不放大；用户名在此提亮
   .navbar-actions__item--profile {
+    color: rgba(255, 255, 255, 0.85);
     transform: none !important;
 
     &:hover {
@@ -323,17 +250,14 @@ function handleSettingsClick() {
       transform: scale(1.05);
 
       :deep(.svg-local-icon) {
-        color: var(--el-color-primary) !important;
+        color: var(--gowind-primary-text) !important;
       }
     }
   }
 
-  .user-profile__name {
-    color: var(--el-text-color-regular) !important;
-  }
-
-  // profile 按钮不放大
+  // profile 按钮不放大；用户名在此设定
   .navbar-actions__item--profile {
+    color: var(--el-text-color-regular) !important;
     transform: none !important;
 
     &:hover {
@@ -350,11 +274,11 @@ function handleSettingsClick() {
     color: var(--el-text-color-regular) !important;
   }
   ::v-deep(.tenant-switcher__trigger:hover) {
-    color: var(--el-color-primary) !important;
+    color: var(--gowind-primary-text) !important;
     background: var(--el-fill-color-light);
   }
   ::v-deep(.tenant-switcher__trigger:hover .tenant-switcher__icon) {
-    color: var(--el-color-primary) !important;
+    color: var(--gowind-primary-text) !important;
   }
 }
 
@@ -364,7 +288,7 @@ function handleSettingsClick() {
     color: var(--el-text-color-regular) !important;
 
     &:hover {
-      color: var(--el-color-primary) !important;
+      color: var(--gowind-primary-text) !important;
     }
   }
 }

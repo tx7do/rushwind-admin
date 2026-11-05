@@ -1,0 +1,7 @@
+{
+  "moduleName": "AI Content Generation",
+  "button": "AI Generate",
+  "generateNow": "Generate",
+  "topicPlaceholder": "Enter topic or keywords",
+  "failed": "AI generation failed"
+}

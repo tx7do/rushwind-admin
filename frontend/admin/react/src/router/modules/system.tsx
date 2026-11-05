@@ -24,7 +24,7 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:dict',
           icon: 'lucide:library-big', // Iconify 格式
-          order: 3,
+          order: 1,
           // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -35,7 +35,7 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:files',
           icon: 'lucide:file-search', // Iconify 格式
-          order: 4,
+          order: 2,
           // permission: 'sys:platform_admin', // 平台管理员或租户管理员权限（开发阶段暂时注释）
         },
       },
@@ -46,7 +46,7 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:tasks',
           icon: 'lucide:list-todo', // Iconify 格式
-          order: 5,
+          order: 3,
           // permission: 'sys:platform_admin', // 平台管理员或租户管理员权限（开发阶段暂时注释）
         },
       },
@@ -57,7 +57,7 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:login-policies',
           icon: 'lucide:shield-x', // Iconify 格式
-          order: 6,
+          order: 4,
           // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -68,7 +68,7 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:languages',
           icon: 'lucide:globe', // Iconify 格式
-          order: 7,
+          order: 5,
           // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -79,7 +79,7 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:online-sessions',
           icon: 'lucide:monitor', // Iconify 格式
-          order: 8,
+          order: 6,
           // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -90,7 +90,18 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:server-monitor',
           icon: 'lucide:activity', // Iconify 格式
-          order: 9,
+          order: 7,
+          // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
+        },
+      },
+      {
+        name: 'monitor-alerts',
+        path: 'monitor-alerts', // 相对路径，最终为 /system/monitor-alerts
+        element: createLazyRoute(() => import('@/pages/app/system/monitor-alert')),
+        meta: {
+          title: 'routes:monitor-alerts',
+          icon: 'lucide:bell-plus', // Iconify 格式
+          order: 8,
           // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -101,7 +112,7 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:scripts',
           icon: 'lucide:file-code-2', // Iconify 格式
-          order: 11,
+          order: 9,
           // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -112,7 +123,7 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:configs',
           icon: 'lucide:sliders-horizontal', // Iconify 格式
-          order: 12,
+          order: 10,
           // permission: 'sys:platform_admin', // 仅平台管理员权限（开发阶段暂时注释）
         },
       },
@@ -123,7 +134,17 @@ export const systemRoutes: AppRouteObject[] = [
         meta: {
           title: 'routes:accessKeys',
           icon: 'lucide:key-round',
-          order: 13,
+          order: 11,
+        },
+      },
+      {
+        name: 'print-templates',
+        path: 'print-templates', // 相对路径，最终为 /system/print-templates
+        element: createLazyRoute(() => import('@/pages/app/system/print-template')),
+        meta: {
+          title: 'routes:print-templates',
+          icon: 'lucide:printer',
+          order: 12,
         },
       },
     ],

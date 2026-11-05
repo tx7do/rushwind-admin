@@ -11,6 +11,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { access_keyservicev1_AccessKey as AccessKey } from '@/api/generated/admin/service/v1';
 import { useCreateAccessKey, useUpdateAccessKey } from '@/api/hooks/access-key';
+import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 
 interface AccessKeyDrawerProps {
   open: boolean;
@@ -56,6 +57,9 @@ export default function AccessKeyDrawer({
     }, 0);
   }, [open, mode, data]);
 
+  // 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+  const { guardClose, handleValuesChange, markClean } = useDrawerCloseGuard(open, onClose);
+
   const resetAndClose = () => {
     formRef.current?.resetFields();
     onClose();
@@ -79,6 +83,7 @@ export default function AccessKeyDrawer({
         } as any);
         queryClient.invalidateQueries({ queryKey: ['listAccessKeys'] });
         setCreatedSecret(resp.secret ?? null);
+        markClean(); // Secret 已生成即已保存成功，后续关闭不再确认
         return true; // 阻止抽屉自动关闭：先展示 Secret
       }
       await updateMutation.mutateAsync({
@@ -106,17 +111,19 @@ export default function AccessKeyDrawer({
       <DrawerForm
         title={mode === 'create' ? t('create') : t('edit')}
         open={open}
+        onValuesChange={handleValuesChange}
         formRef={formRef}
         drawerProps={{
-          onClose: () => {
-            formRef.current?.resetFields();
-            onClose();
-          },
+          onClose: guardClose,
           destroyOnClose: true,
+          // antd6 Drawer width 已废弃：size 直接收数字
+          size: 480,
         }}
         onFinish={handleSubmit}
         submitter={{ submitButtonProps: { loading: confirmLoading } }}
-        width={480}
+        layout="horizontal"
+        labelCol={{ flex: '0 0 120px' }}
+        wrapperCol={{ flex: 'auto' }}
       >
         <ProFormText
           name="name"

@@ -27,7 +27,6 @@ import {
   fetchListApis,
   useDeleteApi,
   useSyncApisApi,
-  createPagedExportAction,
 } from "@/api/composables";
 import { PaginationQuery } from "@/core/transport/rest";
 import { $t } from "@/core/i18n";
@@ -84,17 +83,16 @@ const pageConfig = computed<ProPageConfig>(() => ({
     deleteAction: async (ids: string) => {
       await deleteApi({ id: ids as any });
     },
-    exportsAction: createPagedExportAction(fetchListApis),
     toolbar: [],
     toolbarRight: [
       {
         name: "sync",
         label: $t("pages.api.button.sync"),
-        attrs: { type: "danger", icon: "refresh" },
+        attrs: { type: "warning", plain: true, icon: "refresh" },
       } as ToolsButton,
       "add",
     ],
-    defaultToolbar: ["refresh", "exports", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     tableAttrs: { border: true, stripe: false },
     columns: [
       { type: "index", label: $t("common.table.seq"), width: 60 },
@@ -141,7 +139,7 @@ function handleAdd() {
 }
 
 function handleEdit(row: any) {
-  drawerRef.value?.open(row);
+  drawerRef.value?.open({ create: false, row });
 }
 
 function handleToolbar(name: string) {

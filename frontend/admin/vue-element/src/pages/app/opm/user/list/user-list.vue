@@ -6,6 +6,7 @@
       @add="handleAdd"
       @edit="handleEdit"
       @operate="handleOperate"
+      @toolbar="handleToolbarEvent"
     >
       <!-- 状态 -->
       <template #status="scope: any">
@@ -66,6 +67,9 @@
       </template>
     </ProPage>
 
+    <!-- 行打印定式：模板按 resourceKey 匹配，无绑定回退通用模板 -->
+    <PrintTemplatePrint ref="printRef" />
+
     <!-- 新增/编辑抽屉 -->
     <UserDrawer ref="drawerRef" @success="handleSuccess" />
   </div>
@@ -76,6 +80,7 @@ import { computed, ref, watch } from "vue";
 import { ElMessageBox, ElNotification, ElTag } from "element-plus";
 
 import ProPage from "@/components/Pro/ProPage/index.vue";
+import PrintTemplatePrint from "@/components/PrintTemplatePrint.vue";
 import type { ProPageConfig } from "@/components/Pro/ProPage/types";
 import type { ProFormField } from "@/components/Pro/ProForm/types";
 import type { ProTableColumn } from "@/components/Pro/ProTable/types";
@@ -102,6 +107,7 @@ const { mutateAsync: deleteUser } = useDeleteUser();
 const userViewStore = useUserViewStore();
 
 const pageRef = ref();
+const printRef = ref();
 const drawerRef = ref();
 
 // 监听组织和租户变化，重新加载数据
@@ -207,6 +213,7 @@ const pageConfig = computed<ProPageConfig>(() => ({
   },
 
   table: {
+    exportFilename: "users",
     listAction: async (query: any) => {
       const { page, pageSize, ...queryParams } = query;
       const result = await userViewStore.fetchUserList(page || 1, pageSize || 10, queryParams);
@@ -215,11 +222,18 @@ const pageConfig = computed<ProPageConfig>(() => ({
     deleteAction: async (ids: string) => {
       await deleteUser(ids as any);
     },
-    toolbar: [],
+    toolbar: [
+      {
+        name: "printBatch",
+        label: $t("pages.printTemplate.batchPrint"),
+        icon: "lucide:printer",
+      },
+    ],
     toolbarRight: ["add"],
-    defaultToolbar: ["refresh", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     tableAttrs: { border: true, stripe: true, height: "auto" },
     columns: ([
+      { type: "selection", width: 44 },
       { type: "index", label: $t("common.table.seq"), width: 60 },
       { prop: "username", label: $t("pages.user.table.username"), width: 120 },
       { prop: "realname", label: $t("pages.user.table.realname"), width: 100 },
@@ -269,10 +283,11 @@ const pageConfig = computed<ProPageConfig>(() => ({
         prop: "action",
         label: $t("common.table.action"),
         fixed: "right",
-        width: 150,
+        width: 260,
         cellType: "tool",
         buttons: [
           { name: "detail", label: $t("common.button.detail"), icon: "lucide:eye" },
+          { name: "print", label: $t("pages.printTemplate.print"), icon: "lucide:printer" },
           { name: "edit", label: $t("common.button.edit"), icon: "lucide:pen-line" },
           ...(isPlatformSide.value
             ? [{ name: "resetMfa", label: $t("pages.user.resetMfa"), icon: "lucide:shield-off" }]
@@ -308,9 +323,25 @@ function handleEdit(row: any) {
   drawerRef.value?.open({ create: false, row });
 }
 
+/** ProPage 工具栏自定义钮（ToolsButton.name）走 toolbar 事件透传 */
+function handleToolbarEvent(name: string) {
+  if (name === "printBatch") {
+    handleOperate({ name: "printBatch", row: null });
+  }
+}
+
 function handleOperate(data: { name: string; row: any }) {
   if (data.name === "detail") {
     router.push(`/opm/users/detail/${data.row.id}`);
+  } else if (data.name === "print") {
+    printRef.value?.print("system/user", data.row);
+  } else if (data.name === "printBatch") {
+    const records: any[] = (pageRef.value?.tableRef?.getCheckboxRecords?.() || []) as any[];
+    if (records.length === 0) {
+      ElMessage.warning($t("pages.printTemplate.noSelection"));
+      return;
+    }
+    printRef.value?.print("system/user", records);
   } else if (data.name === "resetMfa") {
     handleResetMfa(data.row);
   }

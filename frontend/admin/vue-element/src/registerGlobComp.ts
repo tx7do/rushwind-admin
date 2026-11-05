@@ -25,4 +25,5 @@ export function registerGlobComp(app: App) {
 
   // 全局组件（Element Plus 图标）
   Object.entries(ElementPlusIcons).forEach(([name, comp]) => app.component(name, comp));
+
 }

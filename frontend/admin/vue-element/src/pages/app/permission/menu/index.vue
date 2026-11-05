@@ -91,6 +91,33 @@ import { accessRoutes } from "@/router/routes";
 const { mutateAsync: deleteMenu } = useDeleteMenu();
 const { mutateAsync: syncMenus, isPending: isSyncing } = useSyncMenus();
 
+/**
+ * 菜单标题关键词的前端过滤。
+ * 标题没法在服务端搜：库里 meta.title 存的是 i18n key 或源语言文本，用户看到的
+ * 译文只有前端知道；且后端 go-crud 对 meta.* JSONB 路径的过滤条件值绑定有缺陷
+ * （值被丢成空串，CONTAINS 恒真/EQ 恒假）。因此按「所见即所搜」在前端匹配：
+ * 译文 + 库里原文 + 路由名三路 contains；命中行连同祖先链一起保留，
+ * 才能还原完整树形。
+ */
+function filterMenusByTitle(items: any[], keyword?: string): any[] {
+  const kw = (keyword ?? "").trim().toLowerCase();
+  if (!kw) return items;
+  const byId = new Map<number, any>(items.map((item) => [item.id as number, item]));
+  const keep = new Set<number>();
+  for (const item of items) {
+    const title = item.meta?.title ?? "";
+    const haystack = [$t(title), title, item.name ?? ""].join("\n").toLowerCase();
+    if (!haystack.includes(kw)) continue;
+    keep.add(item.id as number);
+    let parentId = item.parentId;
+    while (parentId != null && !keep.has(parentId)) {
+      keep.add(parentId);
+      parentId = byId.get(parentId)?.parentId;
+    }
+  }
+  return items.filter((item) => keep.has(item.id as number));
+}
+
 const pageRef = ref();
 const drawerRef = ref();
 
@@ -120,19 +147,21 @@ const pageConfig = computed<ProPageConfig>(() => ({
   },
 
   table: {
+    exportFilename: "menus",
     listAction: async (query: any) => {
       const { page, pageSize, ...queryParams } = query;
+      // 标题走前端过滤（见 filterMenusByTitle），服务端只收 status
       const result = await fetchListMenus(
         new PaginationQuery({
-          paging: { page: page || 1, pageSize: pageSize || 10 },
+          paging: { page: page || 1, pageSize: pageSize || 1000 },
           formValues: {
-            "meta.title": queryParams.name,
             status: queryParams.status,
           },
           orderBy: ["id"],
         })
       );
-      return { items: buildMenuTree(result.items || []), total: result.total || 0 };
+      const items = filterMenusByTitle(result.items || [], queryParams.name);
+      return { items: buildMenuTree(items), total: items.length };
     },
     deleteAction: async (ids: string) => {
       await deleteMenu({ id: ids as any });
@@ -151,11 +180,11 @@ const pageConfig = computed<ProPageConfig>(() => ({
       {
         name: "syncMenus",
         label: $t("pages.menu.sync"),
-        attrs: { icon: "Refresh", loading: isSyncing.value },
+        attrs: { type: "warning", plain: true, icon: "Refresh", loading: isSyncing.value },
       } as ToolsButton,
     ],
     toolbarRight: ["add"],
-    defaultToolbar: ["refresh", "filter"],
+    defaultToolbar: ["exports", "refresh", "zoom", "filter"],
     pagination: false,
     tableAttrs: {
       border: true,
@@ -167,7 +196,6 @@ const pageConfig = computed<ProPageConfig>(() => ({
       },
     },
     columns: [
-      { type: "index", label: $t("common.table.seq"), width: 60 },
       {
         prop: "meta.title",
         label: $t("pages.menu.name"),

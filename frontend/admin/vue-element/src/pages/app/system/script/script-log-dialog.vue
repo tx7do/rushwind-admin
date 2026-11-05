@@ -1,91 +1,96 @@
 <template>
-  <ElDialog
+  <ElDrawer
     v-model="visible"
-    :title="$t('pages.script.logTitle')"
-    width="960px"
+    :title="$t('pages.script.viewLogTitle')"
+    size="960px"
     :close-on-click-modal="false"
     append-to-body
   >
-    <div class="mb-2 flex items-center gap-2">
-      <ElSelect
-        v-model="filterTrigger"
-        :placeholder="$t('pages.script.logTrigger')"
-        clearable
-        style="width: 140px"
-      >
-        <ElOption label="hook" value="hook" />
-        <ElOption label="task" value="task" />
-        <ElOption label="test_run" value="test_run" />
-      </ElSelect>
-      <ElSelect
-        v-model="filterSuccess"
-        :placeholder="$t('pages.script.logSuccess')"
-        clearable
-        style="width: 140px"
-      >
-        <ElOption :label="$t('pages.script.testRunSuccess')" value="true" />
-        <ElOption :label="$t('pages.script.testRunFailed')" value="false" />
-      </ElSelect>
-      <ElButton :loading="loading" @click="loadLogs(1)">
-        {{ $t("common.button.search") }}
-      </ElButton>
-      <ElPopconfirm
-        :title="$t('pages.script.logPurgeConfirmDesc')"
-        @confirm="handlePurge"
-      >
-        <template #reference>
-          <ElButton type="danger" plain :loading="purging">
-            {{ $t("pages.script.logPurge") }}
-          </ElButton>
-        </template>
-      </ElPopconfirm>
+    <div class="flex h-full flex-col gap-2">
+      <div class="flex items-center gap-2">
+        <ElSelect
+          v-model="filterTrigger"
+          :placeholder="$t('pages.script.logTrigger')"
+          clearable
+          style="width: 140px"
+        >
+          <ElOption label="hook" value="hook" />
+          <ElOption label="task" value="task" />
+          <ElOption label="test_run" value="test_run" />
+        </ElSelect>
+        <ElSelect
+          v-model="filterSuccess"
+          :placeholder="$t('pages.script.logSuccess')"
+          clearable
+          style="width: 140px"
+        >
+          <ElOption :label="$t('pages.script.testRunSuccess')" value="true" />
+          <ElOption :label="$t('pages.script.testRunFailed')" value="false" />
+        </ElSelect>
+        <ElButton :loading="loading" @click="loadLogs(1)">
+          {{ $t("common.button.search") }}
+        </ElButton>
+        <ElPopconfirm
+          :title="$t('pages.script.logPurgeConfirmDesc')"
+          @confirm="handlePurge"
+        >
+          <template #reference>
+            <ElButton type="danger" plain :loading="purging">
+              {{ $t("pages.script.logPurge") }}
+            </ElButton>
+          </template>
+        </ElPopconfirm>
+      </div>
+
+      <div class="min-h-0 flex-1">
+        <ElTable
+          :data="logs"
+          size="small"
+          border
+          stripe
+          height="100%"
+        >
+          <ElTableColumn prop="scriptName" :label="$t('pages.script.logScriptName')" min-width="150" show-overflow-tooltip />
+          <ElTableColumn prop="language" :label="$t('pages.script.language')" width="90" />
+          <ElTableColumn prop="triggerType" :label="$t('pages.script.logTrigger')" width="100">
+            <template #default="{ row }">
+              <ElTag size="small">{{ row.triggerType }}</ElTag>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn prop="hookPoint" :label="$t('pages.script.hookPoint')" min-width="130" show-overflow-tooltip />
+          <ElTableColumn :label="$t('pages.script.logSuccess')" width="90">
+            <template #default="{ row }">
+              <ElTag size="small" :type="row.success ? 'success' : 'danger'">
+                {{ row.success ? $t("pages.script.testRunSuccess") : $t("pages.script.testRunFailed") }}
+              </ElTag>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn :label="$t('pages.script.testRunDuration')" width="90">
+            <template #default="{ row }">{{ row.durationMs ?? 0 }}ms</template>
+          </ElTableColumn>
+          <ElTableColumn prop="error" :label="$t('pages.script.logError')" min-width="180" show-overflow-tooltip />
+          <ElTableColumn :label="$t('pages.script.logCreatedAt')" width="170">
+            <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
+          </ElTableColumn>
+        </ElTable>
+      </div>
+
+      <ElPagination
+        v-model:current-page="page"
+        :page-size="pageSize"
+        :total="total"
+        layout="total, prev, pager, next"
+        @current-change="loadLogs"
+      />
     </div>
-
-    <ElTable :data="logs" size="small" border stripe max-height="420">
-      <ElTableColumn prop="scriptName" :label="$t('pages.script.logScriptName')" min-width="150" show-overflow-tooltip />
-      <ElTableColumn prop="language" :label="$t('pages.script.language')" width="90" />
-      <ElTableColumn prop="triggerType" :label="$t('pages.script.logTrigger')" width="100">
-        <template #default="{ row }">
-          <ElTag size="small">{{ row.triggerType }}</ElTag>
-        </template>
-      </ElTableColumn>
-      <ElTableColumn prop="hookPoint" :label="$t('pages.script.hookPoint')" min-width="130" show-overflow-tooltip />
-      <ElTableColumn :label="$t('pages.script.logSuccess')" width="90">
-        <template #default="{ row }">
-          <ElTag size="small" :type="row.success ? 'success' : 'danger'">
-            {{ row.success ? $t("pages.script.testRunSuccess") : $t("pages.script.testRunFailed") }}
-          </ElTag>
-        </template>
-      </ElTableColumn>
-      <ElTableColumn :label="$t('pages.script.testRunDuration')" width="90">
-        <template #default="{ row }">{{ row.durationMs ?? 0 }}ms</template>
-      </ElTableColumn>
-      <ElTableColumn prop="error" :label="$t('pages.script.logError')" min-width="180" show-overflow-tooltip />
-      <ElTableColumn :label="$t('pages.script.logCreatedAt')" width="170">
-        <template #default="{ row }">{{ formatTime(row.createdAt) }}</template>
-      </ElTableColumn>
-    </ElTable>
-
-    <ElPagination
-      v-model:current-page="page"
-      :page-size="pageSize"
-      :total="total"
-      layout="total, prev, pager, next"
-      class="mt-3"
-      @current-change="loadLogs"
-    />
-
-    <template #footer>
-      <ElButton @click="visible = false">{{ $t("common.button.cancel") }}</ElButton>
-    </template>
-  </ElDialog>
+  </ElDrawer>
 </template>
 
 <script lang="ts" setup>
 import { ref } from "vue";
 import {
   ElButton,
-  ElDialog,
+  ElDrawer,
   ElMessage,
   ElOption,
   ElPagination,

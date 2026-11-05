@@ -10,7 +10,7 @@ import "google/protobuf/field_mask.proto";
 
 import "pagination/v1/pagination.proto";
 
-// 通知渠道服务（平台级配置；实现 EMAIL（SMTP）与 WEBHOOK 两种渠道）
+// 通知渠道服务（平台级配置；实现 EMAIL（SMTP）、WEBHOOK 与 SMS（阿里云/腾讯云）三种渠道）
 service NotificationChannelService {
   // 查询通知渠道列表
   rpc List (pagination.PagingRequest) returns (ListNotificationChannelResponse) {}
@@ -29,6 +29,39 @@ service NotificationChannelService {
 
   // 向指定邮箱发送测试邮件（验证渠道配置）
   rpc SendTestEmail (SendTestEmailRequest) returns (google.protobuf.Empty) {}
+
+  // 按渠道类型发一条测试消息（验证渠道配置；EMAIL/SMS 需 recipient，WEBHOOK 不支持在此测试）
+  rpc SendTest (SendTestRequest) returns (google.protobuf.Empty) {}
+
+  // 全量扩展渠道 schema（分组/标签/Target 语义/字段声明）：配置表单按它动态渲染
+  rpc ListChannelSchemas (google.protobuf.Empty) returns (ListChannelSchemasResponse) {}
+}
+
+// 扩展渠道的字段声明（schema 驱动配置表单；见 docs/notify_channels_expansion.md §2.2）
+message ChannelField {
+  string name = 1 [json_name = "name"];
+  string label = 2 [json_name = "label"];
+  string type = 3 [json_name = "type"];          // text | textarea | number | password | select
+  bool required = 4 [json_name = "required"];
+  bool sensitive = 5 [json_name = "sensitive"];  // 加密落库、回显脱敏、留空不修改
+  string placeholder = 6 [json_name = "placeholder"];
+  string hint = 7 [json_name = "hint"];
+  repeated string options = 8 [json_name = "options"]; // select 的可选项
+}
+
+// 扩展渠道声明
+message ChannelSchema {
+  string type = 1 [json_name = "type"];
+  string group = 2 [json_name = "group"];        // IM | PUSH | MOBILE | SMS | MAIL | AUTO | OPS
+  string label = 3 [json_name = "label"];
+  string target_label = 4 [json_name = "targetLabel"];
+  bool needs_target = 5 [json_name = "needsTarget"];
+  repeated ChannelField fields = 6 [json_name = "fields"];
+}
+
+// 全量渠道 schema - 回应
+message ListChannelSchemasResponse {
+  repeated ChannelSchema items = 1;
 }
 
 // Webhook 出站风格：一条 webhook 请求有三个地方各家长得不一样——签名怎么算、签名放哪、
@@ -47,12 +80,46 @@ enum SignStyle {
   WECOM = 4;     // 企业微信群机器人：不签名（凭据在 URL 的 key 上），按 body 的 errcode 判
 }
 
+// 短信服务商。成员名必须与 ent 列值逐字相同（EnumTypeConverter 按名字字符串配对）。
+// proto3 首成员为零值：库里的存量行在加列时被 DEFAULT 回填成 'ALIYUN'，语义一致。
+enum SmsProvider {
+  ALIYUN = 0;   // 阿里云短信（Dysmsapi SendSms，RPC 签名）
+  TENCENT = 1;  // 腾讯云短信（sms SendSms，TC3-HMAC-SHA256 签名；需要 sms_app_id）
+}
+
 // 通知渠道
 message NotificationChannel {
   // 渠道类型
   enum Type {
     EMAIL = 0;    // 邮件（SMTP）
     WEBHOOK = 1;  // Webhook（HTTP 回调）
+    SMS = 2;      // 短信（阿里云/腾讯云；当前仅承载验证码类事件）
+
+    // ---- IM（15）----（EXT_* 扩展渠道：配置在 settings 列）
+    WECOM_APP = 100;    DINGTALK_APP = 101;  FEISHU_APP = 102;  WECHAT = 103;
+    TELEGRAM = 104;     SLACK = 105;         DISCORD = 106;     TEAMS = 107;
+    GCHAT = 108;        WEBEX = 109;         LINE = 110;        MATRIX = 111;
+    MATTERMOST = 112;   ROCKETCHAT = 113;    ZULIP = 114;
+
+    // ---- 个人推送（8）----
+    BARK = 120;         NTFY = 121;          GOTIFY = 122;      SERVERCHAN = 123;
+    WXPUSHER = 124;     PUSHOVER = 125;      PUSHBULLET = 126;  PUSHDEER = 127;
+
+    // ---- 移动推送服务（2）----
+    JPUSH = 130;        GETUI = 131;
+
+    // ---- 短信/消息（5）----
+    HUAWEISMS = 140;    YUNPIAN = 141;       TWILIO = 142;      VONAGE = 143;
+    WHATSAPP = 144;
+
+    // ---- 邮件 API（3）----
+    MAILGUN = 150;      SENDGRID = 151;      POSTMARK = 152;
+
+    // ---- 效率自动化（3）----
+    IFTTT = 160;        JOIN = 161;          HOMEASSISTANT = 162;
+
+    // ---- 运维告警（3）----
+    DATADOG = 170;      OPSGENIE = 171;      PAGERDUTY = 172;
   }
 
   // SMTP 加密方式
@@ -132,6 +199,13 @@ message NotificationChannel {
     (gnostic.openapi.v3.property) = { description: "Webhook 载荷模板，留空用该风格的内置默认 JSON" }
   ]; // Webhook 载荷模板
 
+  // 扩展渠道（EXT_*）的配置整包（JSON）。读回显为**脱敏版**：schema 声明为 sensitive 的
+  // 字段值恒为空串——前端"留空 = 不修改"；写入（Create/Update）时为明文，服务端加密落库。
+  optional string settings = 30 [
+    json_name = "settings",
+    (gnostic.openapi.v3.property) = { description: "扩展渠道配置 JSON（读回显脱敏）" }
+  ]; // 渠道配置
+
   optional bool enabled = 20 [
     json_name = "enabled",
     (gnostic.openapi.v3.property) = { description: "是否启用" }
@@ -141,6 +215,51 @@ message NotificationChannel {
     json_name = "remark",
     (gnostic.openapi.v3.property) = { description: "备注" }
   ]; // 备注
+
+  optional SmsProvider sms_provider = 22 [
+    json_name = "smsProvider",
+    (gnostic.openapi.v3.property) = { description: "短信服务商（仅 SMS 渠道）" }
+  ]; // 短信服务商
+
+  optional string sms_access_key_id = 23 [
+    json_name = "smsAccessKeyId",
+    (gnostic.openapi.v3.property) = { description: "访问密钥 ID（仅 SMS 渠道）" }
+  ]; // 访问密钥 ID
+
+  // 密钥不回传：与 password 同一条约定，仅写入时接收
+  optional bool has_sms_access_secret = 24 [
+    json_name = "hasSmsAccessSecret",
+    (gnostic.openapi.v3.property) = { description: "是否已配置访问密钥 Secret" }
+  ]; // 是否已配置访问密钥 Secret
+
+  optional string sms_sign_name = 25 [
+    json_name = "smsSignName",
+    (gnostic.openapi.v3.property) = { description: "短信签名（已在服务商备案的签名名，仅 SMS 渠道）" }
+  ]; // 短信签名
+
+  // 短信模板必须是服务商侧审核通过的验证码模板：
+  // 阿里云模板正文含 ${code}，腾讯云模板正文含 {1}——同一份占位语义，各家用各家的写法。
+  optional string sms_template_code = 26 [
+    json_name = "smsTemplateCode",
+    (gnostic.openapi.v3.property) = { description: "验证码模板 ID（服务商侧审核通过的模板，仅 SMS 渠道）" }
+  ]; // 验证码模板 ID
+
+  // 腾讯云必填（SmsSdkAppId，控制台"应用管理"里那串数字）；阿里云留空。
+  optional string sms_app_id = 27 [
+    json_name = "smsAppId",
+    (gnostic.openapi.v3.property) = { description: "短信应用 ID（腾讯云 SmsSdkAppId；阿里云留空）" }
+  ]; // 短信应用 ID
+
+  // 腾讯云必填（如 ap-guangzhou）；阿里云留空（默认 cn-hangzhou）。
+  optional string sms_region = 28 [
+    json_name = "smsRegion",
+    (gnostic.openapi.v3.property) = { description: "服务地域（腾讯云如 ap-guangzhou；阿里云留空）" }
+  ]; // 服务地域
+
+  optional string smtp_from_name = 29 [
+    json_name = "smtpFromName",
+    (gnostic.openapi.v3.property) = { description: "发件人显示名（仅 EMAIL 渠道）" }
+  ]; // 发件人显示名
 
   optional uint32 created_by = 100 [json_name = "createdBy"];
   optional uint32 updated_by = 101 [json_name = "updatedBy"];
@@ -173,6 +292,13 @@ message CreateNotificationChannelRequest {
     json_name = "webhookSecret",
     (gnostic.openapi.v3.property) = { description: "Webhook 签名密钥" }
   ];
+  // 明文访问密钥 Secret（服务端加密存储，不落日志；仅 SMS 渠道）
+  optional string sms_access_secret = 4 [
+    json_name = "smsAccessSecret",
+    (gnostic.openapi.v3.property) = { description: "短信访问密钥 Secret" }
+  ];
+  // 扩展渠道配置（JSON 明文，含敏感字段；服务端按 schema 加密落库。仅 EXT_* 渠道）
+  optional string settings = 5 [json_name = "settings"];
 }
 
 // 更新通知渠道 - 请求
@@ -191,6 +317,13 @@ message UpdateNotificationChannelRequest {
     json_name = "webhookSecret",
     (gnostic.openapi.v3.property) = { description: "Webhook 签名密钥，留空不修改" }
   ];
+  // 明文访问密钥 Secret；留空表示不修改已存密钥（仅 SMS 渠道）
+  optional string sms_access_secret = 6 [
+    json_name = "smsAccessSecret",
+    (gnostic.openapi.v3.property) = { description: "短信访问密钥 Secret，留空不修改" }
+  ];
+  // 扩展渠道配置（JSON 明文；仅 EXT_* 渠道。schema sensitive 字段留空 = 保留已存值）
+  optional string settings = 7 [json_name = "settings"];
 }
 
 // 删除通知渠道 - 请求
@@ -209,4 +342,18 @@ message SendTestEmailRequest {
     json_name = "recipient",
     (gnostic.openapi.v3.property) = { description: "测试收件人邮箱" }
   ]; // 测试收件人邮箱
+}
+
+// 发送测试消息 - 请求（按渠道类型分派：EMAIL 走邮件，SMS 发一条测试验证码；WEBHOOK 不支持）
+message SendTestRequest {
+  uint32 id = 1 [
+    json_name = "id",
+    (gnostic.openapi.v3.property) = { description: "渠道ID" }
+  ]; // 渠道ID
+
+  // 收件目标：EMAIL 为邮箱地址，SMS 为手机号（E.164 或纯号码均可）
+  string recipient = 2 [
+    json_name = "recipient",
+    (gnostic.openapi.v3.property) = { description: "测试收件人（邮箱/手机号，按渠道类型）" }
+  ]; // 测试收件人
 }

@@ -185,6 +185,7 @@ function refresh() {
   --fb-navy-deep: #2f2e41; // 更深藏青物件
   --fb-skin: #a0616a; // 肤色，两态同值
   --fb-skin-light: #ffb6b6;
+  --fb-coral: #ff6b6b; // 警示件（401 三角），两态同值——与 react Fallback.css 同步
   --fb-glow: color-mix(in srgb, var(--fb-primary) 14%, transparent);
 }
 
@@ -211,6 +212,10 @@ function refresh() {
   justify-content: center;
   width: 100%;
   height: 100%;
+
+  // 整页底色取页面画布档（§2.2/§2.3）。改前 html/body/#app/本容器一路
+  // rgba(0,0,0,0)，暗色下的底色由 color-scheme 的浏览器默认画布决定，不归设计语言管
+  background: var(--el-bg-color-page);
 
   // 主色柔光晕：垫在插画后方，暗色下更明显
   &::before {

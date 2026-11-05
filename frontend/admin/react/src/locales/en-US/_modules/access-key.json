@@ -13,8 +13,8 @@
   "createdAt": "Created At",
   "never": "Never",
   "action": "Actions",
-  "create": "New Credential",
-  "edit": "Edit Credential",
+  "create": "Create Credential",
+  "edit": "Update Credential",
   "deleteConfirmTitle": "Confirm Delete",
   "deleteConfirmDesc": "Machine token exchange using this credential will stop working immediately. Delete this {{moduleName}}?",
   "createSuccess": "Credential created",
@@ -30,5 +30,6 @@
   "secretCopied": "Secret copied",
   "resetSecret": "Reset Secret",
   "resetSuccess": "Secret reset",
-  "resetFailed": "Reset failed"
+  "resetFailed": "Reset failed",
+  "resetSecretFor": "Reset Target"
 }

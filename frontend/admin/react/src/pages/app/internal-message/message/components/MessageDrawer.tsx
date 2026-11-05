@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import type { internal_messageservicev1_InternalMessage as InternalMessage } from '@/api/generated/admin/service/v1';
 import { PaginationQuery } from '@/core';
 import { useUpdateInternalMessage, useSendMessage, fetchListMessageCategories } from '@/api/hooks/internal-message';
+import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 import { fetchListUsers } from '@/api/hooks/user';
 import { Editor, EditorType } from '@/components/common/Editor';
 import { getStatusOptions, getTypeOptions } from '../constants';
@@ -30,6 +31,9 @@ interface MessageDrawerProps {
 const MessageDrawer: React.FC<MessageDrawerProps> = ({ open, mode, data, onClose, onSuccess }) => {
   const { t } = useTranslation('internal-message');
   const formRef = useRef<ProFormInstance>(null);
+
+  // 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）
+  const { guardClose, handleValuesChange } = useDrawerCloseGuard(open, onClose);
   const queryClient = useQueryClient();
   const { message } = App.useApp();
 
@@ -47,7 +51,9 @@ const MessageDrawer: React.FC<MessageDrawerProps> = ({ open, mode, data, onClose
   // 加载分类列表
   useEffect(() => {
     if (open) {
-      fetchListMessageCategories(new PaginationQuery({ formValues: { isEnabled: 'true' } }))
+      // isEnabled 是布尔列：必须传布尔值走 EQ。传字符串 'true' 会被查询序列化器
+      // 当成模糊搜索拼成 isEnabled__contains=true，后端对布尔列 contains 直接 500。
+      fetchListMessageCategories(new PaginationQuery({ formValues: { isEnabled: true } }))
         .then((res) => {
           const items = res?.items || [];
           // 分类是平级列表，转为 select 选项
@@ -126,12 +132,7 @@ const MessageDrawer: React.FC<MessageDrawerProps> = ({ open, mode, data, onClose
       formRef={formRef}
       title={mode === 'create' ? t('drawerCreate') : t('drawerUpdate')}
       open={open}
-      onOpenChange={(visible) => {
-        if (!visible) {
-          formRef.current?.resetFields();
-          onClose();
-        }
-      }}
+      onValuesChange={handleValuesChange}
       initialValues={{
         status: 'DRAFT',
         type: 'NOTIFICATION',
@@ -145,9 +146,12 @@ const MessageDrawer: React.FC<MessageDrawerProps> = ({ open, mode, data, onClose
         submitButtonProps: {
           loading: confirmLoading || sendMessageMutation.isPending || updateMutation.isPending,
         },
-        resetButtonProps: { onClick: onClose },
+        resetButtonProps: { onClick: guardClose },
       }}
-      drawerProps={{ destroyOnHidden: true, onClose, size: 800 }}
+      drawerProps={{ destroyOnHidden: true, onClose: guardClose, size: 800 }}
+      layout="horizontal"
+      labelCol={{ flex: '0 0 120px' }}
+      wrapperCol={{ flex: 'auto' }}
     >
       <ProFormSelect
         name="status"
@@ -239,15 +243,19 @@ const MessageDrawer: React.FC<MessageDrawerProps> = ({ open, mode, data, onClose
         fieldProps={{ allowClear: true }}
       />
 
-      {/* 消息内容 - Tiptap 富文本编辑器 */}
+      {/* 消息内容 - Tiptap 富文本编辑器；富文本属复杂控件按规范标签在上通栏 */}
       <Form.Item
         name="content"
         label={t('content')}
+        labelCol={{ span: 24 }}
+        wrapperCol={{ span: 24 }}
+        labelAlign="left"
+        className="form-item-label-top"
         rules={[{ required: true, message: t('requiredContent', '请输入消息内容') }]}
       >
         <Editor
           editorType={EditorType.RICH_TEXT}
-          height={400}
+          height={500}
           placeholder={t('contentPlaceholder')}
         />
       </Form.Item>

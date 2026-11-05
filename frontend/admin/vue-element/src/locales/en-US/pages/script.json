@@ -20,8 +20,8 @@
   "isEnabled": "Enabled",
   "version": "Version",
   "updatedAt": "Updated At",
-  "create": "New Script",
-  "edit": "Edit Script",
+  "create": "Create Script",
+  "edit": "Update Script",
   "testRun": "Test Run",
   "testRunTitle": "Test Run: {name}",
   "testRunInput": "Input (key-value pairs, values must be valid JSON)",
@@ -47,5 +47,6 @@
   "logCreatedAt": "Executed At",
   "logPurge": "Purge >90d",
   "logPurgeConfirmDesc": "This deletes all execution logs older than 90 days. Continue?",
-  "logPurgeSuccess": "Purged {count} log entries"
+  "logPurgeSuccess": "Purged {count} log entries",
+  "viewLogTitle": "View Script Log"
 }

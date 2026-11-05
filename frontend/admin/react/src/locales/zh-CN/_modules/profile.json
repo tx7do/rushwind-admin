@@ -2,8 +2,15 @@
   "pageTitle": "个人中心",
   "tab": {
     "basicInfo": "基本信息",
+    "basicSettings": "基本设置",
+    "editPassword": "修改密码",
     "security": "安全设置",
-    "sessions": "活跃会话"
+    "securitySettings": "安全设置",
+    "sessions": "活跃会话",
+    "activeSessions": "活跃会话",
+    "notification": "通知偏好",
+    "tenantUsage": "套餐用量",
+    "accountBind": "账号绑定"
   },
   "avatar": "头像",
   "username": "用户名",
@@ -34,7 +41,6 @@
   "save": "保存修改",
   "saveSuccess": "保存成功",
   "saveFailed": "保存失败",
-  "fetchFailed": "获取用户信息失败",
   "oldPassword": "当前密码",
   "oldPasswordPlaceholder": "请输入当前密码",
   "requiredOldPassword": "请输入当前密码",
@@ -75,5 +81,98 @@
     "unbindConfirmContent": "解绑后，登录将不再要求验证码，会降低账号安全性。",
     "cancel": "取消",
     "totpDevice": "TOTP 设备"
+  },
+  "notification": {
+    "quietTitle": "静音时段",
+    "quietDesc": "静音时段内不实时推送站内信通知（桌面通知与角标不再即时弹出），消息仍会进入收件箱，随时可查。",
+    "quietEnable": "启用静音时段",
+    "quietTimeRange": "静音窗口（支持跨零点，如 22:00 至 08:00）",
+    "startTime": "开始时间",
+    "endTime": "结束时间",
+    "quietTimeRequired": "请选择静音时段",
+    "quietZeroWidth": "静音开始与结束时间不能相同",
+    "muteTitle": "分类退订",
+    "muteDesc": "退订后不再接收该分类的全员广播消息；点对点直接发给你的消息不受影响。",
+    "noCategories": "当前租户暂无可选分类",
+    "save": "保存偏好",
+    "saving": "保存中…",
+    "saveSuccess": "通知偏好已保存",
+    "saveFailed": "保存通知偏好失败",
+    "transactionalNote": "验证码等事务性邮件不受本页配置影响，始终照常发送。",
+    "on": "开",
+    "off": "关"
+  },
+  "tenantUsage": {
+    "plan": "当前套餐：",
+    "noPlan": "未订阅套餐",
+    "empty": "当前账号无套餐用量数据。",
+    "reached": "已达上限",
+    "quota": {
+      "USER_LIMIT": "用户数",
+      "STORAGE": "存储空间 (MB)",
+      "API_CALL": "API 调用次数",
+      "AI_TOKENS": "AI Token 用量"
+    }
+  },
+  "locale": "偏好语言",
+  "localePlaceholder": "跟随浏览器语言",
+  "field": {
+    "nickname": "昵称",
+    "realname": "姓名",
+    "email": "邮箱",
+    "mobile": "手机号",
+    "telephone": "座机号",
+    "gender": "性别",
+    "region": "国家地区",
+    "address": "住址",
+    "description": "个人描述",
+    "locale": "偏好语言",
+    "avatar": "头像"
+  },
+  "info": {
+    "username": "用户名",
+    "roleNames": "角色",
+    "orgUnitNames": "所属组织",
+    "positionNames": "所属岗位",
+    "tenantName": "所属租户",
+    "lastLoginAt": "最后登录时间",
+    "lastLoginIp": "最后登录IP",
+    "createdAt": "创建时间"
+  },
+  "button": {
+    "uploadAvatar": "上传头像",
+    "deleteAvatar": "删除头像"
+  },
+  "avatarUploadSuccess": "头像上传成功",
+  "avatarUploadFailed": "头像上传失败",
+  "avatarNotImage": "只能上传图片文件",
+  "avatarTooLarge": "图片大小不能超过 5MB",
+  "avatarDeleted": "头像已删除",
+  "avatarDeleteFailed": "头像删除失败",
+  "secureSetting": {
+    "password": "登录密码",
+    "passwordDesc": "建议定期修改密码，可搭配两步验证提升账户安全性",
+    "modify": "修改"
+  },
+  "accountBind": {
+    "email": "邮箱账号",
+    "phone": "手机号",
+    "bound": "已绑定：{{value}}",
+    "unbound": "未绑定，可在基本设置中填写",
+    "modify": "修改",
+    "bindNow": "立即绑定",
+    "rebind": "换绑",
+    "bindEmailTitle": "绑定邮箱",
+    "newEmail": "新邮箱",
+    "newEmailPlaceholder": "请输入新邮箱地址",
+    "vcode": "验证码",
+    "vcodePlaceholder": "请输入邮箱验证码",
+    "sendVcode": "发送验证码",
+    "codeSent": "已发送，请查收",
+    "vcodeSendFailed": "验证码发送失败",
+    "newEmailRequired": "请输入新邮箱地址",
+    "vcodeRequired": "请输入验证码",
+    "bindSuccess": "邮箱绑定成功",
+    "bindFailed": "绑定失败"
   }
 }

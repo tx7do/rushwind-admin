@@ -1,22 +1,21 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import React from 'react';
-import { Avatar, Dropdown, Badge, Tooltip, Button, Breadcrumb, Input, Popover, Empty, Spin, App as AntdApp } from 'antd';
+import { Avatar, Dropdown, Badge, Tooltip, Button, Breadcrumb, Input, Popover, Modal, Empty, Spin, App as AntdApp } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   UserOutlined,
-  SettingOutlined,
   LogoutOutlined,
+  InboxOutlined,
+  LockOutlined,
   MenuUnfoldOutlined,
   MenuFoldOutlined,
   ReloadOutlined,
   SearchOutlined,
   SunOutlined,
   MoonOutlined,
-  GlobalOutlined,
-  FullscreenOutlined,
-  FullscreenExitOutlined,
   BellOutlined,
   CheckOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -26,6 +25,8 @@ import { useTranslation } from 'react-i18next';
 
 import { getIconFromName } from '@/layouts/MainLayout/utils/iconResolver';
 
+import { SettingBoltIcon } from '@/components/common/settingBoltIcon';
+
 import { useI18n } from '@/core/i18n';
 import { usePreferencesStore } from '@/core/preferences/store';
 import type { SupportedLanguagesType } from '@/core/preferences/types/layout';
@@ -34,8 +35,172 @@ import { apiClient } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { PaginationQuery, queryClient } from '@/core';
 import { globalSSEClient, SSE_EVENT } from '@/core/transport/sse';
+import { useLockStore } from '@/stores';
+import { LockScreenModal } from './LockScreenModal';
 
 dayjs.extend(relativeTime);
+
+/**
+ * 全屏按钮的四角括号图标（vben 同款 lucide Maximize/Minimize 内联复刻）。
+ * antd 图标集里没有这个括号造型（FullscreenOutlined 是四角向外箭头）；
+ * stroke 系图形必须显式 fill="none"，否则继承 antd 的 fill: currentColor 会糊成色块。
+ */
+const MaximizeBracketsIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    width="1em"
+    height="1em"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+    <path d="M21 8V5a2 2 0 0 0-2-2h-3" />
+    <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+    <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+  </svg>
+);
+
+const MinimizeBracketsIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    width="1em"
+    height="1em"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+    <path d="M21 8h-3a2 2 0 0 1-2-2V3" />
+    <path d="M3 16v3a2 2 0 0 0 2 2h3" />
+    <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+  </svg>
+);
+
+/**
+ * 语言切换的「文A」图标（Remix translate-2 填充复刻；ele 顶栏 SvgIcon "language" 同款）。
+ * antd TranslationOutlined 自带方框外沿，tabler language 是描边文A，均与 ele 的实心文A不符。
+ */
+const LanguageTranslateIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    width="1em"
+    height="1em"
+    fill="currentColor"
+    aria-hidden="true"
+  >
+    <path d="m18.5 10 4.4 11h-2.155l-1.201-3h-4.09l-1.199 3h-2.154L16.5 10h2zM10 2v2h6v2h-1.968a18.221 18.221 0 0 1-3.62 6.301 14.865 14.865 0 0 0 2.335 1.707l-.75 1.878A17.016 17.016 0 0 1 9 13.725a16.677 16.677 0 0 1-6.201 3.548l-.536-1.929a14.7 14.7 0 0 0 5.327-3.042A18.078 18.078 0 0 1 4.767 8h2.24A16.031 16.031 0 0 0 9 10.877a16.165 16.165 0 0 0 2.91-4.876L2 6V4h6V2h2zm7.5 10.885L16.253 16h2.492L17.5 12.885z" />
+  </svg>
+);
+
+/** 键位提示条的小 kbd 徽标（与触发条上的 Ctrl K 同族样式） */
+const searchHintKbdStyle: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: 18,
+  padding: '1px 5px',
+  fontSize: 11,
+  fontFamily: 'monospace',
+  lineHeight: 1.4,
+  color: 'var(--ant-color-text-secondary)',
+  backgroundColor: 'var(--ant-color-bg-container)',
+  border: '1px solid var(--ant-color-border)',
+  borderRadius: 4,
+};
+
+/** 全局搜索结果行（形态对齐 vben SearchPanel：图标 + 标题，选中主色实底白字） */
+const SearchRow = ({
+  iconNode,
+  title,
+  active,
+  onMouseEnter,
+  onClick,
+  onRemove,
+}: {
+  iconNode?: React.ReactNode;
+  title: string;
+  active: boolean;
+  onMouseEnter: () => void;
+  onClick: () => void;
+  onRemove?: () => void;
+}) => (
+  <div
+    className="semantic-search-item"
+    onMouseEnter={onMouseEnter}
+    onClick={onClick}
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '8px 10px',
+      borderRadius: 6,
+      cursor: 'pointer',
+      ...(active ? { backgroundColor: 'var(--ant-color-primary)' } : {}),
+    }}
+  >
+    {iconNode && (
+      <span
+        style={{
+          display: 'inline-flex',
+          fontSize: 14,
+          flexShrink: 0,
+          color: active ? 'var(--ant-color-white)' : 'var(--ant-color-text-secondary)',
+        }}
+      >
+        {iconNode}
+      </span>
+    )}
+    <span
+      style={{
+        flex: 1,
+        minWidth: 0,
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        fontSize: 13,
+        ...(active ? { color: 'var(--ant-color-white)' } : {}),
+      }}
+    >
+      {title}
+    </span>
+    {onRemove && (
+      <span
+        role="button"
+        tabIndex={-1}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
+        style={{
+          display: 'inline-flex',
+          padding: 3,
+          fontSize: 11,
+          lineHeight: 1,
+          borderRadius: 4,
+          color: active ? 'var(--ant-color-white)' : 'var(--ant-color-text-secondary)',
+          backgroundColor: active ? 'transparent' : 'transparent',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = active
+            ? 'color-mix(in srgb, var(--ant-color-white) 20%, transparent)'
+            : 'var(--ant-color-fill-tertiary)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = 'transparent';
+        }}
+      >
+        <CloseOutlined />
+      </span>
+    )}
+  </div>
+);
 
 /** 通知列表的相对时间（如"5 分钟前"）；跟随界面语言 */
 const fromNow = (value?: string, locale?: string): string => {
@@ -56,6 +221,7 @@ interface HeaderContentProps {
   isDark: boolean;
   onToggleTheme: (event?: React.MouseEvent<HTMLElement>) => void;
   onOpenSettings: () => void;
+  menuData: any[];
   widgetConfig: {
     fullscreen: boolean;
     globalSearch: boolean;
@@ -78,10 +244,11 @@ export const HeaderContent = ({
   isDark,
   onToggleTheme,
   onOpenSettings,
+  menuData,
   widgetConfig,
 }: HeaderContentProps) => {
   const { t } = useI18n('common');
-  const { t: tRoutes, i18n } = useTranslation(); // 用于路由翻译
+  const { t: tRoutes, i18n } = useTranslation('routes'); // 用于路由翻译（路由标题走 routes 命名空间，含后端菜单种子键 menu.*/page.*）
   const navigate = useNavigate();
   const matches = useMatches();
 
@@ -185,32 +352,84 @@ export const HeaderContent = ({
     },
   ];
 
-  // 用户菜单
-  const userMenuItems: MenuProps['items'] = [
+  // ===== 用户下拉菜单 =====
+  // 条目口径三端统一（头部卡 / 个人中心 / 收件箱 / 锁定屏幕 / 退出登录），
+  // 基准实现见 vue-vben framework/effects/layouts/widgets/user-dropdown。
+  const lockScreenEnabled = usePreferencesStore((state) => state.preferences.widget?.lockScreen ?? true);
+  const shortcutKeys = usePreferencesStore((state) => state.preferences.shortcutKeys);
+  const lockScreen = useLockStore((state) => state.lockScreen);
+
+  const [lockModalOpen, setLockModalOpen] = useState(false);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+
+  const altView = /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌥' : 'Alt';
+  const shortcutsEnabled = shortcutKeys?.enable ?? true;
+  const showLockShortcut = shortcutsEnabled && (shortcutKeys?.globalLockScreen ?? true);
+  const showLogoutShortcut = shortcutsEnabled && (shortcutKeys?.globalLogout ?? true);
+
+  // 菜单项右侧的键位提示：与下面的全局监听读同一份开关，避免"显示却按不动"
+  const labeledItem = (text: string, shortcut?: string) => (
+    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 24 }}>
+      <span>{text}</span>
+      {shortcut && <span style={searchHintKbdStyle}>{shortcut}</span>}
+    </span>
+  );
+
+  useEffect(() => {
+    if (!shortcutsEnabled) return undefined;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!event.altKey) return;
+      if (event.code === 'KeyL' && lockScreenEnabled && showLockShortcut) {
+        event.preventDefault();
+        setLockModalOpen(true);
+      } else if (event.code === 'KeyQ' && showLogoutShortcut) {
+        event.preventDefault();
+        setLogoutConfirmOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [shortcutsEnabled, lockScreenEnabled, showLockShortcut, showLogoutShortcut]);
+
+  const userMenuItems: NonNullable<MenuProps['items']> = [
     {
       key: 'profile',
       icon: <UserOutlined />,
-      label: t('header.profile'),
+      label: labeledItem(t('header.profile')),
       onClick: () => {
         navigate('/opm/profile');
       },
     },
     {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: t('header.settings'),
-      onClick: onOpenSettings,
+      key: 'inbox',
+      icon: <InboxOutlined />,
+      label: labeledItem(t('header.inbox')),
+      onClick: () => {
+        navigate('/internal-message/inbox');
+      },
     },
-    {
-      type: 'divider',
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined style={{ color: '#ff4d4f' }} />,
-      label: <span style={{ color: '#ff4d4f' }}>{t('header.logout')}</span>,
-      onClick: onLogout,
-    },
+    { type: 'divider' },
   ];
+
+  if (lockScreenEnabled) {
+    userMenuItems.push(
+      {
+        key: 'lock',
+        icon: <LockOutlined />,
+        label: labeledItem(t('header.lockScreen'), showLockShortcut ? `${altView} L` : undefined),
+        onClick: () => setLockModalOpen(true),
+      },
+      { type: 'divider' },
+    );
+  }
+
+  userMenuItems.push({
+    key: 'logout',
+    danger: true,
+    icon: <LogoutOutlined />,
+    label: labeledItem(t('header.logout'), showLogoutShortcut ? `${altView} Q` : undefined),
+    onClick: () => setLogoutConfirmOpen(true),
+  });
 
   // 通用按钮样式
   const btnStyle: React.CSSProperties = {
@@ -242,8 +461,9 @@ export const HeaderContent = ({
     refetchInterval: 300_000,
     refetchIntervalInBackground: false,
   });
-  // 未读数用列表响应的服务端 total（独立 COUNT），不能用当前页条数——后者封顶在 pageSize
-  const unreadCount = inboxUnread?.total ?? 0;
+  // 未读数用列表响应的服务端 total（独立 COUNT），不能用当前页条数——后者封顶在 pageSize。
+  // proto int64 经 protojson 运行时是字符串（TS 类型却标 number），须显式转数字。
+  const unreadCount = Number(inboxUnread?.total ?? 0);
 
   // 弹层列表：最近 5 条（已读+未读混合），未读带圆点加粗
   const { data: inboxRecent, isLoading: recentLoading } = useQuery({
@@ -319,7 +539,7 @@ export const HeaderContent = ({
                 lineHeight: '18px',
                 padding: '0 8px',
                 borderRadius: 10,
-                color: 'var(--ant-color-primary)',
+                color: 'var(--gowind-primary-text)',
                 background: 'rgba(0, 107, 230, 0.12)',
               }}
             >
@@ -393,7 +613,7 @@ export const HeaderContent = ({
                       <div
                         style={{
                           fontSize: 12,
-                          color: 'var(--ant-color-text-tertiary)',
+                          color: 'var(--ant-color-text-secondary)',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
@@ -407,7 +627,7 @@ export const HeaderContent = ({
                   <span
                     style={{
                       fontSize: 12,
-                      color: 'var(--ant-color-text-tertiary)',
+                      color: 'var(--ant-color-text-secondary)',
                       flexShrink: 0,
                     }}
                   >
@@ -440,6 +660,160 @@ export const HeaderContent = ({
       </div>
     </div>
   );
+
+  // ── 全局搜索（本地菜单匹配 + 语义搜索；视觉形态对齐 vben SearchPanel，
+  // 规格见 docs/design-language.md「全局搜索面板」条）──
+  const [semanticSearchOpen, setSemanticSearchOpen] = useState(false);
+  const [semanticQuery, setSemanticQuery] = useState('');
+  const [semanticResults, setSemanticResults] = useState<{title: string; route: string}[]>([]);
+  const [semanticLoading, setSemanticLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [searchHistory, setSearchHistory] = useState<{title: string; path: string; icon?: string}[]>([]);
+  const semanticTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const SEARCH_HISTORY_KEY = 'menu_search_history';
+  const SEARCH_HISTORY_MAX = 5;
+
+  // 菜单标题翻译：与面包屑（tRoutes(title)）同语义——i18next 对 'routes:xxx' /
+  // 'menu:xxx' 形态的 key 自动按「命名空间:键」解析，无需剥前缀
+  const resolveMenuTitle = (label: string | undefined): string =>
+    label ? tRoutes(label, { defaultValue: label }) : '';
+
+  // 扁平化菜单树为可搜索的叶子页列表（i18n 相关：语言切换时重建）
+  const searchableMenus = useMemo(() => {
+    const excluded = ['/login', '/401', '/403', '/404', '/500'];
+    const out: { title: string; path: string; icon?: string }[] = [];
+    const walk = (items: any[]) => {
+      for (const item of items) {
+        if (item.children?.length) {
+          walk(item.children);
+          continue;
+        }
+        const raw = item.name || item.label;
+        if (!item.path || !raw || excluded.includes(item.path)) continue;
+        if (out.some((o) => o.path === item.path)) continue;
+        out.push({
+          title: resolveMenuTitle(raw),
+          path: item.path,
+          icon: typeof item.icon === 'string' ? item.icon : undefined,
+        });
+      }
+    };
+    walk(menuData);
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [menuData, i18n.language]);
+
+  // 本地关键字匹配（contains，标题或路径）
+  const localResults = useMemo(() => {
+    const kw = semanticQuery.trim().toLowerCase();
+    if (!kw) return [];
+    return searchableMenus.filter(
+      (item) => item.title.toLowerCase().includes(kw) || item.path.toLowerCase().includes(kw),
+    );
+  }, [semanticQuery, searchableMenus]);
+
+  // 键盘导航作用于「与展示一致」的合并列表：有关键词=本地+语义，无关键词=历史
+  const combinedResults = useMemo(
+    () => (semanticQuery.trim() ? [...localResults, ...semanticResults] : searchHistory),
+    [semanticQuery, localResults, semanticResults, searchHistory],
+  );
+
+  const loadSearchHistory = () => {
+    try {
+      const raw = localStorage.getItem(SEARCH_HISTORY_KEY);
+      setSearchHistory(raw ? JSON.parse(raw) : []);
+    } catch (error) {
+      console.error('load search history failed:', error);
+      setSearchHistory([]);
+    }
+  };
+
+  useEffect(() => {
+    loadSearchHistory();
+  }, []);
+
+  const saveSearchHistory = (list: {title: string; path: string; icon?: string}[]) => {
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(list));
+    setSearchHistory(list);
+  };
+
+  const removeSearchHistory = (index: number) => {
+    const next = [...searchHistory];
+    next.splice(index, 1);
+    saveSearchHistory(next);
+  };
+
+  const closeSearch = () => {
+    setSemanticSearchOpen(false);
+    setSemanticResults([]);
+    setSemanticQuery('');
+    setActiveIndex(-1);
+  };
+
+  const handleSemanticSearch = (query: string) => {
+    setSemanticQuery(query);
+    setActiveIndex(-1);
+    clearTimeout(semanticTimer.current);
+    if (!query.trim()) { setSemanticResults([]); return; }
+    semanticTimer.current = setTimeout(async () => {
+      setSemanticLoading(true);
+      try {
+        const resp = await apiClient.aiContentService.SemanticSearch({ query: query.trim(), limit: 8 });
+        setSemanticResults(
+          (resp.items ?? [])
+            .filter((item) => item?.route)
+            .map((item) => ({
+              title: item.title ?? item.route ?? '',
+              route: item.route ?? '',
+            })),
+        );
+      } catch (error) {
+        // 不吞错：带出原始错误对象；语义搜索失败降级为仅本地结果
+        console.error('semantic search failed:', error);
+        setSemanticResults([]);
+      } finally { setSemanticLoading(false); }
+    }, 500);
+  };
+
+  const goSearchItem = (item: { path?: string; route?: string; title?: string; icon?: string }) => {
+    const path = item.path || item.route;
+    if (!path) return;
+    // 写入最近搜索（去重置顶，上限 5，语义命中按 route 收敛成菜单项形态）
+    const matched = searchableMenus.find((m) => m.path === path);
+    const entry = {
+      title: item.title || matched?.title || path,
+      path,
+      icon: matched?.icon,
+    };
+    const next = [entry, ...searchHistory.filter((h) => h.path !== path)].slice(0, SEARCH_HISTORY_MAX);
+    saveSearchHistory(next);
+    closeSearch();
+    navigate(path);
+  };
+
+  // Ctrl+K / Cmd+K 呼出全局搜索（偏好里可关：shortcutKeys.enable + shortcutKeys.globalSearch）
+  const shortcutEnabled = usePreferencesStore((s) => s.preferences.shortcutKeys?.enable ?? true);
+  const searchShortcutEnabled = usePreferencesStore((s) => s.preferences.shortcutKeys?.globalSearch ?? true);
+  useEffect(() => {
+    if (!widgetConfig.globalSearch || !shortcutEnabled || !searchShortcutEnabled) return undefined;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSemanticSearchOpen((open) => {
+          if (!open) {
+            loadSearchHistory();
+            setSemanticResults([]);
+            setSemanticQuery('');
+            setActiveIndex(-1);
+          }
+          return !open;
+        });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [widgetConfig.globalSearch, shortcutEnabled, searchShortcutEnabled]);
 
   return (
     <div
@@ -559,25 +933,164 @@ export const HeaderContent = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
         {/* 搜索按钮（带快捷键提示） */}
         {widgetConfig.globalSearch && (
-          <Popover
-            trigger="click"
-            placement="bottomRight"
-            content={
-              <div style={{ width: 320, padding: 8 }}>
-                <Input.Search
+          <>
+            <Modal
+              open={semanticSearchOpen}
+              onCancel={closeSearch}
+              footer={null}
+              width={600}
+              closable={false}
+              centered
+              destroyOnHidden
+              styles={{ body: { padding: 0 } }}
+            >
+              {/* 头部：搜索图标 + 无边框大输入 */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 10,
+                  padding: '10px 16px',
+                  borderBottom: '1px solid var(--ant-color-border-secondary)',
+                }}
+              >
+                <SearchOutlined style={{ color: 'var(--ant-color-text-secondary)', fontSize: 16 }} />
+                <Input
+                  variant="borderless"
+                  className="global-search-input"
                   placeholder={t('header.searchPlaceholder')}
-                  size="large"
-                  onSearch={(value) => {
-                    console.log('Search:', value);
-                    // 后续可实现全局搜索逻辑
+                  value={semanticQuery}
+                  onChange={(e) => handleSemanticSearch(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.nativeEvent.isComposing) return;
+                    const list = combinedResults;
+                    if (e.key === 'ArrowDown') {
+                      e.preventDefault();
+                      if (list.length) setActiveIndex((i) => (i >= list.length - 1 ? 0 : i + 1));
+                    } else if (e.key === 'ArrowUp') {
+                      e.preventDefault();
+                      if (list.length) setActiveIndex((i) => (i <= 0 ? list.length - 1 : i - 1));
+                    } else if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const target = list[activeIndex >= 0 ? activeIndex : 0];
+                      if (target) goSearchItem(target);
+                    }
                   }}
                   autoFocus
+                  allowClear
+                  style={{ fontSize: 15 }}
                 />
               </div>
-            }
-          >
+
+              {/* 结果区（限高内滚） */}
+              <div style={{ maxHeight: 450, overflowY: 'auto', padding: '8px' }}>
+                {/* 无关键词：最近搜索 */}
+                {!semanticQuery.trim() && searchHistory.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--ant-color-text-secondary)', fontSize: 13 }}>
+                    {t('header.noHistory')}
+                  </div>
+                )}
+                {!semanticQuery.trim() && searchHistory.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', padding: '4px 10px 6px' }}>
+                      {t('header.searchRecent')}
+                    </div>
+                    {searchHistory.map((item, i) => (
+                      <SearchRow
+                        key={item.path}
+                        iconNode={item.icon ? getIconFromName(item.icon) : undefined}
+                        title={item.title}
+                        active={activeIndex === i}
+                        onMouseEnter={() => setActiveIndex(i)}
+                        onClick={() => goSearchItem(item)}
+                        onRemove={() => removeSearchHistory(i)}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* 有关键词：本地菜单命中 */}
+                {semanticQuery.trim() && !semanticLoading && localResults.length > 0 && (
+                  <>
+                    {localResults.map((item, i) => (
+                      <SearchRow
+                        key={item.path}
+                        iconNode={item.icon ? getIconFromName(item.icon) : undefined}
+                        title={item.title}
+                        active={activeIndex === i}
+                        onMouseEnter={() => setActiveIndex(i)}
+                        onClick={() => goSearchItem(item)}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* 有关键词：语义搜索小节（独立分区，失败降级不弹错） */}
+                {semanticQuery.trim() && (semanticLoading || semanticResults.length > 0) && (
+                  <>
+                    <div style={{ fontSize: 12, color: 'var(--ant-color-text-secondary)', padding: '6px 10px 6px', marginTop: localResults.length > 0 ? 6 : 0 }}>
+                      {t('header.semanticTitle')}
+                    </div>
+                    {semanticLoading && (
+                      <div style={{ textAlign: 'center', padding: '12px 0', color: 'var(--ant-color-text-secondary)', fontSize: 13 }}>
+                        {t('header.searching')}
+                      </div>
+                    )}
+                    {!semanticLoading && semanticResults.map((item, i) => (
+                      <SearchRow
+                        key={`${item.route}-${i}`}
+                        title={item.title}
+                        active={activeIndex === localResults.length + i}
+                        onMouseEnter={() => setActiveIndex(localResults.length + i)}
+                        onClick={() => goSearchItem(item)}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* 有关键词且无任何结果 */}
+                {semanticQuery.trim() && !semanticLoading && combinedResults.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '24px 0', color: 'var(--ant-color-text-secondary)', fontSize: 13 }}>
+                    {t('header.noResults')}
+                  </div>
+                )}
+              </div>
+
+              {/* 底部键位提示条 */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 16,
+                  padding: '8px 16px',
+                  borderTop: '1px solid var(--ant-color-border-secondary)',
+                  fontSize: 12,
+                  color: 'var(--ant-color-text-secondary)',
+                }}
+              >
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <kbd style={searchHintKbdStyle}>↵</kbd>
+                  {t('header.searchSelect')}
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <kbd style={searchHintKbdStyle}>↑</kbd>
+                  <kbd style={searchHintKbdStyle}>↓</kbd>
+                  {t('header.searchSwitch')}
+                </span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <kbd style={searchHintKbdStyle}>ESC</kbd>
+                  {t('header.searchClose')}
+                </span>
+              </div>
+            </Modal>
+
             <div
               className="search-trigger-btn"
+              onClick={() => {
+                loadSearchHistory();
+                setActiveIndex(-1);
+                setSemanticSearchOpen(true);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -626,14 +1139,14 @@ export const HeaderContent = ({
                 {t('header.searchShortcut')}
               </kbd>
             </div>
-          </Popover>
+          </>
         )}
 
         {/* 设置按钮 */}
         <Tooltip title={t('header.settings')}>
           <Button
             type="text"
-            icon={<SettingOutlined />}
+            icon={<SettingBoltIcon />}
             onClick={onOpenSettings}
             size="small"
             style={btnStyle}
@@ -657,7 +1170,7 @@ export const HeaderContent = ({
         {widgetConfig.languageToggle && (
           <Dropdown menu={{ items: languageMenuItems }} trigger={['click']} placement="bottomRight">
             <Tooltip title={t('header.switchLanguage')}>
-              <Button type="text" icon={<GlobalOutlined />} size="small" style={btnStyle} />
+              <Button type="text" icon={<LanguageTranslateIcon />} size="small" style={btnStyle} />
             </Tooltip>
           </Dropdown>
         )}
@@ -667,7 +1180,7 @@ export const HeaderContent = ({
           <Tooltip title={isFullscreen ? t('header.exitFullscreen') : t('header.fullscreen')}>
             <Button
               type="text"
-              icon={isFullscreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+              icon={isFullscreen ? <MinimizeBracketsIcon /> : <MaximizeBracketsIcon />}
               onClick={onToggleFullscreen}
               size="small"
               style={btnStyle}
@@ -685,14 +1198,94 @@ export const HeaderContent = ({
           >
             <Badge count={unreadCount} size="small" offset={[0, 4]}>
               <Tooltip title={t('header.notification')}>
-                <Button type="text" icon={<BellOutlined />} size="small" style={btnStyle} />
+                <Button
+                  type="text"
+                  icon={<BellOutlined />}
+                  size="small"
+                  style={btnStyle}
+                  className="header-bell-btn"
+                />
               </Tooltip>
             </Badge>
           </Popover>
         )}
 
         {/* 用户头像 + 下拉菜单 */}
-        <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
+        <Dropdown
+          trigger={['click']}
+          placement="bottomRight"
+          menu={{
+            items: userMenuItems,
+            // 卡片盒子由 popupRender 的容器承担，菜单自身必须收平，否则头部卡会浮在卡外
+            style: { background: 'transparent', boxShadow: 'none', borderRadius: 0 },
+          }}
+          popupRender={(originNode) => (
+            <div
+              style={{
+                minWidth: 240,
+                overflow: 'hidden',
+                backgroundColor: 'var(--ant-color-bg-elevated, var(--ant-color-bg-container))',
+                borderRadius: 'var(--ant-border-radius-lg, 8px)',
+                boxShadow:
+                  'var(--ant-box-shadow-secondary, 0 6px 16px 0 rgba(0,0,0,0.08), 0 3px 6px -4px rgba(0,0,0,0.12), 0 9px 28px 8px rgba(0,0,0,0.05))',
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '14px 16px',
+                  borderBottom: '1px solid var(--ant-color-border-secondary)',
+                }}
+              >
+                <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
+                  <Avatar src={userInfo?.avatar || defaultAvatar || undefined} icon={<UserOutlined />} size={48} />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      right: 1,
+                      bottom: 2,
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      backgroundColor: 'var(--ant-color-success)',
+                      border: '2px solid var(--ant-color-bg-elevated, var(--ant-color-bg-container))',
+                    }}
+                  />
+                </span>
+                <span style={{ flex: 1, minWidth: 0 }}>
+                  <span
+                    style={{
+                      display: 'block',
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: 'var(--ant-color-text)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {userInfo?.realname || userInfo?.username || t('header.guest')}
+                  </span>
+                  <span
+                    style={{
+                      display: 'block',
+                      fontSize: 12,
+                      color: 'var(--ant-color-text-secondary)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {userInfo?.email}
+                  </span>
+                </span>
+              </div>
+              {originNode}
+            </div>
+          )}
+        >
           <div
             style={{
               display: 'flex',
@@ -724,10 +1317,37 @@ export const HeaderContent = ({
                 whiteSpace: 'nowrap',
               }}
             >
-              {userInfo?.username || t('header.guest')}
+              {userInfo?.realname || userInfo?.username || t('header.guest')}
             </span>
           </div>
         </Dropdown>
+
+        <LockScreenModal
+          open={lockModalOpen}
+          avatar={userInfo?.avatar || defaultAvatar || undefined}
+          text={userInfo?.realname || userInfo?.username}
+          onCancel={() => setLockModalOpen(false)}
+          onSubmit={(password) => {
+            lockScreen(password);
+            setLockModalOpen(false);
+          }}
+        />
+
+        {/* 退出登录二次确认：与 vue-element / vue-vben 一致，不做"点一下就掉线" */}
+        <Modal
+          open={logoutConfirmOpen}
+          title={t('header.logoutConfirmTitle')}
+          okText={t('button.ok')}
+          cancelText={t('button.cancel')}
+          okButtonProps={{ danger: true }}
+          onOk={() => {
+            setLogoutConfirmOpen(false);
+            onLogout();
+          }}
+          onCancel={() => setLogoutConfirmOpen(false)}
+        >
+          {t('header.logoutConfirmMessage')}
+        </Modal>
       </div>
     </div>
   );

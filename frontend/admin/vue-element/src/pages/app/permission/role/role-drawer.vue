@@ -5,9 +5,10 @@
     :loading="pageLoading"
     :config="{
       component: 'drawer',
-      drawer: { size: DRAWER_WIDTH, closeOnClickModal: false },
+      drawer: { size: DRAWER_WIDTH },
     }"
-  >
+  
+    :close-guard="guard.allowClose">
     <ElForm
       ref="formRef"
       v-loading="pageLoading"
@@ -55,6 +56,23 @@
         </ElSelect>
       </ElFormItem>
 
+      <!-- 权限继承：父角色（可选）。子角色的可选权限与保存校验均受父角色约束 -->
+      <ElFormItem :label="$t('pages.role.parentId')" prop="parentId">
+        <ElTreeSelect
+          v-model="formData.parentId"
+          :data="roleTreeOptions"
+          :placeholder="$t('pages.role.parentIdPlaceholder')"
+          node-key="value"
+          :props="{ label: 'label', children: 'children' }"
+          filterable
+          clearable
+          check-strictly
+          default-expand-all
+          style="width: 100%"
+          @change="(v: any) => handleParentChange(typeof v === 'number' ? v : 0)"
+        />
+      </ElFormItem>
+
       <!-- SELECTED_UNITS 档位的自定义授权单元集 -->
       <ElFormItem v-if="formData.dataScope === 'SELECTED_UNITS'" :label="$t('pages.role.orgUnits')">
         <template v-if="orgUnitTreeData.length > 0">
@@ -71,7 +89,16 @@
         <div v-else class="org-unit-empty">{{ $t("pages.role.noOrgUnitData") }}</div>
       </ElFormItem>
 
-      <ElFormItem :label="$t('common.table.description')" prop="description">
+      <ElFormItem prop="description">
+        <template #label>
+          <span class="inline-flex items-center">
+            {{ $t("common.table.description") }}
+            <AiGenerateButton
+              scene="DESCRIPTION"
+              @generate="(content: string) => (formData.description = content)"
+            />
+          </span>
+        </template>
         <ElInput
           v-model="formData.description"
           type="textarea"
@@ -82,6 +109,10 @@
 
       <!-- 权限配置 -->
       <ElDivider content-position="left">{{ $t("pages.role.permissions") }}</ElDivider>
+
+      <div v-if="permCapIds != null" class="perm-cap-hint">
+        {{ $t("pages.role.permCapHint") }}
+      </div>
 
       <ElFormItem prop="permissions">
         <ElTree
@@ -97,7 +128,7 @@
           <template #default="{ node, data }">
             <span class="custom-tree-node">
               <span>{{ node.label }}</span>
-              <span v-if="data.key" class="text-xs text-gray-400 ml-2">{{ data.key }}</span>
+              <span v-if="data.key" class="tree-node__key text-xs ml-2">{{ data.key }}</span>
             </span>
           </template>
         </ElTree>
@@ -118,7 +149,7 @@
 
     <template #footer>
       <div class="drawer-footer">
-        <ElButton @click="handleClose">{{ $t("common.button.cancel") }}</ElButton>
+        <ElButton @click="guard.requestClose(handleClose)">{{ $t("common.button.cancel") }}</ElButton>
         <ElButton type="primary" :loading="submitLoading" @click="handleSubmit">
           {{ $t("common.button.confirm") }}
         </ElButton>
@@ -129,14 +160,18 @@
 
 <script lang="ts" setup>
 import { computed, reactive, ref, nextTick } from "vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 import type { TreeInstance } from "element-plus";
 
 import ProModal from "@/components/Pro/ProModal/index.vue";
+import { useDrawerCloseGuard } from "@/components/Pro/composables/use-drawer-close-guard";
+import AiGenerateButton from "@/components/AiGenerateButton/index.vue";
 
 import {
   useCreateRole,
   useUpdateRole,
+  fetchGetRole,
+  fetchListRoles,
   fetchListPermissionGroups,
   fetchListPermissions,
   fetchListOrgUnits,
@@ -160,6 +195,8 @@ const submitLoading = ref(false);
 const pageLoading = ref(false);
 const isCreate = ref(true);
 const currentId = ref<number>();
+// 编辑模式的行数据快照（提交时的越权收敛确认需要比对此处保存的存量权限）
+const editRow = ref<any>(undefined);
 const formRef = ref();
 const permissionTreeRef = ref<TreeInstance>();
 const unitTreeRef = ref<TreeInstance>();
@@ -172,8 +209,157 @@ const formData = reactive({
   status: "ON",
   dataScope: "ALL",
   description: "",
+  // 父角色ID，0=根角色。清空选择时 @change 归一为 0，保证显式 0 进 updateMask
+  parentId: 0,
   permissions: [] as number[],
 });
+
+// ========== 权限继承（父子角色） ==========
+
+// 父角色候选树（排除自身及后代防环，后端另有环检测兜底）
+const roleTreeOptions = ref<any[]>([]);
+
+// 父角色权限上限集（null=无父角色，不收窄）
+const permCapIds = ref<number[] | null>(null);
+
+// 权限树全量数据源，父角色切换时按 cap 过滤重建
+const permissionTreeSource = ref<{ groups: any[]; permissions: any[] } | null>(null);
+
+/** 收集自身及全部后代角色 ID（按 parentId 嵌套） */
+function collectSelfAndDescendantIds(items: any[], selfId?: number): number[] {
+  if (!selfId) return [];
+  const byParent = new Map<number, number[]>();
+  for (const it of items || []) {
+    const pid = Number(it.parentId || 0);
+    if (!byParent.has(pid)) byParent.set(pid, []);
+    byParent.get(pid)!.push(Number(it.id));
+  }
+  const result = new Set<number>([Number(selfId)]);
+  const stack = [Number(selfId)];
+  while (stack.length > 0) {
+    const cur = stack.pop()!;
+    for (const child of byParent.get(cur) || []) {
+      if (!result.has(child)) {
+        result.add(child);
+        stack.push(child);
+      }
+    }
+  }
+  return [...result];
+}
+
+/** 角色列表按 parentId 嵌套为 TreeSelect 数据（森林，缺父孤行落为根），排除 excludeIds */
+function buildRoleTreeOptions(items: any[], excludeIds: number[]): any[] {
+  const excluded = new Set(excludeIds.map(Number));
+  const nodes = new Map<number, any>();
+  for (const it of items || []) {
+    const id = Number(it.id);
+    if (excluded.has(id)) continue;
+    nodes.set(id, {
+      value: id,
+      label: it.name || it.code || String(id),
+      pid: Number(it.parentId || 0),
+      children: [] as any[],
+    });
+  }
+  const roots: any[] = [];
+  for (const node of nodes.values()) {
+    const parent = node.pid > 0 ? nodes.get(node.pid) : undefined;
+    if (parent) {
+      parent.children.push(node);
+    } else {
+      roots.push(node);
+    }
+  }
+  const strip = (list: any[]): any[] =>
+    list.map((n) => {
+      const { pid: _pid, ...rest } = n;
+      if (rest.children.length > 0) {
+        rest.children = strip(rest.children);
+      } else {
+        delete rest.children;
+      }
+      return rest;
+    });
+  return strip(roots);
+}
+
+/**
+ * 按父角色权限上限集（cap）过滤权限树数据源——在 buildPermissionTree 之前调用。
+ * 只保留 cap 内的权限点，以及（递归）仍含至少一个保留权限点的权限组。
+ * cap 为 null/undefined/空数组表示无父角色（根角色），原样返回全量。
+ */
+function filterPermissionSourceByCap(
+  groups: any[],
+  permissions: any[],
+  capIds: number[] | null | undefined,
+): { groups: any[]; permissions: any[] } {
+  if (!capIds || capIds.length === 0) return { groups, permissions };
+  const cap = new Set(capIds.map(Number));
+  const kept = (permissions || []).filter((p) => cap.has(Number(p.id)));
+  const filterGroups = (list: any[]): any[] =>
+    (list || [])
+      .map((g) => ({ ...g, children: filterGroups(g.children || []) }))
+      .filter(
+        (g) => g.children.length > 0 || kept.some((p) => String(p.groupId) === String(g.id)),
+      );
+  return { groups: filterGroups(groups), permissions: kept };
+}
+
+/** 按父角色上限集重建权限树；返回本次生效的 cap（拉取失败按全量展示，后端保存兜底） */
+async function rebuildPermissionTree(parentId: number | null): Promise<number[] | null> {
+  const src = permissionTreeSource.value;
+  if (!src) return null;
+  let cap: number[] | null = null;
+  if (parentId) {
+    try {
+      const parent = await fetchGetRole({ id: parentId });
+      cap = ((parent as any)?.permissions ?? [])
+        .map((v: any) => Number(v))
+        .filter((v: any) => Number.isFinite(v));
+    } catch (error) {
+      console.error("Failed to load parent role permission cap:", error);
+    }
+  }
+  permCapIds.value = cap;
+  const filtered = filterPermissionSourceByCap(src.groups, src.permissions, cap);
+  permissionTreeData.value =
+    filtered.groups.length === 0 && filtered.permissions.length > 0
+      ? filtered.permissions.map((p) => ({
+          key: Number(p.id),
+          title: p.name || p.code || String(p.id),
+        }))
+      : buildPermissionTree(filtered.groups, filtered.permissions);
+  return cap;
+}
+
+/** 切换父角色：重建权限树并把已勾权限收敛到新 cap 内 */
+async function handleParentChange(pid: number) {
+  formData.parentId = pid;
+  const cap = await rebuildPermissionTree(pid || null);
+  if (pid && cap && permissionTreeRef.value) {
+    const keys = (permissionTreeRef.value.getCheckedKeys(false) || []).filter(
+      (k: any) => typeof k === "number" && cap!.includes(Number(k))
+    );
+    permissionTreeRef.value.setCheckedKeys(keys);
+  }
+}
+
+/** 加载父角色候选下拉（启用角色全集，排除自身及后代） */
+async function loadRoleTreeOptions() {
+  try {
+    const result = await fetchListRoles(
+      new PaginationQuery({ paging: { page: 1, pageSize: 1000 }, formValues: { status: "ON" } })
+    );
+    roleTreeOptions.value = buildRoleTreeOptions(
+      result.items || [],
+      collectSelfAndDescendantIds(result.items || [], currentId.value)
+    );
+  } catch (error) {
+    console.error("Failed to load parent role options:", error);
+    roleTreeOptions.value = [];
+  }
+}
 
 // 组织单元树数据（SELECTED_UNITS 档位的自定义授权集）
 const orgUnitTreeData = ref<any[]>([]);
@@ -212,7 +398,7 @@ const title = computed(() =>
 // 权限树数据
 const permissionTreeData = ref<any[]>([]);
 
-// 加载权限树
+// 加载权限树全量数据源（按 cap 过滤重建由 rebuildPermissionTree 负责）
 async function loadPermissionTree() {
   try {
     const groupData = await fetchListPermissionGroups(
@@ -224,7 +410,7 @@ async function loadPermissionTree() {
       new PaginationQuery({ formValues: { status: "ON" } })
     );
 
-    permissionTreeData.value = buildPermissionTree(groups, permissionData.items || []);
+    permissionTreeSource.value = { groups, permissions: permissionData.items || [] };
   } catch (error) {
     console.error("Failed to load permission tree:", error);
   }
@@ -247,10 +433,20 @@ async function loadOrgUnitTree() {
 }
 
 // 打开抽屉
+// 关闭守卫：遮罩/ESC/X/取消统一，脏数据先确认（docs/form_drawer_close_guard.md）；
+// 权限树/授权单元树的勾选与字段权限中间态也是编辑态，纳入脏判定
+const guard = useDrawerCloseGuard(() => ({
+  ...formData,
+  permissionKeys: permissionTreeRef.value?.getCheckedKeys(false),
+  unitKeys: unitTreeRef.value?.getCheckedKeys(false),
+  userHiddenFields: userHiddenFields.value,
+}));
+
 async function open(data?: { create: boolean; row?: any }) {
   visible.value = true;
   isCreate.value = data?.create ?? true;
   currentId.value = data?.row?.id;
+  editRow.value = isCreate.value ? undefined : data?.row;
 
   // 重置表单
   resetForm();
@@ -258,8 +454,11 @@ async function open(data?: { create: boolean; row?: any }) {
   // 加载树数据（显示加载状态）
   pageLoading.value = true;
   try {
-    await loadPermissionTree();
-    await loadOrgUnitTree();
+    await Promise.all([loadPermissionTree(), loadOrgUnitTree(), loadRoleTreeOptions()]);
+
+    // 编辑模式的初始父角色（回填值），据此收窄权限树
+    const initialParentId = !isCreate.value ? Number(data?.row?.parentId || 0) : 0;
+    await rebuildPermissionTree(initialParentId || null);
 
     // 如果是编辑模式，填充数据
     if (!isCreate.value && data?.row) {
@@ -272,12 +471,18 @@ async function open(data?: { create: boolean; row?: any }) {
       formData.status = data.row.status ?? "ON";
       formData.dataScope = data.row.dataScope ?? "ALL";
       formData.description = data.row.description ?? "";
+      formData.parentId = Number(data.row.parentId || 0);
 
-      // 设置树的选中状态
+      // 设置树的选中状态：超出父角色上限（树上不可见）的存量勾选先收敛，
+      // 提交时由 outOfCap 确认流程向操作者说明（编辑时校验语义）。
       await nextTick();
-      if (data.row.permissions && Array.isArray(data.row.permissions)) {
-        permissionTreeRef.value?.setCheckedKeys(data.row.permissions);
-      }
+      const storedPerms = Array.isArray(data.row.permissions)
+        ? data.row.permissions.filter((v: any) => typeof v === "number")
+        : [];
+      const effPerms = permCapIds.value
+        ? storedPerms.filter((id: number) => permCapIds.value!.includes(Number(id)))
+        : storedPerms;
+      permissionTreeRef.value?.setCheckedKeys(effPerms);
       if (formData.dataScope === "SELECTED_UNITS" && Array.isArray(data.row.orgUnits)) {
         unitTreeRef.value?.setCheckedKeys(data.row.orgUnits);
       }
@@ -293,6 +498,9 @@ async function open(data?: { create: boolean; row?: any }) {
   } finally {
     pageLoading.value = false;
   }
+
+  // 填充完成后记录基线快照（回填不算脏）
+  guard.syncBaseline();
 }
 
 // 关闭抽屉
@@ -315,6 +523,7 @@ function resetForm() {
   formData.status = "ON";
   formData.dataScope = "ALL";
   formData.description = "";
+  formData.parentId = 0;
   formData.permissions = [];
 
   formRef.value?.clearValidate();
@@ -322,11 +531,40 @@ function resetForm() {
   unitTreeRef.value?.setCheckedKeys([]);
   orgUnitTreeData.value = [];
   userHiddenFields.value = [];
+  permCapIds.value = null;
+  permissionTreeSource.value = null;
+  roleTreeOptions.value = [];
 }
 
 // 提交表单
 async function handleSubmit() {
   if (!formRef.value) return;
+
+  // 保存收敛确认：编辑模式下超出父角色上限（树上不可见）的存量勾选会被剥离，
+  // 先向操作者确认（编辑时校验语义的前端引导；后端亦有子集校验兜底）。
+  if (!isCreate.value && permCapIds.value) {
+    const storedPerms: number[] = Array.isArray(editRow.value?.permissions)
+      ? editRow.value.permissions.filter((v: any) => typeof v === "number")
+      : [];
+    const outOfCap = storedPerms.filter(
+      (id) => !permCapIds.value!.includes(Number(id))
+    );
+    if (outOfCap.length > 0) {
+      try {
+        await ElMessageBox.confirm(
+          $t("pages.role.permTrimConfirmContent", { count: outOfCap.length }),
+          $t("pages.role.permTrimConfirmTitle"),
+          {
+            type: "warning",
+            confirmButtonText: $t("common.button.confirm"),
+            cancelButtonText: $t("common.button.cancel"),
+          }
+        );
+      } catch {
+        return; // 用户取消收敛，维持现状不提交
+      }
+    }
+  }
 
   try {
     await formRef.value.validate();
@@ -339,6 +577,9 @@ async function handleSubmit() {
     const values: Record<string, any> = {
       ...formData,
       permissions,
+      // 父角色始终随表单提交：0=根角色（清空父角色须显式 0 进 updateMask，
+      // 否则后端三态语义会把它当"未声明"静默跳过）。
+      parentId: formData.parentId || 0,
     };
 
     // 仅 SELECTED_UNITS 档提交授权单元集（含清空场景）；
@@ -399,6 +640,12 @@ defineExpose({
   display: flex;
   align-items: center;
   flex: 1;
+
+  // 权限码提示文字：tailwind gray-400 (#9CA3AF) 在浅色白底上实测仅 2.54:1，
+  // 改走 EP 次要文字 token（§5.2 禁止硬编码色值）
+  .tree-node__key {
+    color: var(--el-text-color-secondary);
+  }
 }
 
 .org-unit-empty {
@@ -420,6 +667,14 @@ defineExpose({
 }
 
 .field-perm-hint {
+  margin-bottom: 8px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--el-text-color-secondary);
+}
+
+.perm-cap-hint {
+  width: 100%;
   margin-bottom: 8px;
   font-size: 12px;
   line-height: 1.5;

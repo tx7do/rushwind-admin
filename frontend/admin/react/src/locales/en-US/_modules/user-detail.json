@@ -38,6 +38,5 @@
   "confirmPasswordPlaceholder": "Re-enter new password",
   "passwordMismatch": "Passwords do not match",
   "editPasswordSuccess": "Password changed successfully",
-  "editPasswordFailed": "Failed to change password",
-  "fetchFailed": "Failed to fetch user data"
+  "editPasswordFailed": "Failed to change password"
 }

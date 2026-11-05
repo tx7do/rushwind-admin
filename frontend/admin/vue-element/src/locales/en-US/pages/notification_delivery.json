@@ -12,5 +12,6 @@
   "relatedId": "Related object",
   "sentAt": "Completed at",
   "lastError": "Failure reason",
-  "fetchFailed": "Failed to load delivery records"
+  "exportServerSuccess": "Download started",
+  "exportServerFailed": "Server-side export failed"
 }
