@@ -49,6 +49,15 @@ backend/api/protos（+ buf 依赖的注解模块）
 
 `server/rest.rs` 的 `mount_services!` 表是服务与挂载的唯一对接点——每个服务一行 `($mount, $Service)`，绑定计划决定 `wrap` 怎么组合层级。
 
+> **已知例外（284 条中的 1 条）**：`POST /admin/v1/bi-dashboards/{id}:copy`
+> 是 AIP-136 "资源上的自定义动作"形态——路径段里参数后跟 `:verb` 字面量。
+> Go 参照的 mux 按字符前缀匹配支持它，而 axum 0.8 的 matchit 路由树拒绝
+> 这种混合段（"Only one parameter is allowed per path segment"）。生成的
+> mount 对该类绑定跳过 axum 树注册（`is_verb_on_resource` 守卫）：RouteSpec、
+> 服务 trait 与实现完整保留，仅该 RPC 暂答 404，待 wire 层原生支持后恢复。
+> 其余 `:verb` 路由（如 `monitor-alert-rules:evaluate`）是纯字面量段，
+> 不受影响。
+
 **前端同源**：React 版的 TypeScript 客户端（`frontend/admin/react/src/api/generated/`）同样从这套契约生成、随快照进仓——三份产物（Rust 类型、路由面、TS 客户端）共享同一契约源，不存在手写 API 层。
 
 ## 4. 差分回归台架：契约面的验收

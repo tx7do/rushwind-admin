@@ -653,6 +653,42 @@ P4 收尾/验收                                    █████  (2-3M)
 >   **W2（上游）**：multipart 上传死路径——kratos 无 form-data codec，参照后端同样 400
 >   CODEC；生成客户端的 JSON 上传路径正常且本仓已验。W3：IAB 截图能力损坏，登录页品牌
 >   DOM 验收过（logo/标题/租户编号框/Copyright 全 RushWind），像素级验收待补。
+> - **会话十七（2026-11-05/06，ce8ab49 vintage 全量接受 + 十域完整移植 + 走查，
+>   350b3e5…59779ce 共 18 提交，本地 main 待推）**：框架 rev eaa813e1→e33b2c53
+>   （jsonwebtoken 11 摘 rsa Marvin-Attack、sqlx 0.9、bootstrap 拆分零断点）。
+>   **vintage 一体接受**（契约+三前端+品牌层同提交）：protos 116→149（新增
+>   ai×10/bi/print/monitor_alert 四域与 notification_preference/template、
+>   task_monitor、sso、tenant_branding；oauth.proto 上游删除换 sso.proto；
+>   LoginResponse 掉 refresh 字段改纯 cookie——buf breaking 仅此 3 处破坏，
+>   显式接受），生成面 284 路由/59 trait/556 方法/546 错误；vue-vben 上游
+>   monorepo→单包重构，overlay/替换表随迁（{{year}} i18next 转义一并适配），
+>   白名单影子测试 16→52（AI/BI/print BFF 注册前移所致，影子本身未变）。
+>   **逐域完整移植**（每域一提交门禁绿）：OIDC SSO 全流程（discovery 缓存/
+>   state 单次防重放/邮箱映射+自动预置）与租户白标 → 通知偏好/模板（render
+>   内核：未知占位符按名报错）→ 渠道 EXT settings 三件套 + 39 schema 注册表
+>   （逐字转写 grep 验证）→ 监控告警（评估器：告警→恢复成对/冷却锚/采集失败
+>   不清 firing）→ task_monitor（rushwind_apalis_jobs SQL 投影）→ 自助用量
+>   → 角色权限继承（子⊆父写侧约束+防环，登录面无需展开——约束在编辑边界）
+>   → user locale → BI 仪表盘（乐观锁 CAS+内置模板播种）→ 打印模板+
+>   chromiumoxide HTML→PDF（分工边界同上游：前端分页/毫米布局，后端只打印）
+>   → AI 域（9 表迁移；provider 加密落库+脱敏、chat 闭环、知识库 RAG
+>   （pgvector 判存守卫：扩展缺席迁移安静跳过）、Agent 图引擎 1:1（五节点/
+>   校验/模板/trace；条件表达式走受限求值器=上游 expr-lang 常用子集，超集
+>   报错——语义差异已声明）、内容生成四场景、菜单语义索引；**NL2SQL 显式
+>   NOT_IMPLEMENTED**：四重只读护栏必须整链落地，护栏是注入防线的本体）。
+>   **走查（真实栈）**：admin-api 迁移+种子+登录（redis 读验证码配方）+
+>   API 冒烟 18/19 绿（render/evaluate/409/加密落库全验证）+ react dev
+>   （docker node:22 --network host，宿主 snap node 全废）浏览器走查全绿
+>   （品牌/真实数据/BI 种子/模板回显/AI 提供商）。**两个真修复**：①vector
+>   迁移在 PG 事务里 CREATE EXTENSION 失败即 abort 全链——改 pg_extension
+>   判存守卫（扩展缺席静默跳过降级）+ 逐步迁移循环（失败报上一成功迁移名）；
+>   ②matchit 拒绝 `{id}:copy` 混合段（AIP-136 verb-on-resource）启动 panic——
+>   框架 gen-http b30e4bc 生成 is_verb_on_resource 守卫跳过该类注册（284 中
+>   仅 bi Copy 1 条 404，trait/服务面完整），走查期 admin-api 靠 [patch] 指
+>   本地 rushwind 仓，**框架 push 后须撤 patch+bump rev**。**遗留**：出站
+>   投递里程碑（SMTP/WEBHOOK/SMS/EXT 真实 sender+台账实投+告警周期扫描，
+>   通知域 heritage 欠账）、NL2SQL 里程碑、差分栈对拍（vben pnpm build 冒烟
+>   亦待跑）。
 
 1. [x] 仓库骨架 + workspace（backend/ 结构就位）；CI 已建（.github/workflows/
        ci.yml：fmt/clippy/test + protoc 安装 + sync-protos --check 门，双 OS 矩阵）。
