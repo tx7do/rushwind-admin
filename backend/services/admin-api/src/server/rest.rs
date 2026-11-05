@@ -38,8 +38,9 @@ use crate::services::{
     NotificationTemplateService, OnlineSessionService, OperationAuditLogService, OrgUnitService,
     PermissionAuditLogService, PermissionGroupService, PermissionService, PlanModuleService,
     PlanQuotaService, PlanService, PolicyEvaluationLogService, PositionService,
-    RedisCacheMonitorService, RoleService, ScriptLogService, ScriptService, ServerMonitorService,
-    TaskMonitorService, TaskService, TenantService, UserProfileService, UserService,
+    PrintTemplateService, RedisCacheMonitorService, RoleService, ScriptLogService, ScriptService,
+    ServerMonitorService, TaskMonitorService, TaskService, TenantService, UserProfileService,
+    UserService,
 };
 use crate::state::AppState;
 use auth::auth_gate;
@@ -214,6 +215,7 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
             PolicyEvaluationLogService
         ),
         (mount_position_service, PositionService),
+        (mount_print_template_service, PrintTemplateService),
         (mount_redis_cache_monitor_service, RedisCacheMonitorService),
         (mount_monitor_alert_service, MonitorAlertService),
         (mount_my_tenant_usage_service, MyTenantUsageService),

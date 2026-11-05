@@ -83,6 +83,10 @@ impl MigratorTrait for Migrator {
             EntityTables::new("m20251105_000006_bi_dashboard", DatabaseBackend::Postgres)
                 .table::<data::bi_dashboards::Entity>()
                 .build();
+        let print_template =
+            EntityTables::new("m20251105_000007_print_template", DatabaseBackend::Postgres)
+                .table::<data::print_templates::Entity>()
+                .build();
         vec![
             Box::new(init),
             Box::new(notification),
@@ -93,6 +97,7 @@ impl MigratorTrait for Migrator {
             Box::new(RoleParentColumn),
             Box::new(UserLocaleColumn),
             Box::new(bi_dashboard),
+            Box::new(print_template),
         ]
     }
 }

@@ -10,6 +10,7 @@ mod monitor;
 mod notification;
 mod ops;
 mod platform;
+mod print;
 mod rbac;
 mod scope;
 
@@ -31,6 +32,7 @@ pub use notification::{
 };
 pub use ops::{sys_script_logs, sys_scripts, sys_tasks};
 pub use platform::{files, sys_access_keys, sys_configs, sys_login_policies};
+pub use print::print_templates;
 pub use rbac::{
     sys_apis, sys_menus, sys_permission_apis, sys_permission_groups, sys_permission_menus,
     sys_permissions, sys_role_field_permissions, sys_role_metadata, sys_role_org_units,
