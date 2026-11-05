@@ -149,6 +149,7 @@ macro_rules! repo_shell {
 // the audit-suite macros inside their file).
 
 mod access_key;
+mod ai;
 mod api;
 mod audit;
 mod bi_dashboard;
@@ -184,6 +185,7 @@ mod tenant;
 mod user;
 
 pub use access_key::AccessKeyRepo;
+pub use ai::{AiConversationRepo, AiMessageRepo, AiProviderRepo, AiUsageLogRepo};
 pub use api::ApiRepo;
 pub use audit::AuditRepo;
 pub use bi_dashboard::BiDashboardRepo;

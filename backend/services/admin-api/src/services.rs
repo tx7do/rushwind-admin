@@ -3,6 +3,10 @@
 
 mod access_key;
 mod admin_portal;
+mod ai_conversation;
+mod ai_message;
+mod ai_provider;
+mod ai_usage_log;
 mod api;
 mod api_audit_log;
 mod authentication;
@@ -51,6 +55,10 @@ mod user_profile;
 
 pub use access_key::AccessKeyService;
 pub use admin_portal::AdminPortalService;
+pub use ai_conversation::AiConversationService;
+pub use ai_message::AiMessageService;
+pub use ai_provider::AiProviderService;
+pub use ai_usage_log::AiUsageLogService;
 pub use api::ApiService;
 pub use api_audit_log::ApiAuditLogService;
 pub use authentication::AuthenticationService;

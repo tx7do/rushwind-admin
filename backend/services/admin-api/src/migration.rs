@@ -87,6 +87,17 @@ impl MigratorTrait for Migrator {
             EntityTables::new("m20251105_000007_print_template", DatabaseBackend::Postgres)
                 .table::<data::print_templates::Entity>()
                 .build();
+        let ai = EntityTables::new("m20251105_000008_ai", DatabaseBackend::Postgres)
+            .table::<data::sys_ai_providers::Entity>()
+            .table::<data::sys_ai_agent_apps::Entity>()
+            .table::<data::sys_ai_agent_runs::Entity>()
+            .table::<data::sys_ai_conversations::Entity>()
+            .table::<data::sys_ai_messages::Entity>()
+            .table::<data::sys_ai_knowledge_bases::Entity>()
+            .table::<data::sys_ai_docs::Entity>()
+            .table::<data::sys_ai_chunks::Entity>()
+            .table::<data::sys_ai_usage_logs::Entity>()
+            .build();
         vec![
             Box::new(init),
             Box::new(notification),
@@ -98,6 +109,7 @@ impl MigratorTrait for Migrator {
             Box::new(UserLocaleColumn),
             Box::new(bi_dashboard),
             Box::new(print_template),
+            Box::new(ai),
         ]
     }
 }

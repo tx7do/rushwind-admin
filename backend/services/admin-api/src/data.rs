@@ -1,6 +1,7 @@
 //! The SeaORM entity catalog for the full schema. Enum columns carry
 //! the enum names as text.
 
+mod ai;
 mod audit;
 mod bi;
 mod dict;
@@ -14,6 +15,10 @@ mod print;
 mod rbac;
 mod scope;
 
+pub use ai::{
+    sys_ai_agent_apps, sys_ai_agent_runs, sys_ai_chunks, sys_ai_conversations, sys_ai_docs,
+    sys_ai_knowledge_bases, sys_ai_messages, sys_ai_providers, sys_ai_usage_logs,
+};
 pub use audit::{
     sys_api_audit_logs, sys_data_access_audit_logs, sys_login_audit_logs, sys_operation_audit_logs,
     sys_permission_audit_logs, sys_policy_evaluation_logs,

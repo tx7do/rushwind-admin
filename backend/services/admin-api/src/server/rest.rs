@@ -28,7 +28,8 @@ use std::sync::Arc;
 use axum::routing::MethodRouter;
 
 use crate::services::{
-    AccessKeyService, AdminPortalService, ApiAuditLogService, ApiService, AuthenticationService,
+    AccessKeyService, AdminPortalService, AiConversationService, AiMessageService,
+    AiProviderService, AiUsageLogService, ApiAuditLogService, ApiService, AuthenticationService,
     BiDashboardService, ConfigService, DashboardService, DataAccessAuditLogService,
     DictEntryService, DictTypeService, FileService, FileTransferService,
     InternalMessageCategoryService, InternalMessageRecipientService, InternalMessageService,
@@ -155,6 +156,10 @@ pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> ax
     // classifies each of its route bindings.
     mount_services!(
         (mount_access_key_service, AccessKeyService),
+        (mount_ai_conversation_service, AiConversationService),
+        (mount_ai_message_service, AiMessageService),
+        (mount_ai_provider_service, AiProviderService),
+        (mount_ai_usage_log_service, AiUsageLogService),
         (mount_admin_portal_service, AdminPortalService),
         (mount_api_audit_log_service, ApiAuditLogService),
         (mount_api_service, ApiService),
