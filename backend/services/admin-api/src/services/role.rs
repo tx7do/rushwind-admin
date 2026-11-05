@@ -80,12 +80,22 @@ async fn role_proto(state: &AppState, r: crate::data::sys_roles::Model) -> Role 
             }),
         }
     }
+    // 父角色名回填（响应可读面；权限继承的约束在写侧）。
+    let parent_name = match r.parent_id {
+        Some(pid) => crate::data::sys_roles::Entity::find_by_id(pid)
+            .one(&state.db)
+            .await
+            .ok()
+            .flatten()
+            .map(|p| p.name),
+        None => None,
+    };
     Role {
         id: Some(r.id),
         name: Some(r.name),
         code: Some(r.code),
-        parent_id: None,
-        parent_name: None,
+        parent_id: r.parent_id,
+        parent_name,
         sort_order: r.sort_order,
         status: r.status.as_deref().map(crate::state::status_to_proto),
         description: r.description,
@@ -118,6 +128,9 @@ impl RoleService {
         if let Some(v) = &data.code {
             a.code = Set(v.clone());
         }
+        if let Some(v) = data.parent_id {
+            a.parent_id = Set(Some(v));
+        }
         if let Some(v) = &data.description {
             a.description = Set(Some(v.clone()));
         }
@@ -141,6 +154,100 @@ impl RoleService {
             2 => "TEMPLATE".into(),
             _ => "TENANT".into(),
         }
+    }
+
+    /// 父角色已绑定的权限集（继承约束的容量面）。
+    async fn parent_perm_ids(&self, parent_id: u32) -> Result<Vec<u32>, StatusError> {
+        Ok(crate::data::sys_role_permissions::Entity::find()
+            .filter(crate::data::sys_role_permissions::Column::RoleId.eq(parent_id))
+            .all(&self.state.db)
+            .await
+            .map_err(db_err)?
+            .iter()
+            .filter_map(|row| row.permission_id)
+            .collect())
+    }
+
+    /// 父子角色绑定校验（权限继承核心约束，编辑时校验语义）。
+    /// parent_id 为 0/None 表示根角色，直接放行。校验：
+    ///   1. 父角色存在；
+    ///   2. 父角色与本角色同租户；
+    ///   3. wantPerms ⊆ 父角色已绑定权限集。
+    async fn validate_parent_binding(
+        &self,
+        parent_id: u32,
+        tenant_id: u32,
+        want_perms: &[u32],
+    ) -> Result<(), StatusError> {
+        if parent_id == 0 {
+            return Ok(());
+        }
+        let parent = crate::data::sys_roles::Entity::find_by_id(parent_id)
+            .one(&self.state.db)
+            .await
+            .map_err(db_err)?
+            .ok_or_else(|| status_error("BAD_REQUEST", "parent role not found"))?;
+        if parent.tenant_id.unwrap_or(0) != tenant_id {
+            return Err(status_error(
+                "FORBIDDEN",
+                "parent role must belong to the same tenant",
+            ));
+        }
+        if want_perms.is_empty() {
+            return Ok(());
+        }
+        let cap_set: std::collections::HashSet<u32> =
+            self.parent_perm_ids(parent_id).await?.into_iter().collect();
+        let exceeding = want_perms.iter().filter(|p| !cap_set.contains(p)).count();
+        if exceeding > 0 {
+            return Err(status_error(
+                "FORBIDDEN",
+                format!(
+                    "{exceeding} permission(s) exceed the parent role's granted permission set"
+                ),
+            ));
+        }
+        Ok(())
+    }
+
+    /// 沿候选父角色上溯检测层级环（Update 改父时调用）：若从候选父出发
+    /// 能回到自身，说明会成环，拒绝。上溯深度设上限防脏数据死循环。
+    /// 上溯链断裂（父角色不存在）不在此处报错，交给 validate_parent_binding。
+    async fn ensure_no_role_cycle(&self, role_id: u32, parent_id: u32) -> Result<(), StatusError> {
+        const MAX_DEPTH: u32 = 32;
+        let mut current = parent_id;
+        for _ in 0..MAX_DEPTH {
+            if current == 0 {
+                return Ok(());
+            }
+            if current == role_id {
+                return Err(status_error(
+                    "FORBIDDEN",
+                    "circular role hierarchy detected",
+                ));
+            }
+            let parent = crate::data::sys_roles::Entity::find_by_id(current)
+                .one(&self.state.db)
+                .await
+                .map_err(db_err)?;
+            match parent {
+                Some(p) => current = p.parent_id.unwrap_or(0),
+                None => return Ok(()),
+            }
+        }
+        Ok(())
+    }
+
+    /// 本角色现绑定的权限集（Update 侧 effective perms 的库中现值）。
+    async fn own_perm_ids(&self, role_id: u32) -> Result<Vec<u32>, StatusError> {
+        Ok(crate::data::sys_role_permissions::Entity::find()
+            .filter(crate::data::sys_role_permissions::Column::RoleId.eq(role_id))
+            .all(&self.state.db)
+            .await
+            .map_err(db_err)?
+            .iter()
+            .filter_map(|row| row.permission_id)
+            .collect())
     }
 
     /// Sync the role's permission/org-unit/field-permission bindings.
@@ -282,6 +389,15 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = crate::state::require_data(req.data)?;
+        // 父角色绑定校验（权限继承）：子角色权限集必须 ⊆ 父角色已绑定权限集，
+        // 父角色与本角色同租户。归属租户以操作者上下文折算（与下方 tenant_id
+        // 落库同口径），载荷里的 tenant_id 不可信。
+        self.validate_parent_binding(
+            data.parent_id.unwrap_or(0),
+            payload.tenant_id,
+            &data.permissions,
+        )
+        .await?;
         let mut a = crate::data::sys_roles::ActiveModel {
             tenant_id: Set(Some(payload.tenant_id)),
             name: Set(data.name.clone().unwrap_or_default()),
@@ -314,8 +430,23 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
             .await
             .map_err(db_err)?
             .ok_or_else(|| not_found("role"))?;
+        let row_parent_id = row.parent_id.unwrap_or(0);
         let mut a: crate::data::sys_roles::ActiveModel = row.into();
         if let Some(data) = &req.data {
+            // 父角色绑定校验（权限继承，编辑时校验语义）：本次请求生效的父角色
+            // 与权限集分别按"载荷是否声明"取舍——声明了取载荷，未声明取库中
+            // 现值（改权限不动父、或换父不动权限，都要重新对齐约束）。
+            let effective_parent = data.parent_id.unwrap_or(row_parent_id);
+            let effective_perms = if data.permissions.is_empty() {
+                self.own_perm_ids(req.id).await?
+            } else {
+                data.permissions.clone()
+            };
+            self.validate_parent_binding(effective_parent, payload.tenant_id, &effective_perms)
+                .await?;
+            if effective_parent != row_parent_id {
+                self.ensure_no_role_cycle(req.id, effective_parent).await?;
+            }
             Self::apply_fields(&mut a, data);
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;

@@ -86,6 +86,7 @@ impl MigratorTrait for Migrator {
             Box::new(notification_preference_template),
             Box::new(ChannelSettingsSmsColumns),
             Box::new(monitor_alert),
+            Box::new(RoleParentColumn),
         ]
     }
 }
@@ -163,4 +164,31 @@ pub async fn run(db: &sea_orm::DatabaseConnection) -> Result<(), String> {
     Migrator::up(db, None)
         .await
         .map_err(|e| format!("schema migrate: {e}"))
+}
+
+/// ce8ab49 vintage 的角色权限继承给 sys_roles 补的父角色列（NULL = 根角色）。
+struct RoleParentColumn;
+
+impl MigrationName for RoleParentColumn {
+    fn name(&self) -> &str {
+        "m20251105_000004_role_parent"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for RoleParentColumn {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE sys_roles \
+                 ADD COLUMN IF NOT EXISTS parent_id integer",
+            )
+            .await
+            .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
 }

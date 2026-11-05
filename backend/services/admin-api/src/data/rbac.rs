@@ -12,6 +12,9 @@ pub mod sys_roles {
         pub tenant_id: Option<u32>,
         pub name: String,
         pub code: String,
+        /// 父角色（权限继承：子角色权限集必须 ⊆ 父角色已绑定权限集）；
+        /// NULL = 根角色。
+        pub parent_id: Option<u32>,
         #[sea_orm(default_value = false)]
         pub is_protected: Option<bool>,
         /// enum(SYSTEM,TEMPLATE,TENANT) default TENANT.
