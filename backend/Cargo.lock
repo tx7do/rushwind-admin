@@ -31,6 +31,7 @@ dependencies = [
  "qrcode",
  "rand 0.9.5",
  "redis",
+ "reqwest",
  "rushwind-apalis-postgres",
  "rushwind-authn",
  "rushwind-authn-jwt",

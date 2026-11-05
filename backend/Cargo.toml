@@ -65,6 +65,8 @@ uuid = { version = "1", features = ["v4", "v7"] }
 rand = "0.9"
 hex = "0.4"
 serde_yaml = "0.9"
+# 出站 HTTP（OIDC SSO 登录链路：discovery/token/userinfo；版本与 rushwind 工作区一致）。
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [profile.release]
 lto = "thin"

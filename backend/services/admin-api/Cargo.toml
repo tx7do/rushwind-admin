@@ -52,4 +52,5 @@ captcha = { workspace = true }
 futures-util = { workspace = true }
 qrcode = "0.14"
 hex = { workspace = true }
+reqwest = { workspace = true }
 async-trait = { workspace = true }

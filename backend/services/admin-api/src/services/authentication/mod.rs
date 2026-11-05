@@ -16,6 +16,7 @@ mod authority;
 mod credential;
 mod mfa;
 mod policy;
+mod sso;
 mod token_issue;
 
 use std::sync::Arc;
@@ -352,45 +353,34 @@ impl AuthenticationServiceHandlers for AuthenticationService {
 
     async fn get_sso_login_info(
         &self,
-        _ctx: Ctx,
-        _req: GetSsoLoginInfoRequest,
+        ctx: Ctx,
+        req: GetSsoLoginInfoRequest,
     ) -> Result<GetSsoLoginInfoResponse, StatusError> {
-        // The SSO face (oauth.proto was retired upstream for sso.proto) lands
-        // with the authentication increment; until then the login page reads
-        // "no SSO configured".
-        Ok(GetSsoLoginInfoResponse { enabled: false })
+        self.sso_login_info(ctx, req).await
     }
 
     async fn get_sso_login_url(
         &self,
-        _ctx: Ctx,
-        _req: GetSsoLoginUrlRequest,
+        ctx: Ctx,
+        req: GetSsoLoginUrlRequest,
     ) -> Result<GetSsoLoginUrlResponse, StatusError> {
-        Err(status_error(
-            "NOT_IMPLEMENTED",
-            "sso login rides the authentication increment",
-        ))
+        self.sso_login_url(ctx, req).await
     }
 
     async fn sso_login(
         &self,
-        _ctx: Ctx,
-        _req: SsoLoginRequest,
+        ctx: Ctx,
+        req: SsoLoginRequest,
     ) -> Result<LoginResponse, StatusError> {
-        Err(status_error(
-            "NOT_IMPLEMENTED",
-            "sso login rides the authentication increment",
-        ))
+        self.sso_login(ctx, req).await
     }
 
     async fn get_tenant_branding(
         &self,
-        _ctx: Ctx,
-        _req: GetTenantBrandingRequest,
+        ctx: Ctx,
+        req: GetTenantBrandingRequest,
     ) -> Result<GetTenantBrandingResponse, StatusError> {
-        // Tenant branding (logo/title per tenant) rides the authentication
-        // increment; the default branding answers empty until then.
-        Ok(GetTenantBrandingResponse::default())
+        self.tenant_branding(ctx, req).await
     }
 }
 
