@@ -8,6 +8,13 @@
 //! additionally emit the inverse `i32 -> Option<&'static str>` —
 //! duplicate numbers in a both-way table fail the match-arm check at
 //! compile time.
+//!
+//! The submodule layout is the wire axis: a submodule is named after
+//! the proto package its enums ride in (a table shared by two packages
+//! takes the neutral name). A newly ported domain's enums land in the
+//! submodule of its proto package — no judgment call. Everything is
+//! re-exported flat, so call sites keep reading
+//! `crate::mapping::<table>_of`.
 
 /// One table per proto enum: the DB status literal ↔ the wire number.
 ///
@@ -39,346 +46,46 @@ macro_rules! enum_map {
     };
 }
 
-// --- menu / api modules -------------------------------------------------
-// menu_module is shared with the api-catalog's business_module column.
+mod audit;
+mod authentication;
+mod identity;
+mod menu;
+mod message;
+mod monitor;
+mod notification;
+mod ops;
+mod platform;
 
-enum_map!(menu_type_of + menu_type_str {
-    "CATALOG" => 0,
-    "BUTTON" => 2,
-    "EMBEDDED" => 3,
-    "LINK" => 4,
-});
-
-enum_map!(menu_module_of + menu_module_str {
-    "DASHBOARD" => 1,
-    "OPM" => 2,
-    "SYSTEM" => 3,
-    "DICT" => 4,
-    "TENANT" => 5,
-    "PERMISSION" => 6,
-    "LOG" => 7,
-    "INTERNAL_MESSAGE" => 8,
-    "FILE" => 9,
-    "TASK" => 10,
-});
-
-// --- user / access ------------------------------------------------------
-
-enum_map!(user_gender_of {
-    "MALE" => 1,
-    "FEMALE" => 2,
-});
-
-enum_map!(user_status_of {
-    "NORMAL" => 1,
-    "PENDING" => 2,
-    "LOCKED" => 3,
-    "EXPIRED" => 4,
-    "CLOSED" => 9,
-});
-
-enum_map!(role_scope_of {
-    "SELF" => 1,
-    "UNIT_ONLY" => 2,
-    "UNIT_AND_CHILD" => 3,
-    "SELECTED_UNITS" => 4,
-});
-
-enum_map!(role_type_of {
-    "SYSTEM" => 1,
-    "TEMPLATE" => 2,
-});
-
-enum_map!(position_type_of {
-    "MANAGER" => 1,
-    "LEAD" => 2,
-    "INTERN" => 3,
-    "CONTRACT" => 4,
-    "OTHER" => 5,
-});
-
-// --- tenant / plan ------------------------------------------------------
-
-enum_map!(tenant_status_of + tenant_status_str {
-    "OFF" => 1,
-    "EXPIRED" => 2,
-    "FREEZE" => 3,
-});
-
-enum_map!(tenant_type_of + tenant_type_str {
-    "TRIAL" => 0,
-    "INTERNAL" => 2,
-    "PARTNER" => 3,
-    "CUSTOM" => 4,
-});
-
-enum_map!(plan_version_of + plan_version_str {
-    "STANDARD" => 1,
-    "ENTERPRISE" => 2,
-});
-
-enum_map!(plan_expiry_policy_of + plan_expiry_policy_str {
-    "BLOCK_LOGIN" => 1,
-    "FREEZE" => 2,
-});
-
-enum_map!(plan_quota_type_of + plan_quota_type_str {
-    "STORAGE" => 1,
-    "API_CALL" => 2,
-});
-
-// --- org ----------------------------------------------------------------
-
-enum_map!(org_unit_type_of + org_unit_type_str {
-    "COMPANY" => 1,
-    "DIVISION" => 2,
-    "TEAM" => 3,
-    "PROJECT" => 4,
-    "COMMITTEE" => 5,
-    "REGION" => 6,
-    "OTHER" => 7,
-});
-
-// --- config / file ------------------------------------------------------
-
-enum_map!(config_value_type_of {
-    "BOOL" => 2,
-    "INT" => 3,
-});
-
-enum_map!(file_provider_of {
-    "MINIO" => 1,
-});
-
-// --- internal message ---------------------------------------------------
-
-enum_map!(internal_message_status_of {
-    "PUBLISHED" => 1,
-    "SCHEDULED" => 2,
-    "REVOKED" => 3,
-    "ARCHIVED" => 4,
-    "DELETED" => 5,
-});
-
-enum_map!(internal_message_recipient_status_of {
-    "READ" => 2,
-    "REVOKED" => 3,
-    "DELETED" => 4,
-});
-
-enum_map!(internal_message_type_of {
-    "PRIVATE" => 1,
-    "GROUP" => 2,
-});
-
-// --- notification -------------------------------------------------------
-
-enum_map!(notification_event_type_of + notification_event_type_str {
-    "PASSWORD_RESET_CODE" => 1,
-    "CONTACT_BIND_CODE" => 2,
-    "CHANNEL_TEST_EMAIL" => 3,
-    "INTERNAL_MESSAGE" => 4,
-});
-
-enum_map!(notification_channel_kind_of + notification_channel_kind_str {
-    "EMAIL" => 1,
-    "SMS" => 2,
-    "WEBHOOK" => 3,
-    "INTERNAL" => 4,
-});
-
-// 渠道表 type 列 ↔ proto Type 枚举（老三样 + 全部 EXT_* 扩展名，编码与
-// notification_channel.proto 的 enum Type 逐字一致；EXT 名称即 ent 列值）。
-enum_map!(notification_channel_type_of + notification_channel_type_str {
-    "EMAIL" => 0,
-    "WEBHOOK" => 1,
-    "SMS" => 2,
-    "WECOM_APP" => 100,
-    "DINGTALK_APP" => 101,
-    "FEISHU_APP" => 102,
-    "WECHAT" => 103,
-    "TELEGRAM" => 104,
-    "SLACK" => 105,
-    "DISCORD" => 106,
-    "TEAMS" => 107,
-    "GCHAT" => 108,
-    "WEBEX" => 109,
-    "LINE" => 110,
-    "MATRIX" => 111,
-    "MATTERMOST" => 112,
-    "ROCKETCHAT" => 113,
-    "ZULIP" => 114,
-    "BARK" => 120,
-    "NTFY" => 121,
-    "GOTIFY" => 122,
-    "SERVERCHAN" => 123,
-    "WXPUSHER" => 124,
-    "PUSHOVER" => 125,
-    "PUSHBULLET" => 126,
-    "PUSHDEER" => 127,
-    "JPUSH" => 130,
-    "GETUI" => 131,
-    "HUAWEISMS" => 140,
-    "YUNPIAN" => 141,
-    "TWILIO" => 142,
-    "VONAGE" => 143,
-    "WHATSAPP" => 144,
-    "MAILGUN" => 150,
-    "SENDGRID" => 151,
-    "POSTMARK" => 152,
-    "IFTTT" => 160,
-    "JOIN" => 161,
-    "HOMEASSISTANT" => 162,
-    "DATADOG" => 170,
-    "OPSGENIE" => 171,
-    "PAGERDUTY" => 172,
-});
-
-enum_map!(notification_delivery_status_of {
-    "SENT" => 2,
-    "FAILED" => 3,
-    "SKIPPED" => 4,
-});
-
-enum_map!(notification_smtp_tls_of + notification_smtp_tls_str {
-    "NONE" => 0,
-    "SSL" => 2,
-});
-
-enum_map!(notification_sign_style_of + notification_sign_style_str {
-    "NONE" => 1,
-    "DINGTALK" => 2,
-    "FEISHU" => 3,
-    "WECOM" => 4,
-});
-
-enum_map!(notification_sms_provider_of + notification_sms_provider_str {
-    "ALIYUN" => 0,
-    "TENCENT" => 1,
-});
-
-enum_map!(monitor_metric_of + monitor_metric_str {
-    "GO_GOROUTINES" => 1,
-    "GO_MEM_ALLOC_MB" => 2,
-    "DB_OPEN_CONNECTIONS" => 3,
-    "DB_PING_FAIL" => 4,
-    "REDIS_DB_SIZE" => 5,
-});
-
-enum_map!(monitor_alert_op_of + monitor_alert_op_str {
-    "GE" => 1,
-    "LE" => 2,
-});
-
-// --- task / script ------------------------------------------------------
-
-enum_map!(task_type_of {
-    "DELAY" => 1,
-    "WAIT_RESULT" => 2,
-});
-
-enum_map!(script_language_of + script_language_str {
-    "JAVASCRIPT" => 1,
-});
-
-// --- login policy -------------------------------------------------------
-
-enum_map!(login_policy_type_of + login_policy_type_str {
-    "WHITELIST" => 2,
-});
-
-enum_map!(login_policy_method_of + login_policy_method_str {
-    "MAC" => 2,
-    "REGION" => 3,
-    "TIME" => 4,
-    "DEVICE" => 5,
-});
-
-// --- audit logs ---------------------------------------------------------
-
-enum_map!(login_audit_action_of {
-    "LOGOUT" => 1,
-    "SESSION_EXPIRED" => 2,
-    "KICKED_OUT" => 3,
-    "PASSWORD_RESET" => 4,
-});
-
-enum_map!(login_audit_status_of {
-    "FAILED" => 1,
-    "PARTIAL" => 2,
-    "LOCKED" => 3,
-});
-
-enum_map!(login_audit_method_of {
-    "SMS_CODE" => 1,
-    "QR_CODE" => 2,
-    "OIDC_SOCIAL" => 3,
-    "BIOMETRIC" => 4,
-    "FIDO2" => 5,
-});
-
-enum_map!(login_audit_risk_level_of {
-    "MEDIUM" => 1,
-    "HIGH" => 2,
-});
-
-enum_map!(operation_audit_action_of {
-    "CREATE" => 0,
-    "UPDATE" => 1,
-    "DELETE" => 2,
-    "READ" => 3,
-    "ASSIGN" => 4,
-    "UNASSIGN" => 5,
-    "EXPORT" => 6,
-    "IMPORT" => 7,
-});
-
-enum_map!(permission_audit_action_of {
-    "GRANT" => 0,
-    "REVOKE" => 1,
-    "UPDATE" => 2,
-    "RESET" => 3,
-    "CREATE" => 4,
-    "DELETE" => 5,
-    "ASSIGN" => 6,
-    "UNASSIGN" => 7,
-    "BULK_GRANT" => 8,
-    "BULK_REVOKE" => 9,
-    "EXPIRE" => 10,
-    "SUSPEND" => 11,
-    "RESUME" => 12,
-    "ROLLBACK" => 13,
-    "OTHER" => 15,
-});
-
-enum_map!(operation_audit_sensitive_level_of {
-    "PUBLIC" => 0,
-    "INTERNAL" => 1,
-    "CONFIDENTIAL" => 2,
-});
-
-enum_map!(data_access_type_of {
-    "INSERT" => 1,
-    "UPDATE" => 2,
-    "DELETE" => 3,
-    "VIEW" => 4,
-    "BULK_READ" => 5,
-    "EXPORT" => 6,
-    "IMPORT" => 7,
-    "DDL_CREATE" => 8,
-    "DDL_ALTER" => 9,
-    "DDL_DROP" => 10,
-    "METADATA_READ" => 11,
-    "SCAN" => 12,
-    "ADMIN_OPERATION" => 13,
-    "OTHER" => 14,
-});
-
-enum_map!(data_access_sensitive_level_of {
-    "INTERNAL" => 1,
-    "CONFIDENTIAL" => 2,
-    "SECRET" => 3,
-});
+pub use audit::{
+    data_access_sensitive_level_of, data_access_type_of, login_audit_action_of,
+    login_audit_method_of, login_audit_risk_level_of, login_audit_status_of,
+    operation_audit_action_of, operation_audit_sensitive_level_of, permission_audit_action_of,
+};
+pub use authentication::{
+    login_policy_method_of, login_policy_method_str, login_policy_type_of, login_policy_type_str,
+};
+pub use identity::{
+    org_unit_type_of, org_unit_type_str, plan_expiry_policy_of, plan_expiry_policy_str,
+    plan_quota_type_of, plan_quota_type_str, plan_version_of, plan_version_str, position_type_of,
+    role_scope_of, role_type_of, tenant_status_of, tenant_status_str, tenant_type_of,
+    tenant_type_str, user_gender_of, user_status_of,
+};
+pub use menu::{menu_module_of, menu_module_str, menu_type_of, menu_type_str};
+pub use message::{
+    internal_message_recipient_status_of, internal_message_status_of, internal_message_type_of,
+};
+pub use monitor::{
+    monitor_alert_op_of, monitor_alert_op_str, monitor_metric_of, monitor_metric_str,
+};
+pub use notification::{
+    notification_channel_kind_of, notification_channel_kind_str, notification_channel_type_of,
+    notification_channel_type_str, notification_delivery_status_of, notification_event_type_of,
+    notification_event_type_str, notification_sign_style_of, notification_sign_style_str,
+    notification_sms_provider_of, notification_sms_provider_str, notification_smtp_tls_of,
+    notification_smtp_tls_str,
+};
+pub use ops::{script_language_of, script_language_str, task_type_of};
+pub use platform::{config_value_type_of, file_provider_of};
 
 #[cfg(test)]
 mod tests {
@@ -474,6 +181,55 @@ mod tests {
                 ],
             ),
             ("monitor_alert_op", vec![("GE", 1), ("LE", 2)]),
+            (
+                // 渠道 type 全表（老三样 + 全部 EXT_* 扩展名）双向对拍——
+                // 39 个扩展名一个不落，编码与 proto enum Type 逐字一致。
+                "notification_channel_type",
+                vec![
+                    ("EMAIL", 0),
+                    ("WEBHOOK", 1),
+                    ("SMS", 2),
+                    ("WECOM_APP", 100),
+                    ("DINGTALK_APP", 101),
+                    ("FEISHU_APP", 102),
+                    ("WECHAT", 103),
+                    ("TELEGRAM", 104),
+                    ("SLACK", 105),
+                    ("DISCORD", 106),
+                    ("TEAMS", 107),
+                    ("GCHAT", 108),
+                    ("WEBEX", 109),
+                    ("LINE", 110),
+                    ("MATRIX", 111),
+                    ("MATTERMOST", 112),
+                    ("ROCKETCHAT", 113),
+                    ("ZULIP", 114),
+                    ("BARK", 120),
+                    ("NTFY", 121),
+                    ("GOTIFY", 122),
+                    ("SERVERCHAN", 123),
+                    ("WXPUSHER", 124),
+                    ("PUSHOVER", 125),
+                    ("PUSHBULLET", 126),
+                    ("PUSHDEER", 127),
+                    ("JPUSH", 130),
+                    ("GETUI", 131),
+                    ("HUAWEISMS", 140),
+                    ("YUNPIAN", 141),
+                    ("TWILIO", 142),
+                    ("VONAGE", 143),
+                    ("WHATSAPP", 144),
+                    ("MAILGUN", 150),
+                    ("SENDGRID", 151),
+                    ("POSTMARK", 152),
+                    ("IFTTT", 160),
+                    ("JOIN", 161),
+                    ("HOMEASSISTANT", 162),
+                    ("DATADOG", 170),
+                    ("OPSGENIE", 171),
+                    ("PAGERDUTY", 172),
+                ],
+            ),
         ];
 
         for (table, pairs) in both_way {
@@ -507,6 +263,7 @@ mod tests {
             "notification_sms_provider" => notification_sms_provider_of(lit),
             "monitor_metric" => monitor_metric_of(lit),
             "monitor_alert_op" => monitor_alert_op_of(lit),
+            "notification_channel_type" => notification_channel_type_of(lit),
             _ => unreachable!("unlisted both-way table {table}"),
         }
     }
@@ -531,6 +288,7 @@ mod tests {
             "notification_sms_provider" => notification_sms_provider_str(num),
             "monitor_metric" => monitor_metric_str(num),
             "monitor_alert_op" => monitor_alert_op_str(num),
+            "notification_channel_type" => notification_channel_type_str(num),
             _ => unreachable!("unlisted both-way table {table}"),
         }
     }

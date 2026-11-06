@@ -788,4 +788,112 @@ mod tests {
             .unwrap_err()
             .contains("missing required input variable"));
     }
+
+    #[test]
+    fn engine_takes_condition_branches_by_expression() {
+        // 图：start → llm → condition(true→end-ok / false→end-bad)
+        let mk = |expression: &str| {
+            serde_json::from_value(serde_json::json!({
+                "nodes": [
+                    {"id": "s", "type": "start", "data": {}},
+                    {"id": "m", "type": "llm", "data": {"userPrompt": "hi"}},
+                    {"id": "c", "type": "condition", "data": {"expression": expression}},
+                    {"id": "ok", "type": "end", "data": {"output": "pass"}},
+                    {"id": "bad", "type": "end", "data": {"output": "fail"}}
+                ],
+                "edges": [
+                    {"source": "s", "target": "m"},
+                    {"source": "m", "target": "c"},
+                    {"source": "c", "target": "ok", "branch": "true"},
+                    {"source": "c", "target": "bad", "branch": "false"}
+                ]
+            }))
+            .unwrap()
+        };
+        let deps = Deps {
+            search_knowledge: Box::new(|_, _| Ok((String::new(), 0))),
+            run_llm: Box::new(|_, _, _| Ok(("通过".into(), AgentUsage::default()))),
+        };
+        // llm 输出"通过" → n1.output == "通过" 为真 → ok 支
+        let g = mk("m.output == \"通过\"");
+        validate_agent_graph(&g).unwrap();
+        let exec = execute_agent_graph(&g, &BTreeMap::new(), &deps).unwrap();
+        assert_eq!(exec.output, "pass");
+        // 假分支：条件不成立 → bad 支
+        let g = mk("m.output == \"拒绝\"");
+        let exec = execute_agent_graph(&g, &BTreeMap::new(), &deps).unwrap();
+        assert_eq!(exec.output, "fail");
+    }
+
+    #[test]
+    fn engine_knowledge_node_writes_context_and_hits() {
+        let g = serde_json::from_value(serde_json::json!({
+            "nodes": [
+                {"id": "s", "type": "start", "data": {}},
+                {"id": "k", "type": "knowledge",
+                 "data": {"baseId": "7", "topK": 3, "query": "找：{{s.q}}"}},
+                {"id": "e", "type": "end", "data": {"output": "{{k.hits}}/{{k.context}}"}}
+            ],
+            "edges": [
+                {"source": "s", "target": "k"},
+                {"source": "k", "target": "e"}
+            ]
+        }))
+        .unwrap();
+        let deps = Deps {
+            search_knowledge: Box::new(|node, query| {
+                // data_u32 的字符串分支（"7"）与模板渲染（{{s.q}}→input 注入）
+                // 在 good 图验证；baseId 缺失按真实现报错（bad 图走此分支）。
+                let base_id = super::data_u32(&node.data, "baseId");
+                if base_id == 0 {
+                    return Err("knowledge node has no baseId configured".into());
+                }
+                assert_eq!(base_id, 7);
+                assert_eq!(query, "找：登录异常");
+                Ok(("片段A\n\n片段B".into(), 2))
+            }),
+            run_llm: Box::new(|_, _, _| Ok((String::new(), AgentUsage::default()))),
+        };
+        let input = BTreeMap::from([("q".to_string(), "登录异常".to_string())]);
+        let exec = execute_agent_graph(&g, &input, &deps).unwrap();
+        assert_eq!(exec.output, "2/片段A\n\n片段B");
+        // baseId 缺失 → knowledge 节点报错
+        let bad = serde_json::from_value(serde_json::json!({
+            "nodes": [
+                {"id": "s", "type": "start", "data": {}},
+                {"id": "k", "type": "knowledge", "data": {}},
+                {"id": "e", "type": "end", "data": {}}
+            ],
+            "edges": [{"source": "s", "target": "k"}, {"source": "k", "target": "e"}]
+        }))
+        .unwrap();
+        let err = execute_agent_graph(&bad, &BTreeMap::new(), &deps).unwrap_err();
+        assert!(err.contains("no baseId"), "{err}");
+    }
+
+    #[test]
+    fn probe_data_u32_from_graph_json() {
+        let g: AgentGraph = serde_json::from_value(serde_json::json!({
+            "nodes": [
+                {"id": "k", "type": "knowledge",
+                 "data": {"baseId": "7", "topK": 3, "query": "找：{{s.q}}"}}
+            ],
+            "edges": []
+        }))
+        .unwrap();
+        let d = &g.nodes[0].data;
+        println!("probe data = {d}");
+        assert_eq!(data_u32(d, "baseId"), 7, "probe: {d}");
+    }
+
+    #[test]
+    fn data_u32_accepts_number_and_numeric_string() {
+        assert_eq!(data_u32(&serde_json::json!({"k": 42}), "k"), 42);
+        assert_eq!(data_u32(&serde_json::json!({"k": "42"}), "k"), 42);
+        assert_eq!(data_u32(&serde_json::json!({"k": 0}), "k"), 0);
+        assert_eq!(data_u32(&serde_json::json!({}), "k"), 0);
+        assert_eq!(data_i64(&serde_json::json!({"k": 5}), "k", 4), 5);
+        // 非正数走默认值（上游语义：>0 才采纳）
+        assert_eq!(data_i64(&serde_json::json!({"k": 0}), "k", 4), 4);
+    }
 }

@@ -52,14 +52,14 @@ impl AuthenticationService {
                 }
             };
             for p in &blacks {
-                if p.value.as_deref().map(&matched).unwrap_or(false) {
+                if p.value.as_deref().map(matched).unwrap_or(false) {
                     return true;
                 }
             }
             if !whites.is_empty()
                 && !whites
                     .iter()
-                    .any(|p| p.value.as_deref().map(&matched).unwrap_or(false))
+                    .any(|p| p.value.as_deref().map(matched).unwrap_or(false))
             {
                 return true;
             }

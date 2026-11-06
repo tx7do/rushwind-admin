@@ -197,12 +197,10 @@ pub async fn run(db: &sea_orm::DatabaseConnection) -> Result<(), String> {
         if applied.len() as u32 >= total {
             return Ok(());
         }
-        Migrator::up(db, Some(1))
-            .await
-            .map_err(|e| {
-                eprintln!("[migrate] failed right after {last_applied}");
-                format!("schema migrate: {e}")
-            })?;
+        Migrator::up(db, Some(1)).await.map_err(|e| {
+            eprintln!("[migrate] failed right after {last_applied}");
+            format!("schema migrate: {e}")
+        })?;
         let applied = <Migrator as MigratorTrait>::get_applied_migrations(db)
             .await
             .map_err(|e| format!("schema migrate list: {e}"))?;

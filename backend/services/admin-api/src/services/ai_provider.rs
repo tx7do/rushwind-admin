@@ -269,3 +269,41 @@ impl proto::gen::services::AiProviderServiceHandlers for AiProviderService {
         Ok(Empty {})
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn api_key_hint_masks_tail_and_keeps_short_keys() {
+        // 长 key：尾 4 位
+        assert_eq!(hint_of("sk-abcdefghijklmnop"), "sk-***mnop");
+        // 短 key（≤8）：全量展示（没有可遮的尾）
+        assert_eq!(hint_of("abc12345"), "sk-***abc12345");
+        // 空白归一
+        assert_eq!(hint_of("  xyz  "), "sk-***xyz");
+        assert_eq!(hint_of(""), "");
+        assert_eq!(hint_of("   "), "");
+    }
+
+    #[test]
+    fn model_type_maps_round_trip_across_the_enum() {
+        // 全部 8 个枚举值双向 round-trip；未知值 None 落 0
+        for (i, name) in [
+            (1, "OPENAI"),
+            (2, "AZURE_OPENAI"),
+            (3, "OLLAMA"),
+            (4, "OPENAI_COMPATIBLE"),
+            (5, "MOONSHOT"),
+            (6, "ZHIPU_AI"),
+            (7, "QWEN"),
+            (8, "DEEPSEEK"),
+        ] {
+            assert_eq!(model_type_str(i), Some(name), "proto {i}");
+            assert_eq!(model_type_proto(name), i, "ent {name}");
+        }
+        assert_eq!(model_type_str(0), None);
+        assert_eq!(model_type_str(99), None);
+        assert_eq!(model_type_proto("UNKNOWN"), 0);
+    }
+}

@@ -36,7 +36,11 @@ fn next_enqueue(
     spec: &rushwind_transport_cron::CronSpec,
     now: chrono::NaiveDateTime,
 ) -> chrono::NaiveDateTime {
-    let mut t = now + chrono::Duration::minutes(1);
+    // 入队点是 cron 整分点：起点 floor 掉秒（now=10:30:15 → 从 10:31:00 起扫），
+    // 否则返回值会带着 now 的秒尾。
+    use chrono::Timelike as _;
+    let minute = now.with_second(0).unwrap_or(now);
+    let mut t = minute + chrono::Duration::minutes(1);
     for _ in 0..(24 * 60) {
         if spec.matches(t) {
             return t;
@@ -229,5 +233,54 @@ impl TaskMonitorService {
             ))
             .await
             .map_err(|e: DbErr| internal_error(format!("task inspect: {e}")))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn next_enqueue_scans_forward_to_the_next_matching_minute() {
+        use chrono::Timelike as _;
+        let hourly = rushwind_transport_cron::CronSpec::parse("0 * * * *").unwrap();
+        let now = chrono::NaiveDate::from_ymd_opt(2026, 11, 6)
+            .unwrap()
+            .and_hms_opt(10, 30, 15)
+            .unwrap();
+        // 每点整：从 10:30 前扫到 11:00
+        let next = next_enqueue(&hourly, now);
+        assert_eq!(
+            next,
+            chrono::NaiveDate::from_ymd_opt(2026, 11, 6)
+                .unwrap()
+                .and_hms_opt(11, 0, 0)
+                .unwrap()
+        );
+        // 当前分钟本身匹配 → 下一分钟起算仍指向下一个匹配点（10:31→11:00）
+        let now2 = chrono::NaiveDate::from_ymd_opt(2026, 11, 6)
+            .unwrap()
+            .and_hms_opt(10, 0, 20)
+            .unwrap();
+        let next2 = next_enqueue(&hourly, now2);
+        assert_eq!(
+            next2,
+            chrono::NaiveDate::from_ymd_opt(2026, 11, 6)
+                .unwrap()
+                .and_hms_opt(11, 0, 0)
+                .unwrap()
+        );
+        // 每分钟通配：下一整分点（now=10:30:15 → 10:31:00，差 45s 而非 60s——
+        // floor 修复后返回值永远落在整分上，不再携带 now 的秒尾）
+        let every = rushwind_transport_cron::CronSpec::parse("* * * * *").unwrap();
+        let next3 = next_enqueue(&every, now);
+        assert_eq!(
+            next3,
+            chrono::NaiveDate::from_ymd_opt(2026, 11, 6)
+                .unwrap()
+                .and_hms_opt(10, 31, 0)
+                .unwrap()
+        );
+        assert_eq!(next3.second(), 0);
     }
 }

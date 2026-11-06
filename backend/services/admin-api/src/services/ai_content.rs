@@ -40,11 +40,14 @@ fn collect_menu_index_docs(rows: Vec<crate::data::sys_menus::Model>) -> Vec<Menu
     rows.into_iter()
         .filter(|m| m.path.as_deref().map(|p| !p.is_empty()).unwrap_or(false))
         .map(|m| {
+            // 上游语义：meta.title 存在但为空串同样回退 name。
             let title = m
                 .meta
                 .as_ref()
                 .and_then(|v| v.get("title"))
-                .and_then(|t| t.as_str().map(|s| s.to_string()))
+                .and_then(|t| t.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
                 .unwrap_or_else(|| m.name.clone());
             MenuIndexDoc {
                 menu_id: m.id,
@@ -281,4 +284,90 @@ fn vec_literal_of(v: Option<&Vec<f32>>) -> String {
         .map(|xs| xs.iter().map(|x| x.to_string()).collect())
         .unwrap_or_default();
     format!("[{}]", items.join(","))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn menu(
+        id: u32,
+        name: &str,
+        path: Option<&str>,
+        meta: Option<serde_json::Value>,
+    ) -> crate::data::sys_menus::Model {
+        crate::data::sys_menus::Model {
+            id,
+            parent_id: None,
+            type_column: None,
+            path: path.map(|p| p.to_string()),
+            redirect: None,
+            alias: None,
+            name: name.to_string(),
+            component: None,
+            meta,
+            module: None,
+            remark: None,
+            status: None,
+            created_by: None,
+            updated_by: None,
+            deleted_by: None,
+            created_at: None,
+            updated_at: None,
+            deleted_at: None,
+        }
+    }
+
+    #[test]
+    fn scene_prompt_covers_all_four_scenes_and_language() {
+        // 4 场景各有独立提示词；语言插值生效
+        let zh = scene_prompt(1, "zh-CN");
+        assert!(zh.contains("内容撰写助手"));
+        assert!(zh.contains("zh-CN"));
+        assert!(scene_prompt(2, "zh-CN").contains("公告撰写助手"));
+        assert!(scene_prompt(3, "zh-CN").contains("客服回复助手"));
+        assert!(scene_prompt(4, "zh-CN").contains("智能写作助手"));
+        // 未指定场景走 GENERAL
+        assert_eq!(scene_prompt(0, "zh-CN"), scene_prompt(4, "zh-CN"));
+        assert_eq!(scene_prompt(99, "en-US"), scene_prompt(4, "en-US"));
+        // 语言替换彻底（没有残留 %s）
+        assert!(!scene_prompt(1, "en-US").contains("%s"));
+    }
+
+    #[test]
+    fn menu_index_docs_filter_and_title_fallback() {
+        let docs = collect_menu_index_docs(vec![
+            // 正常：meta.title 优先
+            menu(
+                1,
+                "sys-name",
+                Some("/sys"),
+                Some(serde_json::json!({"title": "系统管理"})),
+            ),
+            // meta 无 title → 回退 name
+            menu(2, "fallback-name", Some("/fb"), Some(serde_json::json!({}))),
+            // 无 path → 跳过
+            menu(3, "no-path", None, Some(serde_json::json!({"title": "x"}))),
+            // meta 无 title 且 name 空 → 跳过
+            menu(4, "", Some("/empty"), None),
+            // meta.title 为空串 → 回退 name
+            menu(
+                5,
+                "blank-title",
+                Some("/blank"),
+                Some(serde_json::json!({"title": ""})),
+            ),
+        ]);
+        assert_eq!(docs.len(), 3);
+        assert_eq!(
+            (
+                docs[0].menu_id,
+                docs[0].title.as_str(),
+                docs[0].route.as_str()
+            ),
+            (1, "系统管理", "/sys")
+        );
+        assert_eq!(docs[1].title, "fallback-name");
+        assert_eq!(docs[2].title, "blank-title");
+    }
 }
