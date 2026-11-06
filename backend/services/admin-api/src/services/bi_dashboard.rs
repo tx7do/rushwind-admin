@@ -293,3 +293,61 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         Ok(Empty {})
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn kind_round_trip_with_dashboard_default() {
+        // 三种显式值双向；未知值两侧都落 DASHBOARD/0
+        for (i, name) in [(0, "DASHBOARD"), (1, "SCREEN"), (2, "TEMPLATE")] {
+            assert_eq!(kind_str(i), name);
+            assert_eq!(kind_proto(name), i);
+        }
+        // proto 未知码 → DASHBOARD；库中未知串 → 0
+        assert_eq!(kind_str(99), "DASHBOARD");
+        assert_eq!(kind_proto("GARBAGE"), 0);
+    }
+
+    #[test]
+    fn upsert_fields_only_touches_payload_fields() {
+        // version 与 operator/时间戳列永不进 upsert_fields（乐观锁与盖章
+        // 是 handler 的职责，payload 字段单独走）——钉住这条边界。
+        let data = BiDashboard {
+            id: None,
+            name: Some("n".into()),
+            code: Some("c".into()),
+            kind: Some(1),
+            remark: None,
+            payload: Some("{}".into()),
+            chart_count: Some(3),
+            theme_key: None,
+            thumbnail: None,
+            is_built_in: None,
+            is_public: Some(true),
+            version: Some(7), // 不得出现在 upsert_fields 里
+            is_enabled: None,
+            sort_order: Some(2),
+            created_by: None,
+            updated_by: None,
+            deleted_by: None,
+            created_at: None,
+            updated_at: None,
+            deleted_at: None,
+        };
+        let mut a = crate::data::bi_dashboards::ActiveModel {
+            version: Set(Some(1)),
+            ..Default::default()
+        };
+        upsert_fields(&mut a, &data);
+        assert_eq!(a.name.clone().unwrap(), "n");
+        assert_eq!(a.kind.clone().unwrap(), Some("SCREEN".to_string()));
+        assert_eq!(a.chart_count.clone().unwrap(), Some(3));
+        assert_eq!(a.is_public.clone().unwrap(), Some(true));
+        assert_eq!(a.sort_order.clone().unwrap(), Some(2));
+        // 版本未被 upsert 触碰（仍是 handler 预置的 1）
+        assert_eq!(a.version.clone().unwrap(), Some(1));
+        assert!(matches!(a.is_enabled, sea_orm::ActiveValue::NotSet));
+    }
+}

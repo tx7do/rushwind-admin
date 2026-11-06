@@ -499,3 +499,42 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
         Ok(Empty {})
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scope_round_trip_with_default_all() {
+        // 四档显式值双向；未知值两侧都落 ALL/0
+        for (i, name) in [
+            (1, "SELF"),
+            (2, "UNIT_ONLY"),
+            (3, "UNIT_AND_CHILD"),
+            (4, "SELECTED_UNITS"),
+        ] {
+            assert_eq!(scope_to_str(i), name);
+            assert_eq!(scope_to_proto(name), i);
+        }
+        // 0/未知 → ALL；库中未知串 → 0
+        assert_eq!(scope_to_str(0), "ALL");
+        assert_eq!(scope_to_str(99), "ALL");
+        assert_eq!(scope_to_proto("ALL"), 0);
+        assert_eq!(scope_to_proto("GARBAGE"), 0);
+    }
+
+    #[test]
+    fn type_mapping_defaults_to_tenant_on_unknown_rows() {
+        // 库中未知串读 CUSTOM(3)——历史行防御（与 fn 注释一致）
+        assert_eq!(type_to_proto("SYSTEM"), 1);
+        assert_eq!(type_to_proto("TEMPLATE"), 2);
+        assert_eq!(type_to_proto("TENANT"), 3);
+        assert_eq!(type_to_proto("GARBAGE"), 3);
+        // 反向：1/2/3 与其余
+        assert_eq!(super::RoleService::type_to_str(1), "SYSTEM");
+        assert_eq!(RoleService::type_to_str(2), "TEMPLATE");
+        assert_eq!(RoleService::type_to_str(3), "TENANT");
+        assert_eq!(RoleService::type_to_str(0), "TENANT");
+        assert_eq!(RoleService::type_to_str(99), "TENANT");
+    }
+}

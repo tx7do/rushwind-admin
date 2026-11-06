@@ -591,3 +591,41 @@ mod tests {
         assert_eq!(vec_literal(&[]), "[]");
     }
 }
+
+#[cfg(test)]
+mod chunking_edges {
+    use super::split_into_chunks;
+
+    #[test]
+    fn cjk_content_chunks_by_chars_not_bytes() {
+        // 中文按字符切（500 上限是字符数不是字节数——UTF-8 每字 3 字节）
+        let content = "审".repeat(1200);
+        let chunks = split_into_chunks(&content, 500, 50);
+        assert_eq!(chunks.len(), 3);
+        assert_eq!(chunks[0].chars().count(), 500);
+        assert_eq!(chunks[2].chars().count(), 300);
+        // 重叠区字符一致
+        assert_eq!(
+            chunks[0].chars().skip(450).collect::<String>(),
+            chunks[1].chars().take(50).collect::<String>()
+        );
+    }
+
+    #[test]
+    fn tiny_size_still_advances_and_terminates() {
+        // size=1 无重叠：逐字符切片
+        let chunks = split_into_chunks("abc", 1, 0);
+        assert_eq!(chunks, vec!["a", "b", "c"]);
+        // overlap >= size：步长钳到 1，不死循环（防御路径）。
+        // 5 字符、窗 3、步 1：i=0,1,2 各出一片 "yyy"，i=2 时 end 触尾即停。
+        let chunks = split_into_chunks(&"y".repeat(5), 3, 3);
+        assert_eq!(chunks, vec!["yyy", "yyy", "yyy"]);
+    }
+
+    #[test]
+    fn whitespace_only_content_yields_no_chunks() {
+        // 纯空白内容不出切片（trim 过滤）——上游"content produced no chunks"
+        // 的 FAILED 文档路径由它触发。
+        assert!(split_into_chunks("   \n\t  ", 500, 50).is_empty());
+    }
+}
