@@ -165,6 +165,11 @@ async fn fetch_discovery(issuer: &str) -> Result<SsoDiscovery, StatusError> {
     Ok(doc)
 }
 
+/// state 浏览器绑定 cookie（login CSRF 防线）：GetSsoLoginUrl 种下，SsoLogin
+/// 比对用后即清（上游 2a6ddff6 同语义）。
+const SSO_STATE_COOKIE: &str = "sso_state";
+const SSO_STATE_COOKIE_PATH: &str = "/admin/v1";
+
 /// Park a login state in Redis, single-use, ten minutes.
 async fn sso_state_put(
     redis: &redis::aio::ConnectionManager,
@@ -224,6 +229,22 @@ impl AuthenticationService {
         let state = crate::token::new_jwt_id();
         sso_state_put(&self.state.redis, &state).await?;
 
+        // state 绑定发起浏览器（login CSRF 防线）：HttpOnly cookie、SameSite=Lax、
+        // Path 收窄 /admin/v1、10 分钟足够走完 IdP 授权跳转；Secure 由 TLS 形态
+        // 自适应（与 refresh cookie 同口径）。
+        let secure = _ctx
+            .headers
+            .get("x-forwarded-proto")
+            .map(|v| v.eq_ignore_ascii_case("https"))
+            .unwrap_or(false);
+        let secure_flag = if secure { "; Secure" } else { "" };
+        _ctx.add_reply_header(
+            "Set-Cookie",
+            format!(
+                "{SSO_STATE_COOKIE}={state}; Path={SSO_STATE_COOKIE_PATH}; Max-Age=600; HttpOnly; SameSite=Lax{secure_flag}"
+            ),
+        );
+
         let auth_url = format!(
             "{}?response_type=code&client_id={}&redirect_uri={}&scope={}&state={}",
             discovery.authorization_endpoint,
@@ -255,7 +276,36 @@ impl AuthenticationService {
             return Err(status_error("BAD_REQUEST", "code and state are required"));
         }
 
-        // 1. state single-use validate-and-delete.
+        // 1. state 绑定发起浏览器（login CSRF 防线）：REST 入口强制比对 cookie
+        // 与 query state——攻击者诱导受害者回调自己的 state+code 时，受害者
+        // 浏览器没有对应 cookie，即 403。非 HTTP 传输（内部调用/单测）无
+        // cookie 通道自动跳过（headers 为空的合成 ctx 即是）。
+        if !ctx.headers.is_empty() {
+            match ctx.cookies.get(SSO_STATE_COOKIE) {
+                Some(cookie_state) if cookie_state == &req.state => {}
+                _ => {
+                    return Err(status_error(
+                        "FORBIDDEN",
+                        "sso state browser binding mismatch",
+                    ));
+                }
+            }
+            // 用后即清（一次浏览器绑定只服务一次回调）
+            let secure = ctx
+                .headers
+                .get("x-forwarded-proto")
+                .map(|v| v.eq_ignore_ascii_case("https"))
+                .unwrap_or(false);
+            let secure_flag = if secure { "; Secure" } else { "" };
+            ctx.add_reply_header(
+                "Set-Cookie",
+                format!(
+                    "{SSO_STATE_COOKIE}=; Path={SSO_STATE_COOKIE_PATH}; Max-Age=-1; HttpOnly; SameSite=Lax{secure_flag}"
+                ),
+            );
+        }
+
+        // 2. state single-use validate-and-delete.
         if !sso_state_take(&self.state.redis, &req.state).await? {
             return Err(status_error("UNAUTHORIZED", "sso state invalid or expired"));
         }
@@ -273,6 +323,26 @@ impl AuthenticationService {
                 "UNAUTHORIZED",
                 "sso userinfo has no email claim",
             ));
+        }
+
+        // P2 修复：email_verified 校验——email 是本地账号映射的锚（含
+        // AutoCreate 自动建号）。IdP 侧允许用户自填且不强制验证邮箱时，攻击者
+        // 把 IdP 账号邮箱改成受害者邮箱即可登录成本地对应账号（含平台管理员，
+        // 若其邮箱被填入 IdP）。口径：claim 存在且非 true 形态 → 拒绝；
+        // 不存在 → 放行（兼容不发该 claim 的 IdP，运维应改配 IdP 强制验证）。
+        if let Some(ev) = claims.get("email_verified") {
+            if !matches!(
+                ev.trim().to_ascii_lowercase().as_str(),
+                "true" | "1" | "yes"
+            ) {
+                eprintln!(
+                    "[sso] login: email [{email}] not verified at IdP (email_verified={ev:?}), rejected"
+                );
+                return Err(status_error(
+                    "UNAUTHORIZED",
+                    "sso identity email is not verified",
+                ));
+            }
         }
 
         // 4. locate or provision the local account.

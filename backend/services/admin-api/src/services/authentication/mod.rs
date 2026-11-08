@@ -396,6 +396,32 @@ impl AuthenticationService {
         };
         let username: String = raw_identifier.replace(['\r', '\n'], "");
 
+        // Tenant resolution (empty code = platform 0) and identifier
+        // resolution hoist BEFORE the limiter pre-check (P2 修复：限流键一致
+        // ——此前 IsLocked 用原始输入、check_and_incr 用解析后 username，
+        // admin 被锁后改用 admin@victim.com 等变体发起请求，预检查的是未锁
+        // 的变体键照常放行，用户维度锁形同虚设。统一用解析后的 username 作
+        // 限流键，email/手机号/变体全落同一账号键；IsLocked 仍在 captcha
+        // 之前，闸门顺序语义不变）。
+        let mut tenant_id: u32 = 0;
+        if let Some(code) = req
+            .tenant_code
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty())
+        {
+            let tenant = tenants::Entity::find()
+                .filter(tenants::Column::Code.eq(code))
+                .one(&self.state.db)
+                .await
+                .map_err(|e| internal_error(format!("db: {e}")))?;
+            match tenant {
+                Some(t) if t.status.as_deref() == Some("ON") => tenant_id = t.id,
+                _ => return Err(status_error("BAD_REQUEST", "invalid tenant")),
+            }
+        }
+        let username = self.resolve_identifier(tenant_id, &username).await?;
+
         // Gate 1: the rate limiter pre-check.
         if crate::ratelimit::is_locked(&self.state.redis, &client_ip, &username).await {
             return Err(status_error(
@@ -418,25 +444,6 @@ impl AuthenticationService {
             return Err(status_error("BAD_REQUEST", "invalid or missing captcha"));
         }
 
-        // Tenant resolution: empty code = platform (0).
-        let mut tenant_id: u32 = 0;
-        if let Some(code) = req
-            .tenant_code
-            .as_deref()
-            .map(str::trim)
-            .filter(|c| !c.is_empty())
-        {
-            let tenant = tenants::Entity::find()
-                .filter(tenants::Column::Code.eq(code))
-                .one(&self.state.db)
-                .await
-                .map_err(|e| internal_error(format!("db: {e}")))?;
-            match tenant {
-                Some(t) if t.status.as_deref() == Some("ON") => tenant_id = t.id,
-                _ => return Err(status_error("BAD_REQUEST", "invalid tenant")),
-            }
-        }
-
         // Login-policy gate (global pass, user pass after credential).
         if self
             .check_login_policies(
@@ -452,9 +459,6 @@ impl AuthenticationService {
                 "login blocked by security policy",
             ));
         }
-
-        // Identifier resolution (email / mobile / username).
-        let username = self.resolve_identifier(tenant_id, &username).await?;
 
         // Credential verify; failures feed the rate limiter then normalize.
         let matched_user_id = match self

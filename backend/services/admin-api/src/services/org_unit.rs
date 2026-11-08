@@ -221,6 +221,16 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
         let mut a: crate::data::sys_org_units::ActiveModel = row.into();
         let mut parent_present = false;
         if let Some(data) = &req.data {
+            // 环检测前置（树形加固）：父级改到自身或自己的后代即成环，
+            // 物化路径失真、子树删除打转——写前拒绝。
+            if let Some(parent) = data.parent_id.filter(|v| *v != 0 && *v != req.id) {
+                if repo.descendant_ids(req.id).await?.contains(&parent) {
+                    return Err(status_error(
+                        "BAD_REQUEST",
+                        "org unit parent cannot be moved under its own subtree",
+                    ));
+                }
+            }
             parent_present = data.parent_id.is_some();
             if let Some(v) = &data.name {
                 a.name = Set(v.clone());

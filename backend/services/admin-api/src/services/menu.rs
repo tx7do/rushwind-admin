@@ -6,7 +6,7 @@ use std::sync::Arc;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::mapping;
-use crate::state::{db_err, not_found, operator_of, AppState, StatusError};
+use crate::state::{db_err, not_found, operator_of, status_error, AppState, StatusError};
 use pbjson_types::Empty;
 use proto::proto::pagination::PagingRequest;
 use proto::proto::permission::service::v1::{
@@ -61,6 +61,19 @@ pub struct MenuService {
 }
 
 impl MenuService {
+    /// parent 是否落在 node 的子树内（含环防护——脏环数据收敛返回 false，
+    /// 交由 collect_subtree_ids 的 visited 语义兜底）。
+    async fn is_menu_descendant(&self, node: u32, parent: u32) -> Result<bool, StatusError> {
+        let rows = crate::data::sys_menus::Entity::find()
+            .all(&self.state.db)
+            .await
+            .map_err(db_err)?
+            .into_iter()
+            .map(|m| (m.id, m.parent_id))
+            .collect::<Vec<_>>();
+        Ok(crate::data::collect_subtree_ids(&rows, node).contains(&parent))
+    }
+
     fn apply_fields(a: &mut crate::data::sys_menus::ActiveModel, data: &Menu) {
         if let Some(v) = &data.path {
             a.path = Set(Some(v.clone()));
@@ -162,6 +175,16 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
             .ok_or_else(|| not_found("menu"))?;
         let mut a: crate::data::sys_menus::ActiveModel = row.into();
         if let Some(data) = &req.data {
+            // 环检测前置（树形加固）：父级改到自身或自己的后代即成环，
+            // 物化路径/子树级联全部失真——写前拒绝。
+            if let Some(parent) = data.parent_id.filter(|v| *v != 0 && *v != req.id) {
+                if self.is_menu_descendant(req.id, parent).await? {
+                    return Err(status_error(
+                        "BAD_REQUEST",
+                        "menu parent cannot be moved under its own subtree",
+                    ));
+                }
+            }
             Self::apply_fields(&mut a, data);
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
@@ -178,31 +201,30 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
             req.query_by,
             proto::proto::permission::service::v1::delete_menu_request::QueryBy
         );
-        // Cascade: permission links then descendants then the row.
-        let children: Vec<u32> = crate::data::sys_menus::Entity::find()
-            .filter(crate::data::sys_menus::Column::ParentId.eq(id))
+        // 树形删除加固（上游 ce5de829 同语义）：整棵子树收集（visited 防
+        // 护，环脏数据收敛不打转）——旧实现只删一层直接子级，孙级成孤儿；
+        // 级联（权限绑定随全子树）与删除同事务。
+        let rows = crate::data::sys_menus::Entity::find()
             .all(&self.state.db)
             .await
             .map_err(db_err)?
-            .iter()
-            .map(|m| m.id)
-            .collect();
-        if !children.is_empty() {
-            crate::data::sys_menus::Entity::delete_many()
-                .filter(crate::data::sys_menus::Column::Id.is_in(children))
-                .exec(&self.state.db)
-                .await
-                .map_err(db_err)?;
-        }
+            .into_iter()
+            .map(|m| (m.id, m.parent_id))
+            .collect::<Vec<_>>();
+        let ids = crate::data::collect_subtree_ids(&rows, id);
+        use sea_orm::TransactionTrait as _;
+        let txn = self.state.db.begin().await.map_err(db_err)?;
         crate::data::sys_permission_menus::Entity::delete_many()
-            .filter(crate::data::sys_permission_menus::Column::MenuId.eq(id))
-            .exec(&self.state.db)
+            .filter(crate::data::sys_permission_menus::Column::MenuId.is_in(ids.clone()))
+            .exec(&txn)
             .await
             .map_err(db_err)?;
-        crate::data::sys_menus::Entity::delete_by_id(id)
-            .exec(&self.state.db)
+        crate::data::sys_menus::Entity::delete_many()
+            .filter(crate::data::sys_menus::Column::Id.is_in(ids))
+            .exec(&txn)
             .await
             .map_err(db_err)?;
+        txn.commit().await.map_err(db_err)?;
         Ok(Empty {})
     }
 

@@ -79,6 +79,23 @@ pub struct TenantService {
 }
 
 impl TenantService {
+    /// 平台管理员闸（requirePlatformAdmin 同语义）：租户名录/详情/查重是
+    /// 平台专属读口，租户侧自查走 MyTenantUsageService。
+    async fn require_platform_admin(
+        &self,
+        ctx: &rushwind_http_binding::ctx::RequestContext,
+        action: &str,
+    ) -> Result<(), StatusError> {
+        let payload = crate::state::operator_of(ctx)?;
+        if payload.is_platform_admin != Some(true) {
+            return Err(status_error(
+                "FORBIDDEN",
+                format!("only platform admin can {action}"),
+            ));
+        }
+        Ok(())
+    }
+
     async fn find(
         &self,
         query: proto::proto::identity::service::v1::get_tenant_request::QueryBy,
@@ -287,9 +304,12 @@ impl TenantService {
 impl proto::gen::services::TenantServiceHandlers for TenantService {
     async fn list(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
+        ctx: rushwind_http_binding::ctx::RequestContext,
         req: PagingRequest,
     ) -> Result<ListTenantResponse, StatusError> {
+        // 租户名录含全平台客户名称/状态/到期/套餐——平台专属读口
+        // （P2 收闸；租户侧自查走 MyTenantUsageService，不经本服务）。
+        self.require_platform_admin(&ctx, "tenant list").await?;
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListTenantResponse {
@@ -300,9 +320,11 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
 
     async fn get(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
+        ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetTenantRequest,
     ) -> Result<Tenant, StatusError> {
+        // 平台专属读口（P2 收闸，与 list 同口径）。
+        self.require_platform_admin(&ctx, "tenant detail").await?;
         let Some(query) = req.query_by else {
             return Err(status_error("BAD_REQUEST", "query_by required"));
         };
@@ -469,9 +491,11 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
 
     async fn tenant_exists(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
+        ctx: rushwind_http_binding::ctx::RequestContext,
         req: TenantExistsRequest,
     ) -> Result<TenantExistsResponse, StatusError> {
+        // 唯一消费方是平台管理员的租户抽屉 code/name 查重，随读口一并收闸。
+        self.require_platform_admin(&ctx, "tenant exists").await?;
         // OR semantics.
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
         let exist = repo.exists_any(&req.code, &req.name).await?;
