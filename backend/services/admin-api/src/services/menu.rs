@@ -265,6 +265,8 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
                 }
             }
         }
+        // 显式 id 插入后序列可能落后——对齐一次，防首个 API 插入撞 pkey
+        let _ = crate::seed::realign_sequence(&self.state.db, "sys_menus").await;
         Ok(Empty {})
     }
 }

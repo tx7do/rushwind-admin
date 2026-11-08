@@ -33,6 +33,58 @@ pub async fn run(state: &Arc<AppState>) -> Result<(), String> {
     seed_bi_dashboards(state).await?;
     seed_admin_user(state).await?;
     sync_apis(state).await?;
+    // 序列对齐：显式 id 播种不推 serial 序列——不推的话，首个 API 侧 INSERT
+    // 的 nextval 会撞上已占用的 pkey（走查实测：菜单序列停在 3 而最大 id=75，
+    // 72 连撞）。凡以固定 id 播种的表全部对齐一遍。
+    for table in [
+        "sys_roles",
+        "sys_menus",
+        "sys_permissions",
+        "sys_permission_groups",
+        "sys_users",
+        "sys_tenants",
+        "sys_org_units",
+        "sys_positions",
+        "sys_plans",
+        "sys_dict_types",
+        "sys_languages",
+        "sys_notification_channels",
+        "sys_notification_rules",
+        "notification_templates",
+        "sys_bi_dashboards",
+        "sys_print_templates",
+    ] {
+        realign_sequence(&state.db, table).await?;
+    }
+    Ok(())
+}
+
+/// 序列对齐：把表的 id serial 序列推到当前 max(id)（无行时归 1）。
+/// 表不存在时静默跳过（旧库形兼容——迁移链未触达的表不拦启动）。
+pub(crate) async fn realign_sequence(
+    db: &sea_orm::DatabaseConnection,
+    table: &str,
+) -> Result<(), String> {
+    use sea_orm::ConnectionTrait as _;
+    let exists = db
+        .query_one_raw(sea_orm::Statement::from_string(
+            db.get_database_backend(),
+            format!(
+                "SELECT 1 AS ok FROM information_schema.tables \
+                 WHERE table_schema = 'public' AND table_name = '{table}'"
+            ),
+        ))
+        .await
+        .map_err(|e| e.to_string())?;
+    if exists.is_none() {
+        return Ok(());
+    }
+    db.execute_unprepared(&format!(
+        "SELECT setval(pg_get_serial_sequence('{table}', 'id'), \
+         GREATEST((SELECT COALESCE(MAX(id), 0) FROM {table}), 1))"
+    ))
+    .await
+    .map_err(|e| e.to_string())?;
     Ok(())
 }
 
