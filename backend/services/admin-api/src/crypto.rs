@@ -3,7 +3,7 @@
 //! (RSA-2048 OAEP(SHA-256) wrapping an AES-256-GCM session key, the
 //! P1-12 sync) with the legacy `base64(AES-128-CBC(key, iv=key,
 //! PKCS#7))` form accepted through the transition — plus bcrypt
-//! hashing (default cost 10), SHA-256 (access-key secrets),
+//! hashing (DEFAULT_COST = 12, the P3 bcrypt12 posture), SHA-256 (access-key secrets),
 //! AES-256-GCM (MFA secret at-rest, `enc:` prefix), and RFC 6238 TOTP.
 
 use std::sync::OnceLock;
