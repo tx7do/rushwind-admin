@@ -12,11 +12,11 @@ use crate::state::{internal_error, status_error, AppState, StatusError};
 use crate::token::{new_jwt_id, SessionMeta, UserTokenPayload};
 use proto::gen::services::MfaServiceHandlers;
 use proto::proto::authentication::service::v1::{
-    confirm_enroll_method_request, start_enroll_method_response, verify_mfa_challenge_request,
-    ConfirmEnrollMethodRequest, ConfirmEnrollMethodResponse, DisableMfaRequest, EnrolledMethod,
-    GetMfaStatusRequest, GetMfaStatusResponse, ListEnrolledMethodsRequest,
-    ListEnrolledMethodsResponse, LoginResponse, RevokeMfaDeviceRequest, StartEnrollMethodRequest,
-    StartEnrollMethodResponse, TotpResult, VerifyMfaChallengeRequest,
+    confirm_enroll_method_request, disable_mfa_request, start_enroll_method_response,
+    verify_mfa_challenge_request, ConfirmEnrollMethodRequest, ConfirmEnrollMethodResponse,
+    DisableMfaRequest, EnrolledMethod, GetMfaStatusRequest, GetMfaStatusResponse,
+    ListEnrolledMethodsRequest, ListEnrolledMethodsResponse, LoginResponse, RevokeMfaDeviceRequest,
+    StartEnrollMethodRequest, StartEnrollMethodResponse, TotpResult, VerifyMfaChallengeRequest,
 };
 use rushwind_authn::Authenticator as _;
 
@@ -33,6 +33,48 @@ impl MfaService {
     ) -> Result<(u32, u32, String), StatusError> {
         let payload = crate::state::operator_of(ctx)?;
         Ok((payload.user_id, payload.tenant_id, payload.username))
+    }
+
+    /// 启用中的 TOTP 因子（step-up 校验用——上游 FindEnabledTotpForUser 语义，
+    /// status=ENABLED 才可参与验证）。
+    async fn enabled_totp_for(
+        &self,
+        tenant_id: u32,
+        user_id: u32,
+    ) -> Option<crate::data::sys_user_mfa_factors::Model> {
+        crate::data::sys_user_mfa_factors::Entity::find()
+            .filter(
+                Condition::all()
+                    .add(crate::data::sys_user_mfa_factors::Column::TenantId.eq(tenant_id))
+                    .add(crate::data::sys_user_mfa_factors::Column::UserId.eq(user_id))
+                    .add(crate::data::sys_user_mfa_factors::Column::Method.eq("TOTP"))
+                    .add(crate::data::sys_user_mfa_factors::Column::Status.eq("ENABLED")),
+            )
+            .one(&self.state.db)
+            .await
+            .ok()
+            .flatten()
+    }
+
+    /// 同码重放防线（P3 加固）：记录 (uid, code) 组合，90 秒内（TOTP ±skew
+    /// 窗口）重复出现即拒绝。Redis 异常放行（防御性优化，不阻断正常流程；
+    /// 主防线是挑战/因子校验本体）。
+    async fn try_acquire_used_totp_code(&self, user_id: u32, code: &str) -> bool {
+        let mut conn = self.state.redis.clone();
+        let key = format!("mfa:usedcode:{user_id}:{code}");
+        match redis::cmd("SET")
+            .arg(&key)
+            .arg(1)
+            .arg("NX")
+            .arg("EX")
+            .arg(90)
+            .query_async::<Option<()>>(&mut conn)
+            .await
+        {
+            Err(_) => true,       // Redis 异常放行
+            Ok(Some(())) => true, // 首次出现，获取成功
+            Ok(None) => false,    // 90 秒内重复出现 → 重放拒绝
+        }
     }
 
     async fn factor_for(
@@ -278,7 +320,107 @@ impl MfaServiceHandlers for MfaService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: DisableMfaRequest,
     ) -> Result<pbjson_types::Empty, crate::state::StatusError> {
+        let payload = crate::state::operator_of(&ctx)?;
         let (uid, tid, _) = self.ctx_of(&ctx)?;
+
+        // 管理端救援路径：目标用户由 user_id 指定（≠ 本人），仅平台管理员，
+        // 用于用户认证器丢失时的救援重置（按 credential_id 精确删，或按
+        // method 清空该用户该方法全部因子），留告警日志。
+        let target = req.user_id.unwrap_or(0);
+        if target != 0 && target != uid {
+            if payload.is_platform_admin != Some(true) {
+                return Err(status_error(
+                    "FORBIDDEN",
+                    "only platform admin can reset mfa for others",
+                ));
+            }
+            if let Some(id) = req
+                .credential_id
+                .as_deref()
+                .and_then(|v| v.parse::<u32>().ok())
+            {
+                // 凭 credential_id 定位因子行（目标用户可能在任意租户）
+                let factor = crate::data::sys_user_mfa_factors::Entity::find_by_id(id)
+                    .one(&self.state.db)
+                    .await
+                    .map_err(|e| internal_error(format!("db: {e}")))?;
+                let factor = match factor {
+                    Some(f) if f.user_id == Some(target) => f,
+                    _ => return Err(status_error("NOT_FOUND", "mfa credential not found")),
+                };
+                crate::data::sys_user_mfa_factors::Entity::delete_by_id(factor.id)
+                    .exec(&self.state.db)
+                    .await
+                    .map_err(|e| internal_error(format!("db: {e}")))?;
+            } else {
+                if req.method.unwrap_or(0) != 0 {
+                    return Err(status_error("BAD_REQUEST", "unsupported mfa method"));
+                }
+                // 以平台管理员视角全量查找其因子行定位 tenant
+                let first = crate::data::sys_user_mfa_factors::Entity::find()
+                    .filter(
+                        Condition::all()
+                            .add(crate::data::sys_user_mfa_factors::Column::UserId.eq(target))
+                            .add(crate::data::sys_user_mfa_factors::Column::Method.eq("TOTP")),
+                    )
+                    .one(&self.state.db)
+                    .await
+                    .map_err(|e| internal_error(format!("db: {e}")))?;
+                let first = match first {
+                    Some(f) => f,
+                    None => return Err(status_error("NOT_FOUND", "mfa credential not found")),
+                };
+                crate::data::sys_user_mfa_factors::Entity::delete_many()
+                    .filter(
+                        Condition::all()
+                            .add(
+                                crate::data::sys_user_mfa_factors::Column::TenantId
+                                    .eq(first.tenant_id.unwrap_or(0)),
+                            )
+                            .add(crate::data::sys_user_mfa_factors::Column::UserId.eq(target))
+                            .add(crate::data::sys_user_mfa_factors::Column::Method.eq("TOTP")),
+                    )
+                    .exec(&self.state.db)
+                    .await
+                    .map_err(|e| internal_error(format!("db: {e}")))?;
+            }
+            eprintln!("[mfa] admin [{uid}] reset mfa for user [{target}]");
+            return Ok(pbjson_types::Empty {});
+        }
+
+        // 本人路径 step-up（P3-1 修复）：拆掉第二因子是高价值目标——会话被
+        // 劫持的攻击者可先 Disable 再绑定自己的 TOTP 持久化。proto 的
+        // verifier oneof 此前从未被消费：现强制要求当前有效 TOTP 码（劫持
+        // 会话不含 TOTP secret，无法生成有效码）。刻意只接受 TOTP：口令可能
+        // 已随会话被劫持者掌握，TOTP 码才是劫持者缺失的一环（第二因子的本义）。
+        // 管理端救援路径不受限（场景即"认证器丢失"，且已有平台管理员闸门）。
+        let code = match req.verifier.as_ref() {
+            Some(disable_mfa_request::Verifier::TotpCode(code)) if !code.is_empty() => code.clone(),
+            _ => {
+                return Err(status_error(
+                    "BAD_REQUEST",
+                    "step-up verification required: current totp_code is required to disable mfa",
+                ));
+            }
+        };
+        let Some(factor) = self.enabled_totp_for(tid, uid).await else {
+            return Err(status_error(
+                "FORBIDDEN",
+                "no enabled totp factor to verify",
+            ));
+        };
+        let secret =
+            crate::crypto::decrypt_if_needed(&factor.secret_hash).map_err(internal_error)?;
+        if !crate::crypto::totp_verify(&secret, &code) {
+            return Err(status_error("FORBIDDEN", "invalid mfa code"));
+        }
+        // 同码重放防线与登录挑战同款
+        if !self.try_acquire_used_totp_code(uid, &code).await {
+            return Err(status_error("FORBIDDEN", "invalid mfa code"));
+        }
+
+        // 本人路径：按 credential_id 精确解绑；未传时清空本人该方法全部因子
+        // （兑现 proto 注释"指定凭证 id 或仅按方法禁用全部"的契约）
         let mut delete = crate::data::sys_user_mfa_factors::Entity::delete_many().filter(
             Condition::all()
                 .add(crate::data::sys_user_mfa_factors::Column::TenantId.eq(tid))
@@ -385,6 +527,17 @@ impl MfaServiceHandlers for MfaService {
                 ));
             }
             return Err(status_error("FORBIDDEN", "invalid mfa code"));
+        }
+
+        // P3 加固：同码重放防线——TOTP 在 ±skew 窗口内同一码值有效 ~90s，
+        // 攻击者截获一次提交可在窗口内对多个 operation_id 重放同码。SETNX
+        // 记录 (uid, code)，已存在即拒绝。挑战消耗后码值不再可用，窗口期
+        // 天然封死。
+        if !self
+            .try_acquire_used_totp_code(payload.user_id, &code)
+            .await
+        {
+            return Err(status_error("FORBIDDEN", "mfa code already used"));
         }
 
         // Success: single-use (delete challenge + failures), last-used stamp,
