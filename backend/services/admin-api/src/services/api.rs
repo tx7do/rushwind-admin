@@ -1,11 +1,13 @@
 //! ApiService — service layer:
-//! `sys_apis` CRUD plus SyncApis (truncate + rebuild from the vendored
-//! OpenAPI document, module mapped from the service tag) and
-//! GetWalkRouteData. Every mutation resets the authorization policies.
+//! `sys_apis` CRUD plus SyncApis (the (path, method)-keyed MERGE against the
+//! vendored OpenAPI document — ids stable, bindings endpoint-snapshotted) and
+//! GetWalkRouteData.
 
 use std::sync::Arc;
 
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder, Set,
+};
 
 use crate::mapping;
 use crate::state::{db_err, internal_error, not_found, operator_of, AppState, StatusError};
@@ -45,7 +47,25 @@ fn tag_to_module(tag: &str) -> &'static str {
         | "RedisCacheMonitorService" => "LOG",
         "InternalMessageService"
         | "InternalMessageCategoryService"
-        | "InternalMessageRecipientService" => "INTERNAL_MESSAGE",
+        | "InternalMessageRecipientService"
+        | "NotificationPreferenceService" => "INTERNAL_MESSAGE",
+        "AiProviderService"
+        | "AiConversationService"
+        | "AiMessageService"
+        | "AiChatService"
+        | "AiUsageLogService"
+        | "AiKnowledgeBaseService"
+        | "AiQueryService"
+        | "AiAgentService"
+        | "AiContentService" => "AI",
+        "TaskMonitorService" => "TASK",
+        // 显式化（此前走 SYSTEM 兜底）：无专属 Module 枚举值的移植域
+        "MonitorAlertService"
+        | "ScriptService"
+        | "ScriptLogService"
+        | "BiDashboardService"
+        | "PrintTemplateService"
+        | "MfaService" => "SYSTEM",
         _ => "SYSTEM",
     }
 }
@@ -76,6 +96,126 @@ fn api_proto(r: crate::data::sys_apis::Model) -> Api {
 
 pub struct ApiService {
     pub state: Arc<AppState>,
+}
+
+impl ApiService {
+    /// MERGE 主体（单事务内调用）：派生集（OpenAPI 端点清单）按 (path, method)
+    /// 与库存对齐——命中→原位更新（保 id，授权绑定零漂移）/ 缺失→插入（id 自增）
+    /// / 库存多余→删行并级联清权限绑定（api_id 与端点快照双口径）。删除段放
+    /// 最后：中途失败残留的是"本该删的旧端点"，重跑同步即自愈，好过删多了。
+    pub(crate) async fn sync_merge_in_txn(
+        &self,
+        txn: &sea_orm::DatabaseTransaction,
+        rows: Vec<super::api::DerivedApiRow>,
+        operator_id: u32,
+    ) -> Result<(), StatusError> {
+        let existing = crate::data::sys_apis::Entity::find()
+            .all(txn)
+            .await
+            .map_err(db_err)?;
+        let mut existing_by_key: std::collections::HashMap<(String, String), u32> =
+            std::collections::HashMap::with_capacity(existing.len());
+        let mut row_by_id: std::collections::HashMap<u32, &crate::data::sys_apis::Model> =
+            std::collections::HashMap::with_capacity(existing.len());
+        for row in &existing {
+            let (Some(path), Some(method)) = (row.path.clone(), row.method.clone()) else {
+                continue;
+            };
+            existing_by_key.insert((path, method.to_uppercase()), row.id);
+            row_by_id.insert(row.id, row);
+        }
+
+        let mut spec_keys = std::collections::HashSet::with_capacity(rows.len());
+        for (path, method, operation, module, _) in &rows {
+            let key = (path.clone(), method.clone());
+            if !spec_keys.insert(key) {
+                continue; // spec 内重复键防御性跳过
+            }
+            let business = tag_to_module_by_operation(operation);
+            match existing_by_key.get(&(path.clone(), method.clone())) {
+                Some(&exist_id) => {
+                    let exist = row_by_id[&exist_id];
+                    let next_business = Some(business.to_string());
+                    if exist.operation.as_deref() == Some(operation.as_str())
+                        && exist.module.as_deref() == Some(module.as_str())
+                        && exist.business_module == next_business
+                    {
+                        continue; // 元数据一致零操作
+                    }
+                    let mut a: crate::data::sys_apis::ActiveModel = exist.clone().into();
+                    a.operation = Set(Some(operation.clone()));
+                    a.module = Set(Some(module.clone()));
+                    a.business_module = Set(next_business);
+                    crate::stamp_update!(a, operator_id);
+                    a.update(txn).await.map_err(db_err)?;
+                }
+                None => {
+                    crate::data::sys_apis::ActiveModel {
+                        path: Set(Some(path.clone())),
+                        method: Set(Some(method.clone())),
+                        operation: Set(Some(operation.clone())),
+                        module: Set(Some(module.clone())),
+                        business_module: Set(Some(business.to_string())),
+                        scope: Set(Some("ADMIN".into())),
+                        status: Set(Some("ON".into())),
+                        created_by: Set(Some(operator_id)),
+                        created_at: Set(Some(crate::data::now())),
+                        updated_at: Set(Some(crate::data::now())),
+                        ..Default::default()
+                    }
+                    .insert(txn)
+                    .await
+                    .map_err(db_err)?;
+                }
+            }
+        }
+
+        // 移除段：库存有、派生集没有（含 NULL/空身份行——它们不是任何端点）。
+        let gone: Vec<&crate::data::sys_apis::Model> = existing
+            .iter()
+            .filter(|row| {
+                let (Some(path), Some(method)) = (row.path.clone(), row.method.clone()) else {
+                    return true;
+                };
+                !spec_keys.contains(&(path, method.to_uppercase()))
+            })
+            .collect();
+        if !gone.is_empty() {
+            let gone_ids: Vec<u32> = gone.iter().map(|r| r.id).collect();
+            for row in &gone {
+                let path = row.path.clone().unwrap_or_default();
+                let method = row.method.clone().unwrap_or_default();
+                if !path.is_empty() && !method.is_empty() {
+                    crate::data::sys_permission_apis::Entity::delete_many()
+                        .filter(
+                            Condition::all()
+                                .add(
+                                    crate::data::sys_permission_apis::Column::EndpointPath
+                                        .eq(&path),
+                                )
+                                .add(
+                                    crate::data::sys_permission_apis::Column::EndpointMethod
+                                        .eq(method.to_uppercase()),
+                                ),
+                        )
+                        .exec(txn)
+                        .await
+                        .map_err(db_err)?;
+                }
+            }
+            crate::data::sys_permission_apis::Entity::delete_many()
+                .filter(crate::data::sys_permission_apis::Column::ApiId.is_in(gone_ids.clone()))
+                .exec(txn)
+                .await
+                .map_err(db_err)?;
+            crate::data::sys_apis::Entity::delete_many()
+                .filter(crate::data::sys_apis::Column::Id.is_in(gone_ids))
+                .exec(txn)
+                .await
+                .map_err(db_err)?;
+        }
+        Ok(())
+    }
 }
 
 #[async_trait::async_trait]
@@ -135,6 +275,7 @@ impl proto::gen::services::ApiServiceHandlers for ApiService {
                     8 => "INTERNAL_MESSAGE",
                     9 => "FILE",
                     10 => "TASK",
+                    11 => "AI",
                     _ => "SYSTEM",
                 }
                 .to_string()
@@ -200,11 +341,36 @@ impl proto::gen::services::ApiServiceHandlers for ApiService {
             req.query_by,
             proto::proto::permission::service::v1::delete_api_request::QueryBy
         );
+        // 先取行拿端点身份：删行后按 api_id 与 (path, method) 快照双口径
+        // 级联清理权限绑定，消灭孤儿绑定（孤儿绑定会在 id 重编号后指到无关
+        // 端点造成越权放行——上游 CascadeDeleteBindings 同语义）。
+        let row = crate::data::sys_apis::Entity::find_by_id(id)
+            .one(&self.state.db)
+            .await
+            .map_err(db_err)?;
         crate::data::sys_permission_apis::Entity::delete_many()
             .filter(crate::data::sys_permission_apis::Column::ApiId.eq(id))
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
+        if let Some(row) = row {
+            let path = row.path.clone().unwrap_or_default();
+            let method = row.method.clone().unwrap_or_default();
+            if !path.is_empty() && !method.is_empty() {
+                crate::data::sys_permission_apis::Entity::delete_many()
+                    .filter(
+                        Condition::all()
+                            .add(crate::data::sys_permission_apis::Column::EndpointPath.eq(&path))
+                            .add(
+                                crate::data::sys_permission_apis::Column::EndpointMethod
+                                    .eq(method.to_uppercase()),
+                            ),
+                    )
+                    .exec(&self.state.db)
+                    .await
+                    .map_err(db_err)?;
+            }
+        }
         crate::data::sys_apis::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
@@ -218,80 +384,23 @@ impl proto::gen::services::ApiServiceHandlers for ApiService {
         _req: Empty,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        // The OpenAPI document is embedded in the binary (
-        // `assets.OpenApiData`), never read from the filesystem.
-        let doc: serde_yaml::Value = serde_yaml::from_str(crate::assets::OPENAPI_DATA)
-            .map_err(|e| internal_error(format!("openapi parse: {e}")))?;
+        let rows = derived_api_rows().map_err(internal_error)?;
 
-        // path, method, operation, module, business_module i32
-        let mut rows: Vec<(String, String, String, String, Option<u32>)> = Vec::new();
-        let paths = doc
-            .get("paths")
-            .and_then(|p| p.as_mapping())
-            .ok_or_else(|| internal_error("openapi paths missing"))?;
-        for (path, methods) in paths {
-            let Some(methods) = methods.as_mapping() else {
-                continue;
-            };
-            for (method, op) in methods {
-                let (Some(path), Some(method), Some(op)) =
-                    (path.as_str(), method.as_str(), op.as_mapping())
-                else {
-                    continue;
-                };
-                let method = method.to_uppercase();
-                if !["GET", "POST", "PUT", "DELETE", "PATCH"].contains(&method.as_str()) {
-                    continue;
-                }
-                let operation = op
-                    .get(serde_yaml::Value::from("operationId"))
-                    .and_then(|v| v.as_str())
-                    .unwrap_or_default()
-                    .to_string();
-                let tag = op
-                    .get(serde_yaml::Value::from("tags"))
-                    .and_then(|v| v.as_sequence())
-                    .and_then(|seq| seq.first())
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
-                let module = tag_to_module(&tag).to_string();
-                rows.push((path.to_string(), method, operation, module, None));
+        // MERGE 按自然键 (path, method) 单事务增量对齐（上游 SyncMerge 同教义，
+        // 仓内不再有删除重建型同步）：旧的 Truncate + 顺序重编号造成过两类事故
+        // ——同步窗口内租户闸 fail-closed 全租户 403；id 全表洗牌让 api_id 绑定
+        // 漂移（授权悄悄换到别的端点）。现 id 稳定、绑定存端点快照，授权零漂移；
+        // 移除段同事务级联清绑定。
+        use sea_orm::TransactionTrait as _;
+        let txn = self.state.db.begin().await.map_err(db_err)?;
+        let result = self.sync_merge_in_txn(&txn, rows, payload.user_id).await;
+        match result {
+            Ok(()) => txn.commit().await.map_err(db_err)?,
+            Err(_) => {
+                let _ = txn.rollback().await;
             }
         }
-        rows.sort_by_key(|a| (a.0.clone(), a.1.clone()));
-
-        // Truncate + rebuild with ids 1..N (syncWithOpenAPI semantics).
-        crate::data::sys_apis::Entity::delete_many()
-            .exec(&self.state.db)
-            .await
-            .map_err(db_err)?;
-        crate::data::sys_permission_apis::Entity::delete_many()
-            .exec(&self.state.db)
-            .await
-            .map_err(db_err)?;
-        for (idx, (path, method, operation, module, _)) in rows.into_iter().enumerate() {
-            let id = (idx + 1) as u32;
-            let business = tag_to_module_by_operation(&operation);
-            crate::data::sys_apis::ActiveModel {
-                id: Set(id),
-                path: Set(Some(path)),
-                method: Set(Some(method)),
-                operation: Set(Some(operation)),
-                module: Set(Some(module)),
-                business_module: Set(Some(business.to_string())),
-                scope: Set(Some("ADMIN".into())),
-                status: Set(Some("ON".into())),
-                created_by: Set(Some(payload.user_id)),
-                created_at: Set(Some(crate::data::now())),
-                updated_at: Set(Some(crate::data::now())),
-                ..Default::default()
-            }
-            .insert(&self.state.db)
-            .await
-            .map_err(db_err)?;
-        }
-        Ok(Empty {})
+        result.map(|_| Empty {})
     }
 
     async fn get_walk_route_data(
@@ -315,4 +424,51 @@ impl proto::gen::services::ApiServiceHandlers for ApiService {
 fn tag_to_module_by_operation(operation: &str) -> &'static str {
     let service = operation.split('_').next().unwrap_or("");
     tag_to_module(service)
+}
+
+/// 派生端点行：(path, method, operation, module, 预留)。
+pub(crate) type DerivedApiRow = (String, String, String, String, Option<u32>);
+
+/// 派生端点清单：解析打进二进制的 OpenAPI 文档（不含 id）——(path, method)
+/// 即身份。启动期同步与 SyncApis RPC 共用。
+pub(crate) fn derived_api_rows() -> Result<Vec<DerivedApiRow>, String> {
+    let doc: serde_yaml::Value = serde_yaml::from_str(crate::assets::OPENAPI_DATA)
+        .map_err(|e| format!("openapi parse: {e}"))?;
+    let mut rows: Vec<(String, String, String, String, Option<u32>)> = Vec::new();
+    let paths = doc
+        .get("paths")
+        .and_then(|p| p.as_mapping())
+        .ok_or("openapi paths missing")?;
+    for (path, methods) in paths {
+        let Some(methods) = methods.as_mapping() else {
+            continue;
+        };
+        for (method, op) in methods {
+            let (Some(path), Some(method), Some(op)) =
+                (path.as_str(), method.as_str(), op.as_mapping())
+            else {
+                continue;
+            };
+            let method = method.to_uppercase();
+            if !["GET", "POST", "PUT", "DELETE", "PATCH"].contains(&method.as_str()) {
+                continue;
+            }
+            let operation = op
+                .get(serde_yaml::Value::from("operationId"))
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string();
+            let tag = op
+                .get(serde_yaml::Value::from("tags"))
+                .and_then(|v| v.as_sequence())
+                .and_then(|seq| seq.first())
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let module = tag_to_module(&tag).to_string();
+            rows.push((path.to_string(), method, operation, module, None));
+        }
+    }
+    rows.sort_by_key(|a| (a.0.clone(), a.1.clone()));
+    Ok(rows)
 }

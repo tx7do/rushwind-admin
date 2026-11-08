@@ -13,7 +13,7 @@ mod ai_message;
 mod ai_provider;
 mod ai_query;
 mod ai_usage_log;
-mod api;
+pub(crate) mod api;
 mod api_audit_log;
 mod authentication;
 mod bi_dashboard;

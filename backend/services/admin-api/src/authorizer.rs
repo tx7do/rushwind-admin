@@ -174,21 +174,12 @@ impl AccessAuthorizer {
         method: &str,
     ) -> (u32, u32) {
         let db = &self.state.db;
-        let Some(api) = sys_apis::Entity::find()
-            .filter(
-                Condition::all()
-                    .add(sys_apis::Column::Path.eq(path))
-                    .add(sys_apis::Column::Method.eq(method.to_uppercase())),
-            )
-            .one(db)
-            .await
-            .ok()
-            .flatten()
-        else {
-            return (0, 0);
-        };
+        // 绑定按端点身份快照裁决（上游 7eb7f9f0 同语义）：与路由闸的
+        // (path, method) 键同形，免疫 sys_apis 行删除重建与 id 洗牌——
+        // api_id 列仅历史兼容。
         let Some(link) = sys_permission_apis::Entity::find()
-            .filter(sys_permission_apis::Column::ApiId.eq(api.id))
+            .filter(sys_permission_apis::Column::EndpointPath.eq(path))
+            .filter(sys_permission_apis::Column::EndpointMethod.eq(method.to_uppercase()))
             .one(db)
             .await
             .ok()

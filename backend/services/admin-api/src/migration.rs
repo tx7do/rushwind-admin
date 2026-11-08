@@ -118,6 +118,7 @@ impl MigratorTrait for Migrator {
             Box::new(AiSearchIndexTable),
             Box::new(bi_revisions),
             Box::new(BiRevisionIndexes),
+            Box::new(ApiEndpointIdentity),
         ]
     }
 }
@@ -393,6 +394,63 @@ impl MigrationTrait for BiRevisionIndexes {
             )
             .await
             .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// 授权绑定身份迁移（上游 7eb7f9f0 同语义）：绑定键从 api_id 迁到
+/// (path, method) 端点快照。①预去重 sys_apis（同 (path,method) 保留最小
+/// id——旧唯一键 (module,path,method,scope) 下同端点可重复，新唯一索引
+/// 会被脏数据卡死建链）；②绑定表加快照列；③按 api_id→sys_apis 回填；
+/// ④sys_apis 建 (path,method) 唯一索引。全部幂等，可重复执行。
+struct ApiEndpointIdentity;
+
+impl MigrationName for ApiEndpointIdentity {
+    fn name(&self) -> &str {
+        "m20251105_000013_api_endpoint_identity"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for ApiEndpointIdentity {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        let conn = manager.get_connection();
+        conn.execute_unprepared(
+            // 预去重：NULL/空身份行不是任何端点，不参与去重（GROUP BY 会把
+            // NULL 归成一组，直接对全表 NOT IN 会把它们误删——上游同注释）
+            "DELETE FROM sys_apis \
+             WHERE path IS NOT NULL AND path <> '' AND method IS NOT NULL AND method <> '' \
+             AND id NOT IN ( \
+               SELECT MIN(id) FROM sys_apis \
+               WHERE path IS NOT NULL AND path <> '' AND method IS NOT NULL AND method <> '' \
+               GROUP BY path, method)",
+        )
+        .await?;
+        conn.execute_unprepared(
+            "ALTER TABLE sys_permission_apis \
+             ADD COLUMN IF NOT EXISTS endpoint_path varchar(255), \
+             ADD COLUMN IF NOT EXISTS endpoint_method varchar(16)",
+        )
+        .await?;
+        conn.execute_unprepared(
+            "UPDATE sys_permission_apis p \
+             SET endpoint_path = a.path, endpoint_method = a.method \
+             FROM sys_apis a \
+             WHERE p.api_id = a.id \
+               AND (p.endpoint_path IS NULL OR p.endpoint_method IS NULL)",
+        )
+        .await?;
+        conn.execute_unprepared(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uidx_sys_apis_path_method \
+             ON sys_apis (path, method); \
+             CREATE INDEX IF NOT EXISTS idx_perm_api_endpoint \
+             ON sys_permission_apis (endpoint_path, endpoint_method)",
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {

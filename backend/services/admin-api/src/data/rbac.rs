@@ -173,7 +173,13 @@ pub mod sys_permission_apis {
         #[sea_orm(primary_key)]
         pub id: u32,
         pub permission_id: Option<u32>,
+        /// 旧版按 api_id 绑定（id 重编号即漂移）；快照列落地后仅作历史
+        /// 兼容保留，裁决与写入都以 (endpoint_path, endpoint_method) 为准。
         pub api_id: Option<u32>,
+        /// 绑定端点身份快照——与 authorizer 路由闸/策略链的裁决键同形，
+        /// 免疫 sys_apis 删除重建（上游 7eb7f9f0 同语义）。
+        pub endpoint_path: Option<String>,
+        pub endpoint_method: Option<String>,
         pub created_by: Option<u32>,
         pub updated_by: Option<u32>,
         pub deleted_by: Option<u32>,

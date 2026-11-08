@@ -32,6 +32,28 @@ pub async fn run(state: &Arc<AppState>) -> Result<(), String> {
     seed_notification_rules(state).await?;
     seed_bi_dashboards(state).await?;
     seed_admin_user(state).await?;
+    sync_apis(state).await?;
+    Ok(())
+}
+
+/// 启动期接口同步（上游 api_service init 同语义）：把打进二进制的 OpenAPI
+/// 端点清单按 (path, method) MERGE 进 sys_apis——authorizer 的路由闸对未
+/// 登记端点 fail-closed，部署新契约后若不同步，租户侧全端点 403。失败
+/// 不阻断启动（fail-open 留痕，重跑 SyncApis RPC 即自愈）。
+async fn sync_apis(state: &Arc<AppState>) -> Result<(), String> {
+    use sea_orm::TransactionTrait as _;
+    let rows = crate::services::api::derived_api_rows()?;
+    let svc = crate::services::ApiService {
+        state: Arc::clone(state),
+    };
+    let txn = state.db.begin().await.map_err(|e| e.to_string())?;
+    let result = svc.sync_merge_in_txn(&txn, rows, 0).await;
+    match result {
+        Ok(()) => txn.commit().await.map_err(|e| e.to_string())?,
+        Err(_) => {
+            let _ = txn.rollback().await;
+        }
+    }
     Ok(())
 }
 
