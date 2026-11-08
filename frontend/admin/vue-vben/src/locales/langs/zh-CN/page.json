@@ -202,6 +202,7 @@
     "moduleName": "角色",
     "name": "角色名称",
     "code": "角色值",
+    "reservedCode": "该角色值为系统保留（platform: / template: / tenant:manager），禁止使用",
     "description": "角色描述",
     "isProtected": "内置角色",
     "apis": "分配API",
@@ -1384,7 +1385,14 @@
       "varLabel": "显示名",
       "addVar": "添加输入变量",
       "remove": "删除",
-      "configAutoSaved": "配置修改即时写入画布，点「保存画布」才落库"
+      "configAutoSaved": "配置修改即时写入画布，点「保存画布」才落库",
+      "httpUrl": "请求 URL",
+      "httpMethod": "方法",
+      "httpHeaders": "请求头",
+      "httpAddHeader": "加请求头",
+      "httpBody": "请求体",
+      "httpTimeout": "超时（秒，1-60）",
+      "httpSsrHint": "仅允许 http/https 出站；私网/回环/云元数据地址会被服务端拒绝"
     }
   },
   "printTemplate": {
@@ -1418,7 +1426,16 @@
     "serverPdf": "服务端 PDF",
     "serverPdfFailed": "服务端 PDF 生成失败",
     "batchPrint": "批量打印",
-    "noSelection": "请先勾选要打印的行"
+    "noSelection": "请先勾选要打印的行",
+    "aiGenerateTitle": "AI 生成打印模板",
+    "aiGenerate": "AI 生成",
+    "aiDescription": "单据要素描述",
+    "aiDescriptionPlaceholder": "例：出库单，含单号、出库日期、仓库、明细表（物品名称/数量/单价/小计）、合计金额、仓管签字区",
+    "aiResourceKey": "绑定资源（可选）",
+    "aiGenerateButton": "生成",
+    "aiGenerateSuccess": "生成完成，已载入设计器，请确认后保存",
+    "aiGenerateFailed": "AI 生成失败",
+    "aiDescriptionRequired": "请填写单据要素描述"
   },
   "bi": {
     "title": "BI 分析",
@@ -1458,6 +1475,15 @@
     "statusConflict": "保存冲突，已刷新版本",
     "loadFailed": "加载失败，已切换为本地草稿",
     "fullscreen": "全屏",
-    "exitFullscreen": "退出全屏"
+    "exitFullscreen": "退出全屏",
+    "revisionHistory": "版本历史",
+    "revisionTitle": "版本历史",
+    "revisionVersion": "版本",
+    "revisionSource": "来源",
+    "revisionSourceSave": "保存",
+    "revisionSourceRestore": "恢复留底",
+    "revisionRestore": "恢复",
+    "revisionRestoreSuccess": "已恢复，可继续编辑保存",
+    "revisionRestoreFailed": "恢复失败"
   }
 }

@@ -15,6 +15,10 @@ export interface ClientTransport {
     meta: TransportMeta,
   ): Promise<unknown>;
   serverStream<T>(path: string, meta: TransportMeta): ServerStream<T>;
+  // Raw byte chunks for google.api.HttpBody server streams: the first
+  // chunk's content type rides the HTTP response Content-Type header,
+  // every chunk is raw payload bytes (no JSON framing).
+  byteStream(path: string, meta: TransportMeta): ServerStream<Uint8Array>;
   duplexStream<TIn, TOut>(path: string, meta: TransportMeta): DuplexStream<TIn, TOut>;
 }
 
@@ -2996,6 +3000,14 @@ export interface BiDashboardService {
   Copy(
     request: biservicev1_CopyBiDashboardRequest,
   ): Promise<wellKnownEmpty>;
+  // 版本历史（每次保存留旧版快照，新快照在前）
+  ListRevisions(
+    request: biservicev1_ListBiDashboardRevisionsRequest,
+  ): Promise<biservicev1_ListBiDashboardRevisionsResponse>;
+  // 恢复版本（快照 payload/name 写回主表，版本 +1；恢复前先快照当前版本，可逆）
+  RestoreRevision(
+    request: biservicev1_RestoreBiDashboardRevisionRequest,
+  ): Promise<wellKnownEmpty>;
 }
 
 export function createBiDashboardServiceClient(
@@ -3136,6 +3148,32 @@ export function createBiDashboardServiceClient(
         method: 'Copy',
       }) as Promise<wellKnownEmpty>;
     },
+    ListRevisions(request) {
+      if (request.dashboardId === undefined || request.dashboardId === null) {
+        throw new Error('missing required field request.dashboard_id');
+      }
+      const path = `/admin/v1/bi-dashboards/${request.dashboardId}/revisions`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["dashboardId"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'BiDashboardService',
+        method: 'ListRevisions',
+      }) as Promise<biservicev1_ListBiDashboardRevisionsResponse>;
+    },
+    RestoreRevision(request) {
+      if (request.id === undefined || request.id === null) {
+        throw new Error('missing required field request.id');
+      }
+      const path = `/admin/v1/bi-dashboards/revisions/${request.id}:restore`;
+      const bodyMap = { ...request } as Record<string, unknown>;
+      delete bodyMap["id"];
+      const body = JSON.stringify(bodyMap);
+      return transport.unary(path, 'POST', body, {
+        service: 'BiDashboardService',
+        method: 'RestoreRevision',
+      }) as Promise<wellKnownEmpty>;
+    },
   };
 }
 // 查询 BI 仪表盘列表 - 回应
@@ -3205,6 +3243,36 @@ export type biservicev1_CopyBiDashboardRequest = {
   code?: string;
   id: number | undefined;
   name?: string;
+};
+
+// 版本历史 - 请求
+export type biservicev1_ListBiDashboardRevisionsRequest = {
+  dashboardId: number | undefined;
+  page: pagination_PagingRequest | undefined;
+};
+
+// 版本历史 - 回应（新快照在前）
+export type biservicev1_ListBiDashboardRevisionsResponse = {
+  items: biservicev1_BiDashboardRevision[] | undefined;
+  total: number | undefined;
+};
+
+// 仪表盘版本快照（每次成功保存把保存前的 payload/name/version 留一行；
+// 恢复 = 快照写回主表，恢复动作本身先快照当前版本）
+export type biservicev1_BiDashboardRevision = {
+  createdAt?: string;
+  createdBy?: number;
+  dashboardId: number | undefined;
+  id: number | undefined;
+  name?: string;
+  payload?: string;
+  source?: string;
+  version: number | undefined;
+};
+
+// 恢复版本 - 请求（把快照的 payload/name 写回主表，版本号 +1；恢复前先快照当前版本）
+export type biservicev1_RestoreBiDashboardRevisionRequest = {
+  id: number | undefined;
 };
 
 // 系统参数管理服务
@@ -9847,6 +9915,11 @@ export interface PrintTemplateService {
   RenderPdf(
     request: printservicev1_RenderPrintTemplateRequest,
   ): Promise<printservicev1_RenderPrintTemplateResponse>;
+  // AI 一句话生成模板：描述单据要素 → LLM 产出 TemplateData → 护栏校验后返回
+  // （未入库；前端预览确认后走 Create 保存）。走 AI_TOKENS 配额与用量记账。
+  GenerateTemplate(
+    request: printservicev1_GeneratePrintTemplateRequest,
+  ): Promise<printservicev1_GeneratePrintTemplateResponse>;
 }
 
 export function createPrintTemplateServiceClient(
@@ -9982,6 +10055,14 @@ export function createPrintTemplateServiceClient(
         method: 'RenderPdf',
       }) as Promise<printservicev1_RenderPrintTemplateResponse>;
     },
+    GenerateTemplate(request) {
+      const path = `/admin/v1/print-templates:generate`;
+      const body = JSON.stringify(request);
+      return transport.unary(path, 'POST', body, {
+        service: 'PrintTemplateService',
+        method: 'GenerateTemplate',
+      }) as Promise<printservicev1_GeneratePrintTemplateResponse>;
+    },
   };
 }
 // 查询打印模板列表 - 回应
@@ -10048,6 +10129,22 @@ export type printservicev1_RenderPrintTemplateRequest = {
 export type printservicev1_RenderPrintTemplateResponse = {
   filename: string | undefined;
   pdf: string | undefined;
+};
+
+// AI 一句话生成模板 - 请求（描述单据要素 → LLM 产出 TemplateData）
+export type printservicev1_GeneratePrintTemplateRequest = {
+  description: string | undefined;
+  orientation: string | undefined;
+  paperSize: string | undefined;
+  resourceKey: string | undefined;
+};
+
+// AI 一句话生成模板 - 回应（payload 为护栏校验通过的 TemplateData JSON，未入库；
+// 前端预览确认后走既有 Create 保存）
+export type printservicev1_GeneratePrintTemplateResponse = {
+  fields: string[] | undefined;
+  payload: string | undefined;
+  totalTokens: number | undefined;
 };
 
 // Redis缓存监控管理服务（只读）

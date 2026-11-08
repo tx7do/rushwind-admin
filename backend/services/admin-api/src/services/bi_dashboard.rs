@@ -12,7 +12,8 @@ use crate::state::{db_err, operator_of, require_data, status_error, AppState, St
 use pbjson_types::Empty;
 use proto::proto::bi::service::v1::{
     BiDashboard, CopyBiDashboardRequest, CreateBiDashboardRequest, DeleteBiDashboardRequest,
-    GetBiDashboardRequest, ListBiDashboardResponse, UpdateBiDashboardRequest,
+    GetBiDashboardRequest, ListBiDashboardResponse, ListBiDashboardRevisionsRequest,
+    ListBiDashboardRevisionsResponse, RestoreBiDashboardRevisionRequest, UpdateBiDashboardRequest,
 };
 use proto::proto::pagination::PagingRequest;
 
@@ -291,6 +292,36 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         .await
         .map_err(db_err)?;
         Ok(Empty {})
+    }
+
+    /// 版本历史：每次保存留旧版快照（新快照在前）。
+    /// 干净 NOT_IMPLEMENTED 声明边界——上游快照表 + 恢复可逆语义
+    /// （bi_dashboard_revision_repo.go + bi_dashboard_service.go）待独立里程碑移植；
+    /// proto 生成面已挂载，调用得到干净的 501 而非 404。
+    async fn list_revisions(
+        &self,
+        _ctx: rushwind_http_binding::ctx::RequestContext,
+        _req: ListBiDashboardRevisionsRequest,
+    ) -> Result<ListBiDashboardRevisionsResponse, StatusError> {
+        Err(status_error(
+            "NOT_IMPLEMENTED",
+            "bi dashboard revisions ride their own milestone: snapshot-on-save plus the \
+             reversible restore (snapshot current before write-back) must land whole",
+        ))
+    }
+
+    /// 恢复版本：快照 payload/name 写回主表、版本 +1，恢复前先快照当前版本（可逆）。
+    /// 与 list_revisions 同一里程碑的声明边界。
+    async fn restore_revision(
+        &self,
+        _ctx: rushwind_http_binding::ctx::RequestContext,
+        _req: RestoreBiDashboardRevisionRequest,
+    ) -> Result<Empty, StatusError> {
+        Err(status_error(
+            "NOT_IMPLEMENTED",
+            "bi dashboard revisions ride their own milestone: snapshot-on-save plus the \
+             reversible restore (snapshot current before write-back) must land whole",
+        ))
     }
 }
 

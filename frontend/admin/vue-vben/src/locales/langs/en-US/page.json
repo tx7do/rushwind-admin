@@ -202,6 +202,7 @@
     "moduleName": "Role",
     "name": "Role Name",
     "code": "Role Value",
+    "reservedCode": "This role value is reserved by the system (platform: / template: / tenant:manager)",
     "description": "Role Description",
     "isProtected": "Built-in Role",
     "apis": "Assigned APIs",
@@ -1372,7 +1373,14 @@
       "varLabel": "Display Label",
       "addVar": "Add Input Variable",
       "remove": "Remove",
-      "configAutoSaved": "Edits write into the canvas immediately; click \"Save Canvas\" to persist"
+      "configAutoSaved": "Edits write into the canvas immediately; click \"Save Canvas\" to persist",
+      "httpUrl": "Request URL",
+      "httpMethod": "Method",
+      "httpHeaders": "Headers",
+      "httpAddHeader": "Add header",
+      "httpBody": "Request body",
+      "httpTimeout": "Timeout (s, 1-60)",
+      "httpSsrHint": "Only http/https outbound; private/loopback/metadata addresses are rejected server-side"
     }
   },
   "language": {
@@ -1418,7 +1426,16 @@
     "serverPdf": "Server PDF",
     "serverPdfFailed": "Server PDF failed",
     "batchPrint": "Batch Print",
-    "noSelection": "Select rows to print first"
+    "noSelection": "Select rows to print first",
+    "aiGenerateTitle": "AI Generate Template",
+    "aiGenerate": "AI Generate",
+    "aiDescription": "Document description",
+    "aiDescriptionPlaceholder": "e.g. Outbound order with order no., date, warehouse, item table (name/qty/price/subtotal), total amount, and signature area",
+    "aiResourceKey": "Bound resource (optional)",
+    "aiGenerateButton": "Generate",
+    "aiGenerateSuccess": "Generated. Loaded into designer, review before saving",
+    "aiGenerateFailed": "AI generation failed",
+    "aiDescriptionRequired": "Please enter the document description"
   },
   "bi": {
     "title": "BI Analytics",
@@ -1458,6 +1475,15 @@
     "statusConflict": "Save conflict, version refreshed",
     "loadFailed": "Load failed, switched to local draft",
     "fullscreen": "Fullscreen",
-    "exitFullscreen": "Exit Fullscreen"
+    "exitFullscreen": "Exit Fullscreen",
+    "revisionHistory": "Revisions",
+    "revisionTitle": "Revision History",
+    "revisionVersion": "Version",
+    "revisionSource": "Source",
+    "revisionSourceSave": "Save",
+    "revisionSourceRestore": "Before restore",
+    "revisionRestore": "Restore",
+    "revisionRestoreSuccess": "Restored; keep editing and save",
+    "revisionRestoreFailed": "Restore failed"
   }
 }

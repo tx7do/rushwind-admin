@@ -15,9 +15,10 @@ use crate::state::{
 use pbjson_types::Empty;
 use proto::proto::pagination::PagingRequest;
 use proto::proto::print::service::v1::{
-    CreatePrintTemplateRequest, DeletePrintTemplateRequest, GetPrintTemplateRequest,
-    ListPrintTemplateResponse, PrintTemplate, RenderPrintTemplateRequest,
-    RenderPrintTemplateResponse, UpdatePrintTemplateRequest,
+    CreatePrintTemplateRequest, DeletePrintTemplateRequest, GeneratePrintTemplateRequest,
+    GeneratePrintTemplateResponse, GetPrintTemplateRequest, ListPrintTemplateResponse,
+    PrintTemplate, RenderPrintTemplateRequest, RenderPrintTemplateResponse,
+    UpdatePrintTemplateRequest,
 };
 
 fn tpl_proto(r: crate::data::print_templates::Model) -> PrintTemplate {
@@ -220,5 +221,24 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
             false => format!("{}.pdf", req.filename),
         };
         Ok(RenderPrintTemplateResponse { pdf, filename })
+    }
+
+    /// AI 一句话生成模板：描述单据要素 → LLM 产出 TemplateData → 护栏校验后返回
+    /// （未入库；前端预览确认后走 Create 保存），走 AI_TOKENS 配额与用量记账。
+    /// 干净 NOT_IMPLEMENTED 声明边界——上游护栏链（print_template_generate.go 的
+    /// 提示词装配 / 结构化产出修复 / print_template_sanitize.go 的 schema 校验）
+    /// 必须整链落地才允许 LLM 产物进任何写路径；proto 生成面已挂载，调用得到
+    /// 干净的 501 而非 404。
+    async fn generate_template(
+        &self,
+        _ctx: rushwind_http_binding::ctx::RequestContext,
+        _req: GeneratePrintTemplateRequest,
+    ) -> Result<GeneratePrintTemplateResponse, StatusError> {
+        Err(status_error(
+            "NOT_IMPLEMENTED",
+            "print ai-generate rides its own milestone: the guard chain (prompt assembly / \
+             structured-output repair / template schema sanitize) must land whole before \
+             any llm product reaches a write path",
+        ))
     }
 }
