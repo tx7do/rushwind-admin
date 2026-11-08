@@ -23,22 +23,6 @@ use proto::proto::pagination::PagingRequest;
 /// not ported records FAILED with the honest reason — the same
 /// "SMS routes to it = ledger FAILED" acceptance semantics upstream
 /// uses for its own unported outbounds.
-fn test_dispatch_verdict(
-    rule: &crate::data::sys_notification_rules::Model,
-) -> (&'static str, &'static str) {
-    if !rule.is_enabled.unwrap_or(false) {
-        return ("SKIPPED", "规则已停用");
-    }
-    match rule.channel.as_deref().unwrap_or("") {
-        "EMAIL" => ("FAILED", "Rust 侧 SMTP 出站未移植"),
-        "SMS" => ("FAILED", "短信通道未实现"),
-        "WEBHOOK" => ("FAILED", "Rust 侧 WEBHOOK 出站未移植"),
-        "INTERNAL" => ("FAILED", "Rust 侧站内信出站未移植"),
-        "" => ("SKIPPED", "规则未配置渠道"),
-        _ => ("SKIPPED", "未知渠道"),
-    }
-}
-
 fn rule_proto(r: crate::data::sys_notification_rules::Model) -> NotificationRule {
     NotificationRule {
         id: Some(r.id),
@@ -188,34 +172,39 @@ impl proto::gen::services::NotificationRuleServiceHandlers for NotificationRuleS
         let payload = operator_of(&ctx)?;
         let repo = crate::data::repos::NotificationRuleRepo::new(&self.state.db);
         let rule = repo.get_by_id(req.id).await?;
-        let (status, last_error) = test_dispatch_verdict(&rule);
-
-        let delivery = crate::data::repos::NotificationDeliveryRepo::new(&self.state.db)
-            .insert(crate::data::sys_notification_deliveries::ActiveModel {
-                event_type: Set(rule.event_type.clone()),
-                channel: Set(rule.channel.clone()),
-                channel_id: Set(None),
-                recipient_user_id: Set(None),
-                related_id: Set(None),
-                target: Set(req.target),
-                status: Set(Some(status.into())),
-                last_error: Set(Some(last_error.into())),
-                request_id: Set(Some(format!(
-                    "test-{}-{}",
-                    payload.user_id,
-                    chrono::Utc::now().timestamp_nanos_opt().unwrap_or_default()
-                ))),
-                attempts: Set(Some(1)),
-                created_by: Set(Some(payload.user_id)),
-                created_at: Set(Some(crate::data::now())),
-                updated_at: Set(Some(crate::data::now())),
-                ..Default::default()
-            })
-            .await?;
-
+        if !rule.is_enabled.unwrap_or(false) {
+            return Err(status_error("BAD_REQUEST", "rule is disabled"));
+        }
+        // 真投递（上游 RuleTestNotification 同语义）：规则的事件类型回显给
+        // 被测路由，正文一个出口覆盖 EMAIL/WEBHOOK/SMS；显式不点名渠道
+        // （channel_id=0 → sender 内按"第一个启用的同类型渠道"自选）。
+        let target = req
+            .target
+            .filter(|t| !t.trim().is_empty())
+            .ok_or_else(|| status_error("BAD_REQUEST", "target is required"))?;
+        let event_type = rule.event_type.clone().unwrap_or_default();
+        let sreq = super::notification_sender::SendRequest {
+            target,
+            title: "RushWind 路由测试通知".into(),
+            content: format!(
+                "这是路由规则 [{}] 的测试投递。\n\n被测事件：{}\n触发人：用户 {}",
+                rule.id, event_type, payload.user_id
+            ),
+            channel_id: 0,
+            event_type,
+            params: Default::default(),
+        };
+        let channel = rule.channel.clone().unwrap_or_default();
+        let (_, outcome) = super::notification_sender::deliver_once(
+            &self.state.db,
+            &channel,
+            &sreq,
+            payload.user_id,
+        )
+        .await?;
         Ok(TestDispatchNotificationResponse {
-            delivery_id: delivery.id,
-            status: mapping::notification_delivery_status_of(status).unwrap_or(1),
+            delivery_id: 0,
+            status: mapping::notification_delivery_status_of(outcome.status()).unwrap_or(1),
         })
     }
 }

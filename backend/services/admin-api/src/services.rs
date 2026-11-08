@@ -41,6 +41,7 @@ mod notification_channel;
 mod notification_delivery;
 mod notification_preference;
 mod notification_rule;
+mod notification_sender;
 mod notification_template;
 mod online_session;
 mod operation_audit_log;

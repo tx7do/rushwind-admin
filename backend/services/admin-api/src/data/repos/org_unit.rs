@@ -3,8 +3,8 @@
 //! runs, and the children walk the relocation BFS takes (the
 //! materialized-path maintenance itself rides these in the service).
 
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use sea_orm::DatabaseConnection;
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 
 use crate::data::sys_org_units as entity;
 use crate::state::{db_err, internal_error, StatusError};

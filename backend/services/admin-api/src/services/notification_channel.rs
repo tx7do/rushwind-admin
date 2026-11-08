@@ -23,7 +23,7 @@ use proto::proto::pagination::PagingRequest;
 use super::channel_schemas;
 
 /// 类型是否属于扩展渠道（settings 整包面；老三样 EMAIL/WEBHOOK/SMS 之外）。
-fn is_ext_type(type_name: &str) -> bool {
+pub(crate) fn is_ext_type(type_name: &str) -> bool {
     !matches!(type_name, "EMAIL" | "WEBHOOK" | "SMS")
 }
 
@@ -379,78 +379,20 @@ impl proto::gen::services::NotificationChannelServiceHandlers for NotificationCh
 
     async fn send_test_email(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
+        ctx: rushwind_http_binding::ctx::RequestContext,
         req: SendTestEmailRequest,
     ) -> Result<Empty, StatusError> {
-        // Delivery rides the mailer phase; validate the channel exists.
-        let repo = crate::data::repos::NotificationChannelRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id).await?;
-        if row.smtp_host.as_deref().map_or(true, |h| h.is_empty()) {
-            return Err(status_error(
-                "BAD_REQUEST",
-                "channel has no smtp host configured",
-            ));
-        }
-        Ok(Empty {})
+        // 两代测试入口之一：强制 EMAIL 口径走同一套 投递+台账 语义。
+        self.send_test_impl(ctx, req.id, req.recipient, Some("EMAIL"))
+            .await
     }
 
     async fn send_test(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
+        ctx: rushwind_http_binding::ctx::RequestContext,
         req: SendTestRequest,
     ) -> Result<Empty, StatusError> {
-        // 两代测试入口共同语义：id/recipient 必填 → 查类型 → 配置在场校验
-        // （上游 Precheck：解配置并按 schema 校验必填，不拨号）。实际投递
-        // 与台账随出站里程碑接入。
-        if req.id == 0 {
-            return Err(status_error("BAD_REQUEST", "id is required"));
-        }
-        if req.recipient.trim().is_empty() {
-            return Err(status_error("BAD_REQUEST", "recipient is required"));
-        }
-        let repo = crate::data::repos::NotificationChannelRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id).await?;
-        let type_name = row.type_column.as_deref().unwrap_or("");
-        let configured = match type_name {
-            "EMAIL" => row.smtp_host.as_deref().is_some_and(|h| !h.is_empty()),
-            "WEBHOOK" => row.webhook_url.as_deref().is_some_and(|u| !u.is_empty()),
-            "SMS" => {
-                row.sms_access_key_id
-                    .as_deref()
-                    .is_some_and(|k| !k.is_empty())
-                    && row
-                        .sms_access_secret
-                        .as_deref()
-                        .is_some_and(|s| !s.is_empty())
-            }
-            other if is_ext_type(other) => {
-                let settings = row.settings.as_deref().unwrap_or("");
-                let parsed: BTreeMap<String, serde_json::Value> =
-                    serde_json::from_str(settings).unwrap_or_default();
-                let as_str = |v: Option<&serde_json::Value>| -> String {
-                    match v {
-                        Some(serde_json::Value::String(s)) => s.trim().to_string(),
-                        Some(serde_json::Value::Number(n)) => n.to_string(),
-                        Some(serde_json::Value::Bool(b)) => b.to_string(),
-                        _ => String::new(),
-                    }
-                };
-                schema_by_type(type_name).is_some_and(|schema| {
-                    schema
-                        .fields
-                        .iter()
-                        .all(|f| !f.required || !as_str(parsed.get(&f.name)).is_empty())
-                })
-            }
-            _ => false,
-        };
-        if !configured {
-            return Err(status_error(
-                "BAD_REQUEST",
-                "channel is not fully configured for its type",
-            ));
-        }
-        Ok(Empty {})
+        self.send_test_impl(ctx, req.id, req.recipient, None).await
     }
 
     async fn list_channel_schemas(
@@ -462,6 +404,135 @@ impl proto::gen::services::NotificationChannelServiceHandlers for NotificationCh
         Ok(ListChannelSchemasResponse {
             items: channel_schemas::schemas(),
         })
+    }
+}
+
+impl NotificationChannelService {
+    /// 两代测试入口的共同实现（上游 sendTest 同语义）：id/recipient 必填 →
+    /// 平台管理员闸 → 按类型装配测试投递（EMAIL 测试文案 / SMS 真验证码 /
+    /// WEBHOOK 从规则页测 / EXT 按 schema 判 target）→ deliver_once 落台账，
+    /// 失败把回执原文带回调用方。
+    async fn send_test_impl(
+        &self,
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        id: u32,
+        recipient: String,
+        forced_type: Option<&str>,
+    ) -> Result<Empty, StatusError> {
+        if id == 0 {
+            return Err(status_error("BAD_REQUEST", "id is required"));
+        }
+        if recipient.trim().is_empty() {
+            return Err(status_error("BAD_REQUEST", "recipient is required"));
+        }
+        let payload = operator_of(&ctx)?;
+        if payload.is_platform_admin != Some(true) {
+            return Err(status_error(
+                "FORBIDDEN",
+                "only platform admin can test notification channels",
+            ));
+        }
+        let repo = crate::data::repos::NotificationChannelRepo::new(&self.state.db);
+        let row = repo.get_by_id(id).await?;
+        let type_name = match forced_type {
+            Some(t) => {
+                if row.type_column.as_deref() != Some(t) {
+                    return Err(status_error(
+                        "BAD_REQUEST",
+                        format!("channel [{id}] is not a {t} channel"),
+                    ));
+                }
+                t.to_string()
+            }
+            None => row.type_column.clone().unwrap_or_default(),
+        };
+        // 按类型装配测试投递（上游 sendTest 分派同构）。
+        let mut params: BTreeMap<String, String> = BTreeMap::new();
+        let (event_type, title, content, extra_param) = match type_name.as_str() {
+            "EMAIL" => (
+                "CHANNEL_TEST_EMAIL",
+                "RushWind 渠道测试邮件".to_string(),
+                format!(
+                    "这是渠道 [{id}] 的测试邮件。\n\n触发人：用户 {}\n时间：{}",
+                    payload.user_id,
+                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+                ),
+                None,
+            ),
+            "SMS" => {
+                // 短信没有"发一封空信"的形态：测试就是发一条真验证码；
+                // 显式点名渠道，测试不依赖路由表。
+                let code: String = (0..6)
+                    .map(|_| char::from(b'0' + rand::random::<u8>() % 10))
+                    .collect();
+                (
+                    "CHANNEL_TEST_SMS",
+                    "RushWind 渠道测试".to_string(),
+                    format!("渠道 [{id}] 测试验证码：{code}"),
+                    Some(("code".to_string(), code)),
+                )
+            }
+            "WEBHOOK" => {
+                return Err(status_error(
+                    "BAD_REQUEST",
+                    "webhook channels are tested from the notification-rules page",
+                ));
+            }
+            other if is_ext_type(other) => {
+                // EXT 渠道：按 schema 判定是否要求 target；出站适配器是
+                // 声明边界（sender 内明确报缺），台账照样落行留痕。
+                if let Some(schema) = schema_by_type(other) {
+                    if schema.needs_target && recipient.trim().is_empty() {
+                        return Err(status_error(
+                            "BAD_REQUEST",
+                            format!("recipient is required ({})", schema.target_label),
+                        ));
+                    }
+                }
+                (
+                    "CHANNEL_TEST_EXT",
+                    "RushWind 渠道测试".to_string(),
+                    format!(
+                        "这是扩展渠道 [{id}] 的测试通知。\n\n触发人：用户 {}",
+                        payload.user_id
+                    ),
+                    None,
+                )
+            }
+            other => {
+                return Err(status_error(
+                    "BAD_REQUEST",
+                    format!("unsupported channel type {other}"),
+                ));
+            }
+        };
+        if let Some((k, v)) = extra_param {
+            params.insert(k, v);
+        }
+
+        let sreq = super::notification_sender::SendRequest {
+            target: recipient,
+            title,
+            content,
+            channel_id: id,
+            event_type: event_type.to_string(),
+            params,
+        };
+        let (_, outcome) = super::notification_sender::deliver_once(
+            &self.state.db,
+            &type_name,
+            &sreq,
+            payload.user_id,
+        )
+        .await?;
+        match outcome {
+            super::notification_sender::Outcome::Sent { .. } => Ok(Empty {}),
+            super::notification_sender::Outcome::Failed { error, .. }
+            | super::notification_sender::Outcome::Skipped { error } => Err(status_error(
+                "BAD_REQUEST",
+                format!("send test message failed: {error}"),
+            )),
+        }
     }
 }
 
