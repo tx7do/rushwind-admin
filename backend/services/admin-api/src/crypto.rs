@@ -1,10 +1,15 @@
 //! Credential crypto primitives:
-//! the AES-128-CBC front-end password layer (key
-//! `f51d66a73d8a0927`, IV = the key itself, PKCS#7), bcrypt hashing
-//! (default cost 10), SHA-256 (access-key secrets), AES-256-GCM (MFA
-//! secret at-rest, `enc:` prefix), and RFC 6238 TOTP.
+//! the password transfer layer — the `rsa-v1` hybrid envelope
+//! (RSA-2048 OAEP(SHA-256) wrapping an AES-256-GCM session key, the
+//! P1-12 sync) with the legacy `base64(AES-128-CBC(key, iv=key,
+//! PKCS#7))` form accepted through the transition — plus bcrypt
+//! hashing (default cost 10), SHA-256 (access-key secrets),
+//! AES-256-GCM (MFA secret at-rest, `enc:` prefix), and RFC 6238 TOTP.
+
+use std::sync::OnceLock;
 
 use aes::cipher::{block_padding::Pkcs7, BlockDecryptMut, KeyIvInit};
+use rsa::pkcs8::DecodePrivateKey;
 use sha2::{Digest, Sha256};
 
 type Aes128CbcDec = cbc::Decryptor<aes::Aes128>;
@@ -22,14 +27,151 @@ pub fn crypto_key() -> Option<[u8; 32]> {
     Some(key)
 }
 
-/// Decrypts the login credential: base64(AES-128-CBC(key, iv=key, PKCS7)).
-#[allow(dead_code)] // wired with the encrypted-credential login branch
-pub fn decrypt_login_credential(plain_credential: &str) -> Result<String, String> {
+/// Envelope format version prefix: `rsa-v1:<b64(wrappedKey)>:<b64(nonce)>:<b64(cipher)>`.
+pub const ENVELOPE_PREFIX: &str = "rsa-v1:";
+
+/// Overrides the built-in development private key (PEM; a single-line
+/// form with `\n` escapes is accepted).
+pub const ENV_PASSWORD_RSA_PRIVATE_KEY: &str = "RUSHWIND_PASSWORD_RSA_PRIVATE_KEY";
+
+/// The development default RSA-2048 keypair (public in-repo; the same
+/// public half is baked into the three frontend snapshots as
+/// `VITE_PASSWORD_RSA_PUB`). Production must override the private half
+/// via [`ENV_PASSWORD_RSA_PRIVATE_KEY`] — anyone holding this repo can
+/// otherwise decrypt password envelopes.
+const DEV_PRIVATE_PEM: &str = "-----BEGIN PRIVATE KEY-----
+MIIEuwIBADANBgkqhkiG9w0BAQEFAASCBKUwggShAgEAAoIBAQCiQ/+NZXAkXN3F
+SVvq+eg07sxK1nKzLjTrsaEZ6Lbl8mLIGQkJmXAfouVy0FvIaWrC9yDmSD4t+xDH
+127h51wyq29IGJ6omOmOsgE2qDcMZ21Z0O3hI+1DWWSeLl3HAHVMfjBotvxOdWOk
+na/lwGTKZR2IJ/cZGrtTk8hatg79vvH4fSf5rsnIpD8TO8ptkLjXtiA9/ETJwLNY
+gTmSPgRFYw3cVfIhxowS3XA84X4GgLedqfDswNbQrPiJVchjkUvzIipz1C0Gd9DW
+DHB15QkjsAeR5fOEexJSfWOIwMHl6fjasGoMp+D7x8jEpyjHyz+wrKhg45mzzz7D
+InLLSQgLAgMBAAECgf90rAImKNv5SV8HsqVShfCC+lV8VWxIIJXIB0vhHmCtGojs
+V10V5U/wStTUpteg5wbKcebaiPK+09lz16oZey8GrYaxq5Ro7q5uRyGYPX/pois1
+DfKPJjOqAopon+4W8ZjTeZ8whz1Q44TUM7IPJTTBLc6yvFLdFZJSvLj3W8vZXTkH
+mtXiAx6MEphT1uRMubo+tvOH7FJheH+c9L8NHVxbt5k5rQ7oGlxurEOw35+T5Cka
+ALDuNnz+A+Zm7354tsJJnwsSxOoEDVXhb8gzXEE+NDw3Tzdj9TgL6RgBwCIgRTsO
+dxnV8sf3yG/waydx296A7V8LXScEh3ZZrcxKr9UCgYEA44wgOBwPfN+jAxQWaU2v
+P1ae5E0ZLv8PlS/QFp9ZCwcF81Kxn16jgQIs7BZW0JiYomxu8cMxJnKxmw7TcbIb
+EzJBsxKI+ltgtGwfbWkDRStOmya15mLmffG+/OLgclUMJklH3Tl3PgVtA0YpK2pR
+M3RUq+U8ynaSi9FbCS44lf8CgYEAto4uCYM8Wrw7vypZ0vlF3qx7yqZCKPBuh3FG
+C2UhZUOeoQZtydsNaX0fNKtEZ3ZUh3GTGhO9mQjxFZJhgIufOgrz39BrGoeSzD2K
+JAoAbJsOzXxpKqe+2ITsGd+cXaUqnPdbarrh5Va5kx4iRK7RhwNOuRIGGei+dxxM
+hV7MhfUCgYBVIYzAUUc+GdE8Cpzj4suI79hcY7fjTEvBLfU1MYK3zHXedfa8QET9
+tBmobicmvaCFS/op+zP9RXXLJD3ZUKAui2PnIi0bNWq1taoAXgR6MVykUVRGkIPZ
+ZMNmi18bh1QXUt1PF/vTuWXyjqJCevFMRd6TvR0ERl5HbxkXEzLacwKBgGsNtbGe
+ZCZRfDf+fe5af761J2MPXHzlgeurYYgNJihcHwoO2xMkghj6ZvJb/SEvIyLKV5lT
+OjwkIjykOslHF3jSM3Fsp2JHXq6m5/t6YgVOaL/X1VROSnxudoY1u1yvHu4toE5W
+iWIUGX9MjIv6eKTUK7Yb+7f15Lu0vKr5jLaBAoGBAL1tmIMq94ggsqcJpI4/LcSs
+F85pT2iSzOmoLYzg2x4QNH7tNuqn8yjsX/4voNqXkrT1g7t/Tpm64Kps+13s77gG
+T8jcwfRVNn0lhIFj7g2mLFagec8G7Q5mlzumDTzXRj+Sw3SPOVip6a9p7wn24TG9
+imwTPhL0crfiqbxJJAu6
+-----END PRIVATE KEY-----";
+
+/// The dev private half as a parsed key (None on parse failure —
+/// decrypt then answers "private key not loaded" per the reference).
+fn parse_private_pem(pem: &str) -> Option<rsa::RsaPrivateKey> {
+    rsa::RsaPrivateKey::from_pkcs8_pem(pem.trim()).ok()
+}
+
+/// The password-envelope private key: env override wins, the dev pair
+/// is the fallback. Parsed once per process.
+fn password_rsa_private() -> &'static Option<rsa::RsaPrivateKey> {
+    static KEY: OnceLock<Option<rsa::RsaPrivateKey>> = OnceLock::new();
+    KEY.get_or_init(|| {
+        let raw = std::env::var(ENV_PASSWORD_RSA_PRIVATE_KEY).unwrap_or_default();
+        let raw = raw.trim();
+        let pem: &'static str = if raw.is_empty() {
+            DEV_PRIVATE_PEM
+        } else {
+            // env single-line form carries `\n` escapes
+            Box::leak(raw.replace("\\n", "\n").into_boxed_str())
+        };
+        parse_private_pem(pem)
+    })
+}
+
+/// Whether the running process still decrypts envelopes with the
+/// in-repo development private key (cryptographic equality). Startup
+/// warns on this: production must override via env, or anyone holding
+/// the source can decrypt password envelopes.
+pub fn using_dev_password_private_key() -> bool {
+    let Some(key) = password_rsa_private() else {
+        return false;
+    };
+    let Some(dev) = parse_private_pem(DEV_PRIVATE_PEM) else {
+        return false;
+    };
+    use rsa::pkcs8::EncodePrivateKey;
+    match (key.to_pkcs8_der(), dev.to_pkcs8_der()) {
+        (Ok(a), Ok(b)) => a.as_bytes() == b.as_bytes(),
+        _ => false,
+    }
+}
+
+/// The unified password-transfer decrypt entry (login / change
+/// password / create user / reset): an `rsa-v1:` prefix dispatches to
+/// the hybrid envelope; anything else is the legacy
+/// `base64(AES-128-CBC, key=IV=DefaultAESKey)` form, accepted through
+/// the frontend rollout transition. Format/decrypt failures answer
+/// Err — callers surface them as 400.
+pub fn decrypt_transfer_password(v: &str) -> Result<String, String> {
+    if let Some(rest) = v.strip_prefix(ENVELOPE_PREFIX) {
+        return decrypt_password_envelope(rest);
+    }
+    decrypt_legacy(v)
+}
+
+/// The hybrid envelope: split into wrappedKey/nonce/cipher, unwrap the
+/// AES-256-GCM session key with RSA-OAEP(SHA-256), decrypt the
+/// password. The frontend (WebCrypto) emits exactly this shape.
+fn decrypt_password_envelope(rest: &str) -> Result<String, String> {
+    use base64::Engine as _;
+    let Some(key) = password_rsa_private() else {
+        return Err("passwordcrypto: private key not loaded".into());
+    };
+    let parts: Vec<&str> = rest.split(':').collect();
+    let [wrapped_b64, nonce_b64, cipher_b64] = parts.as_slice() else {
+        return Err("passwordcrypto: malformed envelope".into());
+    };
+    let wrapped = base64::engine::general_purpose::STANDARD
+        .decode(wrapped_b64)
+        .map_err(|_| "passwordcrypto: invalid envelope base64")?;
+    let nonce = base64::engine::general_purpose::STANDARD
+        .decode(nonce_b64)
+        .map_err(|_| "passwordcrypto: invalid envelope base64")?;
+    let cipher = base64::engine::general_purpose::STANDARD
+        .decode(cipher_b64)
+        .map_err(|_| "passwordcrypto: invalid envelope base64")?;
+
+    use rsa::Oaep;
+    let session = key
+        .decrypt(Oaep::new::<Sha256>(), &wrapped)
+        .map_err(|_| "passwordcrypto: envelope unwrap".to_string())?;
+    if session.len() != 32 {
+        return Err("passwordcrypto: session key size".into());
+    }
+    if nonce.len() != 12 {
+        return Err("passwordcrypto: nonce size".into());
+    }
+    use aes_gcm::aead::generic_array::GenericArray;
+    use aes_gcm::aead::Aead;
+    use aes_gcm::{Aes256Gcm, KeyInit};
+    let gcm = Aes256Gcm::new_from_slice(&session)
+        .map_err(|_| "passwordcrypto: session key size".to_string())?;
+    let plain = gcm
+        .decrypt(GenericArray::from_slice(&nonce), cipher.as_ref())
+        .map_err(|_| "passwordcrypto: envelope decrypt".to_string())?;
+    String::from_utf8(plain).map_err(|_| "passwordcrypto: envelope utf8".into())
+}
+
+/// The legacy frontend form: base64(AES-128-CBC(key, iv=key, PKCS7)).
+fn decrypt_legacy(v: &str) -> Result<String, String> {
     use base64::Engine as _;
     let bytes = base64::engine::general_purpose::STANDARD
-        .decode(plain_credential.trim())
-        .map_err(|e| format!("credential base64: {e}"))?;
-    decrypt_aes_cbc(&bytes).ok_or_else(|| "credential decrypt".to_string())
+        .decode(v.trim())
+        .map_err(|_| "passwordcrypto: invalid legacy base64".to_string())?;
+    decrypt_aes_cbc(&bytes).ok_or_else(|| "passwordcrypto: legacy decrypt".into())
 }
 
 /// AES-128-CBC decrypt with the DefaultAESKey pair (bytes in). The
@@ -193,8 +335,9 @@ pub fn base32_encode(data: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{
-        decrypt_aes_cbc, hash_password, sha256_hex, verify_password, DEFAULT_AES_KEY,
-        DUMMY_PASSWORD_HASH,
+        decrypt_aes_cbc, decrypt_transfer_password, hash_password, parse_private_pem, sha256_hex,
+        using_dev_password_private_key, verify_password, DEFAULT_AES_KEY, DUMMY_PASSWORD_HASH,
+        ENVELOPE_PREFIX,
     };
 
     #[test]
@@ -233,6 +376,81 @@ mod tests {
         assert_eq!(
             decrypt_aes_cbc(&ciphertext).unwrap(),
             "login-credential-payload"
+        );
+    }
+
+    /// Golden vectors produced by the reference Go implementation
+    /// (EncryptPasswordEnvelope with the in-repo dev keypair): the
+    /// Rust decrypt must accept what the real frontend/Go emits,
+    /// including a CJK plaintext and the one-char edge.
+    #[test]
+    fn envelope_golden_vectors_from_reference_impl() {
+        for (envelope, plain) in [
+            (
+                "rsa-v1:US/2KKULhGiS3/kaO/F4vEXnGTIlhfZ0QPHdgZjPkKa4T9LKQQUWYxn3m3S6RYeF5Wpvwq5A4S7sPYgJ7a3UNXrVM6WJ2UESqhk1nPw29WW3zzbeSKXatu7GwQ7K76m7iVW2dSSfqIrm2K/cVA0o56HkZqW6RL9FtCCWELIH2dT7QpYhtsvZEA4rtxdKjM2ESDBw5SJOX1H9oCcPTUiwG+6mlMHFwx5GvUDDQMtaLVIaR0ayAT+7HRufwNNTtS0BUzdceFpu2DWQZf0ZlDqjKGLmkB7dICpNJbMSDdyYjA4C2GpqBxfh5dOdCLOHp3Y3j6DC2bJhsUktem+qr+uG2Q==:+3/Y+63MmMoCkLk8:rg1AnT4Dw9mAytPuhSl1XvGpkRF0eCuWVA==",
+                "Abcd@1234",
+            ),
+            (
+                "rsa-v1:aJGTxXZFP/0QgIPweAYwn4hLNP7w25tjtR8QNjbB9LFCuL8e2v48BeCDmkQyZZaUbWbhzU4fTljkp1boZJlVbKS8kBQtf9FMZMGs1yNDNX/UPd5XEqVksq0B7jvsmnSxlTwJXzExN6lkmpBuMx8h+gG1+uMdOBGs9WWR5ZqNCi9+YguGgKUVB865ELinbYJCyLOzHgbv4BoTIeZ+vfnUWsjW+cKMmwNg2cg3GM0P2OQe66IdYFNXrFa8bfWcMlVYc1EQE3bT4NqPHZyU8lpBpah1ABATlVd+R02GssTUKe441anPPFLY8RRimqav1+V34REtRP5bU5YTIHQ1YvLcWQ==:nEt0bsKXHUQw7Rtv:L+5MhZVINKbJXXq0wF8T0gELQ0BCfGUQRtmMaOTyRnhLOzZ3ciI=",
+                "中文密码+符号!@#",
+            ),
+            (
+                "rsa-v1:Q/RnaGGSZ9kRfiP0CZVNZ/YUy5pP4ajiUytDq8IAPDulPOctYgI6nDFKzSFi5gltWyIMKv9ld2zTRQWbyHUeba1h58URHchyUKCogjdZ6K08iaxi9Xmni63lmwEhSm5B20jDzoIsFMzfXTXObXOZiLGnoLfErs6T1zavMK4JVuGg1MgqLQQ8aiVjyoIMHdTydGnaWpHT/IhMnR/X82mICAS4yEjspDDEZv+rsugoVtUWYPrmR/U056cQzpwvBmdb1rZj6LV8XB842LJoy4VH0a18QtkkvzZZdSXu/k8k+tw4o7vJ8AVs00YS0S52r1wMjXE8xMznCvGfaQJuSB6cAQ==:JOyF37j5UJ+S0sTq:hdWxNHwA8qWv559De/D61Lc=",
+                "x",
+            ),
+        ] {
+            assert_eq!(decrypt_transfer_password(envelope).unwrap(), plain);
+        }
+    }
+
+    /// The legacy form (base64 AES-128-CBC, key=IV) still decrypts
+    /// through the unified entry — the frontend rollout transition.
+    #[test]
+    fn legacy_form_accepted_through_unified_entry() {
+        use aes::cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
+        use base64::Engine as _;
+        type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
+        let mut buf = [0u8; 32];
+        let ciphertext = Aes128CbcEnc::new(DEFAULT_AES_KEY.into(), DEFAULT_AES_KEY.into())
+            .encrypt_padded_b2b_mut::<Pkcs7>(b"LegacyP@ss9", &mut buf)
+            .unwrap();
+        let legacy = base64::engine::general_purpose::STANDARD.encode(ciphertext);
+        assert_eq!(decrypt_transfer_password(&legacy).unwrap(), "LegacyP@ss9");
+    }
+
+    /// Garbage never panics and never decrypts (mirrors the reference
+    /// TestDecryptGarbageRejected).
+    #[test]
+    fn garbage_inputs_rejected() {
+        for bad in [
+            format!("{ENVELOPE_PREFIX}!!!:???:**:"),
+            "not-base64!!".to_string(),
+            String::new(),
+            // structurally right but cryptographically wrong
+            format!("{ENVELOPE_PREFIX}AAAA:BBBB:CCCC"),
+        ] {
+            assert!(decrypt_transfer_password(&bad).is_err(), "{bad:?}");
+        }
+    }
+
+    /// The dev pair is in use when env is unset — the startup warning
+    /// predicate — and a `\\n`-escaped single-line PEM parses to the
+    /// same key (the env override form).
+    #[test]
+    fn dev_key_detected_and_escaped_pem_parses() {
+        // NOTE: holds while RUSHWIND_PASSWORD_RSA_PRIVATE_KEY is unset
+        // or set to the dev pair; the test process does not override it.
+        assert!(using_dev_password_private_key());
+
+        let escaped = super::DEV_PRIVATE_PEM.replace('\n', "\\n");
+        // the env wire form is unescaped before parsing (the loader's job)
+        let unescaped = escaped.replace("\\n", "\n");
+        let parsed = parse_private_pem(&unescaped).expect("escaped pem parses");
+        let direct = parse_private_pem(super::DEV_PRIVATE_PEM).unwrap();
+        use rsa::pkcs8::EncodePrivateKey;
+        assert_eq!(
+            parsed.to_pkcs8_der().unwrap().as_bytes(),
+            direct.to_pkcs8_der().unwrap().as_bytes()
         );
     }
 }

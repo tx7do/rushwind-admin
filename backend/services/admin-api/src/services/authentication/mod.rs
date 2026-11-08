@@ -164,16 +164,12 @@ impl AuthenticationServiceHandlers for AuthenticationService {
             return Ok(Empty {}); // silent like the send path
         };
 
-        use base64::Engine as _;
         let new_plain = req
             .new_password
             .as_deref()
-            .and_then(|v| {
-                base64::engine::general_purpose::STANDARD
-                    .decode(v.trim())
-                    .ok()
-            })
-            .and_then(|bytes| crate::crypto::decrypt_aes_cbc(&bytes))
+            .map(crate::crypto::decrypt_transfer_password)
+            .transpose()
+            .map_err(|_| status_error("BAD_REQUEST", "invalid credential format"))?
             .ok_or_else(|| status_error("BAD_REQUEST", "invalid credential format"))?;
 
         let min_len = self.config_int("sys.password.minLen", 8).await;

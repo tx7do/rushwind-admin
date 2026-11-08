@@ -23,6 +23,15 @@ const SERVER_YAML: &str = include_str!("../assets/server.yaml");
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cfg = Config::load()?;
+    // P3 hardening: the dev private key still answering password
+    // envelopes means anyone holding this repo can decrypt them —
+    // production must override RUSHWIND_PASSWORD_RSA_PRIVATE_KEY.
+    // (emitted raw: the log subsystem initializes inside the bootstrap)
+    if admin_api::crypto::using_dev_password_private_key() {
+        eprintln!(
+            "⚠️  RUSHWIND_PASSWORD_RSA_PRIVATE_KEY 未配置，口令传输解密仍在使用内置开发私钥，生产环境必须替换"
+        );
+    }
     let public_pem: &[u8] = match &cfg.jwt_public_key {
         Some(pem) => pem.as_bytes(),
         None => include_bytes!("../assets/jwt_public_key.pem"),

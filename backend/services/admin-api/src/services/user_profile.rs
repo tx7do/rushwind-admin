@@ -30,17 +30,12 @@ impl UserProfileService {
         old_encrypted: &str,
         new_encrypted: &str,
     ) -> Result<(), crate::state::StatusError> {
-        use base64::Engine as _;
         let decode = |v: &str| {
-            base64::engine::general_purpose::STANDARD
-                .decode(v.trim())
-                .ok()
-                .and_then(|bytes| crate::crypto::decrypt_aes_cbc(&bytes))
+            crate::crypto::decrypt_transfer_password(v)
+                .map_err(|_| status_error("BAD_REQUEST", "invalid credential format"))
         };
-        let old_plain = decode(old_encrypted)
-            .ok_or_else(|| status_error("BAD_REQUEST", "invalid credential format"))?;
-        let new_plain = decode(new_encrypted)
-            .ok_or_else(|| status_error("BAD_REQUEST", "invalid credential format"))?;
+        let old_plain = decode(old_encrypted)?;
+        let new_plain = decode(new_encrypted)?;
 
         let payload = crate::data::sys_user_roles::Entity::find()
             .filter(crate::data::sys_user_roles::Column::UserId.eq(uid))

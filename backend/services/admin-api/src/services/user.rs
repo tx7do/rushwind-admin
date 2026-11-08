@@ -58,12 +58,8 @@ impl UserService {
         let Some(encrypted) = encrypted_password.filter(|v| !v.is_empty()) else {
             return Ok(());
         };
-        use base64::Engine as _;
-        let plain = base64::engine::general_purpose::STANDARD
-            .decode(encrypted.trim())
-            .ok()
-            .and_then(|bytes| crate::crypto::decrypt_aes_cbc(&bytes))
-            .ok_or_else(|| status_error("BAD_REQUEST", "invalid credential format"))?;
+        let plain = crate::crypto::decrypt_transfer_password(encrypted)
+            .map_err(|_| status_error("BAD_REQUEST", "invalid credential format"))?;
         let hash = crate::crypto::hash_password(&plain).map_err(internal_error)?;
         let existing = crate::data::sys_user_credentials::Entity::find()
             .filter(

@@ -61,6 +61,8 @@ aes-gcm = "0.10"
 cbc = "0.1"
 sha2 = "0.10"
 hmac = "0.12"
+# 口令传输混合信封（P1-12）：RSA-2048 OAEP(SHA-256) 包裹 AES-256-GCM 会话密钥。
+rsa = { version = "0.9", features = ["pem"] }
 uuid = { version = "1", features = ["v4", "v7"] }
 rand = "0.9"
 hex = "0.4"

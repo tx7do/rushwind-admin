@@ -82,19 +82,8 @@ impl AuthenticationService {
         identifier: &str,
         encrypted_password: &str,
     ) -> Result<u32, StatusError> {
-        use base64::Engine as _;
-        let plain =
-            match base64::engine::general_purpose::STANDARD.decode(encrypted_password.trim()) {
-                Ok(bytes) => match crate::crypto::decrypt_aes_cbc(&bytes) {
-                    Some(text) => text,
-                    None => {
-                        return Err(status_error("BAD_REQUEST", "decrypt credential failed"));
-                    }
-                },
-                Err(_) => {
-                    return Err(status_error("BAD_REQUEST", "invalid credential format"));
-                }
-            };
+        let plain = crate::crypto::decrypt_transfer_password(encrypted_password)
+            .map_err(|_| status_error("BAD_REQUEST", "invalid credential format"))?;
 
         let row = credentials::Entity::find()
             .filter(
