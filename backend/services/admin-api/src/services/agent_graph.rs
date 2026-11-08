@@ -18,7 +18,10 @@ const AGENT_MAX_STEPS: usize = 50;
 
 /// 合法节点类型集。
 fn is_known_node_type(t: &str) -> bool {
-    matches!(t, "start" | "knowledge" | "llm" | "condition" | "end")
+    matches!(
+        t,
+        "start" | "knowledge" | "llm" | "condition" | "end" | "http"
+    )
 }
 
 /// 图节点。data 保持无类型 Value：五种节点各自的键在执行处按需取。
@@ -132,6 +135,7 @@ pub fn validate_agent_graph(g: &AgentGraph) -> Result<(), String> {
         match n.node_type.as_str() {
             "start" => start_count += 1,
             "end" => end_count += 1,
+            "http" => validate_agent_http_node(n)?,
             _ => {}
         }
     }
@@ -599,6 +603,22 @@ pub fn execute_agent_graph(
                 summary = truncate_runes(&answer, 120);
                 branch_taken = "";
             }
+            "http" => {
+                let (status, body, content_type) = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(run_agent_http_node(node, &vars))
+                })
+                .map_err(|e| step_error(node, &e))?;
+                vars.insert(
+                    node.id.clone(),
+                    BTreeMap::from([
+                        ("status".into(), status.clone()),
+                        ("body".into(), body.clone()),
+                        ("contentType".into(), content_type),
+                    ]),
+                );
+                summary = format!("status={status}, {} bytes", body.len());
+                branch_taken = "";
+            }
             "condition" => {
                 let approved = eval_agent_condition(&data_string(&node.data, "expression"), &vars)
                     .map_err(|e| step_error(node, &e))?;
@@ -657,6 +677,192 @@ fn step_error(node: &AgentGraphNode, err: &str) -> String {
 
 fn truncate_runes(s: &str, max: usize) -> String {
     s.chars().take(max).collect()
+}
+
+// —— http 节点（docs/ai_agent_orchestration.md §2.1 节点集扩展，M2）——
+// 渲染 URL/headers/body → SSRF 校验（与 RenderPdf 同款私网/回环/元数据防线，
+// 判定面在 [`super::net_guard`]）→ 出站请求 → status/body/contentType 写入
+// 节点上下文。data 键：url(必填,模板)、method(默认 GET，白名单
+// GET/POST/PUT/DELETE/PATCH/HEAD)、headers(map 或 [{key,value}] 双形态，键值
+// 均可模板)、body(模板，POST/PUT/PATCH 有意义)、timeoutSeconds(默认 15，钳
+// [1,60])。
+
+/// 响应体读取上限（防巨型响应撑爆内存与上下文）。
+const AGENT_HTTP_MAX_BODY: usize = 64 << 10;
+
+/// 写入节点上下文的响应体上限——上下文会进 LLM 提示词模板，超大 body 对
+/// 下游模型是负担；超限截断并标注。
+const AGENT_HTTP_MAX_CONTEXT_BODY: usize = 8 << 10;
+
+/// 出站方法白名单：编排图的 HTTP 节点是"取数/回调"语义，不放行
+/// CONNECT/TRACE/OPTIONS 等不用于此语义的方法。
+fn agent_http_allowed_method(m: &str) -> bool {
+    matches!(m, "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD")
+}
+
+/// Run 前静态校验（模板在执行期才渲染，这里只校验字面结构）。
+fn validate_agent_http_node(n: &AgentGraphNode) -> Result<(), String> {
+    if data_string(&n.data, "url").trim().is_empty() {
+        return Err(format!("http node {:?} missing url", n.id));
+    }
+    let method = agent_http_method(n);
+    if !agent_http_allowed_method(&method) {
+        return Err(format!(
+            "http node {:?} has disallowed method {method:?}",
+            n.id
+        ));
+    }
+    agent_http_timeout(n)?;
+    Ok(())
+}
+
+fn agent_http_method(n: &AgentGraphNode) -> String {
+    let m = data_string(&n.data, "method").trim().to_ascii_uppercase();
+    if m.is_empty() {
+        "GET".to_string()
+    } else {
+        m
+    }
+}
+
+fn agent_http_timeout(n: &AgentGraphNode) -> Result<u64, String> {
+    let raw = data_string(&n.data, "timeoutSeconds");
+    let raw = raw.trim();
+    if raw.is_empty() {
+        return Ok(15);
+    }
+    let secs: u64 = raw
+        .parse()
+        .map_err(|_| format!("timeoutSeconds must be an integer in [1,60], got {raw:?}"))?;
+    if !(1..=60).contains(&secs) {
+        return Err(format!(
+            "timeoutSeconds must be an integer in [1,60], got {raw:?}"
+        ));
+    }
+    Ok(secs)
+}
+
+/// 渲染 → 校验 → 出站 → (status, body, contentType)。SSRF 防线与 RenderPdf
+/// 同源；重定向跟随由 HTTP 客户端默认行为承接（与上游 net/http 一致，重定向
+/// 后不复核——同一权衡）。
+async fn run_agent_http_node(
+    node: &AgentGraphNode,
+    vars: &BTreeMap<String, BTreeMap<String, String>>,
+) -> Result<(String, String, String), String> {
+    let raw_url = render_agent_template(&data_string(&node.data, "url"), vars)?;
+    let raw_url = raw_url.trim();
+    super::net_guard::validate_outbound_url(raw_url)?;
+
+    let method = agent_http_method(node);
+    let timeout = agent_http_timeout(node)?;
+
+    let payload = if method != "GET" && method != "HEAD" {
+        render_agent_template(&data_string(&node.data, "body"), vars)?
+    } else {
+        String::new()
+    };
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(timeout))
+        .build()
+        .map_err(|e| format!("build http client: {e}"))?;
+    let method_kv = reqwest::Method::from_bytes(method.as_bytes())
+        .map_err(|_| format!("http node {:?}: invalid method {method:?}", node.id))?;
+    let mut req = client.request(method_kv, raw_url);
+    req = req.header("User-Agent", "rushwind-agent-node/1.0");
+    if !payload.is_empty() {
+        req = req
+            .header("Content-Type", "application/json")
+            .body(payload.clone());
+    }
+    // headers：键值都可模板；画布存 [{key,value}] 数组，DSL 手写可能是
+    // map——两种形态都收。非法头名/头值 fail-closed 报错。
+    let header_err = |k: &str, e: String| format!("http node {:?}: header {k:?}: {e}", node.id);
+    match node.data.get("headers") {
+        Some(serde_json::Value::Object(map)) => {
+            for (k, v) in map {
+                let val = render_agent_template(&value_to_string(v), vars)?;
+                req = req.header(
+                    reqwest::header::HeaderName::from_bytes(k.as_bytes())
+                        .map_err(|e| header_err(k, e.to_string()))?,
+                    reqwest::header::HeaderValue::from_str(&val)
+                        .map_err(|e| header_err(k, e.to_string()))?,
+                );
+            }
+        }
+        Some(serde_json::Value::Array(items)) => {
+            for item in items {
+                let Some(m) = item.as_object() else { continue };
+                let k = m.get("key").and_then(|v| v.as_str()).unwrap_or("");
+                if k.trim().is_empty() {
+                    continue;
+                }
+                let val = render_agent_template(
+                    &m.get("value").map(value_to_string).unwrap_or_default(),
+                    vars,
+                )?;
+                req = req.header(
+                    reqwest::header::HeaderName::from_bytes(k.as_bytes())
+                        .map_err(|e| header_err(k, e.to_string()))?,
+                    reqwest::header::HeaderValue::from_str(&val)
+                        .map_err(|e| header_err(k, e.to_string()))?,
+                );
+            }
+        }
+        _ => {}
+    }
+
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| format!("request failed: {e}"))?;
+    let status = resp.status().as_u16().to_string();
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+
+    // 有界读取：读到上限 +1 即停（防巨型响应撑爆内存），截断标注。
+    let mut raw: Vec<u8> = Vec::new();
+    let mut over = false;
+    let mut resp = resp;
+    while let Some(chunk) = resp
+        .chunk()
+        .await
+        .map_err(|e| format!("read response: {e}"))?
+    {
+        raw.extend_from_slice(&chunk);
+        if raw.len() > AGENT_HTTP_MAX_BODY {
+            over = true;
+            raw.truncate(AGENT_HTTP_MAX_BODY);
+            break;
+        }
+    }
+    let full_len = raw.len();
+    let mut body = String::from_utf8_lossy(&raw).to_string();
+    if over {
+        body.push_str("…(truncated at 64KB)");
+    }
+    if body.len() > AGENT_HTTP_MAX_CONTEXT_BODY {
+        // 上下文截断按字符边界回退，不劈开多字节字符
+        let mut cut = AGENT_HTTP_MAX_CONTEXT_BODY;
+        while cut > 0 && !body.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        body = format!("{}…(truncated, full length {})", &body[..cut], full_len);
+    }
+
+    Ok((status, body, content_type))
+}
+
+/// headers 的 map 形态里值可能是任意 JSON 标量——字符串化后交给模板渲染。
+fn value_to_string(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
 }
 
 #[cfg(test)]
@@ -895,5 +1101,93 @@ mod tests {
         assert_eq!(data_i64(&serde_json::json!({"k": 5}), "k", 4), 5);
         // 非正数走默认值（上游语义：>0 才采纳）
         assert_eq!(data_i64(&serde_json::json!({"k": 0}), "k", 4), 4);
+    }
+
+    #[test]
+    fn http_node_static_validation() {
+        let node = |data: serde_json::Value| AgentGraphNode {
+            id: "http_1".into(),
+            node_type: "http".into(),
+            data,
+        };
+        // 缺 url 拒绝
+        let err =
+            validate_agent_http_node(&node(serde_json::json!({"method": "GET"}))).unwrap_err();
+        assert!(err.contains("missing url"), "{err}");
+        // 方法白名单外拒绝
+        let err = validate_agent_http_node(&node(serde_json::json!({
+            "url": "https://example.com", "method": "CONNECT"
+        })))
+        .unwrap_err();
+        assert!(err.contains("disallowed method"), "{err}");
+        // method 小写归一化放行；缺省 method/timeout 合法
+        validate_agent_http_node(&node(serde_json::json!({
+            "url": "https://example.com", "method": "post"
+        })))
+        .unwrap();
+        validate_agent_http_node(&node(serde_json::json!({"url": "https://example.com"}))).unwrap();
+        // timeout 越界 / 非数值拒绝
+        for bad in ["120", "0", "abc"] {
+            let err = validate_agent_http_node(&node(serde_json::json!({
+                "url": "https://example.com", "timeoutSeconds": bad
+            })))
+            .unwrap_err();
+            assert!(err.contains("timeoutSeconds"), "{err}");
+        }
+        // 数字形态的 timeoutSeconds（画布可能存数值而非字符串）
+        validate_agent_http_node(&node(serde_json::json!({
+            "url": "https://example.com", "timeoutSeconds": 30
+        })))
+        .unwrap();
+    }
+
+    #[test]
+    fn http_node_registered_in_graph_validation() {
+        // http 节点进入合法类型集：含 http 节点的图能过静态校验
+        let g = AgentGraph {
+            nodes: vec![
+                AgentGraphNode {
+                    id: "start_1".into(),
+                    node_type: "start".into(),
+                    data: serde_json::json!({}),
+                },
+                AgentGraphNode {
+                    id: "http_1".into(),
+                    node_type: "http".into(),
+                    data: serde_json::json!({"url": "https://example.com/api"}),
+                },
+                AgentGraphNode {
+                    id: "end_1".into(),
+                    node_type: "end".into(),
+                    data: serde_json::json!({"output": "{{http_1.status}}"}),
+                },
+            ],
+            edges: vec![
+                AgentGraphEdge {
+                    id: "e1".into(),
+                    source: "start_1".into(),
+                    target: "http_1".into(),
+                    branch: String::new(),
+                },
+                AgentGraphEdge {
+                    id: "e2".into(),
+                    source: "http_1".into(),
+                    target: "end_1".into(),
+                    branch: String::new(),
+                },
+            ],
+        };
+        validate_agent_graph(&g).expect("graph with http node should pass static validation");
+    }
+
+    #[test]
+    fn http_node_context_truncation_is_char_safe() {
+        // 8KB 上下文截断：多字节字符不劈开（截点回退到字符边界）
+        let body = "汉".repeat(5000); // 15000 bytes > 8KB
+        let mut cut = AGENT_HTTP_MAX_CONTEXT_BODY;
+        while cut > 0 && !body.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        assert_eq!(cut % 3, 0, "汉 是三字节字符，边界必落在 3 的倍数上");
     }
 }

@@ -36,6 +36,7 @@ mod mfa;
 mod monitor;
 mod monitor_alert;
 mod my_tenant_usage;
+mod net_guard;
 mod notification_channel;
 mod notification_delivery;
 mod notification_preference;
