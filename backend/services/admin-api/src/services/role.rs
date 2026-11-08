@@ -156,6 +156,16 @@ impl RoleService {
         }
     }
 
+    /// 角色码保留字（上游 IsReservedRoleCode 同口径）：platform: / template:
+    /// 命名空间与内置 tenant:manager 在登录链路与鉴权引擎里按码值承载身份
+    /// 判定语义（token 管理员标志按码值精确匹配、模板实例化按码值查询、鉴权
+    /// 策略按码值做主体），用户自建角色不得占用——否则自建 platform:admin
+    /// 再登录即可拿到平台管理员标志（越权）。系统内的合法保留码角色只能由
+    /// 种子数据与租户开通等内部链路（绕过 service 层校验）产生。
+    fn is_reserved_role_code(code: &str) -> bool {
+        code == "tenant:manager" || code.starts_with("platform:") || code.starts_with("template:")
+    }
+
     /// 父角色已绑定的权限集（继承约束的容量面）。
     async fn parent_perm_ids(&self, parent_id: u32) -> Result<Vec<u32>, StatusError> {
         Ok(crate::data::sys_role_permissions::Entity::find()
@@ -257,6 +267,46 @@ impl RoleService {
         role_id: u32,
         data: &Role,
     ) -> Result<(), StatusError> {
+        self.sync_permissions(tenant_id, role_id, &data.permissions)
+            .await?;
+        self.sync_org_units(tenant_id, role_id, &data.org_units)
+            .await?;
+        self.sync_field_permissions(tenant_id, role_id, &data.field_permissions)
+            .await?;
+        Ok(())
+    }
+
+    /// 更新路径的关联同步（上游 Update 关联落库语义）：载荷数组非空才
+    /// 替换落库，空数组跳过（保持原值）。prost 的 repeated 字段无法区分
+    /// "未设置"与"显式空数组"，故显式清空在此契约面不可表达——与 update()
+    /// 处 effective_perms 的取舍同口径。
+    async fn sync_bindings_update(
+        &self,
+        tenant_id: u32,
+        role_id: u32,
+        data: &Role,
+    ) -> Result<(), StatusError> {
+        if !data.permissions.is_empty() {
+            self.sync_permissions(tenant_id, role_id, &data.permissions)
+                .await?;
+        }
+        if !data.org_units.is_empty() {
+            self.sync_org_units(tenant_id, role_id, &data.org_units)
+                .await?;
+        }
+        if !data.field_permissions.is_empty() {
+            self.sync_field_permissions(tenant_id, role_id, &data.field_permissions)
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn sync_permissions(
+        &self,
+        tenant_id: u32,
+        role_id: u32,
+        permissions: &[u32],
+    ) -> Result<(), StatusError> {
         crate::data::sys_role_permissions::Entity::delete_many()
             .filter(
                 Condition::all()
@@ -266,7 +316,7 @@ impl RoleService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        for perm in &data.permissions {
+        for perm in permissions {
             crate::data::sys_role_permissions::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 role_id: Set(Some(role_id)),
@@ -281,12 +331,21 @@ impl RoleService {
             .await
             .map_err(db_err)?;
         }
+        Ok(())
+    }
+
+    async fn sync_org_units(
+        &self,
+        tenant_id: u32,
+        role_id: u32,
+        units: &[u32],
+    ) -> Result<(), StatusError> {
         crate::data::sys_role_org_units::Entity::delete_many()
             .filter(crate::data::sys_role_org_units::Column::RoleId.eq(role_id))
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        for unit in &data.org_units {
+        for unit in units {
             crate::data::sys_role_org_units::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 role_id: Set(Some(role_id)),
@@ -299,12 +358,21 @@ impl RoleService {
             .await
             .map_err(db_err)?;
         }
+        Ok(())
+    }
+
+    async fn sync_field_permissions(
+        &self,
+        tenant_id: u32,
+        role_id: u32,
+        fps: &[proto::proto::permission::service::v1::RoleFieldPermission],
+    ) -> Result<(), StatusError> {
         crate::data::sys_role_field_permissions::Entity::delete_many()
             .filter(crate::data::sys_role_field_permissions::Column::RoleId.eq(role_id))
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        for fp in &data.field_permissions {
+        for fp in fps {
             for field in &fp.hidden_fields {
                 crate::data::sys_role_field_permissions::ActiveModel {
                     tenant_id: Set(Some(tenant_id)),
@@ -389,6 +457,11 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = crate::state::require_data(req.data)?;
+        // 角色码保留字校验：内置身份码在登录链路与鉴权引擎里按码值承载身份
+        // 判定语义，用户自建角色不得占用（越权防线，与上游 Create 同位）。
+        if Self::is_reserved_role_code(&data.code.clone().unwrap_or_default()) {
+            return Err(status_error("BAD_REQUEST", "role code is reserved"));
+        }
         // 父角色绑定校验（权限继承）：子角色权限集必须 ⊆ 父角色已绑定权限集，
         // 父角色与本角色同租户。归属租户以操作者上下文折算（与下方 tenant_id
         // 落库同口径），载荷里的 tenant_id 不可信。
@@ -433,6 +506,16 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
         let row_parent_id = row.parent_id.unwrap_or(0);
         let mut a: crate::data::sys_roles::ActiveModel = row.into();
         if let Some(data) = &req.data {
+            // 角色码保留字校验（与 Create 同口径）：受保护角色的 code 会被
+            // apply_fields 之前的黑名单语义拦住——普通角色的 code 可改，
+            // 必须拦住改成内置身份码的路径。
+            if data
+                .code
+                .as_deref()
+                .is_some_and(Self::is_reserved_role_code)
+            {
+                return Err(status_error("BAD_REQUEST", "role code is reserved"));
+            }
             // 父角色绑定校验（权限继承，编辑时校验语义）：本次请求生效的父角色
             // 与权限集分别按"载荷是否声明"取舍——声明了取载荷，未声明取库中
             // 现值（改权限不动父、或换父不动权限，都要重新对齐约束）。
@@ -450,7 +533,8 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
             Self::apply_fields(&mut a, data);
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
-            self.sync_bindings(payload.tenant_id, req.id, data).await?;
+            self.sync_bindings_update(payload.tenant_id, req.id, data)
+                .await?;
         }
         Ok(Empty {})
     }
@@ -503,6 +587,24 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reserved_role_codes_rejected_namespace_wide() {
+        // 内置身份码与两个命名空间全部保留（伪装内置身份即越权）
+        for reserved in [
+            "platform:admin",
+            "platform:auditor",
+            "template:tenant:manager",
+            "template:foo",
+            "tenant:manager",
+        ] {
+            assert!(RoleService::is_reserved_role_code(reserved), "{reserved}");
+        }
+        // 普通租户码放行（tenant: 前缀本身不保留，仅内置 manager 码保留）
+        for normal in ["tenant:ops", "tenant:viewer", "ops", "custom:role", ""] {
+            assert!(!RoleService::is_reserved_role_code(normal), "{normal}");
+        }
+    }
 
     #[test]
     fn scope_round_trip_with_default_all() {
