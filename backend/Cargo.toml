@@ -63,6 +63,8 @@ sha2 = "0.10"
 hmac = "0.12"
 # 口令传输混合信封（P1-12）：RSA-2048 OAEP(SHA-256) 包裹 AES-256-GCM 会话密钥。
 rsa = { version = "0.9", features = ["pem"] }
+# 打印渲染 HTML 清洗（P1-11）：流式重写器剥脚本/嵌入与事件属性。
+lol_html = "1"
 uuid = { version = "1", features = ["v4", "v7"] }
 rand = "0.9"
 hex = "0.4"

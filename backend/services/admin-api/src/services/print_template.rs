@@ -202,13 +202,17 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
 
     /// 服务端渲染：前端内核产出的最终 HTML → 本机 Chrome 打印成 PDF。
     /// 纸张宽高（毫米）与方向由调用方按模板元数据传入，保证"预览即所得"。
+    /// 送渲染前经 HTML 清洗（P1-11）：剥脚本/嵌入与事件属性，资源 URL 指向
+    /// 私网/回环/元数据的 400 拒绝——iframe 是"可读的 SSRF 原语"。
     async fn render_pdf(
         &self,
         _ctx: rushwind_http_binding::ctx::RequestContext,
         req: RenderPrintTemplateRequest,
     ) -> Result<RenderPrintTemplateResponse, StatusError> {
+        let html = super::print_sanitize::sanitize_print_html(&req.html)
+            .map_err(|e| status_error("BAD_REQUEST", e))?;
         let pdf = super::printrender::render_pdf(super::printrender::PrintOptions {
-            html: req.html,
+            html,
             paper_width_mm: req.paper_width_mm,
             paper_height_mm: req.paper_height_mm,
             landscape: req.landscape,

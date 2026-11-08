@@ -52,6 +52,7 @@ mod plan;
 mod policy_evaluation_log;
 mod position;
 mod print_generate;
+mod print_sanitize;
 mod print_template;
 mod printrender;
 mod role;
