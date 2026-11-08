@@ -189,6 +189,7 @@ pub use ai::{AiConversationRepo, AiMessageRepo, AiProviderRepo, AiUsageLogRepo};
 pub use api::ApiRepo;
 pub use audit::AuditRepo;
 pub use bi_dashboard::BiDashboardRepo;
+pub use bi_dashboard::BiDashboardRevisionRepo;
 pub use config::ConfigRepo;
 pub use dict_entry::DictEntryRepo;
 pub use dict_type::DictTypeRepo;

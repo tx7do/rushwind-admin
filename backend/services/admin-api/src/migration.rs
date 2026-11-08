@@ -98,6 +98,10 @@ impl MigratorTrait for Migrator {
             .table::<data::sys_ai_chunks::Entity>()
             .table::<data::sys_ai_usage_logs::Entity>()
             .build();
+        let bi_revisions =
+            EntityTables::new("m20251105_000011_bi_revisions", DatabaseBackend::Postgres)
+                .table::<data::bi_dashboard_revisions::Entity>()
+                .build();
         vec![
             Box::new(init),
             Box::new(notification),
@@ -112,6 +116,8 @@ impl MigratorTrait for Migrator {
             Box::new(ai),
             Box::new(AiChunkVectorColumn),
             Box::new(AiSearchIndexTable),
+            Box::new(bi_revisions),
+            Box::new(BiRevisionIndexes),
         ]
     }
 }
@@ -353,6 +359,37 @@ impl MigrationTrait for AiSearchIndexTable {
                  title TEXT NOT NULL, \
                  route TEXT NOT NULL DEFAULT '', \
                  embedding vector(1536))",
+            )
+            .await
+            .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// 版本快照表的两条索引（上游 uidx_bi_revisions_dash_version /
+/// idx_bi_revisions_dash_created）：一张仪表盘一个版本号只留一份快照
+/// （保存/恢复去重），历史列表按仪表盘拉取、新快照在前。
+struct BiRevisionIndexes;
+
+impl MigrationName for BiRevisionIndexes {
+    fn name(&self) -> &str {
+        "m20251105_000012_bi_revision_indexes"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for BiRevisionIndexes {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "CREATE UNIQUE INDEX IF NOT EXISTS uidx_bi_revisions_dash_version \
+                 ON sys_bi_dashboard_revisions (dashboard_id, version); \
+                 CREATE INDEX IF NOT EXISTS idx_bi_revisions_dash_created \
+                 ON sys_bi_dashboard_revisions (dashboard_id, created_at)",
             )
             .await
             .map(|_| ())

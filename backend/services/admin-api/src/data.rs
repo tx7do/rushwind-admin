@@ -23,6 +23,7 @@ pub use audit::{
     sys_api_audit_logs, sys_data_access_audit_logs, sys_login_audit_logs, sys_operation_audit_logs,
     sys_permission_audit_logs, sys_policy_evaluation_logs,
 };
+pub use bi::bi_dashboard_revisions;
 pub use bi::bi_dashboards;
 pub use dict::{sys_dict_entries, sys_dict_entry_i18n, sys_dict_types, sys_languages};
 pub use identity::{

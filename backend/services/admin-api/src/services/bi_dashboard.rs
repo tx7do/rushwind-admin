@@ -11,9 +11,10 @@ use crate::data::Viewer;
 use crate::state::{db_err, operator_of, require_data, status_error, AppState, StatusError};
 use pbjson_types::Empty;
 use proto::proto::bi::service::v1::{
-    BiDashboard, CopyBiDashboardRequest, CreateBiDashboardRequest, DeleteBiDashboardRequest,
-    GetBiDashboardRequest, ListBiDashboardResponse, ListBiDashboardRevisionsRequest,
-    ListBiDashboardRevisionsResponse, RestoreBiDashboardRevisionRequest, UpdateBiDashboardRequest,
+    BiDashboard, BiDashboardRevision, CopyBiDashboardRequest, CreateBiDashboardRequest,
+    DeleteBiDashboardRequest, GetBiDashboardRequest, ListBiDashboardResponse,
+    ListBiDashboardRevisionsRequest, ListBiDashboardRevisionsResponse,
+    RestoreBiDashboardRevisionRequest, UpdateBiDashboardRequest,
 };
 use proto::proto::pagination::PagingRequest;
 
@@ -55,6 +56,22 @@ fn dash_proto(r: crate::data::bi_dashboards::Model) -> BiDashboard {
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
+    }
+}
+
+fn rev_proto(r: crate::data::bi_dashboard_revisions::Model) -> BiDashboardRevision {
+    BiDashboardRevision {
+        id: r.id,
+        dashboard_id: r.dashboard_id.unwrap_or(0),
+        version: r.version.unwrap_or(0),
+        name: r.name,
+        payload: r.payload,
+        source: r.source,
+        created_by: r.created_by,
+        // 与上游 DTO 同口径："2006-01-02 15:04:05"
+        created_at: r
+            .created_at
+            .map(|t| t.format("%Y-%m-%d %H:%M:%S").to_string()),
     }
 }
 
@@ -200,12 +217,43 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
                 ));
             }
         }
+        // 版本快照（docs/bi_dashboard.md 后续项）：保存成功把**保存前**的
+        // payload/name/version 留一行。快照失败不阻断保存（留痕）——
+        // 主功能不应被辅功能拖死，但丢快照必须可观测。
+        let pre = (
+            row.tenant_id,
+            row.version,
+            row.name.clone(),
+            row.payload.clone(),
+        );
         let mut a: crate::data::bi_dashboards::ActiveModel = row.into();
         upsert_fields(&mut a, &data);
         crate::stamp_update!(a, payload.user_id);
         a.version = Set(Some(a.version.clone().unwrap().unwrap_or(0) + 1));
         a.updated_at = Set(Some(crate::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
+
+        let revisions = crate::data::repos::BiDashboardRevisionRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
+        if let Err(serr) = revisions
+            .create(
+                pre.0,
+                req.id,
+                pre.1,
+                Some(pre.2),
+                pre.3,
+                "SAVE",
+                payload.user_id,
+            )
+            .await
+        {
+            eprintln!(
+                "[bi-revision] snapshot before update dashboard {} failed: {serr:?}",
+                req.id
+            );
+        }
         Ok(Empty {})
     }
 
@@ -234,6 +282,10 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
+        // 快照随主表级联清理（SeaORM 无库级 cascade，显式随行）
+        crate::data::repos::BiDashboardRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx))
+            .delete_for_dashboard(id)
+            .await?;
         Ok(Empty {})
     }
 
@@ -294,34 +346,90 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         Ok(Empty {})
     }
 
-    /// 版本历史：每次保存留旧版快照（新快照在前）。
-    /// 干净 NOT_IMPLEMENTED 声明边界——上游快照表 + 恢复可逆语义
-    /// （bi_dashboard_revision_repo.go + bi_dashboard_service.go）待独立里程碑移植；
-    /// proto 生成面已挂载，调用得到干净的 501 而非 404。
+    /// 版本历史（新快照在前）。
     async fn list_revisions(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
-        _req: ListBiDashboardRevisionsRequest,
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        req: ListBiDashboardRevisionsRequest,
     ) -> Result<ListBiDashboardRevisionsResponse, StatusError> {
-        Err(status_error(
-            "NOT_IMPLEMENTED",
-            "bi dashboard revisions ride their own milestone: snapshot-on-save plus the \
-             reversible restore (snapshot current before write-back) must land whole",
-        ))
+        if req.dashboard_id == 0 {
+            return Err(status_error("BAD_REQUEST", "dashboardId is required"));
+        }
+        let repo = crate::data::repos::BiDashboardRevisionRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
+        let (rows, total) = repo
+            .list_paged(
+                req.dashboard_id,
+                req.page.as_ref().and_then(|p| p.page),
+                req.page.as_ref().and_then(|p| p.page_size),
+            )
+            .await?;
+        Ok(ListBiDashboardRevisionsResponse {
+            items: rows.into_iter().map(rev_proto).collect(),
+            total: total as u32,
+        })
     }
 
-    /// 恢复版本：快照 payload/name 写回主表、版本 +1，恢复前先快照当前版本（可逆）。
-    /// 与 list_revisions 同一里程碑的声明边界。
+    /// 恢复版本：快照 payload/name 写回主表，版本号 +1。
+    /// 恢复动作本身先把**当前版本**快照（RESTORE 来源），恢复可逆。
     async fn restore_revision(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
-        _req: RestoreBiDashboardRevisionRequest,
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        req: RestoreBiDashboardRevisionRequest,
     ) -> Result<Empty, StatusError> {
-        Err(status_error(
-            "NOT_IMPLEMENTED",
-            "bi dashboard revisions ride their own milestone: snapshot-on-save plus the \
-             reversible restore (snapshot current before write-back) must land whole",
-        ))
+        if req.id == 0 {
+            return Err(status_error("BAD_REQUEST", "id is required"));
+        }
+        let payload = operator_of(&ctx)?;
+        let revisions = crate::data::repos::BiDashboardRevisionRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
+        let revision = revisions
+            .find_scoped(req.id)
+            .await?
+            .ok_or_else(|| crate::state::not_found("bi dashboard revision"))?;
+        let dashboard_id = revision.dashboard_id.unwrap_or(0);
+        if dashboard_id == 0 {
+            return Err(crate::state::not_found("bi dashboard"));
+        }
+
+        let repo = crate::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let current = repo
+            .find_scoped(dashboard_id)
+            .await?
+            .ok_or_else(|| crate::state::not_found("bi dashboard"))?;
+
+        // 恢复前留底当前版本（失败不阻断恢复，留痕可观测）
+        if let Err(serr) = revisions
+            .create(
+                current.tenant_id,
+                dashboard_id,
+                current.version,
+                Some(current.name.clone()),
+                current.payload.clone(),
+                "RESTORE",
+                payload.user_id,
+            )
+            .await
+        {
+            eprintln!(
+                "[bi-revision] snapshot before restore dashboard {dashboard_id} failed: {serr:?}"
+            );
+        }
+
+        // 写回走普通更新（无 CAS——恢复是明确的人为决定，以快照为准整份覆盖），
+        // 版本号 +1（与保存同轨）。
+        let mut a: crate::data::bi_dashboards::ActiveModel = current.into();
+        a.name = Set(revision.name.clone().unwrap_or_default());
+        a.payload = Set(revision.payload.clone());
+        crate::stamp_update!(a, payload.user_id);
+        a.version = Set(Some(a.version.clone().unwrap().unwrap_or(0) + 1));
+        a.updated_at = Set(Some(crate::data::now()));
+        a.update(&self.state.db).await.map_err(db_err)?;
+        Ok(Empty {})
     }
 }
 
@@ -380,5 +488,54 @@ mod tests {
         // 版本未被 upsert 触碰（仍是 handler 预置的 1）
         assert_eq!(a.version.clone().unwrap(), Some(1));
         assert!(matches!(a.is_enabled, sea_orm::ActiveValue::NotSet));
+    }
+
+    #[test]
+    fn rev_proto_maps_snapshot_fields_with_timestamp_format() {
+        let rev = crate::data::bi_dashboard_revisions::Model {
+            id: 7,
+            tenant_id: Some(3),
+            dashboard_id: Some(42),
+            version: Some(5),
+            name: Some("before-save".into()),
+            payload: Some(r#"{"charts":[]}"#.into()),
+            source: Some("SAVE".into()),
+            created_by: Some(11),
+            created_at: Some(
+                chrono::NaiveDate::from_ymd_opt(2026, 11, 8)
+                    .unwrap()
+                    .and_hms_opt(9, 30, 5)
+                    .unwrap(),
+            ),
+            updated_at: None,
+        };
+        let proto = rev_proto(rev);
+        assert_eq!(proto.id, 7);
+        assert_eq!(proto.dashboard_id, 42);
+        assert_eq!(proto.version, 5);
+        assert_eq!(proto.name.as_deref(), Some("before-save"));
+        assert_eq!(proto.source.as_deref(), Some("SAVE"));
+        assert_eq!(proto.created_by, Some(11));
+        // 与上游 DTO 同口径的时间串
+        assert_eq!(proto.created_at.as_deref(), Some("2026-11-08 09:30:05"));
+
+        // 缺省口径：version/dashboard_id 空值落 0，created_at 空不回填
+        let bare = crate::data::bi_dashboard_revisions::Model {
+            id: 8,
+            tenant_id: None,
+            dashboard_id: None,
+            version: None,
+            name: None,
+            payload: None,
+            source: None,
+            created_by: None,
+            created_at: None,
+            updated_at: None,
+        };
+        let proto = rev_proto(bare);
+        assert_eq!(proto.dashboard_id, 0);
+        assert_eq!(proto.version, 0);
+        assert!(proto.name.is_none());
+        assert!(proto.created_at.is_none());
     }
 }

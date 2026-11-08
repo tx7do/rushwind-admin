@@ -1,4 +1,5 @@
-//! BI entity table: designer-produced dashboards / screens / templates.
+//! BI entity tables: designer-produced dashboards / screens / templates
+//! and their revision snapshots.
 
 pub mod bi_dashboards {
     use sea_orm::entity::prelude::*;
@@ -42,6 +43,41 @@ pub mod bi_dashboards {
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
+}
+
+/// BI 仪表盘版本快照表：每次成功保存把**保存前**的 payload/name/version
+/// 留一行快照，恢复 = 把快照写回主表（恢复动作本身先快照当前版本，可逆）。
+/// 只增不改不删（表级无更新入口），随主表级联删除。
+pub mod bi_dashboard_revisions {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "sys_bi_dashboard_revisions")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: u32,
+        pub tenant_id: Option<u32>,
+        /// 所属仪表盘 ID。
+        pub dashboard_id: Option<u32>,
+        /// 快照对应的仪表盘版本号（保存前的旧版本）。
+        #[sea_orm(default_value = 0)]
+        pub version: Option<u32>,
+        /// 保存前的名称快照（恢复时一并写回）。
+        pub name: Option<String>,
+        /// 保存前的仪表盘 JSON 快照（服务端不解析只透传）。
+        pub payload: Option<String>,
+        /// 快照来源（SAVE=常规保存触发 RESTORE=恢复前留底）。
+        #[sea_orm(default_value = "SAVE")]
+        pub source: Option<String>,
+        pub created_by: Option<u32>,
+        pub created_at: Option<chrono::NaiveDateTime>,
+        pub updated_at: Option<chrono::NaiveDateTime>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
