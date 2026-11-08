@@ -223,22 +223,104 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
         Ok(RenderPrintTemplateResponse { pdf, filename })
     }
 
-    /// AI 一句话生成模板：描述单据要素 → LLM 产出 TemplateData → 护栏校验后返回
-    /// （未入库；前端预览确认后走 Create 保存），走 AI_TOKENS 配额与用量记账。
-    /// 干净 NOT_IMPLEMENTED 声明边界——上游护栏链（print_template_generate.go 的
-    /// 提示词装配 / 结构化产出修复 / print_template_sanitize.go 的 schema 校验）
-    /// 必须整链落地才允许 LLM 产物进任何写路径；proto 生成面已挂载，调用得到
-    /// 干净的 501 而非 404。
+    /// AI 一句话生成模板（M4-1）：描述单据要素 → LLM 产出 TemplateData →
+    /// 护栏校验后返回（未入库；前端预览确认后走 Create 保存）。
+    /// 复用问数链路的四件套：AI_TOKENS 月度配额 / provider 默认解析 /
+    /// 非流式调用 / 用量落库；模型产物被护栏拒绝时记原始输出（便于调提示词）、
+    /// 对调用方回 400。护栏本体在 [`super::print_generate`]。
     async fn generate_template(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
-        _req: GeneratePrintTemplateRequest,
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        req: GeneratePrintTemplateRequest,
     ) -> Result<GeneratePrintTemplateResponse, StatusError> {
-        Err(status_error(
-            "NOT_IMPLEMENTED",
-            "print ai-generate rides its own milestone: the guard chain (prompt assembly / \
-             structured-output repair / template schema sanitize) must land whole before \
-             any llm product reaches a write path",
-        ))
+        let payload = operator_of(&ctx)?;
+        let description = req.description.trim();
+        if description.is_empty() {
+            return Err(status_error("BAD_REQUEST", "description is required"));
+        }
+        super::llm::check_token_quota(&self.state.db, payload.tenant_id).await?;
+
+        // Provider 默认解析（系统视角读全量 provider 表，与 chat 同口径）。
+        let provider = crate::data::repos::AiProviderRepo::new(&self.state.db, Viewer::system())
+            .find_default()
+            .await?
+            .ok_or_else(|| status_error("BAD_REQUEST", "no ai provider configured"))?;
+        if provider.is_enabled != Some(true) {
+            return Err(status_error("BAD_REQUEST", "ai provider is disabled"));
+        }
+
+        // 提示词 + 单次非流式调用（超时随 provider.timeout_seconds；上游对
+        // 生成面固定 90s，本适配器统一走 provider 行的时钟语义）。
+        let paper = if req.paper_size.is_empty() {
+            "A4"
+        } else {
+            req.paper_size.as_str()
+        };
+        let orient = if req.orientation.is_empty() {
+            "portrait"
+        } else {
+            req.orientation.as_str()
+        };
+        let sys = super::print_generate::build_system_prompt(
+            description,
+            paper,
+            orient,
+            &req.resource_key,
+        );
+        let user = format!("生成一张 {paper} {orient} 模板：{description}");
+        let completion = super::llm::chat_completion(
+            &provider,
+            vec![
+                super::llm::ChatMessage {
+                    role: "system",
+                    content: sys,
+                },
+                super::llm::ChatMessage {
+                    role: "user",
+                    content: user,
+                },
+            ],
+        )
+        .await
+        .map_err(|e| status_error("INTERNAL_SERVER_ERROR", e))?;
+        let total_tokens = completion.prompt_tokens + completion.completion_tokens;
+
+        // 结构化产出修复（剥围栏/闲话）→ 护栏校验。
+        let extracted = super::print_generate::extract_template_payload(&completion.content);
+        let (clean, fields) = match super::print_generate::sanitize_generated_template(&extracted) {
+            Ok(ok) => ok,
+            Err(err) => {
+                eprintln!(
+                    "[print-generate] rejected: {err}; raw={}",
+                    super::print_generate::truncate_for_log(&completion.content)
+                );
+                return Err(status_error("BAD_REQUEST", err));
+            }
+        };
+
+        // 用量落库（同问数口径：失败不阻断返回，留痕）。
+        if total_tokens > 0 {
+            if let Err(e) = crate::data::repos::AiUsageLogRepo::new(&self.state.db)
+                .insert(crate::data::sys_ai_usage_logs::ActiveModel {
+                    tenant_id: Set(Some(payload.tenant_id)),
+                    provider_id: Set(Some(provider.id)),
+                    user_id: Set(Some(payload.user_id)),
+                    model_name: Set(Some(completion.model.clone())),
+                    total_tokens: Set(Some(total_tokens)),
+                    duration_ms: Set(Some(completion.duration_ms)),
+                    created_at: Set(Some(crate::data::now())),
+                    ..Default::default()
+                })
+                .await
+            {
+                eprintln!("[print-generate] record usage failed: {e:?}");
+            }
+        }
+
+        Ok(GeneratePrintTemplateResponse {
+            payload: clean,
+            fields,
+            total_tokens,
+        })
     }
 }

@@ -50,6 +50,7 @@ mod permission_group;
 mod plan;
 mod policy_evaluation_log;
 mod position;
+mod print_generate;
 mod print_template;
 mod printrender;
 mod role;

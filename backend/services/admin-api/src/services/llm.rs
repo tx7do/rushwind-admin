@@ -131,6 +131,42 @@ pub async fn chat_completion(
     })
 }
 
+/// AI_TOKENS 月度配额闸（checkAiTokenQuota 同语义，chat/content/generate
+/// 共用）：平台租户（0）不限；套餐未配置 AI_TOKENS 维度不限；当月累计
+/// tokens ≥ 上限即拒。月起点取本地时区（与台账 month_summary 同口径）。
+pub async fn check_token_quota(
+    db: &sea_orm::DatabaseConnection,
+    tenant_id: u32,
+) -> Result<(), crate::state::StatusError> {
+    use chrono::Datelike as _;
+    if tenant_id == 0 {
+        return Ok(()); // 平台用户不限（运营侧自用）
+    }
+    let repo = crate::data::repos::AiUsageLogRepo::new(db);
+    let Some(limit) = repo.tenant_token_quota_limit(tenant_id).await? else {
+        return Ok(());
+    };
+    if limit <= 0 {
+        return Ok(());
+    }
+    let month_start = crate::data::now()
+        .date()
+        .with_day(1)
+        .unwrap_or_default()
+        .and_hms_opt(0, 0, 0)
+        .unwrap_or_default();
+    let used = repo
+        .sum_tokens_by_tenant_since(tenant_id, month_start)
+        .await?;
+    if used >= limit as u32 {
+        return Err(crate::state::status_error(
+            "BAD_REQUEST",
+            "ai token quota exceeded for this month",
+        ));
+    }
+    Ok(())
+}
+
 /// OpenAI 兼容 /embeddings：批量向量化（知识库入库与查询检索共用；
 /// RAG 通道随 3.10c 接 pgvector，本件先落适配面）。
 #[allow(dead_code)]

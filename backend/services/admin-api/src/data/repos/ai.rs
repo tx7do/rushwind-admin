@@ -104,6 +104,53 @@ impl<'a> AiUsageLogRepo<'a> {
             None => (0, 0),
         })
     }
+
+    /// 租户 AI_TOKENS 月度配额上限：tenant.plan_id → 套餐的 AI_TOKENS
+    /// quota_value。None = 未配置（平台租户 / 无套餐 / 未配该维度 → 不限）。
+    pub async fn tenant_token_quota_limit(
+        &self,
+        tenant_id: u32,
+    ) -> Result<Option<i64>, StatusError> {
+        use sea_orm::QueryOrder as _;
+        if tenant_id == 0 {
+            return Ok(None);
+        }
+        let plan_id = crate::data::sys_tenants::Entity::find_by_id(tenant_id)
+            .one(self.db)
+            .await
+            .map_err(db_err)?
+            .and_then(|t| t.plan_id);
+        let Some(plan_id) = plan_id else {
+            return Ok(None);
+        };
+        let quotas = crate::data::sys_plan_quotas::Entity::find()
+            .filter(crate::data::sys_plan_quotas::Column::PlanId.eq(plan_id))
+            .filter(crate::data::sys_plan_quotas::Column::QuotaType.eq("AI_TOKENS"))
+            .order_by_asc(crate::data::sys_plan_quotas::Column::Id)
+            .all(self.db)
+            .await
+            .map_err(db_err)?;
+        Ok(quotas.into_iter().find_map(|q| q.quota_value))
+    }
+
+    /// 某租户自 monthStart 起的 tokens 总和（配额判定用；上游
+    /// SumTokensByTenantSince 同型）。
+    pub async fn sum_tokens_by_tenant_since(
+        &self,
+        tenant_id: u32,
+        month_start: chrono::NaiveDateTime,
+    ) -> Result<u32, StatusError> {
+        let row = usage::Entity::find()
+            .filter(usage::Column::CreatedAt.gte(month_start))
+            .filter(usage::Column::TenantId.eq(tenant_id))
+            .select_only()
+            .column_as(usage::Column::TotalTokens.sum(), "tokens")
+            .into_tuple::<Option<i64>>()
+            .one(self.db)
+            .await
+            .map_err(db_err)?;
+        Ok(row.flatten().unwrap_or(0).max(0) as u32)
+    }
 }
 
 pub struct AiConversationRepo<'a> {
