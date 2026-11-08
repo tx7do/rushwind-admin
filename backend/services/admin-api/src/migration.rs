@@ -119,6 +119,7 @@ impl MigratorTrait for Migrator {
             Box::new(bi_revisions),
             Box::new(BiRevisionIndexes),
             Box::new(ApiEndpointIdentity),
+            Box::new(PermissionMenuFullPath),
         ]
     }
 }
@@ -448,6 +449,53 @@ impl MigrationTrait for ApiEndpointIdentity {
              ON sys_apis (path, method); \
              CREATE INDEX IF NOT EXISTS idx_perm_api_endpoint \
              ON sys_permission_apis (endpoint_path, endpoint_method)",
+        )
+        .await
+        .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// 菜单授权绑定键迁移（上游 836334e3 同语义）：menu_id → 全路径快照。
+/// 回填按父链递归 CTE 拼全路径（与派生口径一致：parent_path + path 直连）。
+struct PermissionMenuFullPath;
+
+impl MigrationName for PermissionMenuFullPath {
+    fn name(&self) -> &str {
+        "m20251105_000014_permission_menu_full_path"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for PermissionMenuFullPath {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        let conn = manager.get_connection();
+        conn.execute_unprepared(
+            "ALTER TABLE sys_permission_menus \
+             ADD COLUMN IF NOT EXISTS full_path varchar(512)",
+        )
+        .await?;
+        conn.execute_unprepared(
+            "WITH RECURSIVE walk AS ( \
+               SELECT id, path, parent_id, path AS full_path \
+                 FROM sys_menus WHERE parent_id IS NULL \
+               UNION ALL \
+               SELECT m.id, m.path, m.parent_id, w.full_path || m.path \
+                 FROM sys_menus m JOIN walk w ON m.parent_id = w.id \
+             ) \
+             UPDATE sys_permission_menus pm \
+                SET full_path = w.full_path \
+               FROM walk w \
+              WHERE pm.menu_id = w.id \
+                AND (pm.full_path IS NULL OR pm.full_path = '')",
+        )
+        .await?;
+        conn.execute_unprepared(
+            "CREATE INDEX IF NOT EXISTS idx_perm_menu_full_path \
+             ON sys_permission_menus (permission_id, full_path)",
         )
         .await
         .map(|_| ())

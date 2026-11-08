@@ -203,6 +203,9 @@ pub mod sys_permission_menus {
         pub id: u32,
         pub permission_id: Option<u32>,
         pub menu_id: Option<u32>,
+        /// 菜单全路径快照——绑定键与身份同形，菜单删除重建不再漂移授权
+        /// （绝对路径子菜单按 path 原样，不做父链拼接；上游 836334e3 同语义）。
+        pub full_path: Option<String>,
         pub created_by: Option<u32>,
         pub updated_by: Option<u32>,
         pub deleted_by: Option<u32>,

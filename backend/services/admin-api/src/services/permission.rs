@@ -164,17 +164,18 @@ fn api_code(method: &str, path: &str) -> String {
 async fn replace_menu_binding(
     txn: &sea_orm::DatabaseTransaction,
     permission_id: u32,
-    menu_id: Option<u32>,
+    menu: Option<(u32, String)>,
 ) -> Result<(), StatusError> {
     crate::data::sys_permission_menus::Entity::delete_many()
         .filter(crate::data::sys_permission_menus::Column::PermissionId.eq(permission_id))
         .exec(txn)
         .await
         .map_err(db_err)?;
-    if let Some(menu_id) = menu_id {
+    if let Some((menu_id, full_path)) = menu {
         crate::data::sys_permission_menus::ActiveModel {
             permission_id: Set(Some(permission_id)),
             menu_id: Set(Some(menu_id)),
+            full_path: Set(Some(full_path)),
             created_at: Set(Some(crate::data::now())),
             updated_at: Set(Some(crate::data::now())),
             ..Default::default()
@@ -249,6 +250,34 @@ async fn bind_api_rows(
         .map_err(db_err)?;
     }
     Ok(())
+}
+
+/// 菜单全路径（父链拼接，与同步派生同口径：parent_path + path 直连）。
+/// 环路由 32 层上限兜底（与角色继承环走查同参）。
+async fn menu_full_path(
+    db: &sea_orm::DatabaseConnection,
+    menu_id: u32,
+) -> Result<Option<String>, StatusError> {
+    let mut parts: Vec<String> = Vec::new();
+    let mut current = Some(menu_id);
+    for _ in 0..32 {
+        let Some(mid) = current else { break };
+        let Some(row) = crate::data::sys_menus::Entity::find_by_id(mid)
+            .one(db)
+            .await
+            .map_err(db_err)?
+        else {
+            return Ok(None);
+        };
+        parts.push(row.path.clone().unwrap_or_default());
+        current = row.parent_id;
+    }
+    if current.is_some() {
+        return Ok(None); // 环：不做拼接（fail-closed）
+    }
+    parts.reverse();
+    let full = parts.concat();
+    Ok((!full.is_empty()).then_some(full))
 }
 
 pub struct PermissionService {
@@ -352,7 +381,7 @@ impl PermissionService {
             String,
             String,
             Option<String>,
-            Option<u32>,
+            Option<(u32, String)>,
             Option<(u32, String, String)>,
         );
         let mut derived: Vec<DerivedPermission> = Vec::new();
@@ -372,7 +401,7 @@ impl PermissionService {
                 code.clone(),
                 menu.name.clone(),
                 group_code,
-                Some(menu.id),
+                Some((menu.id, full_path.clone())),
                 None,
             ));
             menu_code_by_menu.insert(menu.id, code);
@@ -439,7 +468,7 @@ impl PermissionService {
             a.group_id = Set(gid);
             a.updated_at = Set(Some(crate::data::now()));
             a.update(txn).await.map_err(db_err)?;
-            replace_menu_binding(txn, exist.id, *menu_id).await?;
+            replace_menu_binding(txn, exist.id, menu_id.clone()).await?;
             replace_api_binding(txn, exist.id, api_binding).await?;
             merge_hit.insert(code.clone());
         }
@@ -462,7 +491,7 @@ impl PermissionService {
             .insert(txn)
             .await
             .map_err(db_err)?;
-            replace_menu_binding(txn, perm.id, *menu_id).await?;
+            replace_menu_binding(txn, perm.id, menu_id.clone()).await?;
             replace_api_binding(txn, perm.id, api_binding).await?;
         }
 
@@ -562,9 +591,11 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
         .await
         .map_err(db_err)?;
         for menu_id in &data.menu_ids {
+            let full_path = menu_full_path(&self.state.db, *menu_id).await?;
             crate::data::sys_permission_menus::ActiveModel {
                 permission_id: Set(Some(perm.id)),
                 menu_id: Set(Some(*menu_id)),
+                full_path: Set(full_path),
                 created_at: Set(Some(crate::data::now())),
                 updated_at: Set(Some(crate::data::now())),
                 ..Default::default()
@@ -616,9 +647,11 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
                     .await
                     .map_err(db_err)?;
                 for menu_id in &data.menu_ids {
+                    let full_path = menu_full_path(&self.state.db, *menu_id).await?;
                     crate::data::sys_permission_menus::ActiveModel {
                         permission_id: Set(Some(req.id)),
                         menu_id: Set(Some(*menu_id)),
+                        full_path: Set(full_path),
                         created_at: Set(Some(crate::data::now())),
                         updated_at: Set(Some(crate::data::now())),
                         ..Default::default()

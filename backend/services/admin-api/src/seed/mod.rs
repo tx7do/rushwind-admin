@@ -290,9 +290,32 @@ async fn seed_permissions(state: &Arc<AppState>) -> Result<(), String> {
             }
         );
     }
-    // Role 1 (platform:admin) → permissions {1,2,4}; role 2 template → {1,3}.
-    for (role_id, perm_ids) in [(1u32, vec![1u32, 2, 4]), (2, vec![1, 3])] {
-        for perm in perm_ids {
+    // 种子不硬编码 id：角色授权按 DefaultRolePermissionCodes 的 code 动态
+    // 解析（上游 836334e3 同语义）——超管=当前全量；租户管理员模板=登录链路
+    // 身份权限。权限行 id 在种子重建后漂移也不再错绑。
+    let perm_id_by_code: std::collections::HashMap<String, u32> = perms::Entity::find()
+        .all(&state.db)
+        .await
+        .map_err(|e| e.to_string())?
+        .into_iter()
+        .map(|r| (r.code, r.id))
+        .collect();
+    for (role_id, codes) in [
+        (
+            1u32,
+            vec![
+                "sys:access_backend",
+                "sys:platform_admin",
+                "sys:manage_tenants",
+            ],
+        ),
+        (2, vec!["sys:access_backend", "sys:tenant_manager"]),
+    ] {
+        for code in codes {
+            let Some(perm) = perm_id_by_code.get(code) else {
+                return Err(format!("seed: permission code {code} missing"));
+            };
+            let perm = *perm;
             insert_seed!(
                 &state.db,
                 role_perms::ActiveModel {
