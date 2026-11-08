@@ -102,6 +102,12 @@ impl MigratorTrait for Migrator {
             EntityTables::new("m20251105_000011_bi_revisions", DatabaseBackend::Postgres)
                 .table::<data::bi_dashboard_revisions::Entity>()
                 .build();
+        let ai_agent_revisions = EntityTables::new(
+            "m20251105_000015_ai_agent_revisions",
+            DatabaseBackend::Postgres,
+        )
+        .table::<data::sys_ai_agent_revisions::Entity>()
+        .build();
         vec![
             Box::new(init),
             Box::new(notification),
@@ -118,6 +124,8 @@ impl MigratorTrait for Migrator {
             Box::new(AiSearchIndexTable),
             Box::new(bi_revisions),
             Box::new(BiRevisionIndexes),
+            Box::new(ai_agent_revisions),
+            Box::new(AiAgentRevisionIndexes),
             Box::new(ApiEndpointIdentity),
             Box::new(PermissionMenuFullPath),
         ]
@@ -499,6 +507,34 @@ impl MigrationTrait for PermissionMenuFullPath {
         )
         .await
         .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// Agent 版本快照表的索引（上游 schema 索引同构）：历史列表按应用拉取、
+/// 新快照在前。
+struct AiAgentRevisionIndexes;
+
+impl MigrationName for AiAgentRevisionIndexes {
+    fn name(&self) -> &str {
+        "m20251105_000016_ai_agent_revision_indexes"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for AiAgentRevisionIndexes {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "CREATE INDEX IF NOT EXISTS idx_ai_agent_revisions_app_created \
+                 ON sys_ai_agent_revisions (app_id, created_at)",
+            )
+            .await
+            .map(|_| ())
     }
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {

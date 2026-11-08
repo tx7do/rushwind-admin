@@ -247,3 +247,104 @@ impl<'a> AiMessageRepo<'a> {
             .map_err(db_err)
     }
 }
+
+/// AI Agent 版本快照薄仓储：只增不改不删（删除随主表级联），三个动作
+/// 形态与 BI 版本快照同构；查询一律带租户闸。
+pub struct AiAgentRevisionRepo<'a> {
+    pub db: &'a DatabaseConnection,
+    pub viewer: Viewer,
+}
+
+impl<'a> AiAgentRevisionRepo<'a> {
+    pub fn new(db: &'a DatabaseConnection, viewer: Viewer) -> Self {
+        Self { db, viewer }
+    }
+
+    fn condition(&self) -> Condition {
+        use crate::data::sys_ai_agent_revisions as rev;
+        match self.viewer.tenant_scope() {
+            Some(tid) => Condition::all().add(rev::Column::TenantId.eq(tid)),
+            None => Condition::all(),
+        }
+    }
+
+    /// 落一行快照。tenant_id 取快照来源应用的租户。
+    #[allow(clippy::too_many_arguments)]
+    pub async fn create(
+        &self,
+        tenant_id: Option<u32>,
+        app_id: u32,
+        graph: Option<String>,
+        source: &str,
+        created_by: u32,
+    ) -> Result<(), StatusError> {
+        use crate::data::sys_ai_agent_revisions as rev;
+        use sea_orm::ActiveModelTrait;
+        use sea_orm::Set;
+        rev::ActiveModel {
+            tenant_id: Set(tenant_id),
+            app_id: Set(Some(app_id)),
+            graph: Set(graph),
+            source: Set(Some(source.to_string())),
+            created_by: Set(Some(created_by)),
+            created_at: Set(Some(crate::data::now())),
+            updated_at: Set(Some(crate::data::now())),
+            ..Default::default()
+        }
+        .insert(self.db)
+        .await
+        .map_err(db_err)?;
+        Ok(())
+    }
+
+    /// 按应用拉取快照分页（新快照在前：created_at DESC, id DESC）。
+    pub async fn list_paged(
+        &self,
+        app_id: u32,
+        page: Option<u32>,
+        page_size: Option<u32>,
+    ) -> Result<(Vec<crate::data::sys_ai_agent_revisions::Model>, u64), StatusError> {
+        use crate::data::sys_ai_agent_revisions as rev;
+        use sea_orm::{PaginatorTrait, QueryOrder, QuerySelect};
+        let page_no = page.filter(|p| *p > 0).unwrap_or(1);
+        let size = page_size.filter(|s| *s > 0).unwrap_or(20);
+        let base = rev::Entity::find()
+            .filter(self.condition())
+            .filter(rev::Column::AppId.eq(app_id));
+        let total = base.clone().count(self.db).await.map_err(db_err)?;
+        let rows = base
+            .order_by_desc(rev::Column::CreatedAt)
+            .order_by_desc(rev::Column::Id)
+            .offset(((page_no - 1) as u64) * size as u64)
+            .limit(size as u64)
+            .all(self.db)
+            .await
+            .map_err(db_err)?;
+        Ok((rows, total))
+    }
+
+    /// 取单个快照（恢复时校验归属）。
+    pub async fn find_scoped(
+        &self,
+        id: u32,
+    ) -> Result<Option<crate::data::sys_ai_agent_revisions::Model>, StatusError> {
+        use crate::data::sys_ai_agent_revisions as rev;
+        rev::Entity::find_by_id(id)
+            .filter(self.condition())
+            .one(self.db)
+            .await
+            .map_err(db_err)
+    }
+
+    /// 主表删除时的级联清理。
+    pub async fn delete_for_app(&self, app_id: u32) -> Result<(), StatusError> {
+        use crate::data::sys_ai_agent_revisions as rev;
+        use sea_orm::EntityTrait;
+        rev::Entity::delete_many()
+            .filter(rev::Column::AppId.eq(app_id))
+            .exec(self.db)
+            .await
+            .map_err(db_err)?;
+        Ok(())
+    }
+}

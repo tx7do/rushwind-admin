@@ -13,10 +13,10 @@ use crate::state::{
 };
 use pbjson_types::Empty;
 use proto::proto::ai::service::v1::{
-    AiAgentApp, AiAgentRun, CreateAiAgentAppRequest, DeleteAiAgentAppRequest, GetAiAgentAppRequest,
-    GetAiAgentRunRequest, ListAiAgentAppsResponse, ListAiAgentRevisionsRequest,
-    ListAiAgentRevisionsResponse, ListAiAgentRunsResponse, RestoreAiAgentRevisionRequest,
-    RunAiAgentAppRequest, UpdateAiAgentAppRequest,
+    AiAgentApp, AiAgentRevision, AiAgentRun, CreateAiAgentAppRequest, DeleteAiAgentAppRequest,
+    GetAiAgentAppRequest, GetAiAgentRunRequest, ListAiAgentAppsResponse,
+    ListAiAgentRevisionsRequest, ListAiAgentRevisionsResponse, ListAiAgentRunsResponse,
+    RestoreAiAgentRevisionRequest, RunAiAgentAppRequest, UpdateAiAgentAppRequest,
 };
 use proto::proto::pagination::PagingRequest;
 
@@ -239,6 +239,17 @@ impl AiAgentService {
     }
 }
 
+fn rev_proto(r: crate::data::sys_ai_agent_revisions::Model) -> AiAgentRevision {
+    AiAgentRevision {
+        id: Some(r.id),
+        app_id: r.app_id,
+        graph: r.graph,
+        source: r.source,
+        created_by: r.created_by,
+        created_at: r.created_at.and_then(crate::state::naive_to_ts),
+    }
+}
+
 #[async_trait::async_trait]
 impl proto::gen::services::AiAgentServiceHandlers for AiAgentService {
     async fn list(
@@ -297,11 +308,32 @@ impl proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
         let row = self.app_scoped(&ctx, req.id).await?;
+        // 版本快照（BI 同款口径）：更新成功把**更新前**的 graph 留一行（SAVE，
+        // 仅 graph 实际变化时）。快照失败不阻断更新（留痕）——主功能不应被
+        // 辅功能拖死，但丢快照必须可观测。
+        let pre_graph = row.graph.clone();
+        let pre_tenant = row.tenant_id;
         let mut a: crate::data::sys_ai_agent_apps::ActiveModel = row.into();
         upsert_fields(&mut a, &data)?;
         crate::stamp_update!(a, payload.user_id);
         a.updated_at = Set(Some(crate::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
+
+        if pre_graph.as_deref().unwrap_or_default() != data.graph.as_deref().unwrap_or_default() {
+            let revisions = crate::data::repos::AiAgentRevisionRepo::new(
+                &self.state.db,
+                Viewer::from_ctx(&ctx),
+            );
+            if let Err(serr) = revisions
+                .create(pre_tenant, req.id, pre_graph, "SAVE", payload.user_id)
+                .await
+            {
+                eprintln!(
+                    "[ai-revision] snapshot before update agent app {} failed: {serr:?}",
+                    req.id
+                );
+            }
+        }
         Ok(Empty {})
     }
 
@@ -312,12 +344,15 @@ impl proto::gen::services::AiAgentServiceHandlers for AiAgentService {
     ) -> Result<Empty, StatusError> {
         let id = req.id;
         self.app_scoped(&ctx, id).await?;
-        // 级联清运行记录（上游 edge cascade 同语义）。
+        // 级联清运行记录与版本快照（上游 edge cascade 同语义）。
         crate::data::sys_ai_agent_runs::Entity::delete_many()
             .filter(crate::data::sys_ai_agent_runs::Column::AppId.eq(id))
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
+        crate::data::repos::AiAgentRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx))
+            .delete_for_app(id)
+            .await?;
         crate::data::sys_ai_agent_apps::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
@@ -365,6 +400,10 @@ impl proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         let tenant_id = payload.tenant_id;
         let user_id = payload.user_id;
         let deps = agent_graph::Deps {
+            // script 节点：沙箱引擎随脚本域引擎里程碑接入——本仓脚本域
+            // TestRun 本就是 UNIMPLEMENTED 边界，这里按上游 nil-runtime 同
+            // 语义显式报错（不静默跳过）。
+            run_script: None,
             search_knowledge: Box::new({
                 let state = Arc::clone(&self.state);
                 move |node, query| {
@@ -471,29 +510,80 @@ impl proto::gen::services::AiAgentServiceHandlers for AiAgentService {
     /// 干净 NOT_IMPLEMENTED 声明边界——快照表 + 可逆恢复随独立里程碑移植
     /// （镜像 BI 仪表盘版本历史的形状）；proto 生成面已挂载，调用得到干净
     /// 的 501 而非 404。
+    /// 版本历史（新快照在前）。
     async fn list_revisions(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
-        _req: ListAiAgentRevisionsRequest,
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        req: ListAiAgentRevisionsRequest,
     ) -> Result<ListAiAgentRevisionsResponse, StatusError> {
-        Err(status_error(
-            "NOT_IMPLEMENTED",
-            "ai agent revisions ride their own milestone: snapshot-on-update plus the \
-             reversible restore (snapshot current before write-back) must land whole",
-        ))
+        if req.app_id == 0 {
+            return Err(status_error("BAD_REQUEST", "appId is required"));
+        }
+        let repo =
+            crate::data::repos::AiAgentRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let (rows, total) = repo
+            .list_paged(
+                req.app_id,
+                req.page.as_ref().and_then(|p| p.page),
+                req.page.as_ref().and_then(|p| p.page_size),
+            )
+            .await?;
+        Ok(ListAiAgentRevisionsResponse {
+            items: rows.into_iter().map(rev_proto).collect(),
+            total,
+        })
     }
 
-    /// 恢复版本：快照 graph 写回主表、恢复前先快照当前版本（可逆）。
-    /// 与 list_revisions 同一里程碑的声明边界。
+    /// 恢复版本：快照 graph 写回主表。恢复动作本身先把**当前 graph** 快照
+    /// （RESTORE 来源），恢复可逆（BI 同款口径）。快照 graph 先过静态校验，
+    /// 非法 400 且不落任何痕迹——历史快照可能早于校验规则演进。
     async fn restore_revision(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
-        _req: RestoreAiAgentRevisionRequest,
-    ) -> Result<pbjson_types::Empty, StatusError> {
-        Err(status_error(
-            "NOT_IMPLEMENTED",
-            "ai agent revisions ride their own milestone: snapshot-on-update plus the \
-             reversible restore (snapshot current before write-back) must land whole",
-        ))
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        req: RestoreAiAgentRevisionRequest,
+    ) -> Result<Empty, StatusError> {
+        if req.id == 0 {
+            return Err(status_error("BAD_REQUEST", "id is required"));
+        }
+        let payload = operator_of(&ctx)?;
+        let revisions =
+            crate::data::repos::AiAgentRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let revision = revisions
+            .find_scoped(req.id)
+            .await?
+            .ok_or_else(|| not_found("ai agent revision"))?;
+        let graph = revision.graph.clone().unwrap_or_default();
+        // 历史快照先过现在的校验规则：非法即拒，不写任何痕迹
+        let parsed = super::agent_graph::parse_agent_graph(&graph)
+            .map_err(|e| status_error("BAD_REQUEST", e))?;
+        super::agent_graph::validate_agent_graph(&parsed)
+            .map_err(|e| status_error("BAD_REQUEST", e))?;
+        let app_id = revision.app_id.unwrap_or(0);
+        if app_id == 0 {
+            return Err(not_found("ai agent app"));
+        }
+        let app = self.app_scoped(&ctx, app_id).await?;
+
+        // 恢复前留底当前 graph（失败不阻断恢复，留痕可观测）
+        if let Err(serr) = revisions
+            .create(
+                app.tenant_id,
+                app_id,
+                app.graph.clone(),
+                "RESTORE",
+                payload.user_id,
+            )
+            .await
+        {
+            eprintln!("[ai-revision] snapshot before restore agent app {app_id} failed: {serr:?}");
+        }
+
+        // 写回走普通更新（无 CAS——恢复是明确的人为决定，以快照为准整份覆盖）
+        let mut a: crate::data::sys_ai_agent_apps::ActiveModel = app.into();
+        a.graph = Set(Some(graph));
+        crate::stamp_update!(a, payload.user_id);
+        a.updated_at = Set(Some(crate::data::now()));
+        a.update(&self.state.db).await.map_err(db_err)?;
+        Ok(Empty {})
     }
 }

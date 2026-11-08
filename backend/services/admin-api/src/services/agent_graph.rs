@@ -20,7 +20,7 @@ const AGENT_MAX_STEPS: usize = 50;
 fn is_known_node_type(t: &str) -> bool {
     matches!(
         t,
-        "start" | "knowledge" | "llm" | "condition" | "end" | "http"
+        "start" | "knowledge" | "llm" | "condition" | "end" | "http" | "script"
     )
 }
 
@@ -136,6 +136,7 @@ pub fn validate_agent_graph(g: &AgentGraph) -> Result<(), String> {
             "start" => start_count += 1,
             "end" => end_count += 1,
             "http" => validate_agent_http_node(n)?,
+            "script" => validate_agent_script_node(n)?,
             _ => {}
         }
     }
@@ -492,12 +493,25 @@ pub type SearchKnowledgeFn<'a> =
 pub type RunLlmFn<'a> =
     Box<dyn Fn(&AgentGraphNode, &str, &str) -> Result<(String, AgentUsage), String> + Send + 'a>;
 
+/// script 节点外呼：节点定义 + 全图上下文 → 脚本产出（键值字符串命名空间）。
+pub type RunScriptFn<'a> = Box<
+    dyn Fn(
+            &AgentGraphNode,
+            &BTreeMap<String, BTreeMap<String, String>>,
+        ) -> Result<BTreeMap<String, String>, String>
+        + Send
+        + 'a,
+>;
+
 /// 引擎的外呼依赖（服务装配真实现；测试注入桩）。
 pub struct Deps<'a> {
     /// 执行知识检索节点，返回拼好的上下文与命中条数。
     pub search_knowledge: SearchKnowledgeFn<'a>,
     /// 执行 LLM 节点，返回最终答案与用量。
     pub run_llm: RunLlmFn<'a>,
+    /// 执行 script 节点：一次性隔离沙箱跑完返回产出。nil（None）＝script
+    /// 节点不可用并在执行处报错（上游 scriptRuntime 未装配同语义）。
+    pub run_script: Option<RunScriptFn<'a>>,
 }
 
 /// 从 start 走图到 end，返回产出、轨迹与累计用量；任一节点执行失败即返回
@@ -617,6 +631,34 @@ pub fn execute_agent_graph(
                     ]),
                 );
                 summary = format!("status={status}, {} bytes", body.len());
+                branch_taken = "";
+            }
+            "script" => {
+                // source 是代码、不是模板——代码里的 {{...}} 是脚本自身语法，
+                // 绝不能过 render_agent_template（与 http 节点"字段值过模板"的关键差异）。
+                let Some(run_script) = &deps.run_script else {
+                    return Err(step_error(
+                        node,
+                        &format!(
+                            "script node {:?} unavailable: script runtime not wired",
+                            node.id
+                        ),
+                    ));
+                };
+                let outs = run_script(node, &vars).map_err(|e| step_error(node, &e))?;
+                let mut keys: Vec<&String> = outs.keys().collect();
+                keys.sort();
+                summary = truncate_runes(
+                    &format!(
+                        "keys={}",
+                        keys.iter()
+                            .map(|s| s.as_str())
+                            .collect::<Vec<_>>()
+                            .join(",")
+                    ),
+                    120,
+                );
+                vars.insert(node.id.clone(), outs);
                 branch_taken = "";
             }
             "condition" => {
@@ -971,6 +1013,7 @@ mod tests {
         validate_agent_graph(&g).unwrap();
         let deps = Deps {
             search_knowledge: Box::new(|_, _| Ok((String::new(), 0))),
+            run_script: None,
             run_llm: Box::new(|_, _sys, user| {
                 assert_eq!(user, "问：你好");
                 Ok((
@@ -1018,6 +1061,7 @@ mod tests {
         };
         let deps = Deps {
             search_knowledge: Box::new(|_, _| Ok((String::new(), 0))),
+            run_script: None,
             run_llm: Box::new(|_, _, _| Ok(("通过".into(), AgentUsage::default()))),
         };
         // llm 输出"通过" → n1.output == "通过" 为真 → ok 支
@@ -1047,6 +1091,7 @@ mod tests {
         }))
         .unwrap();
         let deps = Deps {
+            run_script: None,
             search_knowledge: Box::new(|node, query| {
                 // data_u32 的字符串分支（"7"）与模板渲染（{{s.q}}→input 注入）
                 // 在 good 图验证；baseId 缺失按真实现报错（bad 图走此分支）。
@@ -1189,5 +1234,168 @@ mod tests {
             cut -= 1;
         }
         assert_eq!(cut % 3, 0, "汉 是三字节字符，边界必落在 3 的倍数上");
+    }
+}
+
+// —— script 节点（docs/ai_agent_orchestration.md §2.1 节点集扩展）——
+// 把全图上下文交给一次性隔离沙箱（脚本引擎，与脚本系统试运行同款依赖面）
+// 执行，脚本返回的表合并写回节点上下文。
+//
+// data 键：language("lua"|"javascript")、source(脚本源码)。
+// source 是代码、不是模板——代码里的 {{...}} 是脚本自身语法，
+// 绝不能过 render_agent_template（与 http 节点"字段值过模板"的关键差异）。
+// 超时沿用脚本引擎 VM 缺省 5s，节点不带 timeout 字段（TestRun 形态定死）。
+
+/// 脚本源码上限：script 节点语义是"小段数据加工"，不是承载完整应用的载体；
+/// 超限请在脚本系统建正式脚本（平台管理员面）。
+const AGENT_SCRIPT_MAX_SOURCE: usize = 32 << 10;
+
+/// 语言白名单：与脚本系统的两种引擎对齐。
+fn agent_script_allowed_language(lang: &str) -> bool {
+    matches!(lang, "lua" | "javascript")
+}
+
+/// Run 前静态校验（source 是代码，只校验字面结构）。
+fn validate_agent_script_node(n: &AgentGraphNode) -> Result<(), String> {
+    let lang = data_string(&n.data, "language").trim().to_ascii_lowercase();
+    if !agent_script_allowed_language(&lang) {
+        return Err(format!(
+            "script node {:?} has unsupported language {lang:?} (lua|javascript)",
+            n.id
+        ));
+    }
+    let source = data_string(&n.data, "source");
+    if source.trim().is_empty() {
+        return Err(format!("script node {:?} has empty source", n.id));
+    }
+    if source.len() > AGENT_SCRIPT_MAX_SOURCE {
+        return Err(format!(
+            "script node {:?} source exceeds {AGENT_SCRIPT_MAX_SOURCE} bytes",
+            n.id
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod script_node_tests {
+    use super::*;
+
+    #[test]
+    fn script_node_static_validation() {
+        let node = |data: serde_json::Value| AgentGraphNode {
+            id: "script_1".into(),
+            node_type: "script".into(),
+            data,
+        };
+        // 语言白名单外拒绝
+        let err = validate_agent_script_node(&node(serde_json::json!({
+            "language": "python", "source": "print(1)"
+        })))
+        .unwrap_err();
+        assert!(err.contains("unsupported language"), "{err}");
+        // 空 source 拒绝
+        let err =
+            validate_agent_script_node(&node(serde_json::json!({"language": "lua"}))).unwrap_err();
+        assert!(err.contains("empty source"), "{err}");
+        // 超 32KB 拒绝
+        let err = validate_agent_script_node(&node(serde_json::json!({
+            "language": "lua", "source": "x".repeat(33 << 10)
+        })))
+        .unwrap_err();
+        assert!(err.contains("exceeds"), "{err}");
+        // 大小写归一放行 + 缺 language 视为空 → 拒
+        validate_agent_script_node(&node(serde_json::json!({
+            "language": "LUA", "source": "return {a=1}"
+        })))
+        .unwrap();
+        assert!(validate_agent_script_node(&node(serde_json::json!({"source": "x"}))).is_err());
+    }
+
+    #[test]
+    fn script_node_registered_in_graph_validation() {
+        // 含 script 节点的图能过静态校验
+        let g = AgentGraph {
+            nodes: vec![
+                AgentGraphNode {
+                    id: "start_1".into(),
+                    node_type: "start".into(),
+                    data: serde_json::json!({}),
+                },
+                AgentGraphNode {
+                    id: "script_1".into(),
+                    node_type: "script".into(),
+                    data: serde_json::json!({"language": "lua", "source": "return {a=1}"}),
+                },
+                AgentGraphNode {
+                    id: "end_1".into(),
+                    node_type: "end".into(),
+                    data: serde_json::json!({"output": "{{script_1.a}}"}),
+                },
+            ],
+            edges: vec![
+                AgentGraphEdge {
+                    id: "e1".into(),
+                    source: "start_1".into(),
+                    target: "script_1".into(),
+                    branch: String::new(),
+                },
+                AgentGraphEdge {
+                    id: "e2".into(),
+                    source: "script_1".into(),
+                    target: "end_1".into(),
+                    branch: String::new(),
+                },
+            ],
+        };
+        validate_agent_graph(&g).expect("graph with script node should pass static validation");
+    }
+
+    #[test]
+    fn script_node_unwired_runtime_errors_clearly() {
+        // run_script 未装配（None）：执行到 script 节点报"runtime not wired"
+        // 而不是静默跳过——图里摆了 script 节点却静默不执行，
+        // 用户只会看到"输出是空的"（上游 nil-runtime 同语义）。
+        let g = AgentGraph {
+            nodes: vec![
+                AgentGraphNode {
+                    id: "start_1".into(),
+                    node_type: "start".into(),
+                    data: serde_json::json!({}),
+                },
+                AgentGraphNode {
+                    id: "script_1".into(),
+                    node_type: "script".into(),
+                    data: serde_json::json!({"language": "lua", "source": "return {a=1}"}),
+                },
+                AgentGraphNode {
+                    id: "end_1".into(),
+                    node_type: "end".into(),
+                    data: serde_json::json!({"output": "{{script_1.a}}"}),
+                },
+            ],
+            edges: vec![
+                AgentGraphEdge {
+                    id: "e1".into(),
+                    source: "start_1".into(),
+                    target: "script_1".into(),
+                    branch: String::new(),
+                },
+                AgentGraphEdge {
+                    id: "e2".into(),
+                    source: "script_1".into(),
+                    target: "end_1".into(),
+                    branch: String::new(),
+                },
+            ],
+        };
+        let input: BTreeMap<String, String> = BTreeMap::new();
+        let deps = Deps {
+            search_knowledge: Box::new(|_, _| Ok((String::new(), 0))),
+            run_llm: Box::new(|_, _, _| Ok((String::new(), AgentUsage::default()))),
+            run_script: None,
+        };
+        let err = execute_agent_graph(&g, &input, &deps).unwrap_err();
+        assert!(err.contains("script runtime not wired"), "{err}");
     }
 }

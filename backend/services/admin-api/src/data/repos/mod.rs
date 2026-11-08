@@ -185,7 +185,9 @@ mod tenant;
 mod user;
 
 pub use access_key::AccessKeyRepo;
-pub use ai::{AiConversationRepo, AiMessageRepo, AiProviderRepo, AiUsageLogRepo};
+pub use ai::{
+    AiAgentRevisionRepo, AiConversationRepo, AiMessageRepo, AiProviderRepo, AiUsageLogRepo,
+};
 pub use api::ApiRepo;
 pub use audit::AuditRepo;
 pub use bi_dashboard::BiDashboardRepo;

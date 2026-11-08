@@ -281,3 +281,34 @@ pub mod sys_ai_usage_logs {
 
     impl ActiveModelBehavior for ActiveModel {}
 }
+
+/// AI Agent 应用版本快照表：每次成功更新把**更新前**的 graph 留一行（SAVE），
+/// 恢复 = 把快照写回主表（恢复动作本身先快照当前版本，可逆）。只增不改不删
+/// （表级无更新入口），随主表级联删除。不带 version 列：agent 主表无乐观锁
+/// 版本号，快照按 created_at 排序即可。
+pub mod sys_ai_agent_revisions {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "sys_ai_agent_revisions")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: u32,
+        pub tenant_id: Option<u32>,
+        /// 所属应用 ID。
+        pub app_id: Option<u32>,
+        /// 更新前的图 DSL 快照。
+        pub graph: Option<String>,
+        /// 快照来源（SAVE=常规更新触发 RESTORE=恢复前留底）。
+        #[sea_orm(default_value = "SAVE")]
+        pub source: Option<String>,
+        pub created_by: Option<u32>,
+        pub created_at: Option<chrono::NaiveDateTime>,
+        pub updated_at: Option<chrono::NaiveDateTime>,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
+}

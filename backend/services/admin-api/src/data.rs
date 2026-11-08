@@ -16,8 +16,9 @@ mod rbac;
 mod scope;
 
 pub use ai::{
-    sys_ai_agent_apps, sys_ai_agent_runs, sys_ai_chunks, sys_ai_conversations, sys_ai_docs,
-    sys_ai_knowledge_bases, sys_ai_messages, sys_ai_providers, sys_ai_usage_logs,
+    sys_ai_agent_apps, sys_ai_agent_revisions, sys_ai_agent_runs, sys_ai_chunks,
+    sys_ai_conversations, sys_ai_docs, sys_ai_knowledge_bases, sys_ai_messages, sys_ai_providers,
+    sys_ai_usage_logs,
 };
 pub use audit::{
     sys_api_audit_logs, sys_data_access_audit_logs, sys_login_audit_logs, sys_operation_audit_logs,
