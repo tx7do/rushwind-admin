@@ -14,8 +14,9 @@ use crate::state::{
 use pbjson_types::Empty;
 use proto::proto::ai::service::v1::{
     AiAgentApp, AiAgentRun, CreateAiAgentAppRequest, DeleteAiAgentAppRequest, GetAiAgentAppRequest,
-    GetAiAgentRunRequest, ListAiAgentAppsResponse, ListAiAgentRunsResponse, RunAiAgentAppRequest,
-    UpdateAiAgentAppRequest,
+    GetAiAgentRunRequest, ListAiAgentAppsResponse, ListAiAgentRevisionsRequest,
+    ListAiAgentRevisionsResponse, ListAiAgentRunsResponse, RestoreAiAgentRevisionRequest,
+    RunAiAgentAppRequest, UpdateAiAgentAppRequest,
 };
 use proto::proto::pagination::PagingRequest;
 
@@ -464,5 +465,35 @@ impl proto::gen::services::AiAgentServiceHandlers for AiAgentService {
     ) -> Result<AiAgentRun, StatusError> {
         let id = req.id;
         Ok(run_proto(self.run_scoped(&ctx, id).await?))
+    }
+
+    /// 版本历史：每次成功更新把更新前的 graph 留一行（新快照在前）。
+    /// 干净 NOT_IMPLEMENTED 声明边界——快照表 + 可逆恢复随独立里程碑移植
+    /// （镜像 BI 仪表盘版本历史的形状）；proto 生成面已挂载，调用得到干净
+    /// 的 501 而非 404。
+    async fn list_revisions(
+        &self,
+        _ctx: rushwind_http_binding::ctx::RequestContext,
+        _req: ListAiAgentRevisionsRequest,
+    ) -> Result<ListAiAgentRevisionsResponse, StatusError> {
+        Err(status_error(
+            "NOT_IMPLEMENTED",
+            "ai agent revisions ride their own milestone: snapshot-on-update plus the \
+             reversible restore (snapshot current before write-back) must land whole",
+        ))
+    }
+
+    /// 恢复版本：快照 graph 写回主表、恢复前先快照当前版本（可逆）。
+    /// 与 list_revisions 同一里程碑的声明边界。
+    async fn restore_revision(
+        &self,
+        _ctx: rushwind_http_binding::ctx::RequestContext,
+        _req: RestoreAiAgentRevisionRequest,
+    ) -> Result<pbjson_types::Empty, StatusError> {
+        Err(status_error(
+            "NOT_IMPLEMENTED",
+            "ai agent revisions ride their own milestone: snapshot-on-update plus the \
+             reversible restore (snapshot current before write-back) must land whole",
+        ))
     }
 }
