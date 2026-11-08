@@ -1172,6 +1172,37 @@ mod tests {
     }
 
     #[test]
+    fn default_payload_omits_ids_unless_carried() {
+        let mut req = SendRequest {
+            target: String::new(),
+            title: "t".into(),
+            content: "c".into(),
+            channel_id: 1,
+            event_type: "EVENT".into(),
+            params: Default::default(),
+        };
+        let v = default_payload_json(&req);
+        assert!(v.get("recipient_user_id").is_none(), "无 Params 不出 id 键");
+        assert!(v.get("related_id").is_none());
+        req.params.insert("related_id".into(), "7".into());
+        let v = default_payload_json(&req);
+        assert_eq!(v["related_id"], 7);
+        assert!(v.get("recipient_user_id").is_none()); // 只带 related 时 recipient 仍缺省
+    }
+
+    #[test]
+    fn template_vars_escape_and_unknown_placeholder_survives() {
+        let mut vars = BTreeMap::new();
+        vars.insert("title".into(), json_escape("He said \"hi\" & left"));
+        // JSON 字符串内容转义：引号与 & 落成 \" 与原文（serde 不 HTML 转义）
+        assert_eq!(vars["title"], "He said \\\"hi\\\" & left");
+        // 未知占位符原样保留（不吞不报——模板作者自己看得见）
+        let out = render_template(r#"{"x":"{{nope}}","t":"{{title}}"}"#, &vars);
+        assert!(out.contains("{{nope}}"));
+        assert!(out.contains("He said"));
+    }
+
+    #[test]
     fn phone_normalization_strips_and_validates() {
         assert_eq!(
             normalize_phone("+86 138-0013-8000").unwrap().0,

@@ -169,6 +169,24 @@ mod tests {
     use super::*;
 
     #[test]
+    fn scheme_detection_mirrors_go_url_parse() {
+        // 字母开头 + [A-Za-z0-9+.-]* 才成 scheme；其余是相对形态
+        assert_eq!(detect_scheme("https://a").as_deref(), Some("https"));
+        assert_eq!(
+            detect_scheme("javascript:alert(1)").as_deref(),
+            Some("javascript")
+        );
+        assert_eq!(detect_scheme("DATA:text/html,x").as_deref(), Some("data"));
+        assert_eq!(detect_scheme("a+b-c.d:x").as_deref(), Some("a+b-c.d"));
+        assert!(detect_scheme("/path/x").is_none());
+        assert!(detect_scheme("pic.png").is_none());
+        assert!(detect_scheme("#frag").is_none());
+        assert!(detect_scheme("//host/x").is_none());
+        assert!(detect_scheme("1abc:x").is_none()); // 数字开头不是 scheme
+        assert!(detect_scheme("").is_none());
+    }
+
+    #[test]
     fn strip_elements_and_event_handlers() {
         let out = sanitize_print_html(
             r#"<html><head><script>alert(1)</script><meta charset="utf-8"></head>

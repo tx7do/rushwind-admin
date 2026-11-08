@@ -110,6 +110,26 @@ mod tests {
     }
 
     #[test]
+    fn ip_boundary_edges() {
+        // CGNAT 段界：100.63 不拦、100.64 起拦、100.127 末拦、100.128 出段
+        assert!(!is_blocked_ip(&"100.63.255.255".parse().unwrap()));
+        assert!(is_blocked_ip(&"100.64.0.0".parse().unwrap()));
+        assert!(is_blocked_ip(&"100.127.255.255".parse().unwrap()));
+        assert!(!is_blocked_ip(&"100.128.0.0".parse().unwrap()));
+        // v6 链路本地 fe80::/10：fe80 与 febf 均拦，fec0 出段
+        assert!(is_blocked_ip(&"fe80::1".parse().unwrap()));
+        assert!(is_blocked_ip(&"febf::1".parse().unwrap()));
+        assert!(!is_blocked_ip(&"fec0::1".parse().unwrap()));
+        // v6 回环/未指定/组播
+        assert!(is_blocked_ip(&"::1".parse().unwrap()));
+        assert!(is_blocked_ip(&"::".parse().unwrap()));
+        assert!(is_blocked_ip(&"ff02::1".parse().unwrap()));
+        // 公网不拦
+        assert!(!is_blocked_ip(&"8.8.8.8".parse().unwrap()));
+        assert!(!is_blocked_ip(&"2606:4700::1".parse().unwrap()));
+    }
+
+    #[test]
     fn outbound_url_rules_fail_closed() {
         // 回环 / 元数据 / 私网 / scheme / 内网后缀
         for raw in [

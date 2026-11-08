@@ -715,3 +715,79 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
         Ok(Empty {})
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn menu_code_derivation_covers_all_menu_types() {
+        // 路径段：跳过首段（locale 前缀）与参数段（:id），资源单数化，连接符 :
+        assert_eq!(menu_code("/sys/users", "用户", "MENU"), "user:view");
+        assert_eq!(menu_code("/sys/users/:id", "用户", "MENU"), "user:view");
+        // 朴素去复数会把 "sys" 咬成 "sy"（尾 s 剥除无例外表）——钉死真行为
+        assert_eq!(menu_code("/app/sys/users", "用户", "MENU"), "sy:user:view");
+        // CATALOG → dir；LINK → jump；EMBEDDED → view
+        assert_eq!(menu_code("/app/system", "系统", "CATALOG"), "system:dir");
+        assert_eq!(
+            menu_code("/app/system/links", "外链", "LINK"),
+            "system:link:jump"
+        );
+        assert_eq!(
+            menu_code("/app/system/embeds", "嵌入", "EMBEDDED"),
+            "system:embed:view"
+        );
+        // 复数规则：ies → y（categories → category），尾 s 剥除
+        assert_eq!(
+            menu_code("/app/system/categories", "分类", "MENU"),
+            "system:category:view"
+        );
+        // 未知类型按 view 兜底
+        assert_eq!(menu_code("/app/system/x", "x", "GARBAGE"), "system:x:view");
+    }
+
+    #[test]
+    fn button_action_keyword_rule() {
+        // BUTTON 菜单按标题关键词取动作（中英两路）
+        assert_eq!(
+            menu_code("/app/system/users", "新增用户", "BUTTON"),
+            "system:user:create"
+        );
+        assert_eq!(
+            menu_code("/app/system/users", "编辑用户", "BUTTON"),
+            "system:user:edit"
+        );
+        assert_eq!(
+            menu_code("/app/system/users", "删除用户", "BUTTON"),
+            "system:user:delete"
+        );
+        assert_eq!(
+            menu_code("/app/system/users", "Add User", "BUTTON"),
+            "system:user:create"
+        );
+        assert_eq!(
+            menu_code("/app/system/users", "导出", "BUTTON"),
+            "system:user:export"
+        );
+        // 无关键词命中 → act（fallback；上游 fallback 词即 act）
+        assert_eq!(
+            menu_code("/app/system/users", "奇怪的按钮", "BUTTON"),
+            "system:user:act"
+        );
+    }
+
+    #[test]
+    fn api_code_maps_method_to_action_and_strips_params() {
+        // /admin/v1 前缀剥除、参数段剥除、资源单数化
+        assert_eq!(api_code("GET", "/admin/v1/users"), "user:view");
+        assert_eq!(api_code("POST", "/admin/v1/users"), "user:create");
+        assert_eq!(api_code("PUT", "/admin/v1/users/{id}"), "user:edit");
+        assert_eq!(api_code("DELETE", "/admin/v1/users/{id}"), "user:delete");
+        // /list 后缀的 GET 也是 view（不产生 list:list）
+        assert_eq!(api_code("GET", "/admin/v1/users/list"), "user:view");
+        // 复数资源单数化
+        assert_eq!(api_code("GET", "/admin/v1/categories"), "category:view");
+        // 空资源 → 纯动作
+        assert_eq!(api_code("GET", "/admin/v1/"), "view");
+    }
+}

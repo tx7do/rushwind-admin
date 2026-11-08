@@ -475,3 +475,50 @@ mod tests {
         assert_eq!(UserTokenPayload::from_claims(&c).unwrap().tenant_id, 0);
     }
 }
+
+#[cfg(test)]
+mod claims_roundtrip {
+    use super::*;
+
+    fn sample() -> UserTokenPayload {
+        UserTokenPayload {
+            username: "admin".into(),
+            user_id: 1,
+            tenant_id: 0,
+            org_unit_id: Some(9),
+            roles: vec!["platform:admin".into()],
+            client_id: Some("web".into()),
+            device_id: Some("pc-1".into()),
+            data_scope: Some("ALL".into()),
+            data_scopes: vec!["ALL".into()],
+            data_scope_unit_ids: Some("1,2,3".into()),
+            hidden_fields: vec!["salary".into()],
+            is_platform_admin: Some(true),
+            is_tenant_admin: Some(false),
+            jti: "jti-1".into(),
+        }
+    }
+
+    #[test]
+    fn access_and_refresh_claims_round_trip() {
+        let payload = sample();
+        let access = payload.to_access_claims(1_800_000_000);
+        let back = UserTokenPayload::from_claims(&access).expect("access claims reparse");
+        assert_eq!(back.username, "admin");
+        assert_eq!(back.user_id, 1);
+        assert_eq!(back.tenant_id, 0);
+        assert_eq!(back.roles, vec!["platform:admin".to_string()]);
+        assert_eq!(back.data_scope.as_deref(), Some("ALL"));
+        assert_eq!(back.hidden_fields, vec!["salary".to_string()]);
+        assert_eq!(back.is_platform_admin, Some(true));
+        assert_eq!(back.jti, "jti-1");
+
+        // 刷新载荷只带 uid/jti/iat/exp（精简形态，from_claims 需 sub 不适用）
+        let refresh = payload.to_refresh_claims(1_800_086_400);
+        assert_eq!(refresh["uid"], 1);
+        assert_eq!(refresh["jti"], "jti-1");
+        assert_eq!(refresh["exp"], 1_800_086_400);
+        assert!(refresh.get("iat").is_some());
+        assert!(refresh.get("sub").is_none());
+    }
+}

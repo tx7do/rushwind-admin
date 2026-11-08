@@ -37,7 +37,11 @@ fn tag_to_module(tag: &str) -> &'static str {
         | "OnlineSessionService" => "SYSTEM",
         "FileService" | "FileTransferService" => "FILE",
         "TaskService" => "TASK",
-        "TenantService" | "PlanService" | "PlanQuotaService" | "PlanModuleService" => "TENANT",
+        "TenantService"
+        | "PlanService"
+        | "PlanQuotaService"
+        | "PlanModuleService"
+        | "MyTenantUsageService" => "TENANT",
         "ApiAuditLogService"
         | "LoginAuditLogService"
         | "OperationAuditLogService"
@@ -471,4 +475,82 @@ pub(crate) fn derived_api_rows() -> Result<Vec<DerivedApiRow>, String> {
     }
     rows.sort_by_key(|a| (a.0.clone(), a.1.clone()));
     Ok(rows)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// tag→模块映射表全量钉死（上游 TestServiceTagToBusinessModuleExactMapping
+    /// 同教义）：这张表驱动 sys_apis.business_module，是套餐模块白名单的判定
+    /// 来源——任何条目漂移都会让对应服务的 API 在租户侧被误放行或误拒绝。
+    #[test]
+    fn tag_to_module_table_pinned_whole() {
+        let expected: Vec<(&str, &str)> = vec![
+            ("AdminPortalService", "DASHBOARD"),
+            ("DashboardService", "DASHBOARD"),
+            ("AuthenticationService", "DASHBOARD"),
+            ("UserService", "OPM"),
+            ("OrgUnitService", "OPM"),
+            ("PositionService", "OPM"),
+            ("UserProfileService", "OPM"),
+            ("RoleService", "OPM"),
+            ("MenuService", "PERMISSION"),
+            ("ApiService", "PERMISSION"),
+            ("PermissionService", "PERMISSION"),
+            ("PermissionGroupService", "PERMISSION"),
+            ("DictTypeService", "DICT"),
+            ("DictEntryService", "DICT"),
+            ("LanguageService", "SYSTEM"),
+            ("FileService", "FILE"),
+            ("FileTransferService", "FILE"),
+            ("TaskService", "TASK"),
+            ("TaskMonitorService", "TASK"),
+            ("LoginPolicyService", "SYSTEM"),
+            ("ConfigService", "SYSTEM"),
+            ("AccessKeyService", "SYSTEM"),
+            ("AiProviderService", "AI"),
+            ("AiConversationService", "AI"),
+            ("AiMessageService", "AI"),
+            ("AiChatService", "AI"),
+            ("AiUsageLogService", "AI"),
+            ("AiKnowledgeBaseService", "AI"),
+            ("AiQueryService", "AI"),
+            ("AiAgentService", "AI"),
+            ("AiContentService", "AI"),
+            ("TenantService", "TENANT"),
+            ("PlanService", "TENANT"),
+            ("PlanQuotaService", "TENANT"),
+            ("PlanModuleService", "TENANT"),
+            ("MyTenantUsageService", "TENANT"),
+            ("ApiAuditLogService", "LOG"),
+            ("LoginAuditLogService", "LOG"),
+            ("OperationAuditLogService", "LOG"),
+            ("DataAccessAuditLogService", "LOG"),
+            ("PermissionAuditLogService", "LOG"),
+            ("PolicyEvaluationLogService", "LOG"),
+            ("RedisCacheMonitorService", "LOG"),
+            ("ServerMonitorService", "SYSTEM"),
+            ("MonitorAlertService", "SYSTEM"),
+            ("NotificationChannelService", "SYSTEM"),
+            ("NotificationService", "SYSTEM"),
+            ("NotificationRuleService", "SYSTEM"),
+            ("NotificationTemplateService", "SYSTEM"),
+            ("OnlineSessionService", "SYSTEM"),
+            ("InternalMessageService", "INTERNAL_MESSAGE"),
+            ("InternalMessageCategoryService", "INTERNAL_MESSAGE"),
+            ("InternalMessageRecipientService", "INTERNAL_MESSAGE"),
+            ("NotificationPreferenceService", "INTERNAL_MESSAGE"),
+            ("ScriptService", "SYSTEM"),
+            ("ScriptLogService", "SYSTEM"),
+            ("BiDashboardService", "SYSTEM"),
+            ("PrintTemplateService", "SYSTEM"),
+            ("MfaService", "SYSTEM"),
+        ];
+        for (tag, module) in &expected {
+            assert_eq!(tag_to_module(tag), *module, "{tag}");
+        }
+        // 未登记 tag 落 SYSTEM 兜底（租户白名单最宽域，不误拒）
+        assert_eq!(tag_to_module("UnknownService"), "SYSTEM");
+    }
 }

@@ -433,6 +433,33 @@ mod tests {
         }
     }
 
+    #[test]
+    fn base32_roundtrip_otp_alphabet() {
+        use super::{base32_decode, base32_encode};
+        // RFC 4648 无填充字母表：任意字节串编码→解码恒等
+        for sample in [
+            b"hello world".to_vec(),
+            vec![0u8, 1, 2, 250, 251, 255],
+            b"K".to_vec(),
+            b"KK".to_vec(),
+            b"KKK".to_vec(),
+            b"KKKK".to_vec(),
+            b"KKKKK".to_vec(),
+        ] {
+            let encoded = base32_encode(&sample);
+            let decoded = base32_decode(&encoded).unwrap();
+            assert_eq!(decoded, sample, "{encoded}");
+            // 全大写字母表 + padding 兼容解码
+            assert!(encoded
+                .bytes()
+                .all(|b| b.is_ascii_uppercase() || (b'2'..=b'7').contains(&b)));
+        }
+        // 小写输入解码容错（otpauth 密钥常以小写出现）
+        let upper = base32_encode(b"secret!");
+        assert_eq!(base32_decode(&upper.to_lowercase()).unwrap(), b"secret!");
+        assert!(base32_decode("!!!!").is_none());
+    }
+
     /// The dev pair is in use when env is unset — the startup warning
     /// predicate — and a `\\n`-escaped single-line PEM parses to the
     /// same key (the env override form).
