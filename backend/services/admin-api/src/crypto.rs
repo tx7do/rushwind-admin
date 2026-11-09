@@ -259,77 +259,21 @@ pub fn decrypt_if_needed(stored: &str) -> Result<String, String> {
     String::from_utf8(plain).map_err(|_| "secret utf8".to_string())
 }
 
-/// TOTP verify (RFC 6238, SHA-1, 6 digits, 30 s step, ±1 window) — the
-/// `ValidateCustom`-shaped validation parameters.
+/// TOTP verify (RFC 6238, SHA-1, 6 digits, 30 s step, ±1 window) —
+/// delegated to `rust_utils::otp` (the RFC 6238 appendix-B vectors live there).
 pub fn totp_verify(secret_base32: &str, code: &str) -> bool {
-    if code.len() != 6 || !code.bytes().all(|b| b.is_ascii_digit()) {
-        return false;
-    }
-    let secret = match base32_decode(secret_base32) {
-        Some(s) => s,
-        None => return false,
-    };
     let now = chrono::Utc::now().timestamp();
-    for drift in [-1i64, 0, 1] {
-        let counter = (now / 30 + drift) as u64;
-        if totp_at(&secret, counter) == code {
-            return true;
-        }
-    }
-    false
+    rust_utils::otp::totp_verify(secret_base32, code, now)
 }
 
-fn totp_at(secret: &[u8], counter: u64) -> String {
-    use hmac::Mac;
-    let mut mac = hmac::Hmac::<Sha1>::new_from_slice(secret).expect("hmac sha1");
-    mac.update(&counter.to_be_bytes());
-    let digest = mac.finalize().into_bytes();
-    let offset = (digest[digest.len() - 1] & 0x0f) as usize;
-    let binary = ((digest[offset] as u32 & 0x7f) << 24)
-        | ((digest[offset + 1] as u32) << 16)
-        | ((digest[offset + 2] as u32) << 8)
-        | digest[offset + 3] as u32;
-    format!("{:06}", binary % 1_000_000)
-}
-
-use sha1::Sha1;
-
-/// RFC 4648 base32 (no padding), the otpauth secret alphabet.
+/// RFC 4648 base32 (no padding), the otpauth secret alphabet —
+/// delegated to `rust_utils::otp`.
 pub fn base32_decode(input: &str) -> Option<Vec<u8>> {
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    let mut bits = 0u32;
-    let mut acc = 0u32;
-    let mut out = Vec::new();
-    for ch in input.trim_end_matches('=').bytes() {
-        let upper = ch.to_ascii_uppercase();
-        let value = ALPHABET.iter().position(|&a| a == upper)? as u32;
-        acc = (acc << 5) | value;
-        bits += 5;
-        if bits >= 8 {
-            bits -= 8;
-            out.push((acc >> bits) as u8);
-        }
-    }
-    Some(out)
+    rust_utils::otp::base32_decode(input)
 }
 
 pub fn base32_encode(data: &[u8]) -> String {
-    const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-    let mut out = String::new();
-    let mut bits = 0u32;
-    let mut acc = 0u32;
-    for &byte in data {
-        acc = (acc << 8) | byte as u32;
-        bits += 8;
-        while bits >= 5 {
-            bits -= 5;
-            out.push(ALPHABET[(acc >> bits) as usize & 31] as char);
-        }
-    }
-    if bits > 0 {
-        out.push(ALPHABET[(acc << (5 - bits)) as usize & 31] as char);
-    }
-    out
+    rust_utils::otp::base32_encode(data)
 }
 
 #[cfg(test)]

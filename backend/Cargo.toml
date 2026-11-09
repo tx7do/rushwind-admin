@@ -29,7 +29,12 @@ prost-reflect = { version = "0.16", features = ["serde"] }
 # 生成器产物中的服务 trait 用 async-trait 保证 dyn 兼容。
 async-trait = "0.1"
 # 管理服务直用的工具链：Django 风格 query 解析。
-rust-utils = { git = "https://github.com/tx7do/rust-utils", rev = "8c24baf4e6ab419621a299a5f18e349562382fca", features = ["json"] }
+rust-utils = { git = "https://github.com/tx7do/rust-utils", rev = "5023c3f9c4bdb37f3d44eafdb1d538e48917c5ba", features = [
+    "json",
+    "otp",
+    "crypto",
+    "printrender",
+] }
 # captcha 图像渲染。
 captcha = "0.0.9"
 sha1 = "0.10"

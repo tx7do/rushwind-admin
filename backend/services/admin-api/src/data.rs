@@ -48,31 +48,10 @@ pub use rbac::{
 pub use scope::Viewer;
 
 /// 子树收集（上游 collectTreeIDs 同语义）：内存 parent→children 映射 +
-/// visited 防护——存量环脏数据正常收敛不打转，代替递归 CTE 的环挂死风险。
-/// 返回 root 及其全部后代（含自身）。rows 形参传 (id, parent_id) 对。
+/// visited 防护——存量环脏数据正常收敛不打转。委托 `rust_utils::sliceutil`
+/// （环收敛 doctest 落在库侧），本仓保留转发以稳定数十个调用点。
 pub fn collect_subtree_ids(rows: &[(u32, Option<u32>)], root: u32) -> Vec<u32> {
-    let mut children_of: std::collections::HashMap<u32, Vec<u32>> =
-        std::collections::HashMap::new();
-    for &(id, parent) in rows {
-        if let Some(p) = parent {
-            children_of.entry(p).or_default().push(id);
-        }
-    }
-    let mut ids = Vec::with_capacity(16);
-    let mut visited = std::collections::HashSet::new();
-    visited.insert(root);
-    let mut stack = vec![root];
-    while let Some(cur) = stack.pop() {
-        ids.push(cur);
-        if let Some(chs) = children_of.get(&cur) {
-            for &ch in chs {
-                if visited.insert(ch) {
-                    stack.push(ch);
-                }
-            }
-        }
-    }
-    ids
+    rust_utils::sliceutil::collect_subtree_ids(rows, root)
 }
 
 pub mod repos;
