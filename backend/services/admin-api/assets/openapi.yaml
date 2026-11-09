@@ -224,6 +224,1181 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/CreateAccessKeyResponse'
+    /admin/v1/ai/agent-runs:
+        get:
+            tags:
+                - AiAgentService
+            description: 查询运行台账（appId eq 过滤走 PagingRequest；独立集合路径，避免与 /{id} 参数路由抢配）
+            operationId: AiAgentService_ListRuns
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiAgentRunsResponse'
+    /admin/v1/ai/agent-runs/{id}:
+        get:
+            tags:
+                - AiAgentService
+            description: 查询运行详情（含 trace JSON）
+            operationId: AiAgentService_GetRun
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AiAgentRun'
+    /admin/v1/ai/agents:
+        get:
+            tags:
+                - AiAgentService
+            description: 分页查询 Agent 应用列表
+            operationId: AiAgentService_List
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiAgentAppsResponse'
+        post:
+            tags:
+                - AiAgentService
+            description: 创建 Agent 应用
+            operationId: AiAgentService_Create
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateAiAgentAppRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AiAgentApp'
+    /admin/v1/ai/agents/revisions/{id}:restore:
+        post:
+            tags:
+                - AiAgentService
+            description: 恢复版本（快照 graph 写回主表；恢复前先快照当前版本，可逆）
+            operationId: AiAgentService_RestoreRevision
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RestoreAiAgentRevisionRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/agents/{appId}/revisions:
+        post:
+            tags:
+                - AiAgentService
+            description: 版本历史（每次更新留旧版 graph 快照，新快照在前）
+            operationId: AiAgentService_ListRevisions
+            parameters:
+                - name: appId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ListAiAgentRevisionsRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiAgentRevisionsResponse'
+    /admin/v1/ai/agents/{id}:
+        get:
+            tags:
+                - AiAgentService
+            description: 查询 Agent 应用详情
+            operationId: AiAgentService_Get
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AiAgentApp'
+        put:
+            tags:
+                - AiAgentService
+            description: 更新 Agent 应用
+            operationId: AiAgentService_Update
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateAiAgentAppRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - AiAgentService
+            description: 删除 Agent 应用
+            operationId: AiAgentService_Delete
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/agents/{id}/run:
+        post:
+            tags:
+                - AiAgentService
+            description: 试运行（同步执行图，返回含 trace 的运行记录）
+            operationId: AiAgentService_Run
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RunAiAgentAppRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AiAgentRun'
+    /admin/v1/ai/chat/completions:
+        post:
+            tags:
+                - AiChatService
+            description: 发起一轮对话
+            operationId: AiChatService_Chat
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ChatRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ChatResponse'
+    /admin/v1/ai/content/generate:
+        post:
+            tags:
+                - AiContentService
+            description: 生成内容
+            operationId: AiContentService_GenerateContent
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GenerateContentRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GenerateContentResponse'
+    /admin/v1/ai/content/rebuild-index:
+        post:
+            tags:
+                - AiContentService
+            description: 重建搜索索引
+            operationId: AiContentService_RebuildSearchIndex
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RebuildSearchIndexResponse'
+    /admin/v1/ai/content/search:
+        post:
+            tags:
+                - AiContentService
+            description: 语义搜索（菜单等可导航条目）
+            operationId: AiContentService_SemanticSearch
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SemanticSearchRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SemanticSearchResponse'
+    /admin/v1/ai/conversations:
+        get:
+            tags:
+                - AiConversationService
+            description: 分页查询会话列表
+            operationId: AiConversationService_List
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiConversationResponse'
+    /admin/v1/ai/conversations/{id}:
+        get:
+            tags:
+                - AiConversationService
+            description: 查询会话详情
+            operationId: AiConversationService_Get
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: viewMask
+                  in: query
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AiConversation'
+        put:
+            tags:
+                - AiConversationService
+            description: 更新会话（改标题）
+            operationId: AiConversationService_Update
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateAiConversationRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - AiConversationService
+            description: 删除会话
+            operationId: AiConversationService_Delete
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/knowledge-bases:
+        get:
+            tags:
+                - AiKnowledgeBaseService
+            description: 分页查询知识库列表
+            operationId: AiKnowledgeBaseService_List
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiKnowledgeBaseResponse'
+        post:
+            tags:
+                - AiKnowledgeBaseService
+            description: 创建知识库
+            operationId: AiKnowledgeBaseService_Create
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateAiKnowledgeBaseRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/knowledge-bases/{baseId}/docs:
+        get:
+            tags:
+                - AiKnowledgeBaseService
+            description: 查询知识库下的文档
+            operationId: AiKnowledgeBaseService_ListDocs
+            parameters:
+                - name: baseId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiDocsResponse'
+        post:
+            tags:
+                - AiKnowledgeBaseService
+            description: 上传文档（纯文本：切片 → 向量化 → 落库）
+            operationId: AiKnowledgeBaseService_UploadDoc
+            parameters:
+                - name: baseId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UploadAiDocRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UploadAiDocResponse'
+    /admin/v1/ai/knowledge-bases/{baseId}/docs/file:
+        post:
+            tags:
+                - AiKnowledgeBaseService
+            description: 上传文档文件（txt/md/docx/pdf：抽取文本后入库）
+            operationId: AiKnowledgeBaseService_UploadDocFile
+            parameters:
+                - name: baseId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UploadAiDocFileRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UploadAiDocResponse'
+    /admin/v1/ai/knowledge-bases/{baseId}/docs/{id}:
+        delete:
+            tags:
+                - AiKnowledgeBaseService
+            description: 删除文档
+            operationId: AiKnowledgeBaseService_DeleteDoc
+            parameters:
+                - name: baseId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/knowledge-bases/{baseId}/search:
+        post:
+            tags:
+                - AiKnowledgeBaseService
+            description: 检索测试
+            operationId: AiKnowledgeBaseService_Search
+            parameters:
+                - name: baseId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SearchAiKnowledgeRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/SearchAiKnowledgeResponse'
+    /admin/v1/ai/knowledge-bases/{id}:
+        get:
+            tags:
+                - AiKnowledgeBaseService
+            description: 查询知识库详情
+            operationId: AiKnowledgeBaseService_Get
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: viewMask
+                  in: query
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AiKnowledgeBase'
+        put:
+            tags:
+                - AiKnowledgeBaseService
+            description: 更新知识库
+            operationId: AiKnowledgeBaseService_Update
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateAiKnowledgeBaseRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - AiKnowledgeBaseService
+            description: 删除知识库
+            operationId: AiKnowledgeBaseService_Delete
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/messages:
+        get:
+            tags:
+                - AiMessageService
+            description: 分页查询消息列表（按 conversationId 过滤；ID 类字段精确匹配，不走模糊搜索）
+            operationId: AiMessageService_List
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiMessageResponse'
+    /admin/v1/ai/messages/{id}:
+        delete:
+            tags:
+                - AiMessageService
+            description: 删除消息
+            operationId: AiMessageService_Delete
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/providers:
+        get:
+            tags:
+                - AiProviderService
+            description: 分页查询 AI 提供商列表
+            operationId: AiProviderService_List
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiProviderResponse'
+        post:
+            tags:
+                - AiProviderService
+            description: 创建 AI 提供商
+            operationId: AiProviderService_Create
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateAiProviderRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/providers/{id}:
+        get:
+            tags:
+                - AiProviderService
+            description: 查询 AI 提供商详情
+            operationId: AiProviderService_Get
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: viewMask
+                  in: query
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AiProvider'
+        put:
+            tags:
+                - AiProviderService
+            description: 更新 AI 提供商
+            operationId: AiProviderService_Update
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateAiProviderRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - AiProviderService
+            description: 删除 AI 提供商
+            operationId: AiProviderService_Delete
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/ai/query/ask:
+        post:
+            tags:
+                - AiQueryService
+            description: 智能问数
+            operationId: AiQueryService_Ask
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/AskAiQueryRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AskAiQueryResponse'
+    /admin/v1/ai/usage-logs:
+        get:
+            tags:
+                - AiUsageLogService
+            description: 分页查询用量流水
+            operationId: AiUsageLogService_List
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListAiUsageLogResponse'
+    /admin/v1/ai/usage-summary:
+        get:
+            tags:
+                - AiUsageLogService
+            description: 当月用量汇总（tokens/调用量/配额上限）
+            operationId: AiUsageLogService_GetUsageSummary
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UsageSummaryResponse'
     /admin/v1/api-audit-logs:
         get:
             tags:
@@ -510,6 +1685,234 @@ paths:
                 "200":
                     description: OK
                     content: {}
+    /admin/v1/bi-dashboards:
+        get:
+            tags:
+                - BiDashboardService
+            description: 查询 BI 仪表盘列表
+            operationId: BiDashboardService_List
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListBiDashboardResponse'
+        post:
+            tags:
+                - BiDashboardService
+            description: 创建 BI 仪表盘
+            operationId: BiDashboardService_Create
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateBiDashboardRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/bi-dashboards/revisions/{id}:restore:
+        post:
+            tags:
+                - BiDashboardService
+            description: 恢复版本（快照 payload/name 写回主表，版本 +1；恢复前先快照当前版本，可逆）
+            operationId: BiDashboardService_RestoreRevision
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RestoreBiDashboardRevisionRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/bi-dashboards/{dashboardId}/revisions:
+        post:
+            tags:
+                - BiDashboardService
+            description: 版本历史（每次保存留旧版快照，新快照在前）
+            operationId: BiDashboardService_ListRevisions
+            parameters:
+                - name: dashboardId
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/ListBiDashboardRevisionsRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListBiDashboardRevisionsResponse'
+    /admin/v1/bi-dashboards/{id}:
+        get:
+            tags:
+                - BiDashboardService
+            description: 查询 BI 仪表盘详情
+            operationId: BiDashboardService_Get
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: viewMask
+                  in: query
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/BiDashboard'
+        put:
+            tags:
+                - BiDashboardService
+            description: 更新 BI 仪表盘
+            operationId: BiDashboardService_Update
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateBiDashboardRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - BiDashboardService
+            description: 删除 BI 仪表盘
+            operationId: BiDashboardService_Delete
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/bi-dashboards/{id}:copy:
+        post:
+            tags:
+                - BiDashboardService
+            description: 复制 BI 仪表盘（模板派生 / 另存为）
+            operationId: BiDashboardService_Copy
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CopyBiDashboardRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
     /admin/v1/captcha:
         get:
             tags:
@@ -702,11 +2105,31 @@ paths:
                 "200":
                     description: OK
                     content: {}
+    /admin/v1/dashboard/ai-insights:
+        post:
+            tags:
+                - DashboardService
+            description: |-
+                登录审计按 status 分布
+                 AI 安全与异常洞察：审计明细行为模式挖掘（平台用户专属——数据会外发到模型端点）
+            operationId: DashboardService_GetAiInsights
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/AiInsightsRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/AiInsightsResponse'
     /admin/v1/dashboard/login-status-distribution:
         get:
             tags:
                 - DashboardService
-            description: 登录审计按 status 分布
             operationId: DashboardService_GetLoginStatusDistribution
             responses:
                 "200":
@@ -2837,6 +4260,205 @@ paths:
                 "200":
                     description: OK
                     content: {}
+    /admin/v1/monitor-alert-rules:
+        get:
+            tags:
+                - MonitorAlertService
+            description: 规则列表（分页，contains 搜索）
+            operationId: MonitorAlertService_ListMonitorAlertRule
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListMonitorAlertRuleResponse'
+        post:
+            tags:
+                - MonitorAlertService
+            description: 新建规则
+            operationId: MonitorAlertService_CreateMonitorAlertRule
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateMonitorAlertRuleRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MonitorAlertRule'
+    /admin/v1/monitor-alert-rules/{id}:
+        get:
+            tags:
+                - MonitorAlertService
+            description: 规则详情
+            operationId: MonitorAlertService_GetMonitorAlertRule
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/MonitorAlertRule'
+        put:
+            tags:
+                - MonitorAlertService
+            description: 更新规则
+            operationId: MonitorAlertService_UpdateMonitorAlertRule
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateMonitorAlertRuleRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - MonitorAlertService
+            description: 删除规则
+            operationId: MonitorAlertService_DeleteMonitorAlertRule
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/monitor-alert-rules:evaluate:
+        post:
+            tags:
+                - MonitorAlertService
+            description: 立即评估一轮（与周期扫描同一内核），返回各启用规则的求值结论
+            operationId: MonitorAlertService_EvaluateMonitorAlerts
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/EvaluateMonitorAlertsRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/EvaluateMonitorAlertsResponse'
+    /admin/v1/my-tenant-usage:
+        get:
+            tags:
+                - MyTenantUsageService
+            description: 获取当前租户的套餐用量与配额（配额硬限制 403 时，租户管理员可在此看到原因）
+            operationId: MyTenantUsageService_GetMyTenantUsage
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TenantUsage'
+    /admin/v1/notification-channel-schemas:
+        get:
+            tags:
+                - NotificationChannelService
+            description: 全量扩展渠道 schema（独立集合路径，避免与 /{id} 参数路由抢配）
+            operationId: NotificationChannelService_ListChannelSchemas
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListChannelSchemasResponse'
     /admin/v1/notification-channels:
         get:
             tags:
@@ -2991,6 +4613,29 @@ paths:
                 "200":
                     description: OK
                     content: {}
+    /admin/v1/notification-channels/{id}/send-test:
+        post:
+            tags:
+                - NotificationChannelService
+            description: 发送测试消息（按渠道类型分派：EMAIL 走邮件，SMS 发测试验证码）
+            operationId: NotificationChannelService_SendTest
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SendTestRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
     /admin/v1/notification-channels/{id}/send-test-email:
         post:
             tags:
@@ -3014,6 +4659,513 @@ paths:
                 "200":
                     description: OK
                     content: {}
+    /admin/v1/notification-deliveries:
+        get:
+            tags:
+                - NotificationService
+            description: 查询投递台账列表
+            operationId: NotificationService_ListNotificationDelivery
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListNotificationDeliveryResponse'
+    /admin/v1/notification-deliveries/{id}:
+        get:
+            tags:
+                - NotificationService
+            description: 查询投递台账详情
+            operationId: NotificationService_GetNotificationDelivery
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotificationDelivery'
+    /admin/v1/notification-preference:
+        get:
+            tags:
+                - NotificationPreferenceService
+            description: 获取当前用户的通知偏好；从未配置过时返回默认值（未启用静音、无退订）。
+            operationId: NotificationPreferenceService_GetMyNotificationPreference
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotificationPreference'
+        post:
+            tags:
+                - NotificationPreferenceService
+            description: 更新当前用户的通知偏好，返回保存后的完整状态。
+            operationId: NotificationPreferenceService_UpdateMyNotificationPreference
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateNotificationPreferenceRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotificationPreference'
+    /admin/v1/notification-preference/categories:
+        get:
+            tags:
+                - NotificationPreferenceService
+            description: 当前用户可退订的启用分类清单（本租户内）。
+            operationId: NotificationPreferenceService_ListMyNotificationCategories
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListMyNotificationCategoriesResponse'
+    /admin/v1/notification-rules:
+        get:
+            tags:
+                - NotificationRuleService
+            description: 查询路由规则列表
+            operationId: NotificationRuleService_ListNotificationRule
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListNotificationRuleResponse'
+        post:
+            tags:
+                - NotificationRuleService
+            description: 创建路由规则
+            operationId: NotificationRuleService_CreateNotificationRule
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateNotificationRuleRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotificationRule'
+    /admin/v1/notification-rules/{id}:
+        get:
+            tags:
+                - NotificationRuleService
+            description: 查询路由规则详情
+            operationId: NotificationRuleService_GetNotificationRule
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotificationRule'
+        put:
+            tags:
+                - NotificationRuleService
+            description: 更新路由规则
+            operationId: NotificationRuleService_UpdateNotificationRule
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateNotificationRuleRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - NotificationRuleService
+            description: 删除路由规则
+            operationId: NotificationRuleService_DeleteNotificationRule
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/notification-rules/{id}/test-dispatch:
+        post:
+            tags:
+                - NotificationRuleService
+            description: 测试投递：按这条规则当场走一遍完整投递链
+            operationId: NotificationRuleService_TestDispatchNotification
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/TestDispatchNotificationRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TestDispatchNotificationResponse'
+    /admin/v1/notification-templates:
+        get:
+            tags:
+                - NotificationTemplateService
+            description: 模板列表（分页，contains 搜索）
+            operationId: NotificationTemplateService_ListNotificationTemplate
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListNotificationTemplateResponse'
+        post:
+            tags:
+                - NotificationTemplateService
+            description: 新建模板
+            operationId: NotificationTemplateService_CreateNotificationTemplate
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreateNotificationTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotificationTemplate'
+    /admin/v1/notification-templates/{id}:
+        get:
+            tags:
+                - NotificationTemplateService
+            description: 模板详情
+            operationId: NotificationTemplateService_GetNotificationTemplate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: code
+                  in: query
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotificationTemplate'
+        put:
+            tags:
+                - NotificationTemplateService
+            description: 更新模板（CRUD 请求体必须包 {data:{...}}，见仓铁律）
+            operationId: NotificationTemplateService_UpdateNotificationTemplate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdateNotificationTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - NotificationTemplateService
+            description: 删除模板
+            operationId: NotificationTemplateService_DeleteNotificationTemplate
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/notification-templates/{id}/render:
+        post:
+            tags:
+                - NotificationTemplateService
+            description: 试渲染：按变量集渲染指定模板，返回标题与正文（管理页预览用，不产生投递）
+            operationId: NotificationTemplateService_RenderNotificationTemplate
+            parameters:
+                - name: id
+                  in: path
+                  description: 被渲染的模板 ID
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RenderNotificationTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RenderNotificationTemplateResponse'
     /admin/v1/online-session/force-logout:
         post:
             tags:
@@ -4518,6 +6670,202 @@ paths:
                 "200":
                     description: OK
                     content: {}
+    /admin/v1/print-templates:
+        get:
+            tags:
+                - PrintTemplateService
+            description: 查询打印模板列表
+            operationId: PrintTemplateService_List
+            parameters:
+                - name: page
+                  in: query
+                  description: 当前页码（从1开始，默认1）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: pageSize
+                  in: query
+                  description: 每页条数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: offset
+                  in: query
+                  description: 跳过的记录数（从0开始，默认0）
+                  schema:
+                    type: string
+                - name: limit
+                  in: query
+                  description: 最多返回的记录数（默认10，建议设置上限如100）
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: token
+                  in: query
+                  description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                  schema:
+                    type: string
+                - name: noPaging
+                  in: query
+                  description: 是否不分页，如果为true，则page和pageSize参数无效。
+                  schema:
+                    type: boolean
+                - name: query
+                  in: query
+                  description: JSON字符串过滤条件，基础语法：{"field1":"val1", "field2___icontains":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                  schema:
+                    type: string
+                - name: filter
+                  in: query
+                  description: Google AIP规范字符串过滤条件
+                  schema:
+                    type: string
+                - name: filterExpr.type
+                  in: query
+                  description: 过滤表达式类型
+                  schema:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    format: enum
+                - name: orderBy
+                  in: query
+                  description: 排序条件
+                  schema:
+                    type: string
+                - name: fieldMask
+                  in: query
+                  description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListPrintTemplateResponse'
+        post:
+            tags:
+                - PrintTemplateService
+            description: 创建打印模板
+            operationId: PrintTemplateService_Create
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CreatePrintTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/print-templates/{id}:
+        get:
+            tags:
+                - PrintTemplateService
+            description: 查询打印模板详情
+            operationId: PrintTemplateService_Get
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+                - name: viewMask
+                  in: query
+                  schema:
+                    type: string
+                    format: field-mask
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/PrintTemplate'
+        put:
+            tags:
+                - PrintTemplateService
+            description: 更新打印模板
+            operationId: PrintTemplateService_Update
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/UpdatePrintTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+        delete:
+            tags:
+                - PrintTemplateService
+            description: 删除打印模板
+            operationId: PrintTemplateService_Delete
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                    type: integer
+                    format: uint32
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+    /admin/v1/print-templates:generate:
+        post:
+            tags:
+                - PrintTemplateService
+            description: |-
+                AI 一句话生成模板：描述单据要素 → LLM 产出 TemplateData → 护栏校验后返回
+                 （未入库；前端预览确认后走 Create 保存）。走 AI_TOKENS 配额与用量记账。
+            operationId: PrintTemplateService_GenerateTemplate
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GeneratePrintTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GeneratePrintTemplateResponse'
+    /admin/v1/print-templates:render-pdf:
+        post:
+            tags:
+                - PrintTemplateService
+            description: 服务端 PDF 渲染（前端内核 HTML → 后端 Chromium 打印）
+            operationId: PrintTemplateService_RenderPdf
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/RenderPrintTemplateRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/RenderPrintTemplateResponse'
     /admin/v1/redis-cache-monitor:
         get:
             tags:
@@ -5233,6 +7581,82 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ServerMonitorInfo'
+    /admin/v1/sso/login:
+        post:
+            tags:
+                - AuthenticationService
+            description: OIDC 回调换本系统令牌（免鉴权）
+            operationId: AuthenticationService_SsoLogin
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/SsoLoginRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/LoginResponse'
+            security:
+                - {}
+    /admin/v1/sso/login-info:
+        get:
+            tags:
+                - AuthenticationService
+            description: SSO 登录能力开关（免鉴权；登录页按钮显隐）
+            operationId: AuthenticationService_GetSsoLoginInfo
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSsoLoginInfoResponse'
+            security:
+                - {}
+    /admin/v1/sso/login-url:
+        post:
+            tags:
+                - AuthenticationService
+            description: 生成 OIDC 授权跳转 URL（免鉴权）
+            operationId: AuthenticationService_GetSsoLoginUrl
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GetSsoLoginUrlRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetSsoLoginUrlResponse'
+            security:
+                - {}
+    /admin/v1/system-tasks:inspect:
+        post:
+            tags:
+                - TaskMonitorService
+            description: 一站式巡检：调度条目（cron/上次/下次入队）+ 各任务类型的队列状态与失败明细
+            operationId: TaskMonitorService_InspectSystemTasks
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/InspectSystemTasksRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InspectSystemTasksResponse'
     /admin/v1/tasks:
         get:
             tags:
@@ -5496,6 +7920,27 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ListTaskTypeNameResponse'
+    /admin/v1/tenant-branding:
+        post:
+            tags:
+                - AuthenticationService
+            description: 租户白标查询（免鉴权；登录前按租户编号取名称/Logo 等展示信息）
+            operationId: AuthenticationService_GetTenantBranding
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/GetTenantBrandingRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetTenantBrandingResponse'
+            security:
+                - {}
     /admin/v1/tenants:
         get:
             tags:
@@ -6067,6 +8512,509 @@ components:
                     items:
                         $ref: '#/components/schemas/DistributionItem'
             description: 操作类型分布 - 回应
+        AiAgentApp:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 应用ID
+                    format: uint32
+                name:
+                    type: string
+                    description: 应用名称（租户内唯一）
+                description:
+                    type: string
+                    description: 应用描述
+                graph:
+                    type: string
+                    description: 图 DSL（JSON 文本）
+                enabled:
+                    type: boolean
+                    description: 是否启用（停用的应用拒绝运行）
+                tenantId:
+                    type: integer
+                    description: 创建/更新入参带出（与 AiConversation 同口径）：租户隔离 mixin 无创建钩子，租户必须显式写
+                    format: uint32
+                createdBy:
+                    type: integer
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    format: uint32
+                createdAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
+            description: Agent 编排应用
+        AiAgentRevision:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                appId:
+                    type: integer
+                    format: uint32
+                graph:
+                    type: string
+                    description: 更新前的图 DSL 快照
+                source:
+                    type: string
+                createdBy:
+                    type: integer
+                    format: uint32
+                createdAt:
+                    type: string
+                    format: date-time
+            description: |-
+                Agent 应用版本快照（每次成功更新把更新前的 graph 留一行；
+                 恢复 = 快照写回主表，恢复动作本身先快照当前版本，可逆）
+        AiAgentRun:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                appId:
+                    type: integer
+                    format: uint32
+                status:
+                    enum:
+                        - STATUS_UNSPECIFIED
+                        - RUNNING
+                        - SUCCEEDED
+                        - FAILED
+                    type: string
+                    format: enum
+                input:
+                    type: string
+                    description: 运行入参（JSON 对象：start 节点 inputVars 的 name → 值）
+                output:
+                    type: string
+                error:
+                    type: string
+                trace:
+                    type: string
+                    description: 逐节点执行轨迹（JSON 数组：{nodeId,type,status,ms,summary,usage}）
+                promptTokens:
+                    type: integer
+                    format: uint32
+                completionTokens:
+                    type: integer
+                    format: uint32
+                totalTokens:
+                    type: integer
+                    format: uint32
+                durationMs:
+                    type: integer
+                    format: uint32
+                createdAt:
+                    type: string
+                    format: date-time
+            description: Agent 运行记录
+        AiConversation:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 会话ID
+                    format: uint32
+                title:
+                    type: string
+                    description: 会话标题（默认取首条消息摘要）
+                providerId:
+                    type: integer
+                    description: 会话使用的提供商ID（0 表示未指定）
+                    format: uint32
+                userId:
+                    type: integer
+                    description: 归属用户ID
+                    format: uint32
+                tenantId:
+                    type: integer
+                    description: 租户ID
+                    format: uint32
+                lastMessageAt:
+                    type: string
+                    description: 最近一条消息时间
+                    format: date-time
+                createdBy:
+                    type: integer
+                    description: 创建者用户ID
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    description: 更新者用户ID
+                    format: uint32
+                deletedBy:
+                    type: integer
+                    description: 删除者用户ID
+                    format: uint32
+                createdAt:
+                    type: string
+                    description: 创建时间
+                    format: date-time
+                updatedAt:
+                    type: string
+                    description: 更新时间
+                    format: date-time
+                deletedAt:
+                    type: string
+                    description: 删除时间
+                    format: date-time
+            description: AI 对话会话
+        AiDoc:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                baseId:
+                    type: integer
+                    format: uint32
+                name:
+                    type: string
+                chunkCount:
+                    type: integer
+                    format: uint32
+                status:
+                    type: string
+                errorMessage:
+                    type: string
+                userId:
+                    type: integer
+                    format: uint32
+                tenantId:
+                    type: integer
+                    format: uint32
+                createdAt:
+                    type: string
+                    format: date-time
+            description: AI 文档
+        AiInsightAlert:
+            type: object
+            properties:
+                severity:
+                    type: string
+                type:
+                    type: string
+                facts:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: 插值参数（i18n 模板变量）：username / count / total / ip 等，键随 type 而定
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiSensitiveOpItem'
+                    description: SENSITIVE_OPS 专用的明细行（username + action + 资源与时间由前端格式化）
+            description: |-
+                异常告警条目：规则预筛的确定性结构化事实，**不含人类文案**——
+                 文案由前端按 type 选 i18n 模板并以 facts 插值渲染，保证多语言界面一致
+        AiInsightsRequest:
+            type: object
+            properties:
+                lang:
+                    type: string
+                    description: |-
+                        界面语言（BCP-47，如 zh-CN / en-US），决定 LLM 总评的输出语言；
+                         告警本身只回传结构化事实，文案由前端 i18n 模板渲染
+            description: AI 概览解读 - 请求
+        AiInsightsResponse:
+            type: object
+            properties:
+                alerts:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiInsightAlert'
+                summary:
+                    type: string
+            description: AI 概览解读 - 回应
+        AiKnowledgeBase:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 知识库ID
+                    format: uint32
+                name:
+                    type: string
+                    description: 知识库名称
+                description:
+                    type: string
+                    description: 描述
+                providerId:
+                    type: integer
+                    description: 向量化使用的模型提供商ID（其端点须支持 OpenAI 兼容 /v1/embeddings）
+                    format: uint32
+                embeddingModel:
+                    type: string
+                    description: embedding 模型名，如 text-embedding-3-small
+                userId:
+                    type: integer
+                    description: 创建人用户ID
+                    format: uint32
+                tenantId:
+                    type: integer
+                    description: 租户ID（0=平台级）
+                    format: uint32
+                docCount:
+                    type: integer
+                    description: 文档数（读视图）
+                    format: uint32
+                createdBy:
+                    type: integer
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    format: uint32
+                deletedBy:
+                    type: integer
+                    format: uint32
+                createdAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
+                deletedAt:
+                    type: string
+                    format: date-time
+            description: AI 知识库
+        AiMessage:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 消息ID
+                    format: uint32
+                conversationId:
+                    type: integer
+                    description: 所属会话ID
+                    format: uint32
+                role:
+                    enum:
+                        - AI_ROLE_UNSPECIFIED
+                        - USER
+                        - ASSISTANT
+                        - SYSTEM
+                    type: string
+                    description: 消息角色
+                    format: enum
+                content:
+                    type: string
+                    description: 消息正文（Markdown）
+                modelName:
+                    type: string
+                    description: 生成该回复的模型名称快照
+                promptTokens:
+                    type: integer
+                    description: 输入 token 数
+                    format: uint32
+                completionTokens:
+                    type: integer
+                    description: 输出 token 数
+                    format: uint32
+                durationMs:
+                    type: integer
+                    description: 生成耗时（毫秒）
+                    format: uint32
+                errorMessage:
+                    type: string
+                    description: 生成失败原因（仅失败记录）
+                userId:
+                    type: integer
+                    description: 归属用户ID
+                    format: uint32
+                tenantId:
+                    type: integer
+                    description: 租户ID
+                    format: uint32
+                createdBy:
+                    type: integer
+                    description: 创建者用户ID
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    description: 更新者用户ID
+                    format: uint32
+                deletedBy:
+                    type: integer
+                    description: 删除者用户ID
+                    format: uint32
+                createdAt:
+                    type: string
+                    description: 创建时间
+                    format: date-time
+                updatedAt:
+                    type: string
+                    description: 更新时间
+                    format: date-time
+                deletedAt:
+                    type: string
+                    description: 删除时间
+                    format: date-time
+            description: AI 对话消息
+        AiProvider:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 提供商ID
+                    format: uint32
+                name:
+                    type: string
+                    description: 提供商显示名称，如 DeepSeek、通义千问、本地 Ollama
+                modelType:
+                    enum:
+                        - MODEL_TYPE_UNSPECIFIED
+                        - LOCAL
+                        - CLOUD
+                    type: string
+                    description: 模型部署形态：本地 / 云端
+                    format: enum
+                modelName:
+                    type: string
+                    description: 模型名称，如 deepseek-chat、qwen-max、llama3
+                baseUrl:
+                    type: string
+                    description: 云端 OpenAI 兼容 API 地址，如 https://api.deepseek.com/v1
+                organization:
+                    type: string
+                    description: OpenAI Organization（可选）
+                apiKey:
+                    type: string
+                    description: API Key（仅写入；读取时恒为空，脱敏值见 apiKeyHint）
+                apiKeyHint:
+                    type: string
+                    description: API Key 脱敏提示（如 sk-***abcd），只读
+                localHost:
+                    type: string
+                    description: 本地模型主机（Ollama），默认 localhost
+                localPort:
+                    type: integer
+                    description: 本地模型端口，默认 11434
+                    format: int32
+                timeoutSeconds:
+                    type: integer
+                    description: 连接超时秒数（默认 30）；流式对话时长由服务端统一控制
+                    format: int32
+                systemPrompt:
+                    type: string
+                    description: 系统提示词（可选），作为对话的 system 消息
+                isDefault:
+                    type: boolean
+                    description: 是否为默认提供商（聊天未显式指定时使用）
+                remark:
+                    type: string
+                    description: 备注
+                isEnabled:
+                    type: boolean
+                    description: 是否启用
+                createdBy:
+                    type: integer
+                    description: 创建者用户ID
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    description: 更新者用户ID
+                    format: uint32
+                deletedBy:
+                    type: integer
+                    description: 删除者用户ID
+                    format: uint32
+                createdAt:
+                    type: string
+                    description: 创建时间
+                    format: date-time
+                updatedAt:
+                    type: string
+                    description: 更新时间
+                    format: date-time
+                deletedAt:
+                    type: string
+                    description: 删除时间
+                    format: date-time
+            description: AI 模型提供商（一行 = 一个可调用的模型端点配置）
+        AiQueryHistoryItem:
+            type: object
+            properties:
+                question:
+                    type: string
+                sql:
+                    type: string
+                resultSummary:
+                    type: string
+            description: 对话历史一轮（多轮追问用）：只回传问答摘要，供模型消解指代（如"那只看 admin 的"）
+        AiQueryRow:
+            type: object
+            properties:
+                values:
+                    type: array
+                    items:
+                        type: string
+            description: 结果行（values 与 columns 下标对应；时间/数字均已格式化为字符串）
+        AiSensitiveOpItem:
+            type: object
+            properties:
+                username:
+                    type: string
+                action:
+                    type: string
+                resourceType:
+                    type: string
+                createdAt:
+                    type: string
+            description: 敏感操作明细项
+        AiUsageLog:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 流水ID
+                    format: uint32
+                providerId:
+                    type: integer
+                    description: 提供商ID
+                    format: uint32
+                conversationId:
+                    type: integer
+                    description: 会话ID（0 表示非对话调用）
+                    format: uint32
+                userId:
+                    type: integer
+                    description: 发起用户ID
+                    format: uint32
+                tenantId:
+                    type: integer
+                    description: 租户ID（0 表示平台自用）
+                    format: uint32
+                modelName:
+                    type: string
+                    description: 模型名称
+                promptTokens:
+                    type: integer
+                    description: 输入 token 数
+                    format: uint32
+                completionTokens:
+                    type: integer
+                    description: 输出 token 数
+                    format: uint32
+                totalTokens:
+                    type: integer
+                    description: 总 token 数
+                    format: uint32
+                durationMs:
+                    type: integer
+                    description: 调用耗时（毫秒）
+                    format: uint32
+                createdAt:
+                    type: string
+                    description: 调用时间
+                    format: date-time
+            description: AI 调用用量流水（每次成功的模型调用一行；配额按 total_tokens 聚合）
         Api:
             type: object
             properties:
@@ -6102,6 +9050,7 @@ components:
                         - INTERNAL_MESSAGE
                         - FILE
                         - TASK
+                        - AI
                     type: string
                     description: 所属业务功能模块（用于套餐白名单过滤）
                     format: enum
@@ -6244,6 +9193,54 @@ components:
                     description: 日志创建时间
                     format: date-time
             description: 接口审计日志
+        AskAiQueryRequest:
+            type: object
+            properties:
+                question:
+                    type: string
+                lang:
+                    type: string
+                    description: 界面语言（BCP-47），决定结论 answer 的输出语言；默认 zh-CN
+                withAnswer:
+                    type: boolean
+                    description: 是否生成自然语言结论（二次模型调用；默认 true）
+                history:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiQueryHistoryItem'
+                    description: 对话历史（最近若干轮，建议 ≤5；用于消解追问里的指代，如"那只看 admin 的"）
+            description: 智能问数 - 请求
+        AskAiQueryResponse:
+            type: object
+            properties:
+                sql:
+                    type: string
+                    description: 生成的只读 SQL（原样返回，便于核对与复用）
+                columns:
+                    type: array
+                    items:
+                        type: string
+                    description: 结果列名
+                rows:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiQueryRow'
+                    description: 结果行（上限 100 行）
+                rowCount:
+                    type: integer
+                    description: 实际返回的行数
+                    format: uint32
+                answer:
+                    type: string
+                    description: 自然语言结论（with_answer=false 或模型失败时为空）
+                totalTokens:
+                    type: integer
+                    description: 本次消耗的总 token 数（计入 AI_TOKENS 用量）
+                    format: uint32
+                errorMessage:
+                    type: string
+                    description: 执行失败原因（SQL 语法/列不存在等；有值时 rows 为空）
+            description: 智能问数 - 回应
         BatchCreateLanguagesRequest:
             type: object
             properties:
@@ -6251,6 +9248,119 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/Language'
+        BiDashboard:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 仪表盘ID
+                    format: uint32
+                name:
+                    type: string
+                    description: 名称（展示用）
+                code:
+                    type: string
+                    description: 编码，租户内唯一，业务侧按编码取仪表盘
+                kind:
+                    enum:
+                        - DASHBOARD
+                        - SCREEN
+                        - TEMPLATE
+                    type: string
+                    description: 种类：DASHBOARD 仪表盘 / SCREEN 大屏 / TEMPLATE 模板
+                    format: enum
+                remark:
+                    type: string
+                    description: 备注
+                payload:
+                    type: string
+                    description: 仪表盘 JSON（设计器 schema：数据集 + 图表布局 + 主题，含 schemaVersion；服务端不解析只透传）
+                chartCount:
+                    type: integer
+                    description: 图表数量冗余列（来自 payload.charts，列表页直显免解析 JSON）
+                    format: uint32
+                themeKey:
+                    type: string
+                    description: 主题预设冗余列（来自 payload.theme.key，列表页直显）
+                thumbnail:
+                    type: string
+                    description: 缩略图 URL（设计器导出 PNG 后上传，列表页预览用）
+                isBuiltIn:
+                    type: boolean
+                    description: 是否系统内置（内置禁删，可复制派生）
+                isPublic:
+                    type: boolean
+                    description: 是否租户内共享（false 仅创建者可见）
+                version:
+                    type: integer
+                    description: 版本号（乐观锁：更新时回传读到的版本，冲突拒绝；保存成功后 +1）
+                    format: uint32
+                isEnabled:
+                    type: boolean
+                    description: 是否启用，停用的仪表盘不出现在业务入口
+                sortOrder:
+                    type: integer
+                    description: 排序序号
+                    format: uint32
+                createdBy:
+                    type: integer
+                    description: 创建者ID
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    description: 更新者ID
+                    format: uint32
+                deletedBy:
+                    type: integer
+                    description: 删除者用户ID
+                    format: uint32
+                createdAt:
+                    type: string
+                    description: 创建时间
+                    format: date-time
+                updatedAt:
+                    type: string
+                    description: 更新时间
+                    format: date-time
+                deletedAt:
+                    type: string
+                    description: 删除时间
+                    format: date-time
+            description: BI 仪表盘
+        BiDashboardRevision:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 快照ID
+                    format: uint32
+                dashboardId:
+                    type: integer
+                    description: 所属仪表盘ID
+                    format: uint32
+                version:
+                    type: integer
+                    description: 快照对应的仪表盘版本号（保存前的旧版本）
+                    format: uint32
+                name:
+                    type: string
+                    description: 保存前的名称快照
+                payload:
+                    type: string
+                    description: 保存前的仪表盘 JSON 快照
+                source:
+                    type: string
+                    description: 快照来源（SAVE=常规保存 RESTORE=恢复前留底）
+                createdBy:
+                    type: integer
+                    description: 快照触发者用户ID
+                    format: uint32
+                createdAt:
+                    type: string
+                    description: 快照时间
+            description: |-
+                仪表盘版本快照（每次成功保存把保存前的 payload/name/version 留一行；
+                 恢复 = 快照写回主表，恢复动作本身先快照当前版本）
         BindContactRequest:
             type: object
             properties:
@@ -6286,6 +9396,77 @@ components:
                     type: string
                     description: 新密码
             description: 修改用户密码（需要验证旧密码） - 请求
+        ChannelField:
+            type: object
+            properties:
+                name:
+                    type: string
+                label:
+                    type: string
+                type:
+                    type: string
+                required:
+                    type: boolean
+                sensitive:
+                    type: boolean
+                placeholder:
+                    type: string
+                hint:
+                    type: string
+                options:
+                    type: array
+                    items:
+                        type: string
+            description: 扩展渠道的字段声明（schema 驱动配置表单；见 docs/notify_channels_expansion.md §2.2）
+        ChannelSchema:
+            type: object
+            properties:
+                type:
+                    type: string
+                group:
+                    type: string
+                label:
+                    type: string
+                targetLabel:
+                    type: string
+                needsTarget:
+                    type: boolean
+                fields:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ChannelField'
+            description: 扩展渠道声明
+        ChatRequest:
+            type: object
+            properties:
+                conversationId:
+                    type: integer
+                    description: 会话ID；0 表示新建会话
+                    format: uint32
+                providerId:
+                    type: integer
+                    description: 提供商ID；0 表示使用默认提供商
+                    format: uint32
+                content:
+                    type: string
+                    description: 用户输入内容
+                knowledgeBaseId:
+                    type: integer
+                    description: 知识库ID；>0 时先检索该库并将相关片段注入 system 上下文（RAG）
+                    format: uint32
+            description: 发起对话 - 请求
+        ChatResponse:
+            type: object
+            properties:
+                conversation:
+                    allOf:
+                        - $ref: '#/components/schemas/AiConversation'
+                    description: 会话（新建时返回新建的会话）
+                message:
+                    allOf:
+                        - $ref: '#/components/schemas/AiMessage'
+                    description: 模型回复消息（含 token 用量与模型名）
+            description: 发起对话 - 回应
         CleanupTenantDataRequest:
             type: object
             properties:
@@ -6399,6 +9580,20 @@ components:
                     type: string
                     description: 任务执行类型名，例如 "send_email"、"generate_report" 等，用于区分不同类型的任务
             description: 控制调度任务 - 请求
+        CopyBiDashboardRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 源仪表盘ID
+                    format: uint32
+                name:
+                    type: string
+                    description: 副本名称（缺省在原名后追加 -copy）
+                code:
+                    type: string
+                    description: 副本编码（缺省自动生成，租户内唯一）
+            description: 复制 BI 仪表盘 - 请求
         CountScriptLogsResponse:
             type: object
             properties:
@@ -6423,12 +9618,36 @@ components:
                 secret:
                     type: string
             description: 创建访问凭证 - 回应（secret 仅本次明文返回，服务端只存 SHA-256 摘要）
+        CreateAiAgentAppRequest:
+            type: object
+            properties:
+                data:
+                    $ref: '#/components/schemas/AiAgentApp'
+            description: 创建 - 请求
+        CreateAiKnowledgeBaseRequest:
+            type: object
+            properties:
+                data:
+                    $ref: '#/components/schemas/AiKnowledgeBase'
+            description: 创建知识库 - 请求
+        CreateAiProviderRequest:
+            type: object
+            properties:
+                data:
+                    $ref: '#/components/schemas/AiProvider'
+            description: 创建 AI 提供商 - 请求
         CreateApiRequest:
             type: object
             properties:
                 data:
                     $ref: '#/components/schemas/Api'
             description: 创建 - 请求
+        CreateBiDashboardRequest:
+            type: object
+            properties:
+                data:
+                    $ref: '#/components/schemas/BiDashboard'
+            description: 创建 BI 仪表盘 - 请求
         CreateConfigRequest:
             type: object
             properties:
@@ -6477,6 +9696,11 @@ components:
                 data:
                     $ref: '#/components/schemas/Menu'
             description: 创建菜单 - 请求
+        CreateMonitorAlertRuleRequest:
+            type: object
+            properties:
+                data:
+                    $ref: '#/components/schemas/MonitorAlertRule'
         CreateNotificationChannelRequest:
             type: object
             properties:
@@ -6485,7 +9709,27 @@ components:
                 password:
                     type: string
                     description: SMTP 密码/授权码
+                webhookSecret:
+                    type: string
+                    description: Webhook 签名密钥
+                smsAccessSecret:
+                    type: string
+                    description: 短信访问密钥 Secret
+                settings:
+                    type: string
+                    description: 扩展渠道配置（JSON 明文，含敏感字段；服务端按 schema 加密落库。仅 EXT_* 渠道）
             description: 创建通知渠道 - 请求
+        CreateNotificationRuleRequest:
+            type: object
+            properties:
+                data:
+                    $ref: '#/components/schemas/NotificationRule'
+            description: 创建路由规则 - 请求
+        CreateNotificationTemplateRequest:
+            type: object
+            properties:
+                data:
+                    $ref: '#/components/schemas/NotificationTemplate'
         CreateOrgUnitRequest:
             type: object
             properties:
@@ -6528,6 +9772,12 @@ components:
                 data:
                     $ref: '#/components/schemas/Position'
             description: 创建职位 - 请求
+        CreatePrintTemplateRequest:
+            type: object
+            properties:
+                data:
+                    $ref: '#/components/schemas/PrintTemplate'
+            description: 创建打印模板 - 请求
         CreateRoleRequest:
             type: object
             properties:
@@ -7084,6 +10334,38 @@ components:
                 lastUsedAt:
                     type: string
                     format: date-time
+        EvaluateMonitorAlertsRequest:
+            type: object
+            properties: {}
+            description: 手动触发一轮评估（管理页「立即评估」）；返回各启用规则的求值结论
+        EvaluateMonitorAlertsResponse:
+            type: object
+            properties:
+                outcomes:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/EvaluateMonitorAlertsResponse_RuleOutcome'
+        EvaluateMonitorAlertsResponse_RuleOutcome:
+            type: object
+            properties:
+                ruleId:
+                    type: integer
+                    format: uint32
+                name:
+                    type: string
+                firing:
+                    type: boolean
+                    description: 本次扫描是否越限
+                currentValue:
+                    type: number
+                    description: 本次扫描实际读到的指标值（采集失败为空）
+                    format: double
+                notified:
+                    type: boolean
+                    description: 本轮是否发出了通知（首次触发 / 冷却到期重发 / 恢复）
+                reason:
+                    type: string
+                    description: 未发通知的原因（未越限未恢复 / 冷却中 / 采集失败）
         File:
             type: object
             properties:
@@ -7173,6 +10455,104 @@ components:
                     description: 删除时间
                     format: date-time
             description: 文件
+        FilterCondition:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: 过滤字段名
+                op:
+                    enum:
+                        - OPERATOR_UNSPECIFIED
+                        - EQ
+                        - NEQ
+                        - GT
+                        - GTE
+                        - LT
+                        - LTE
+                        - LIKE
+                        - ILIKE
+                        - NOT_LIKE
+                        - IN
+                        - NIN
+                        - IS_NULL
+                        - IS_NOT_NULL
+                        - BETWEEN
+                        - REGEXP
+                        - IREGEXP
+                        - CONTAINS
+                        - STARTS_WITH
+                        - ENDS_WITH
+                        - ICONTAINS
+                        - ISTARTS_WITH
+                        - IENDS_WITH
+                        - JSON_CONTAINS
+                        - ARRAY_CONTAINS
+                        - EXISTS
+                        - SEARCH
+                        - EXACT
+                        - IEXACT
+                    type: string
+                    description: 过滤操作符
+                    format: enum
+                value:
+                    type: string
+                    description: 过滤值（单值）
+                jsonValue:
+                    allOf:
+                        - $ref: '#/components/schemas/GoogleProtobufValue'
+                    description: "当需要使用非字符串类型的比较值（对象/数组/数字/布尔）时使用此字段，\r\n 使用 google.protobuf.Value 能表达任意 JSON 值。"
+                values:
+                    type: array
+                    items:
+                        type: string
+                    description: 过滤值（多值，如IN操作符）
+                datePart:
+                    enum:
+                        - DATE_PART_UNSPECIFIED
+                        - DATE
+                        - YEAR
+                        - ISO_YEAR
+                        - QUARTER
+                        - MONTH
+                        - WEEK
+                        - WEEK_DAY
+                        - ISO_WEEK_DAY
+                        - DAY
+                        - TIME
+                        - HOUR
+                        - MINUTE
+                        - SECOND
+                        - MICROSECOND
+                    type: string
+                    description: 日期时间部分（可选，仅在字段为日期时间类型时使用）
+                    format: enum
+                jsonPath:
+                    type: string
+                    description: "当字段为 JSON/JSONB 类型时，可指定要抽取的子路径（例如: \"meta.user.name\" 或 JSONPath）\r\n 服务端应把此路径用于 JSON_EXTRACT / -> 操作，再对抽取结果应用 op。"
+            description: 过滤条件
+        FilterExpr:
+            type: object
+            properties:
+                type:
+                    enum:
+                        - EXPR_TYPE_UNSPECIFIED
+                        - AND
+                        - OR
+                    type: string
+                    description: 过滤表达式类型
+                    format: enum
+                conditions:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FilterCondition'
+                    description: 条件列表
+                groups:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/FilterExpr'
+                    description: 子表达式列表
+            description: 过滤表达式
         ForceLogoutSessionRequest:
             type: object
             properties:
@@ -7211,6 +10591,76 @@ components:
                 imageBase64:
                     type: string
                     description: 验证码图片的Base64编码字符串，客户端可以解码并显示给用户
+        GenerateContentRequest:
+            type: object
+            properties:
+                scene:
+                    enum:
+                        - CONTENT_SCENE_UNSPECIFIED
+                        - DESCRIPTION
+                        - ANNOUNCEMENT
+                        - REPLY
+                        - GENERAL
+                    type: string
+                    description: 场景标识
+                    format: enum
+                topic:
+                    type: string
+                    description: 主题/关键词（用户输入的生成指令）
+                context:
+                    type: string
+                    description: 补充上下文（如已有内容的续写、字段标签等，可选）
+                lang:
+                    type: string
+                    description: 输出语言（BCP-47，默认 zh-CN）
+                maxLength:
+                    type: integer
+                    description: 期望长度（字符数提示，默认 200）
+                    format: uint32
+            description: 内容生成 - 请求
+        GenerateContentResponse:
+            type: object
+            properties:
+                content:
+                    type: string
+                totalTokens:
+                    type: integer
+                    format: uint32
+            description: 内容生成 - 回应
+        GeneratePrintTemplateRequest:
+            type: object
+            properties:
+                description:
+                    type: string
+                    description: 单据要素的自然语言描述（必填，如：出库单，含单号/日期/物品明细表/合计）
+                paperSize:
+                    type: string
+                    description: 纸张（A4/A5/A3，缺省 A4）
+                orientation:
+                    type: string
+                    description: 方向（portrait/landscape，缺省 portrait）
+                resourceKey:
+                    type: string
+                    description: 绑定资源标识（可选，供提示词参考字段语义）
+            description: AI 一句话生成模板 - 请求（描述单据要素 → LLM 产出 TemplateData）
+        GeneratePrintTemplateResponse:
+            type: object
+            properties:
+                payload:
+                    type: string
+                    description: TemplateData JSON（已过 schema/白名单/钳制校验）
+                fields:
+                    type: array
+                    items:
+                        type: string
+                    description: payload 中引用的 {field} 绑定字段集合（供数据绑定面板参考）
+                totalTokens:
+                    type: integer
+                    description: 本次生成消耗的 token 用量（已落 AI 用量流水）
+                    format: uint32
+            description: |-
+                AI 一句话生成模板 - 回应（payload 为护栏校验通过的 TemplateData JSON，未入库；
+                 前端预览确认后走既有 Create 保存）
         GeoLocation:
             type: object
             properties:
@@ -7252,6 +10702,45 @@ components:
                         - MFA_REQUIRED
                     type: string
                     format: enum
+        GetSsoLoginInfoResponse:
+            type: object
+            properties:
+                enabled:
+                    type: boolean
+                    description: OIDC SSO 是否已配置（issuer/client_id/client_secret/redirect_url 齐备）
+        GetSsoLoginUrlRequest:
+            type: object
+            properties: {}
+            description: |-
+                生成 OIDC 授权跳转 URL（免鉴权）。state 由服务端生成并存 Redis（10 分钟
+                 单次有效），SsoLogin 时验证并取删——防 CSRF 与回调重放。
+        GetSsoLoginUrlResponse:
+            type: object
+            properties:
+                authorizationUrl:
+                    type: string
+                    description: 完整授权跳转 URL（前端 window.location 前往）
+                state:
+                    type: string
+                    description: 本次登录的 state（前端原样带到回调，SsoLogin 时一并提交）
+        GetTenantBrandingRequest:
+            type: object
+            properties:
+                code:
+                    type: string
+                    description: 租户编号（登录页 tenant_code 输入框的值）
+            description: |-
+                租户白标查询（免鉴权；登录前按租户编号取展示信息）。
+                 只暴露展示字段（名称/Logo），不泄露任何运营/配置数据。
+        GetTenantBrandingResponse:
+            type: object
+            properties:
+                found:
+                    type: boolean
+                name:
+                    type: string
+                logoUrl:
+                    type: string
         GoRuntimeInfo:
             type: object
             properties:
@@ -7280,6 +10769,8 @@ components:
                     description: 进程启动时间
                     format: date-time
             description: Go 运行时信息
+        GoogleProtobufValue:
+            description: Represents a dynamically typed value which can be either null, a number, a string, a boolean, a recursive struct value, or a list of values.
         HookPoint:
             type: object
             properties:
@@ -7341,6 +10832,25 @@ components:
                     type: array
                     items:
                         type: string
+        InspectSystemTasksRequest:
+            type: object
+            properties: {}
+            description: 手动触发巡检（系统级常驻任务可视化，只读 asynq，无副作用）
+        InspectSystemTasksResponse:
+            type: object
+            properties:
+                queue:
+                    type: string
+                    description: asynq 队列名（当前配置）
+                schedules:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SystemTaskScheduleEntry'
+                summaries:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SystemTaskStateSummary'
+                    description: 只汇总系统级常驻任务涉及的任务类型；无任何记录时不出现在结果里
         InternalMessage:
             type: object
             properties:
@@ -7569,6 +11079,20 @@ components:
                     type: string
                     description: 令牌类型（bearer）
             description: 令牌交换 - 回应
+        KnowledgeHit:
+            type: object
+            properties:
+                doc:
+                    $ref: '#/components/schemas/AiDoc'
+                chunkIndex:
+                    type: integer
+                    format: uint32
+                content:
+                    type: string
+                score:
+                    type: number
+                    format: double
+            description: 检索命中片段
         KratosStatus:
             type: object
             properties:
@@ -7647,6 +11171,106 @@ components:
                 total:
                     type: string
             description: 查询访问凭证列表 - 回应
+        ListAiAgentAppsResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiAgentApp'
+                total:
+                    type: string
+            description: 查询列表 - 回应
+        ListAiAgentRevisionsRequest:
+            type: object
+            properties:
+                appId:
+                    type: integer
+                    description: 应用ID
+                    format: uint32
+                page:
+                    $ref: '#/components/schemas/PagingRequest'
+            description: 版本历史 - 请求
+        ListAiAgentRevisionsResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiAgentRevision'
+                total:
+                    type: string
+            description: 版本历史 - 回应（新快照在前）
+        ListAiAgentRunsResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiAgentRun'
+                total:
+                    type: string
+            description: 运行台账列表 - 回应
+        ListAiConversationResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiConversation'
+                total:
+                    type: string
+            description: 查询会话列表 - 回应
+        ListAiDocsResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiDoc'
+                total:
+                    type: string
+            description: 查询文档列表 - 回应
+        ListAiKnowledgeBaseResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiKnowledgeBase'
+                total:
+                    type: string
+            description: 查询知识库列表 - 回应
+        ListAiMessageResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiMessage'
+                total:
+                    type: string
+            description: 查询消息列表 - 回应
+        ListAiProviderResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiProvider'
+                total:
+                    type: string
+            description: 查询 AI 提供商列表 - 回应
+        ListAiUsageLogResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/AiUsageLog'
+                total:
+                    type: string
+            description: 查询用量流水列表 - 回应
         ListApiAuditLogResponse:
             type: object
             properties:
@@ -7667,6 +11291,47 @@ components:
                 total:
                     type: string
             description: 查询列表 - 回应
+        ListBiDashboardResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/BiDashboard'
+                total:
+                    type: string
+            description: 查询 BI 仪表盘列表 - 回应
+        ListBiDashboardRevisionsRequest:
+            type: object
+            properties:
+                dashboardId:
+                    type: integer
+                    description: 仪表盘ID
+                    format: uint32
+                page:
+                    $ref: '#/components/schemas/PagingRequest'
+            description: 版本历史 - 请求
+        ListBiDashboardRevisionsResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/BiDashboardRevision'
+                    description: 快照列表
+                total:
+                    type: integer
+                    description: 总数
+                    format: uint32
+            description: 版本历史 - 回应（新快照在前）
+        ListChannelSchemasResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/ChannelSchema'
+            description: 全量渠道 schema - 回应
         ListConfigResponse:
             type: object
             properties:
@@ -7804,6 +11469,23 @@ components:
                 total:
                     type: string
             description: 查询菜单列表 - 回应
+        ListMonitorAlertRuleResponse:
+            type: object
+            properties:
+                total:
+                    type: string
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/MonitorAlertRule'
+        ListMyNotificationCategoriesResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NotificationCategoryItem'
+            description: 当前用户可见的启用分类清单（退订选择器的数据源）。
         ListNotificationChannelResponse:
             type: object
             properties:
@@ -7814,6 +11496,35 @@ components:
                 total:
                     type: string
             description: 查询通知渠道列表 - 回应
+        ListNotificationDeliveryResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NotificationDelivery'
+                total:
+                    type: string
+            description: 查询投递台账列表 - 回应
+        ListNotificationRuleResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NotificationRule'
+                total:
+                    type: string
+            description: 查询路由规则列表 - 回应
+        ListNotificationTemplateResponse:
+            type: object
+            properties:
+                total:
+                    type: string
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/NotificationTemplate'
         ListOnlineSessionResponse:
             type: object
             properties:
@@ -7936,6 +11647,16 @@ components:
                 total:
                     type: string
             description: 获取职位列表 - 答复
+        ListPrintTemplateResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/PrintTemplate'
+                total:
+                    type: string
+            description: 查询打印模板列表 - 回应
         ListRoleResponse:
             type: object
             properties:
@@ -8280,15 +12001,9 @@ components:
                 expires_in:
                     type: string
                     description: 访问令牌过期时间（秒）
-                refresh_token:
-                    type: string
-                    description: 更新令牌，用来获取下一次的访问令牌，可选项。如果访问令牌将过期，则返回刷新令牌很有用，应用程序可以使用该刷新令牌来获取另一个访问令牌。但是，通过隐式授予颁发的令牌不能颁发刷新令牌。
                 scope:
                     type: string
                     description: 以空格分隔的用户授予范围列表。如果未提供，scope则授权任何范围，默认为空列表。
-                refresh_expires_in:
-                    type: string
-                    description: 刷新令牌过期时间（秒）
                 id_token:
                     type: string
                     description: ID 令牌，OpenID Connect 扩展中定义的 JWT 格式令牌
@@ -8394,6 +12109,7 @@ components:
                         - INTERNAL_MESSAGE
                         - FILE
                         - TASK
+                        - AI
                     type: string
                     description: 所属业务功能模块
                     format: enum
@@ -8544,6 +12260,82 @@ components:
                 meta:
                     $ref: '#/components/schemas/MenuMeta'
             description: 路由项
+        MonitorAlertRule:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                name:
+                    type: string
+                metric:
+                    enum:
+                        - MONITOR_METRIC_UNSPECIFIED
+                        - GO_GOROUTINES
+                        - GO_MEM_ALLOC_MB
+                        - DB_OPEN_CONNECTIONS
+                        - DB_PING_FAIL
+                        - REDIS_DB_SIZE
+                    type: string
+                    format: enum
+                op:
+                    enum:
+                        - ALERT_OP_UNSPECIFIED
+                        - GE
+                        - LE
+                    type: string
+                    description: DB_PING_FAIL 时忽略 op/threshold
+                    format: enum
+                threshold:
+                    type: number
+                    format: double
+                cooldownMinutes:
+                    type: integer
+                    description: 重复告警冷却（分钟）：持续越限时按此间隔重发，默认 30
+                    format: uint32
+                channel:
+                    enum:
+                        - CHANNEL_UNSPECIFIED
+                        - EMAIL
+                        - SMS
+                        - WEBHOOK
+                        - INTERNAL
+                        - EXT
+                    type: string
+                    description: 告警渠道（显式指定）
+                    format: enum
+                target:
+                    type: string
+                    description: 投递目标：EMAIL 为收件地址，WEBHOOK 为回调 URL
+                isEnabled:
+                    type: boolean
+                remark:
+                    type: string
+                lastFiring:
+                    type: boolean
+                    description: —— 以下为评估器回写状态（只读） ——
+                lastValue:
+                    type: number
+                    format: double
+                lastAlertedAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
+            description: |-
+                监控告警规则：指标阈值 → 触发通知。
+                 渠道与目标显式写在规则上（不经路由表）：告警是"点对点"的运营配置，
+                 路由表解决的是"事件该发去哪类渠道"，而这里要的是"这条告警发到这个邮箱"。
+        NotificationCategoryItem:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                name:
+                    type: string
+            description: 可退订分类的精简项（只取 id + 名称，避免拖整个分类实体）。
         NotificationChannel:
             type: object
             properties:
@@ -8558,6 +12350,46 @@ components:
                     enum:
                         - EMAIL
                         - WEBHOOK
+                        - SMS
+                        - WECOM_APP
+                        - DINGTALK_APP
+                        - FEISHU_APP
+                        - WECHAT
+                        - TELEGRAM
+                        - SLACK
+                        - DISCORD
+                        - TEAMS
+                        - GCHAT
+                        - WEBEX
+                        - LINE
+                        - MATRIX
+                        - MATTERMOST
+                        - ROCKETCHAT
+                        - ZULIP
+                        - BARK
+                        - NTFY
+                        - GOTIFY
+                        - SERVERCHAN
+                        - WXPUSHER
+                        - PUSHOVER
+                        - PUSHBULLET
+                        - PUSHDEER
+                        - JPUSH
+                        - GETUI
+                        - HUAWEISMS
+                        - YUNPIAN
+                        - TWILIO
+                        - VONAGE
+                        - WHATSAPP
+                        - MAILGUN
+                        - SENDGRID
+                        - POSTMARK
+                        - IFTTT
+                        - JOIN
+                        - HOMEASSISTANT
+                        - DATADOG
+                        - OPSGENIE
+                        - PAGERDUTY
                     type: string
                     description: 渠道类型
                     format: enum
@@ -8585,7 +12417,230 @@ components:
                     type: string
                     description: 加密方式
                     format: enum
+                webhookUrl:
+                    type: string
+                    description: Webhook 回调地址（仅 WEBHOOK 渠道）
+                hasWebhookSecret:
+                    type: boolean
+                    description: 是否已配置 Webhook 签名密钥
+                webhookSignStyle:
+                    enum:
+                        - CUSTOM
+                        - NONE
+                        - DINGTALK
+                        - FEISHU
+                        - WECOM
+                    type: string
+                    description: Webhook 出站风格（仅 WEBHOOK 渠道）
+                    format: enum
+                webhookPayloadTemplate:
+                    type: string
+                    description: Webhook 载荷模板，留空用该风格的内置默认 JSON
+                settings:
+                    type: string
+                    description: 扩展渠道配置 JSON（读回显脱敏）
                 enabled:
+                    type: boolean
+                    description: 是否启用
+                remark:
+                    type: string
+                    description: 备注
+                smsProvider:
+                    enum:
+                        - ALIYUN
+                        - TENCENT
+                    type: string
+                    description: 短信服务商（仅 SMS 渠道）
+                    format: enum
+                smsAccessKeyId:
+                    type: string
+                    description: 访问密钥 ID（仅 SMS 渠道）
+                hasSmsAccessSecret:
+                    type: boolean
+                    description: 是否已配置访问密钥 Secret
+                smsSignName:
+                    type: string
+                    description: 短信签名（已在服务商备案的签名名，仅 SMS 渠道）
+                smsTemplateCode:
+                    type: string
+                    description: 验证码模板 ID（服务商侧审核通过的模板，仅 SMS 渠道）
+                smsAppId:
+                    type: string
+                    description: 短信应用 ID（腾讯云 SmsSdkAppId；阿里云留空）
+                smsRegion:
+                    type: string
+                    description: 服务地域（腾讯云如 ap-guangzhou；阿里云留空）
+                smtpFromName:
+                    type: string
+                    description: 发件人显示名（仅 EMAIL 渠道）
+                createdBy:
+                    type: integer
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    format: uint32
+                createdAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
+            description: 通知渠道
+        NotificationDelivery:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 台账ID
+                    format: uint32
+                eventType:
+                    enum:
+                        - EVENT_TYPE_UNSPECIFIED
+                        - PASSWORD_RESET_CODE
+                        - CONTACT_BIND_CODE
+                        - CHANNEL_TEST_EMAIL
+                        - INTERNAL_MESSAGE
+                        - MONITOR_ALERT
+                        - CHANNEL_TEST_SMS
+                        - PHONE_BIND_CODE
+                        - CHANNEL_TEST_EXT
+                    type: string
+                    description: 业务事件类型
+                    format: enum
+                channel:
+                    enum:
+                        - CHANNEL_UNSPECIFIED
+                        - EMAIL
+                        - SMS
+                        - WEBHOOK
+                        - INTERNAL
+                        - EXT
+                    type: string
+                    description: 投递渠道
+                    format: enum
+                channelId:
+                    type: integer
+                    description: 实际选中的渠道配置ID
+                    format: uint32
+                recipientUserId:
+                    type: integer
+                    description: 收件用户ID（直发模式可为空）
+                    format: uint32
+                target:
+                    type: string
+                    description: 投递目标（脱敏）
+                status:
+                    enum:
+                        - DELIVERY_STATUS_UNSPECIFIED
+                        - SENDING
+                        - SENT
+                        - FAILED
+                        - SKIPPED
+                    type: string
+                    description: 投递状态
+                    format: enum
+                lastError:
+                    type: string
+                    description: 最近一次失败原因
+                sentAt:
+                    type: string
+                    description: 投递完成时间
+                    format: date-time
+                relatedId:
+                    type: integer
+                    description: 关联业务对象ID（按 event_type 解释）
+                    format: uint32
+                requestId:
+                    type: string
+                    description: 派发请求ID（幂等锚）
+                attempts:
+                    type: integer
+                    description: 实际尝试投递次数（含首次）
+                    format: uint32
+                createdBy:
+                    type: integer
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    format: uint32
+                createdAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
+            description: 一条通知 × 一个渠道 × 一个收件人 = 一行投递台账
+        NotificationPreference:
+            type: object
+            properties:
+                userId:
+                    type: integer
+                    format: uint32
+                quietEnabled:
+                    type: boolean
+                    description: |-
+                        是否启用实时推送静音时段：只抑制 SSE 实时推送（桌面通知/角标即时性），
+                         收件行照常落库，用户打开收件箱仍能看到全部消息。
+                quietStartMinute:
+                    type: integer
+                    description: 静音开始：自当日 00:00 起的分钟数（0-1439），默认 1320（22:00）。
+                    format: int32
+                quietEndMinute:
+                    type: integer
+                    description: |-
+                        静音结束：自当日 00:00 起的分钟数（0-1439），默认 480（08:00）。
+                         跨零点窗口（start > end，如 22:00→08:00）合法；start == end 且启用视为无效配置。
+                    format: int32
+                mutedCategoryIds:
+                    type: array
+                    items:
+                        type: integer
+                        format: uint32
+                    description: |-
+                        退订的站内信分类 ID 列表：仅约束全员广播（targetAll），
+                         点对点定向发送不受退订影响（直接指名发给你的消息不可拒收）。
+                updatedAt:
+                    type: string
+                    format: date-time
+            description: |-
+                用户通知偏好（每用户一行）。
+                 服务端从操作人/收件人钉定 user_id，客户端传入的 user_id 一律忽略。
+        NotificationRule:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 规则ID
+                    format: uint32
+                eventType:
+                    enum:
+                        - EVENT_TYPE_UNSPECIFIED
+                        - PASSWORD_RESET_CODE
+                        - CONTACT_BIND_CODE
+                        - CHANNEL_TEST_EMAIL
+                        - INTERNAL_MESSAGE
+                        - MONITOR_ALERT
+                        - CHANNEL_TEST_SMS
+                        - PHONE_BIND_CODE
+                        - CHANNEL_TEST_EXT
+                    type: string
+                    description: 业务事件类型（一张表内唯一）
+                    format: enum
+                channel:
+                    enum:
+                        - CHANNEL_UNSPECIFIED
+                        - EMAIL
+                        - SMS
+                        - WEBHOOK
+                        - INTERNAL
+                        - EXT
+                    type: string
+                    description: 该事件投递走的渠道
+                    format: enum
+                isAsync:
+                    type: boolean
+                    description: 是否异步派发
+                isEnabled:
                     type: boolean
                     description: 是否启用
                 remark:
@@ -8603,7 +12658,35 @@ components:
                 updatedAt:
                     type: string
                     format: date-time
-            description: 通知渠道
+            description: 一条业务事件类型 → 一行规则（event_type 唯一）
+        NotificationTemplate:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                name:
+                    type: string
+                code:
+                    type: string
+                    description: 模板编码，发送方以 template_code 引用；全局唯一，仅限字母数字与下划线/连字符
+                titleTemplate:
+                    type: string
+                    description: 标题模板，支持 {{var}} 占位符；未识别占位符在渲染时报错
+                contentTemplate:
+                    type: string
+                    description: 正文模板，支持 {{var}} 占位符
+                isEnabled:
+                    type: boolean
+                remark:
+                    type: string
+                createdAt:
+                    type: string
+                    format: date-time
+                updatedAt:
+                    type: string
+                    format: date-time
+            description: 通知模板：可复用的标题/正文占位模板（{{var}}），平台全局、code 全局唯一。
         OnlineSession:
             type: object
             properties:
@@ -8897,6 +12980,60 @@ components:
                     description: 删除时间
                     format: date-time
             description: 组织单元
+        PagingRequest:
+            type: object
+            properties:
+                page:
+                    type: integer
+                    default: !!float 1
+                    description: 当前页码（从1开始，默认1）
+                    format: uint32
+                pageSize:
+                    type: integer
+                    default: !!float 10
+                    description: 每页条数（默认10，建议设置上限如100）
+                    format: uint32
+                offset:
+                    type: string
+                    default: !!float 0
+                    description: 跳过的记录数（从0开始，默认0）
+                limit:
+                    type: integer
+                    default: !!float 10
+                    description: 最多返回的记录数（默认10，建议设置上限如100）
+                    format: uint32
+                token:
+                    type: string
+                    description: 上一页最后一条记录的游标（如ID/时间戳+ID，首次请求为空）
+                noPaging:
+                    type: boolean
+                    description: 是否不分页，如果为true，则page和pageSize参数无效。
+                query:
+                    example: {"field1": "val1", "field2___icontains": "val2"}
+                    type: string
+                    description: JSON字符串过滤条件，基础语法：{"key1":"val1","key2":"val2"}，具体请参见：https://github.com/tx7do/go-crud/tree/main/pagination/filter/README.md
+                filter:
+                    type: string
+                    description: Google AIP规范字符串过滤条件。
+                filterExpr:
+                    allOf:
+                        - $ref: '#/components/schemas/FilterExpr'
+                    description: 复杂过滤表达式，优先于已弃用的 query/or_query。服务端应以此为准并执行严格校验与参数化。
+                orderBy:
+                    example: {"val1": '', "-val2": ''}
+                    type: string
+                    description: 排序条件
+                sorting:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Sorting'
+                    description: 排序规则
+                fieldMask:
+                    example: id,realName,userName
+                    type: string
+                    description: 字段掩码，其作用为SELECT中的字段，其语法为使用逗号分隔字段名，例如：id,realName,userName。如果为空则选中所有字段，即SELECT *。
+                    format: field-mask
+            description: "------------------------------\r\n 分页通用请求\r\n ------------------------------"
         Permission:
             type: object
             properties:
@@ -9202,6 +13339,7 @@ components:
                         - INTERNAL_MESSAGE
                         - FILE
                         - TASK
+                        - AI
                     type: string
                     description: 功能模块
                     format: enum
@@ -9247,6 +13385,7 @@ components:
                         - USER_LIMIT
                         - STORAGE
                         - API_CALL
+                        - AI_TOKENS
                     type: string
                     description: 配额类型
                     format: enum
@@ -9467,6 +13606,66 @@ components:
                     type: string
                     description: 预签名约束的 Content-Type（可选）
             description: 预签名选项
+        PrintTemplate:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 模板ID
+                    format: uint32
+                name:
+                    type: string
+                    description: 模板名称（展示用）
+                code:
+                    type: string
+                    description: 模板编码，租户内唯一，业务侧按编码取模板
+                resourceKey:
+                    type: string
+                    description: 绑定资源标识（对应菜单/资源的 generated service 键，设计器字段面板据其拉字段 schema）
+                payload:
+                    type: string
+                    description: 模板 JSON（设计器 TemplateData：毫米布局 + schemaVersion，服务端不解析只透传）
+                isBuiltIn:
+                    type: boolean
+                    description: 是否系统内置模板（内置禁删，可复制派生）
+                paperSize:
+                    type: string
+                    description: 纸张尺寸冗余列（A4/A5/80mm 等，列表页直显免解析 JSON）
+                orientation:
+                    type: string
+                    description: 纸张方向冗余列（portrait/landscape）
+                isEnabled:
+                    type: boolean
+                    description: 是否启用，停用的模板不出现在业务打印入口
+                sortOrder:
+                    type: integer
+                    description: 排序序号
+                    format: uint32
+                createdBy:
+                    type: integer
+                    description: 创建者ID
+                    format: uint32
+                updatedBy:
+                    type: integer
+                    description: 更新者ID
+                    format: uint32
+                deletedBy:
+                    type: integer
+                    description: 删除者用户ID
+                    format: uint32
+                createdAt:
+                    type: string
+                    description: 创建时间
+                    format: date-time
+                updatedAt:
+                    type: string
+                    description: 更新时间
+                    format: date-time
+                deletedAt:
+                    type: string
+                    description: 删除时间
+                    format: date-time
+            description: 打印模板（单据打印设计器的 TemplateData 载体；租户隔离，内置模板禁删可复制）
         PurgeScriptLogsRequest:
             type: object
             properties:
@@ -9490,6 +13689,7 @@ components:
                         - USER_LIMIT
                         - STORAGE
                         - API_CALL
+                        - AI_TOKENS
                     type: string
                     description: 配额类型
                     format: enum
@@ -9497,6 +13697,13 @@ components:
                     type: string
                     description: 配额上限值
             description: 配额用量项
+        RebuildSearchIndexResponse:
+            type: object
+            properties:
+                indexedCount:
+                    type: integer
+                    format: uint32
+            description: 重建搜索索引 - 回应
         RedisCacheMonitorInfo:
             type: object
             properties:
@@ -9511,6 +13718,61 @@ components:
                     items:
                         $ref: '#/components/schemas/SlowLogEntry'
             description: Redis缓存监控信息
+        RenderNotificationTemplateRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 被渲染的模板 ID
+                    format: uint32
+                variables:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: 变量集：占位符名 → 值；模板引用了变量集里没有的占位符时整个渲染报错
+            description: 按变量集试渲染（管理页预览；发送不经过这里）
+        RenderNotificationTemplateResponse:
+            type: object
+            properties:
+                title:
+                    type: string
+                content:
+                    type: string
+        RenderPrintTemplateRequest:
+            type: object
+            properties:
+                html:
+                    type: string
+                    description: 前端内核产出的最终文档（已完成分页的完整 HTML）
+                filename:
+                    type: string
+                    description: 下载文件名（不含扩展名，默认 print）
+                paperWidthMm:
+                    type: number
+                    description: 纸张宽（毫米，按模板 paperSize 解析）
+                    format: double
+                paperHeightMm:
+                    type: number
+                    description: 纸张高（毫米）
+                    format: double
+                landscape:
+                    type: boolean
+                    description: 横向（前端已交换宽高时传 false）
+                background:
+                    type: boolean
+                    description: 打印背景色/背景图
+            description: 服务端 PDF 渲染 - 请求
+        RenderPrintTemplateResponse:
+            type: object
+            properties:
+                pdf:
+                    type: string
+                    description: PDF 字节（protojson 下为 base64 字符串）
+                    format: bytes
+                filename:
+                    type: string
+                    description: 回显下载文件名（含 .pdf 扩展名）
+            description: 服务端 PDF 渲染 - 回应（pdf 为 base64；前端解码为 Blob 下载）
         ResetAccessKeySecretRequest:
             type: object
             properties:
@@ -9538,6 +13800,22 @@ components:
                     type: integer
                     format: int32
             description: 重启调度任务 - 回应
+        RestoreAiAgentRevisionRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 快照ID
+                    format: uint32
+            description: 恢复版本 - 请求（把快照 graph 写回主表；恢复前先快照当前版本）
+        RestoreBiDashboardRevisionRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 快照ID
+                    format: uint32
+            description: 恢复版本 - 请求（把快照的 payload/name 写回主表，版本号 +1；恢复前先快照当前版本）
         RevokeMessageRequest:
             type: object
             properties:
@@ -9634,6 +13912,13 @@ components:
                     items:
                         $ref: '#/components/schemas/RoleFieldPermission'
                     description: 字段权限配置（角色在各资源上隐藏的字段集，黑名单语义）
+                parentId:
+                    type: integer
+                    description: 父角色ID，0表示无父级（根角色）
+                    format: uint32
+                parentName:
+                    type: string
+                    description: 父角色名称（响应回填）
                 tenantId:
                     type: integer
                     description: 租户ID，0代表系统全局角色
@@ -9678,6 +13963,19 @@ components:
                         type: string
                     description: 隐藏字段列表（proto 字段 json_name，如 email）
             description: 角色字段权限条目：角色在某资源上隐藏的字段集（黑名单语义）
+        RunAiAgentAppRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 应用ID
+                    format: uint32
+                input:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: 运行入参（start 节点声明的变量）
+            description: 试运行 - 请求
         SMSResult:
             type: object
             properties:
@@ -9800,6 +14098,56 @@ components:
                     description: 执行时间
                     format: date-time
             description: 脚本执行日志
+        SearchAiKnowledgeRequest:
+            type: object
+            properties:
+                baseId:
+                    type: integer
+                    format: uint32
+                query:
+                    type: string
+                topK:
+                    type: integer
+                    format: uint32
+            description: 检索 - 请求
+        SearchAiKnowledgeResponse:
+            type: object
+            properties:
+                hits:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/KnowledgeHit'
+            description: 检索 - 回应
+        SemanticSearchItem:
+            type: object
+            properties:
+                title:
+                    type: string
+                route:
+                    type: string
+                itemType:
+                    type: string
+                score:
+                    type: number
+                    format: float
+            description: 搜索结果项
+        SemanticSearchRequest:
+            type: object
+            properties:
+                query:
+                    type: string
+                limit:
+                    type: integer
+                    format: uint32
+            description: 语义搜索 - 请求
+        SemanticSearchResponse:
+            type: object
+            properties:
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SemanticSearchItem'
+            description: 语义搜索 - 回应
         SendMessageRequest:
             type: object
             properties:
@@ -9856,6 +14204,17 @@ components:
                     type: string
                     description: 测试收件人邮箱
             description: 发送测试邮件 - 请求
+        SendTestRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 渠道ID
+                    format: uint32
+                recipient:
+                    type: string
+                    description: 测试收件人（邮箱/手机号，按渠道类型）
+            description: 发送测试消息 - 请求（按渠道类型分派：EMAIL 走邮件，SMS 发一条测试验证码；WEBHOOK 不支持）
         ServerMonitorInfo:
             type: object
             properties:
@@ -9889,6 +14248,35 @@ components:
                 clientName:
                     type: string
             description: SLOWLOG GET 返回的单条慢日志
+        Sorting:
+            type: object
+            properties:
+                field:
+                    type: string
+                    description: 排序字段（如"id"、"create_time"）
+                direction:
+                    enum:
+                        - ASC
+                        - DESC
+                    type: string
+                    description: 排序方向
+                    format: enum
+            description: 排序规则（分页场景通常需配合排序保证结果稳定）
+        SsoLoginRequest:
+            type: object
+            properties:
+                code:
+                    type: string
+                    description: IdP 回调带回的授权码
+                state:
+                    type: string
+                    description: GetSsoLoginUrl 返回的 state
+            description: |-
+                OIDC 回调换令牌（免鉴权）：code+state 换本系统 JWT。
+                 流程：state 验证取删 → code 在 IdP token 端点换 access_token →
+                 拉 userinfo 取 email → 按邮箱在本系统查用户（未找到且允许预置时自动建）→
+                 签发标准 JWT 对（refresh token 走 HttpOnly Cookie，与密码登录同形）。
+                 V1 边界：SSO 登录不触发本系统 TOTP MFA 闸门（认证已在 IdP 完成）。
         StartEnrollMethodRequest:
             type: object
             properties:
@@ -9962,6 +14350,74 @@ components:
                     type: string
                     description: 同步模式，缺省为 REPLACE（兼容旧客户端）
                     format: enum
+        SystemTaskFailure:
+            type: object
+            properties:
+                taskType:
+                    type: string
+                queue:
+                    type: string
+                state:
+                    type: string
+                    description: retry 或 archived
+                lastError:
+                    type: string
+                lastFailedAt:
+                    type: string
+                    format: date-time
+                retried:
+                    type: integer
+                    format: uint32
+                maxRetry:
+                    type: integer
+                    format: uint32
+                nextProcessAt:
+                    type: string
+                    description: 下次重试时间（archived 无）
+                    format: date-time
+            description: 失败任务明细（retry/archived 里的单条）
+        SystemTaskScheduleEntry:
+            type: object
+            properties:
+                taskType:
+                    type: string
+                    description: 任务类型名（载荷里的 handler/类型，如 tenant_expiry_scan）
+                cronSpec:
+                    type: string
+                    description: cron 表达式
+                nextEnqueueAt:
+                    type: string
+                    format: date-time
+                prevEnqueueAt:
+                    type: string
+                    description: 上次入队时间；从未入队为空
+                    format: date-time
+            description: |-
+                系统级常驻任务的调度条目（asynq SchedulerEntries 的只读投影）。
+                 Prev 为零值时间表示从未入队过（调度注册后还没到第一个触发点）。
+        SystemTaskStateSummary:
+            type: object
+            properties:
+                taskType:
+                    type: string
+                active:
+                    type: integer
+                    format: uint32
+                pending:
+                    type: integer
+                    format: uint32
+                retry:
+                    type: integer
+                    format: uint32
+                archived:
+                    type: integer
+                    format: uint32
+                recentFailures:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/SystemTaskFailure'
+                    description: 最近失败明细（retry + archived 合并、按失败时间倒序、截断）
+            description: 单任务类型在队列里的状态摘要
         TOTPResult:
             type: object
             properties:
@@ -10215,6 +14671,46 @@ components:
                         $ref: '#/components/schemas/QuotaUsage'
                     description: 配额上限列表
             description: 租户用量与配额
+        TestDispatchNotificationRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    description: 规则ID
+                    format: uint32
+                target:
+                    type: string
+                    description: 投递目标（收件邮箱/站内收件用户ID；WEBHOOK 留空用渠道配置的地址）
+                title:
+                    type: string
+                    description: 通知标题，留空用测试文案
+                content:
+                    type: string
+                    description: 通知正文，留空用测试文案
+            description: |-
+                测试投递 - 请求。
+
+                 target/title/content 全可空，缺省即"这条规则本来会发什么"：
+                 target 对 EMAIL/INTERNAL 是必填的投递目标，对 WEBHOOK 留空则取所选渠道配置的 webhook_url；
+                 title/content 留空由服务端按事件类型渲染一封测试文案（走 mailtext，与渠道测试邮件同一条出口）。
+        TestDispatchNotificationResponse:
+            type: object
+            properties:
+                deliveryId:
+                    type: integer
+                    description: 本次测试产生的台账ID
+                    format: uint32
+                status:
+                    enum:
+                        - DELIVERY_STATUS_UNSPECIFIED
+                        - SENDING
+                        - SENT
+                        - FAILED
+                        - SKIPPED
+                    type: string
+                    description: 投递结果
+                    format: enum
+            description: 测试投递 - 回应。台账行号一并回传：报错时拿它去投递记录页查这一条。
         TestRunScriptRequest:
             type: object
             properties:
@@ -10273,6 +14769,61 @@ components:
                     type: boolean
                     description: 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
             description: 更新访问凭证 - 请求
+        UpdateAiAgentAppRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/AiAgentApp'
+                updateMask:
+                    type: string
+                    format: field-mask
+            description: 更新 - 请求
+        UpdateAiConversationRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/AiConversation'
+                updateMask:
+                    type: string
+                    format: field-mask
+                allowMissing:
+                    type: boolean
+            description: 更新会话 - 请求
+        UpdateAiKnowledgeBaseRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/AiKnowledgeBase'
+                updateMask:
+                    type: string
+                    format: field-mask
+                allowMissing:
+                    type: boolean
+            description: 更新知识库 - 请求
+        UpdateAiProviderRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/AiProvider'
+                updateMask:
+                    type: string
+                    description: 要更新的字段列表
+                    format: field-mask
+                allowMissing:
+                    type: boolean
+            description: 更新 AI 提供商 - 请求
         UpdateApiRequest:
             type: object
             properties:
@@ -10290,6 +14841,23 @@ components:
                     type: boolean
                     description: 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
             description: 更新 - 请求
+        UpdateBiDashboardRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/BiDashboard'
+                updateMask:
+                    example: id,name,payload
+                    type: string
+                    description: 要更新的字段列表
+                    format: field-mask
+                allowMissing:
+                    type: boolean
+                    description: 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
+            description: 更新 BI 仪表盘 - 请求
         UpdateConfigRequest:
             type: object
             properties:
@@ -10443,6 +15011,17 @@ components:
                     type: boolean
                     description: 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
             description: 更新菜单 - 请求
+        UpdateMonitorAlertRuleRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/MonitorAlertRule'
+                updateMask:
+                    type: string
+                    format: field-mask
         UpdateNotificationChannelRequest:
             type: object
             properties:
@@ -10457,7 +15036,57 @@ components:
                 password:
                     type: string
                     description: SMTP 密码/授权码，留空不修改
+                webhookSecret:
+                    type: string
+                    description: Webhook 签名密钥，留空不修改
+                smsAccessSecret:
+                    type: string
+                    description: 短信访问密钥 Secret，留空不修改
+                settings:
+                    type: string
+                    description: 扩展渠道配置（JSON 明文；仅 EXT_* 渠道。schema sensitive 字段留空 = 保留已存值）
             description: 更新通知渠道 - 请求
+        UpdateNotificationPreferenceRequest:
+            type: object
+            properties:
+                quietEnabled:
+                    type: boolean
+                quietStartMinute:
+                    type: integer
+                    format: int32
+                quietEndMinute:
+                    type: integer
+                    format: int32
+                mutedCategoryIds:
+                    type: array
+                    items:
+                        type: integer
+                        format: uint32
+            description: 更新自己的通知偏好（字段全量提交；未登录不可用）。
+        UpdateNotificationRuleRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/NotificationRule'
+                updateMask:
+                    type: string
+                    format: field-mask
+            description: 更新路由规则 - 请求
+        UpdateNotificationTemplateRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/NotificationTemplate'
+                updateMask:
+                    type: string
+                    description: 字段掩码：留空更新全部字段
+                    format: field-mask
         UpdateOrgUnitRequest:
             type: object
             properties:
@@ -10577,6 +15206,23 @@ components:
                     type: boolean
                     description: 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
             description: 更新职位 - 请求
+        UpdatePrintTemplateRequest:
+            type: object
+            properties:
+                id:
+                    type: integer
+                    format: uint32
+                data:
+                    $ref: '#/components/schemas/PrintTemplate'
+                updateMask:
+                    example: id,name,payload
+                    type: string
+                    description: 要更新的字段列表
+                    format: field-mask
+                allowMissing:
+                    type: boolean
+                    description: 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
+            description: 更新打印模板 - 请求
         UpdateRoleRequest:
             type: object
             properties:
@@ -10668,6 +15314,40 @@ components:
                     type: boolean
                     description: 如果设置为true的时候，资源不存在则会新增(插入)，并且在这种情况下`updateMask`字段将会被忽略。
             description: 更新用户 - 请求
+        UploadAiDocFileRequest:
+            type: object
+            properties:
+                baseId:
+                    type: integer
+                    format: uint32
+                fileName:
+                    type: string
+                contentBase64:
+                    type: string
+                    format: bytes
+                docName:
+                    type: string
+            description: 上传文档文件 - 请求（文件字节经 protojson 即 base64 字符串传输）
+        UploadAiDocRequest:
+            type: object
+            properties:
+                baseId:
+                    type: integer
+                    format: uint32
+                name:
+                    type: string
+                content:
+                    type: string
+            description: 上传文档 - 请求（纯文本；内容直接随请求体传输）
+        UploadAiDocResponse:
+            type: object
+            properties:
+                doc:
+                    $ref: '#/components/schemas/AiDoc'
+                chunkCount:
+                    type: integer
+                    format: uint32
+            description: 上传文档 - 回应
         UploadAvatarRequest:
             type: object
             properties:
@@ -10714,6 +15394,20 @@ components:
                 publicUrl:
                     type: string
                     description: 签名公开访问 URL
+        UsageSummaryResponse:
+            type: object
+            properties:
+                monthTokens:
+                    type: integer
+                    format: uint32
+                monthCalls:
+                    type: integer
+                    format: uint32
+                quotaConfigured:
+                    type: boolean
+                quotaLimit:
+                    type: string
+            description: 当月用量汇总 - 回应
         User:
             type: object
             properties:
@@ -10819,6 +15513,9 @@ components:
                 region:
                     type: string
                     description: 国家地区
+                locale:
+                    type: string
+                    description: 偏好语言（zh-CN/en-US，空=跟随请求）
                 description:
                     type: string
                     description: 个人描述
@@ -10960,12 +15657,38 @@ tags:
       description: OpenAPI 访问凭证（AK/SK）管理 — BFF
     - name: AdminPortalService
       description: 后台前端初始化数据与配置服务
+    - name: AiAgentService
+      description: AI Agent 编排管理服务（可视化画布）
+    - name: AiChatService
+      description: |-
+        AI 对话服务
+
+         流式语义：本 RPC 是普通 POST（body 为扁平请求体，**不包 data**），
+         增量 token 经 SSE `ai_chat_chunk` 事件推送（见 domain proto 注释）。
+    - name: AiContentService
+      description: AI 内容生成服务（表单助手）
+    - name: AiConversationService
+      description: AI 对话会话管理服务
+    - name: AiKnowledgeBaseService
+      description: AI 知识库管理服务（RAG）
+    - name: AiMessageService
+      description: AI 对话消息服务
+    - name: AiProviderService
+      description: AI 模型提供商管理服务
+    - name: AiQueryService
+      description: |-
+        智能问数服务（NL → 只读 SQL → 结构化结果）
+         平台管理员专属：第一版查的是全平台数据，且 SQL 会触达原生库表。
+    - name: AiUsageLogService
+      description: AI 用量流水服务（配额记账事实源）
     - name: ApiAuditLogService
       description: API审计日志管理服务
     - name: ApiService
       description: API资源管理服务
     - name: AuthenticationService
       description: 用户后台登录认证服务
+    - name: BiDashboardService
+      description: BI 仪表盘管理服务
     - name: ConfigService
       description: 系统参数管理服务
     - name: DashboardService
@@ -11000,8 +15723,29 @@ tags:
          管理侧 RPC（GetMFAStatus/ListEnrolledMethods/StartEnrollMethod/ConfirmEnrollMethod/
          DisableMFA/RevokeMFADevice）需登录态，走正常 auth+authz 中间件，不加 security:{}。
          登录挑战侧 RPC（VerifyMFAChallenge）免鉴权，加 security:{} 并加入 rest_server 白名单。
+    - name: MonitorAlertService
+      description: 监控告警规则服务（平台管理员）
+    - name: MyTenantUsageService
+      description: |-
+        租户自助用量服务：租户管理员查看本租户的套餐用量与配额。
+         与 TenantService.GetUsage（平台管理员按租户 ID 查任意租户）互补——
+         本服务 server 钉定 operator 的租户，不接受客户端传入租户 ID。
     - name: NotificationChannelService
       description: 通知渠道管理服务（平台级配置）
+    - name: NotificationPreferenceService
+      description: 用户通知偏好服务（自助：读写的都是当前操作人自己的偏好，无管理面）。
+    - name: NotificationRuleService
+      description: 通知路由规则管理服务（平台级配置，菜单 authority 为 sys:platform_admin）。
+    - name: NotificationService
+      description: |-
+        通知投递台账管理服务（平台级只读视图）。
+
+         本域不含"发一条通知"的通用 HTTP 路由：SendDirect 只由进程内的业务 service 经 Notifier 接口调用。
+         把它开放成端点等于给任意已登录操作员一个"向任意邮箱发信"的能力。
+         两个刻意保留的手动触发口都是平台管理员专属、且只能发"测试文案"：
+         渠道配置页的 send-test-email，与路由规则页的 notification-rules/{id}/test-dispatch。
+    - name: NotificationTemplateService
+      description: 通知模板管理服务（平台管理员；租户由 notification_platform_guard 拒绝）
     - name: OnlineSessionService
       description: 在线会话管理服务（在线用户列表 + 强制下线）
     - name: OperationAuditLogService
@@ -11024,6 +15768,8 @@ tags:
       description: 策略评估日志服务
     - name: PositionService
       description: 职位管理服务
+    - name: PrintTemplateService
+      description: 打印模板管理服务
     - name: RedisCacheMonitorService
       description: Redis缓存监控管理服务（只读）
     - name: RoleService
@@ -11034,6 +15780,8 @@ tags:
       description: 脚本管理服务（平台管理员）
     - name: ServerMonitorService
       description: 服务监控管理服务（只读）
+    - name: TaskMonitorService
+      description: 系统级常驻任务监控服务（平台管理员；只读 asynq Inspector，无副作用）。
     - name: TaskService
       description: 调度任务管理服务
     - name: TenantService
