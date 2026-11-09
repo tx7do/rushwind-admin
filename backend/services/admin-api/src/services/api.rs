@@ -68,8 +68,9 @@ fn tag_to_module(tag: &str) -> &'static str {
         | "ScriptService"
         | "ScriptLogService"
         | "BiDashboardService"
-        | "PrintTemplateService"
         | "MfaService" => "SYSTEM",
+        // PRINT 模块（2026-11-09 上游：打印模板对租户开放）
+        "PrintTemplateService" => "PRINT",
         _ => "SYSTEM",
     }
 }
@@ -544,7 +545,7 @@ mod tests {
             ("ScriptService", "SYSTEM"),
             ("ScriptLogService", "SYSTEM"),
             ("BiDashboardService", "SYSTEM"),
-            ("PrintTemplateService", "SYSTEM"),
+            ("PrintTemplateService", "PRINT"),
             ("MfaService", "SYSTEM"),
         ];
         for (tag, module) in &expected {

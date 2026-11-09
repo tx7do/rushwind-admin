@@ -32,7 +32,7 @@ fe3a620647bf698a7c0744133493d77198a706a6d35f3fbb20aafb09e019a1cc  scripts/deploy
 236666ebbf031c0a294759c016842e34b89837529e017e78211cdfd3a25a92b7  src/api/client.ts
 54cc4e5f27615653e8ca07dd0477c302a80fa2f28abc60fed60635a34f770924  src/api/composables/access_key.ts
 c0d588f7eaf500ea7b9de1a534110584c605f818a213cb54c93a7c091bfe7567  src/api/composables/admin-portal.ts
-4fd61438f794f922c05a2b7b82330187fa3578c0c178cfea9bb0024b82b67abe  src/api/composables/ai-agent.ts
+e98c5ef04a69b7079a8dc8ebf2baa50fc54d1f34afd8506d68ce4c76123693d5  src/api/composables/ai-agent.ts
 04b59c30af84f3238b54866ec6994ca68fd331037a47aa382fe4f5494acc1a49  src/api/composables/ai-chat.ts
 bb03fe5cd738109deb61b02557501dbada1ea1d96f7341b550fa07c933fed86f  src/api/composables/ai-content.ts
 a4348060a95a45823460c8d15e700bd0a68bcce751ec03d34811a1ff5e9b1bcc  src/api/composables/ai-knowledge.ts
@@ -84,7 +84,7 @@ aac5fc670fff6480adbf9201ab021900fc2b6ebe1acc209424755c1aefdf93dd  src/api/compos
 8d030557eb1f8d46112fb5da0b56c25770e46755f4c37d5221622185455240c8  src/api/composables/tenant.ts
 25f6f961082f41599b3149a77d07807e85876a969a3ed0c1ebe8e39fb992477a  src/api/composables/user-profile.ts
 0574b634b2d1c9f5728fd3d0f2fd5b58b724c5b0ffbc4a09c29cbac4af4f6873  src/api/composables/user.ts
-cd02f7523cc52971982190fbb9cf1d2606fe177a39358cf4ab222e38a4e8e6ae  src/api/generated/admin/service/v1/index.ts
+bbd56b3453940a970cbf963afb4221ffbb6f35458d8487639a1ea4f17a6651d0  src/api/generated/admin/service/v1/index.ts
 a4db5ca59b023c2bef677395c87cdd0f3b86795f70998f4d5ab33c4c6105682c  src/api/index.ts
 c74e894465a858bad75046514161a44bc5201cc70a0b283907e8af8944fc834e  src/assets/icons/api.svg
 a94ce747c209fb8aec935c935630823035a4d66bdf707f335607b809620a1462  src/assets/icons/backtop.svg
@@ -313,7 +313,7 @@ d291e858dfc14083f1648d5aceb6d3dd6c8fab08608e86d5316be5b25a224f76  src/locales/en
 e48d808f6ca3d16b5f005905d43f3d342a0a0d9139be66f324b5919243ab2825  src/locales/en-US/core.json
 b443e6b5915f4c61311c6097b3d811355854dce4cea45f77d353ebb50a0d918d  src/locales/en-US/enum.json
 623d018faf431ce21fb929be368058a56ca8ed735cdc630c03f10fab5c52ee87  src/locales/en-US/pages/access_key.json
-65a8c49f0f844078e318c436e7abad232ee15200f1e40d0d694f38e885e840ee  src/locales/en-US/pages/ai_agent.json
+d75d83f6cffd6186206ab3aba2c3d863486e1aad86d681bc74656b12ec1dea7b  src/locales/en-US/pages/ai_agent.json
 9749bb5c42394f61feb7ed646097411e4365da0415da4ff931c56fa63cabcca0  src/locales/en-US/pages/ai_chat.json
 171a05f898c8689d5092f7b02dccd2bc77a4f3622901b590d16d7af5503d6dbb  src/locales/en-US/pages/ai_content.json
 da61e4acf5aa855dcb45b93d813cb49956ce0ee6e1c8d73868edd73c9ff0fc0a  src/locales/en-US/pages/ai_knowledge.json
@@ -367,7 +367,7 @@ ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356  src/locales/zh
 61b8605b05f6fb53fa03e737c34a6379fae5d487c9c1c9374a03e26a7e055d9d  src/locales/zh-CN/core.json
 f5f086aa0bd25da369e49e8523e8160ea1d9aca1bab0a848633c215cbd82d0e1  src/locales/zh-CN/enum.json
 26da24e7a066c683362947bcd8c4a564b8223b7bdbaa2ac77040dbc9f632f42b  src/locales/zh-CN/pages/access_key.json
-8d82b50026e76c0ce0134c6a8ab8aaf2fd06797313f1467155b9791e9f8eda05  src/locales/zh-CN/pages/ai_agent.json
+836bcd9a8c6eebdd939d94dae37b215f4ef05ece76433d37f617982d5d529bcb  src/locales/zh-CN/pages/ai_agent.json
 aabd36c234ef612fb9cdcb827dbd509744993482b02f2a68449f0a603abe7c04  src/locales/zh-CN/pages/ai_chat.json
 a0cd9585a28058db252afe4b2736e62851df1f207aa03841209ebdc35e5b5d81  src/locales/zh-CN/pages/ai_content.json
 c395965fd5d828a9241f2f8eb75ae291ef309179f0658b44d982df2751833629  src/locales/zh-CN/pages/ai_knowledge.json
@@ -417,11 +417,11 @@ d663635f594487b86cb4fdbdf2807560854322a5f3fbfd76585e59ca66e86818  src/locales/zh
 aa4c3c3e01276bbcc6804588ba4fafe14c5d64346b081db448759fb3d58b9725  src/locales/zh-CN/routes.json
 e4073323836dc79d4a9e12a1997a5c4b44b167405d8bb94a4211022f5beffb4e  src/locales/zh-CN/validation.json
 a1f66dc1fc259dd5ca868e4c3f4479f6f22486d06ec8a08ea22b8fe633e7410d  src/main.ts
-dd84f3ecbb004a6d0e6e19294ac1f5d2091789115b0027190e1a77616078c2a2  src/pages/app/ai/agent/ai-agent-canvas.vue
+68e250d5808ce97512b787006dcda82bfe03e2c748ff78880ed536348aa685bd  src/pages/app/ai/agent/ai-agent-canvas.vue
 1107f861412191b282a1710ada4202a0fd8c642852d0db68f0fef90bd6ac0fa2  src/pages/app/ai/agent/ai-agent-drawer.vue
-d2e59c4dfcfb29ce926cfa41dc68480fbef9553e916bbf0136c8dd63189732db  src/pages/app/ai/agent/ai-agent-flow-node.vue
+939e0fb9ac9e3c3c934e6a7c96dee366b55fb6a6ee3e4e919e52acb44c1c489c  src/pages/app/ai/agent/ai-agent-flow-node.vue
 0c17aa9972b1a436b9035c4a3cc440b9fc525b8e6464af46104d517277d2f1f3  src/pages/app/ai/agent/ai-agent-revisions-drawer.vue
-8e2fac374cfce6fe3f07405eddf86bb1af0adc5f2688b09d4c65cd6175e53075  src/pages/app/ai/agent/ai-agent-run-drawer.vue
+d83f5c4a23bc824e8683f3b3744ab59b435044b266a047e0f88a6d7fb3775ea5  src/pages/app/ai/agent/ai-agent-run-drawer.vue
 3dec7940e404643f72dd07236c01b38f5c33df17abca3760f7d2b9048f30f26a  src/pages/app/ai/agent/ai-agent-runs-drawer.vue
 a352701e193a292eac186b1fa92ff02969ab08d3ef43e46d2d2e803ddc48d5dd  src/pages/app/ai/agent/index.vue
 e823f26d98ade28ea515b476421e20ac87813eca412e5299d06c1144d1ff20f4  src/pages/app/ai/chat/index.vue
@@ -583,7 +583,7 @@ f6c97aa5c1083dc5c86abec8fd8aadb0b17c5f23280e11e2f2f6c60277f97527  src/router/rou
 5adcfa8f0e1444e78de908a368b2c810972aa92147bbcb991c416889bfa8cf9f  src/router/routes/modules/app/notification.ts
 ebd519c7758d915aeda76d108be7e748200c6c67c50da676d26ab16a6078ff56  src/router/routes/modules/app/opm.ts
 2b830fe1397c9ac0756805d743188a0ec99ea3f598dc7ab1b386f0d2dbac4f5d  src/router/routes/modules/app/permission.ts
-606be495aaf3c75a60def09d85029660804c6f29195da3441264b10015d3a91c  src/router/routes/modules/app/system.ts
+7976ae01822b70262cc404633f6b4c5ad332ed4bd8dfb9dd5f6906f6772aac6a  src/router/routes/modules/app/system.ts
 fa88ff223f958d87b1aede64202433538511004fe58c0977114e065db3d13593  src/router/routes/modules/app/tenant.ts
 5a48ff32d7b0278436194daf43042ac8ec43a9f6eb9bed67944e2e9188d41369  src/stores/index.ts
 891d06c6fa2c405581eace9ca0d08f4006b6d9bbef1b55ce2973123b1b417a59  src/stores/modules/access.store.ts

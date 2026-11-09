@@ -4,7 +4,7 @@ import { computed, markRaw, reactive, ref } from 'vue';
 import { useVbenDrawer } from '@vben/common-ui';
 import { $t } from '@vben/locales';
 
-import { message } from 'ant-design-vue';
+import { message, Modal } from 'ant-design-vue';
 // vue-flow 样式必须引入：handle/controls/minimap 全靠它——漏引时 handle 塌成 0 高、连线命中永远失败
 import '@vue-flow/core/dist/style.css';
 import '@vue-flow/core/dist/theme-default.css';
@@ -14,6 +14,8 @@ import { MiniMap } from '@vue-flow/minimap';
 import { VueFlow, useVueFlow } from '@vue-flow/core';
 
 import {
+  fetchAiAgentApp,
+  fetchListAiAgentApps,
   fetchListAiKnowledgeBases,
   fetchListAiProviders,
   PaginationQuery,
@@ -32,7 +34,7 @@ import AgentFlowNode from './agent-flow-node.vue';
  * - 试运行面板就地展示 output + trace 时间线 + token 用量。
  */
 
-type AgentNodeType = 'start' | 'knowledge' | 'llm' | 'http' | 'script' | 'condition' | 'end';
+type AgentNodeType = 'start' | 'knowledge' | 'llm' | 'http' | 'script' | 'parallel' | 'subflow' | 'condition' | 'end';
 
 const NODE_TYPE_ORDER: AgentNodeType[] = [
   'start',
@@ -40,6 +42,8 @@ const NODE_TYPE_ORDER: AgentNodeType[] = [
   'llm',
   'http',
   'script',
+  'parallel',
+  'subflow',
   'condition',
   'end',
 ];
@@ -89,6 +93,22 @@ const [Drawer, drawerApi] = useVbenDrawer({
         .catch((error: any) => {
           console.error('[ai-agent-canvas] list providers failed', error);
         });
+      // 子图（subflow）目标应用下拉（排除自身防自引用）
+      loadSubflowAppOptions();
+      // 行字段可能被裁剪/滞后：graph 的事实源是 Get，拉全量刷新画布
+      if (app.value?.id) {
+        fetchAiAgentApp(app.value.id)
+          .then((resp: any) => {
+            app.value = resp;
+            const fresh = graphToFlow(resp?.graph);
+            vueFlow.setNodes(fresh.nodes);
+            vueFlow.setEdges(fresh.edges);
+            selectedId.value = undefined;
+          })
+          .catch((error: any) => {
+            console.error('[ai-agent-canvas] load app detail failed', error);
+          });
+      }
     } else {
       flowReady.value = false;
     }
@@ -111,6 +131,38 @@ const runResult = ref<any>();
 
 const knowledgeBases = ref<any[]>([]);
 const providers = ref<any[]>([]);
+const subflowAppOptions = ref<Array<{ value: number; label: string }>>([]);
+const subflowMappingRows = computed<any[]>(() => ((selectedNode.value?.data.config as any)?.inputMapping ?? []));
+
+function addSubflowMapping() {
+  const node = selectedNode.value;
+  if (!node) return;
+  const config = node.data.config as any;
+  if (!Array.isArray(config.inputMapping)) config.inputMapping = [];
+  config.inputMapping.push({ name: '', value: '' });
+}
+
+function removeSubflowMapping(index: number) {
+  const node = selectedNode.value;
+  if (!node) return;
+  const config = node.data.config as any;
+  if (!Array.isArray(config.inputMapping)) return;
+  config.inputMapping.splice(index, 1);
+}
+
+/** 子图（subflow）目标应用下拉（排除自身防自引用）；画布打开时刷新一次 */
+function loadSubflowAppOptions() {
+  const selfId = app.value?.id;
+  fetchListAiAgentApps({ page: 1, pageSize: 100 })
+    .then((resp: any) => {
+      subflowAppOptions.value = (resp.items ?? [])
+        .filter((a: any) => a.id !== selfId)
+        .map((a: any) => ({ value: a.id, label: a.name }));
+    })
+    .catch((error: any) => {
+      console.error('[ai-agent-canvas] list agent apps failed', error);
+    });
+}
 
 const canvasTitle = computed(() =>
   `${$t('page.aiAgent.canvas.title')} · ${app.value?.name || ''}`,
@@ -121,6 +173,27 @@ const selectedNode = computed(() =>
 );
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD'].map((m) => ({ value: m, label: m }));
+
+/** 回边检测：from 沿既有出边走，判断能否到达 to（BFS）。回边 = target 已能到达 source。 */
+function targetReaches(edges: any[], from: string, to: string): boolean {
+  const adjacency = new Map<string, string[]>();
+  for (const e of edges) {
+    adjacency.set(e.source, [...(adjacency.get(e.source) ?? []), e.target]);
+  }
+  const visited = new Set<string>([from]);
+  const queue = [from];
+  while (queue.length > 0) {
+    const cur = queue.shift()!;
+    if (cur === to) return true;
+    for (const next of adjacency.get(cur) ?? []) {
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push(next);
+      }
+    }
+  }
+  return false;
+}
 
 /** http 节点 headers 行（模板深链收口到 computed，v-model 绑迭代变量） */
 const httpHeaderRows = computed<any[]>(() => ((selectedNode.value?.data.config as any)?.headers ?? []));
@@ -215,6 +288,12 @@ function defaultConfig(nodeType: AgentNodeType): Record<string, any> {
     case 'script': {
       return { language: 'lua', source: '' };
     }
+    case 'parallel': {
+      return {};
+    }
+    case 'subflow': {
+      return { appId: undefined, inputMapping: [] };
+    }
     case 'condition': {
       return { expression: '' };
     }
@@ -265,14 +344,39 @@ function onConnect(connection: { source?: string | null; target?: string | null 
       message.error($t('page.aiAgent.canvas.error.conditionTwoOut'));
       return;
     }
-    const branch = existing.length === 0 ? 'true' : 'false';
-    vueFlow.addEdges({
-      id: `edge_${source}_${target}_${branch}_${Date.now()}`,
-      source,
-      target,
-      label: branch,
-      animated: branch === 'true',
-    });
+    // branch 按已占用的槽位补缺失的那个（不再按顺序赋值——删 true 后重连会双 false）
+    const usedBranches = new Set(existing.map((e: any) => e.label as string));
+    const branch = usedBranches.has('true') ? 'false' : 'true';
+    const addEdge = () =>
+      vueFlow.addEdges({
+        id: `edge_${source}_${target}_${branch}_${Date.now()}`,
+        source,
+        target,
+        label: branch,
+        animated: branch === 'true',
+      });
+    // 回边软警示：target 已能到达 source 时这条边构成环（合法但受步数预算约束）
+    if (targetReaches(existing, target, source)) {
+      Modal.confirm({
+        title: $t('page.aiAgent.canvas.error.cycleWarning'),
+        content: $t('page.aiAgent.canvas.error.cycleWarningDetail'),
+        okText: $t('ui.button.ok'),
+        cancelText: $t('ui.button.cancel'),
+        onOk: addEdge,
+      });
+      return;
+    }
+    addEdge();
+    return;
+  }
+  // parallel 节点允许 N 条出边（fan-out），同一 target 只能连一条（后端拒重复边）
+  if (nodeType === 'parallel') {
+    const dupTarget = existing.some((e: any) => e.target === target);
+    if (dupTarget) {
+      message.error($t('page.aiAgent.canvas.error.duplicateTarget'));
+      return;
+    }
+    vueFlow.addEdges({ id: `edge_${source}_${target}_${Date.now()}`, source, target });
     return;
   }
   if (existing.length >= 1) {
@@ -587,6 +691,40 @@ end"
             />
           </div>
           <div class="pt-1 text-xs text-muted-foreground">{{ $t('page.aiAgent.canvas.scriptSandboxHint') }}</div>
+        </template>
+
+        <!-- subflow -->
+        <template v-if="selectedNode && selectedNode.data.nodeType === 'subflow'">
+          <div class="pb-4">
+            <div class="pb-1">{{ $t('page.aiAgent.canvas.subflowApp') }}</div>
+            <a-select
+              v-model:value="selectedNode.data.config.appId"
+              :options="subflowAppOptions"
+              :placeholder="$t('page.aiAgent.canvas.subflowAppPlaceholder')"
+              show-search
+              option-filter-prop="label"
+              allow-clear
+              class="w-full"
+            />
+          </div>
+          <div class="pb-4">
+            <div class="pb-1">{{ $t('page.aiAgent.canvas.subflowAddMapping') }}</div>
+            <div
+              v-for="(m, i) in subflowMappingRows"
+              :key="i"
+              class="mb-1.5 flex gap-1.5"
+            >
+              <a-input v-model:value="m.name" :placeholder="$t('page.aiAgent.canvas.subflowVarName')" class="w-[140px]" />
+              <a-input v-model:value="m.value" placeholder="{{start_1.question}}" class="flex-1" />
+              <a-button danger type="text" size="small" @click="removeSubflowMapping(i)">
+                {{ $t('page.aiAgent.canvas.remove') }}
+              </a-button>
+            </div>
+            <a-button dashed size="small" class="w-full" @click="addSubflowMapping">
+              {{ $t('page.aiAgent.canvas.subflowAddMapping') }}
+            </a-button>
+          </div>
+          <div class="pt-1 text-xs text-muted-foreground">{{ $t('page.aiAgent.canvas.subflowDepthHint') }}</div>
         </template>
 
         <!-- end -->

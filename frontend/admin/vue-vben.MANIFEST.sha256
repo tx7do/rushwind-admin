@@ -786,7 +786,7 @@ bb28322c103d4f95de39af404720e751e9b18f525b60db665ede8f505242436d  src/adapter/fo
 9dfc6a333bea1fcef92e3ab97f4ed8c4e6aef62cad0edb7500f42fa48f0aba99  src/api/client.ts
 98a853ce02f9fc504f5d907cb7613509c76a131bd7928cec7bdc4c011d9b4023  src/api/composables/access_key.ts
 f6973cd69d3da2b6c105d72fecc9d9be250c6468995be582b39f27f48c1b8bf0  src/api/composables/admin-portal.ts
-89834f3cf59b4e044da18765488ba09cc8419effb62b4ce486f6abff19c0e248  src/api/composables/ai-agent.ts
+748ff01bb81493dafce0164979d5245559d84422a97c851005baa67356a55959  src/api/composables/ai-agent.ts
 b0d3705841b0f60b9a99cd489685d7ee946021cc6cdac432c802e1f50ac4f796  src/api/composables/ai-chat.ts
 23cfe1d6034c17ffd0b5e12975e299477947d00f3bae03ef790cf711c6cfcf21  src/api/composables/ai-content.ts
 ecac1ce58f07f47f257cc8fb15b1589b61dacdd39c85c751d360049d46fa4d59  src/api/composables/ai-knowledge.ts
@@ -840,7 +840,7 @@ ca3491dfb1b966b12b26a464e60d6566bdd5302293c80cb6ba527892762f96dc  src/api/compos
 30d69f6c452632c656954807bf217f23be8059a1397a391e372b20ca6de1fd5f  src/api/composables/tenant.ts
 c6767f25c04163d79af2c7e7728e78c721e5a5a384cb67a7b5901feb0c7eff50  src/api/composables/user-profile.ts
 99ca0d571f4670182721c0ca5f1fdcfd86919b5e928127269672a468d28d815c  src/api/composables/user.ts
-cd02f7523cc52971982190fbb9cf1d2606fe177a39358cf4ab222e38a4e8e6ae  src/api/generated/admin/service/v1/index.ts
+bbd56b3453940a970cbf963afb4221ffbb6f35458d8487639a1ea4f17a6651d0  src/api/generated/admin/service/v1/index.ts
 456865f3d4d3693966f0d244af295ce0e1c67197083a098123c97e80c2c5f64b  src/api/index.ts
 e331caecac188a944e93eae2fa1edf63e222f5b12eaa292fa27a77680a29a941  src/app.vue
 871bacacd69c72d9e2f9ae079947aa7d747c60a795313942124c27882cf1c40f  src/bootstrap.ts
@@ -859,11 +859,11 @@ cbe768f2f0d74bfdf896b221f11571b1fb97249ce120639de63b2a8379c14a88  src/locales/RE
 307733974cd82ab9a9a1845d857badbeeffc98ff5a968513d3a49f2074454277  src/locales/index.ts
 3533b80e6d73e3ee3c79cce47a90926011247240e9e728da21bb101d31a50ae6  src/locales/langs/en-US/enum.json
 ed7391c322c0ba259eff9187c35d39aa270bb6a450d673a002eca61b49db6cac  src/locales/langs/en-US/menu.json
-06217a39630a923a40f93c65ee7be709303a46687a58fcf2c15cafa8c776e460  src/locales/langs/en-US/page.json
+393165241aa5733deb58dcab4252a51d8a8b7b86c90ea9ddb5e71c6bd8e691cb  src/locales/langs/en-US/page.json
 a45e8eb380450cbb9dfbcd2c130b3efba9e389cfed0ecd4272cbcfaba3508359  src/locales/langs/en-US/ui.json
 d8f7173314c8d3e83e56abca0bfa2eef52a0e4d9d49f00c6f3c650a1c472a0f4  src/locales/langs/zh-CN/enum.json
 b31f9488d08c2ffa8b61243b33ce08bb10f65b4cb91eba25ee8cc8d703fb8e97  src/locales/langs/zh-CN/menu.json
-6f9a98f4da982c415e0116528f6dcc319d930c741a6472c25fc74612d3e0589e  src/locales/langs/zh-CN/page.json
+072db5e0a3bbb32aa6e05fb6d15aa1b5034912c88dcc058a9df5203a6a811012  src/locales/langs/zh-CN/page.json
 7313b790b33900d8ab1e103706732fed785feb6f451f9fe2a4d9eea060dd0aca  src/locales/langs/zh-CN/ui.json
 c219d215353453556c9ab4281fb55d87e0d9b10c02313aebe67908147bea1474  src/main.ts
 9023e7566660d45960f703dab72c2f5c1fa454d4e82f86235e1d140b215a7fdd  src/plugins/vue-query.ts
@@ -881,7 +881,7 @@ f6b9753d5630202637dbf1a0cf44213e0ff638217dfbb15482c073a9dc747d5c  src/router/rou
 f1dc2461e39437a0419cad264b4b9ffed84e4945fa8d2572cc28563ab260ca2b  src/router/routes/modules/app/notification.ts
 1e47f980dc70b8c5ba5b91f470d8ad98ee398cad337c576ff52440e4ea3a0e67  src/router/routes/modules/app/opm.ts
 39ec6ea1b0dc029fd0847b657322ca6a322e6f8a9973222899f4273a593b9d82  src/router/routes/modules/app/permission.ts
-340f9ba28c96d495ab2db9d05d521d4eec7e7313c5335c8f5c73f0c0682349f8  src/router/routes/modules/app/system.ts
+1087b46a9cf643484566831549a65a7d48098858e94371e352f88244dab0c264  src/router/routes/modules/app/system.ts
 729d8ba641c024812b1e906f07ee5d623964559e3508258c87fa7666807ec83e  src/router/routes/modules/app/tenant.ts
 b33a0cdb3326a241edfdf23e7e5cadb6f87cf76479d01da130bfd5794cba1e11  src/router/routes/modules/dashboard.ts
 6f5a1f73d659f1ab4611c12fdb5a29d0a48b06cd6855bb24ea304541f8638ce2  src/router/routes/modules/message.ts
@@ -917,11 +917,11 @@ c2ddbd989e00e15d02617233d6c8f6d31f657f8cde73c55868359ffd6b85f068  src/views/_cor
 072d3ba6fb66c7ed1116cb0021390b6262db387c2551fc8973a48108439abb44  src/views/_core/authentication/sso-callback.vue
 1a6f259d9facfc8cf9819cb85c9d2785b6ac2f7b475fc7c89ae5c393dad51e74  src/views/_core/fallback/forbidden.vue
 e81849a245c4f63e0866529a32bed2018b300d80fa53ccf94fc11a6a740e8ea3  src/views/_core/fallback/not-found.vue
-55fc11c95af0649adafe4aaeb8d4cfb59e8334161956eb4871b3ed67dfbb22ac  src/views/app/ai/agent/agent-canvas.vue
+ee38dd62523cef624f621c4cf6e2aded6deb77da2879252d8d70781c0e1eaa16  src/views/app/ai/agent/agent-canvas.vue
 4bce763b6bcfdda86fe6286a5d1dbddf6fd949b4de082109291e7f1c3bb44658  src/views/app/ai/agent/agent-edit-drawer.vue
-ac5dbf6aa92fbca573b24800ed0829226bec901f9d644d3f0c7da110a151e43b  src/views/app/ai/agent/agent-flow-node.vue
+5b19f4d2da05490072f371fb2955af17c045770a8c9358a612092c4925d6efd9  src/views/app/ai/agent/agent-flow-node.vue
 cbeb7a4ae94e22377f5beb63cbc76f01f7a397f3ea39be207fa3ef15e10a373d  src/views/app/ai/agent/agent-revisions-drawer.vue
-7139bc04686246b393506e49116450e84103a177efc5a5c7025b93d57dd0d052  src/views/app/ai/agent/agent-run-drawer.vue
+f657ffeb55e6817085c6aff35cb78bfbf5a03a472b6f4a3dda7e228b0d810529  src/views/app/ai/agent/agent-run-drawer.vue
 b1ed1af4e39d9fc3da3982342fbfd6ff00ef49e2ea6518de6a15ced08e4f1510  src/views/app/ai/agent/agent-runs-drawer.vue
 c007669713b167306c5192fe60733252e95fcabd193d9170f2160f9ab9dc5198  src/views/app/ai/agent/index.vue
 fc5a02221b21caae35d90d2212836dc7e153af46a7f1a727319c63a7aa53fd90  src/views/app/ai/chat/index.vue

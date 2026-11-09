@@ -24,7 +24,7 @@ a106b162212c3abcc708a361c3148387429a31472b2d32a195b31124525fad47  build/utils/he
 01c316935099d2f653992d984a78580f9c7ea2f667969dd1f5e0619ea82ff93b  build/vite/build.ts
 a4252d8d443cfa6fece618f801096a444b5eb397c27b37d2edbb1cfa3f1ae4fa  build/vite/proxy.ts
 b1648ef423790f2834655ed4d0fe084acc7790350fafc67c45ee262621bc3a3a  eslint.config.js
-d594daa93b789f0271685ea3abbe2109c52434fca27eef3720a934c725420b32  index.html
+3db16174bd461dbc868bd73b9ad722be0a77cc59242911baa40570ed597a71fc  index.html
 450f0af4f4c1ecc4c7180f2e364c8a59bfed69dd350fb6b47bce8641c2a37786  mock/route.ts
 dbe16b95ac67be806f37dc9dd898c60b3ce45a7344ac561b6300943ecdc419c0  package.json
 8f26f169a2559fa68bdabbf1217235c1e9e49ec3ec412e44653a9cb3bee9853e  patches/@ant-design__pro-form@2.32.0.patch
@@ -41,11 +41,11 @@ a85d43a3ef6c5331a15b249e0d9c183759a425639f6acbff1906f4f2995017e6  public/logo.pn
 00782d5123a0ff01f47b4726df3d2937fbacf59cd49349d84fa67857f51c4b57  scripts/deploy/nginx.conf
 fe6416bd5c889a91ca430ef22695aafe4306a5ffce9106ce85d6ae33b718532e  src/api/README.md
 770e2e4be009ddfbdd939782d0e52de5b9c7b06ea5a347cee31d9a7cde16245d  src/api/client.ts
-cd02f7523cc52971982190fbb9cf1d2606fe177a39358cf4ab222e38a4e8e6ae  src/api/generated/admin/service/v1/index.ts
+bbd56b3453940a970cbf963afb4221ffbb6f35458d8487639a1ea4f17a6651d0  src/api/generated/admin/service/v1/index.ts
 7409f7703475decb9615f815b8700d884408c2fcf5a4cbc3ef57da3b71ee68b7  src/api/hooks/access-key.ts
 ad6974e81242cf93da1e0970e6722cb95047a39396e25a56511e8923d2220913  src/api/hooks/admin-portal.ts
 3c7b101d6ab4f510c36843e63ca158ae95301ca6e67f7ac664e88bc431cb57e6  src/api/hooks/ai-agent-run.ts
-8d1025f274c53fb5708eeddf52fbe0fb94a68186c7180425e677db71d2d66942  src/api/hooks/ai-agent.ts
+b8fd7782585ca8feb5a62d6283207c60d64f225b370a570d43d7ef28cb407354  src/api/hooks/ai-agent.ts
 6cc5be2a3bd54b8f67b0e995a6c0b5236ff88fd96356f51bd7fe5a1502c7fc1e  src/api/hooks/ai-chat.ts
 cfe3f2bf5f2afed725873095325c38761838b3638142c3841fc1d2bf92d3ff45  src/api/hooks/ai-content.ts
 d9c6b41a3ff15ddb941f34ee9ba383afda42fa3b966ff3c05074b02d2890351e  src/api/hooks/ai-knowledge.ts
@@ -261,7 +261,7 @@ c454e6d16aadab37cfbba099a73ae77c7548143cc57ff0e55a846a5912bfb492  src/locales/en
 f8af6bcddc46d9caf11a4f5866832538e825443e057f66bb7abdec3fbf2d3473  src/locales/en-US/_core/editor.json
 0ab07ea98673f05758c11a5111baf98351e12662e0df80ae57cb2752b100d766  src/locales/en-US/_core/routes.json
 dc5cd612653cacc4b14e67f4792298e46fcbec3bd5d42fc3f47b54192c2991ff  src/locales/en-US/_modules/access-key.json
-9ecc9cf31c8466eeb883be1e02075f2e7cac25305e58c73b117f6dc665867e9e  src/locales/en-US/_modules/ai-agent.json
+974a1175e933d2997e1369c8270fae46d617bffeaf8a8b97845756cea2f5f490  src/locales/en-US/_modules/ai-agent.json
 9f57bb6db104adf0103e30553bd70b1979d666408ae8088a69b87d8ac8175337  src/locales/en-US/_modules/aiChat.json
 feeacfd17b5dddd4285a2d39f08a579f1462543c7c594a98fc290f765996dd83  src/locales/en-US/_modules/aiGenerate.json
 bdfcf34decfe24805c2a8e3f0e536a311d02d05f5bdd2a478dce95e5eefaede4  src/locales/en-US/_modules/aiKnowledge.json
@@ -317,7 +317,7 @@ d76c1fbf76037ff5314cdd1964197b4b135160c0970304859b3f89d46cf43318  src/locales/en
 b7dfefa065d67da15ffe4e2cd46b64063e44ed127bcbf0b06c69b63e3a053be2  src/locales/zh-CN/_core/editor.json
 726d4618a1c2c678fbc7e15051319d0ff11d4261af348d4692de51379d2c613d  src/locales/zh-CN/_core/routes.json
 34a207c304cc82f5d1b40bd998a412e7a6bcc020d80caa4a2055fc3abca56261  src/locales/zh-CN/_modules/access-key.json
-29261290529d14cca270b5daad87a8b86c5ca22d6553eb0c1799e58e47520c60  src/locales/zh-CN/_modules/ai-agent.json
+79283d971cb238f83be3eb0c2bd352bc40bc1f0aa1f991bfb6995790286907c0  src/locales/zh-CN/_modules/ai-agent.json
 31a3743b95f12901ac43fb73ef255d65d4e79219a18e7691016799b70d4af41f  src/locales/zh-CN/_modules/aiChat.json
 840d325e00cfe9a67361ac61068d88189ca6a35aae95516d20c33c8d69d41041  src/locales/zh-CN/_modules/aiGenerate.json
 690a3f6aa9698b5e7a2926441c3f5f68a2df4902f2a82cbacbb2af8dfccc937c  src/locales/zh-CN/_modules/aiKnowledge.json
@@ -367,8 +367,8 @@ eebc4432105b834d32cb646459c079c20ff202fb41ba52a8704c21f58d7c4229  src/locales/zh
 27c1071c652e62455e9163f0a5935a7125edee01b1b17117b88e21a5b7172cca  src/locales/zh-CN/_modules/user-detail.json
 eb7d33d8cc46be3c95841c7f8973b3cf5a2942cee074fdf9fd6207041c025214  src/locales/zh-CN/_modules/user.json
 d093811f442fc9eb09d0f626cccca305877a539ad211de9dbb1b8957e8fcbedf  src/locales/zh-CN/index.ts
-eefa57fef26a7c94dc7e1f26ad1c8b85b747eadfb7b488eca70fd33d9b3fba90  src/main.tsx
-bfd02b8dc9b829b94d609a565d11071477b8d7806b8a7a90ddf5e68dd34a6eb3  src/pages/app/ai/agent/agent-canvas.tsx
+d10db7bd51221100a024fb70a99f4aa301433008b8d8cdf0775d2bb8c6ecf500  src/main.tsx
+dc4b89db04e4416afbef6cdc0dbe384817836b1ff65ece414b76568f5b710ee2  src/pages/app/ai/agent/agent-canvas.tsx
 2fe05b84a3dcec20b1df3515a0ff88879f1c32957f6666c025211dc3789f5c03  src/pages/app/ai/agent/agent-revisions-drawer.tsx
 6756cb8f7e5003aa466e58f29df4dc7ddd22a381397c9dbaa5b5ae8dc160cb71  src/pages/app/ai/agent/agent-runs-drawer.tsx
 861eaeb70427718cf8a28aaaf57e4a817355bb3f050502627fe7cce07c2a657e  src/pages/app/ai/agent/index.tsx

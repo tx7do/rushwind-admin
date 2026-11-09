@@ -21,4 +21,6 @@ enum_map!(menu_module_of + menu_module_str {
     "INTERNAL_MESSAGE" => 8,
     "FILE" => 9,
     "TASK" => 10,
+    "AI" => 11,
+    "PRINT" => 12,
 });

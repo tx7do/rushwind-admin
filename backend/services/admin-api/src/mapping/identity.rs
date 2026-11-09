@@ -59,8 +59,11 @@ enum_map!(plan_expiry_policy_of + plan_expiry_policy_str {
 });
 
 enum_map!(plan_quota_type_of + plan_quota_type_str {
-    "STORAGE" => 1,
-    "API_CALL" => 2,
+    "USER_LIMIT" => 1,
+    "STORAGE" => 2,
+    "API_CALL" => 3,
+    "AI_TOKENS" => 4,
+    "TEMPLATE_COUNT" => 5,
 });
 
 enum_map!(org_unit_type_of + org_unit_type_str {

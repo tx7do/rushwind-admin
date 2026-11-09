@@ -114,6 +114,8 @@ mod tests {
                     ("INTERNAL_MESSAGE", 8),
                     ("FILE", 9),
                     ("TASK", 10),
+                    ("AI", 11),
+                    ("PRINT", 12),
                 ],
             ),
             (
@@ -129,7 +131,16 @@ mod tests {
                 "plan_expiry_policy",
                 vec![("BLOCK_LOGIN", 1), ("FREEZE", 2)],
             ),
-            ("plan_quota_type", vec![("STORAGE", 1), ("API_CALL", 2)]),
+            (
+                "plan_quota_type",
+                vec![
+                    ("USER_LIMIT", 1),
+                    ("STORAGE", 2),
+                    ("API_CALL", 3),
+                    ("AI_TOKENS", 4),
+                    ("TEMPLATE_COUNT", 5),
+                ],
+            ),
             (
                 "org_unit_type",
                 vec![
