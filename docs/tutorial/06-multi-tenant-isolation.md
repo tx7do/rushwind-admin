@@ -10,7 +10,7 @@
 HTTP 层（crates/auth::TenantAccessChecker）——"这个租户能不能用这个接口"
     │  按 (路径模板, method) 判定，403 信封拒绝
     ▼
-数据层（services/admin-api/src/data/scope.rs::Viewer）——"这行数据是不是你的"
+数据层（apps/admin/src/admin/data/scope.rs::Viewer）——"这行数据是不是你的"
     │  每条 SQL 的谓词强制，查询/写入/删除全覆盖
     ▼
 PostgreSQL

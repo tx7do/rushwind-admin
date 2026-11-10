@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# sync-protos.sh — 把 go-wind-admin 的 proto 契约同步进本仓 backend/api/protos/，
+# sync-protos.sh — 把 go-wind-admin 的 proto 契约同步进本仓 backend/apps/admin/api/protos/，
 # 并生成/校验 MANIFEST.sha256。
 #
-#   backend/api/sync-protos.sh           # 同步（默认源：D:\GoProject\go-wind-admin\backend\api\protos，
+#   backend/apps/admin/api/sync-protos.sh           # 同步（默认源：D:\GoProject\go-wind-admin\backend\api\protos，
 #                                       #        可用 GOWIND_ADMIN_API_DIR 覆盖）+ 重建 MANIFEST
-#   backend/api/sync-protos.sh --check   # CI 门：校验 api/protos 与 MANIFEST 一致（防手改），
+#   backend/apps/admin/api/sync-protos.sh --check   # CI 门：校验 api/protos 与 MANIFEST 一致（防手改），
 #                                       #        并对比源仓（漂移报告，发现漂移时退出码 2）
 #
 # 字节归一化：UTF-8 BOM 剥除（源仓有 2 个文件带 BOM：protoc 容忍、protox 拒绝）。
@@ -14,7 +14,7 @@
 # checksum 门，上游漂移必须在同步时显式接受（重新生成 MANIFEST 并走差分回归）。
 #
 # 再同步接受新 vintage 时，建议先跑契约演进检查（api/buf.yaml 工作区）：
-#   cd backend/api && buf breaking --against "../../.git#branch=main,subdir=backend/api"
+#   cd backend/apps/admin/api && buf breaking --against "../../.git#branch=main,subdir=backend/apps/admin/api"
 # 工作区对工作区比较，报告相对 main 基线的 breaking 差异；
 # FILE 规则下仅【删除/改型】算破坏，纯新增不算。
 set -euo pipefail
@@ -27,7 +27,7 @@ MODE="${1:-sync}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PROTO_DIR="$HERE/protos"
 MANIFEST="$HERE/MANIFEST.sha256"
-SRC="${GOWIND_ADMIN_API_DIR:-/d/GoProject/go-wind-admin/backend/api/protos}"
+SRC="${GOWIND_ADMIN_API_DIR:-/d/GoProject/go-wind-admin/backend/apps/admin/api/protos}"
 
 # BOM 归一化输出（无 BOM 原样，有 BOM 剥头三字节）。
 norm() {
@@ -80,7 +80,7 @@ case "$MODE" in
 
   check|--check)
     if [[ ! -f "$MANIFEST" ]]; then
-      echo "ERROR: MANIFEST.sha256 missing; run backend/api/sync-protos.sh first" >&2
+      echo "ERROR: MANIFEST.sha256 missing; run backend/apps/admin/api/sync-protos.sh first" >&2
       exit 1
     fi
     if ! manifest_for "$PROTO_DIR" | diff -q - "$MANIFEST" >/dev/null; then

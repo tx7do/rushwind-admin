@@ -4,24 +4,24 @@
 
 ## 1. 契约树的维护方式：同步 + 校验门
 
-`backend/api/protos/` 是唯一 API 契约，由脚本从**上游契约源**同步进本仓，并配 MANIFEST 校验门防止手改：
+`backend/apps/admin/api/protos/`（admin 契约树）与 `backend/apps/admin/api/fork/protos/`（fork 模块契约树）共享同一个 buf 工作区——一次编译、一个池、一套分页类型。admin 树是唯一 API 契约，由脚本从**上游契约源**同步进本仓，并配 MANIFEST 校验门防止手改：
 
 ```bash
-bash backend/api/sync-protos.sh          # 同步并重建 MANIFEST.sha256
-bash backend/api/sync-protos.sh --check  # 校验门（与 CI 一致）
+bash backend/apps/admin/api/sync-protos.sh          # 同步并重建 MANIFEST.sha256
+bash backend/apps/admin/api/sync-protos.sh --check  # 校验门（与 CI 一致）
 ```
 
-- 同步源的默认路径与覆盖方式见脚本头部说明（`backend/api/sync-protos.sh`）；
+- 同步源的默认路径与覆盖方式见脚本头部说明（`backend/apps/admin/api/sync-protos.sh`）；
 - 上游契约发生变更时：重新同步 → `buf breaking` 对主基线做破坏性检查 → 确认行为面（见 §4 差分台架）→ 提交；
 - **不要手改** `api/protos/`；
 - 契约树引用的注解模块（google.api 等）**不再进仓**：`api/buf.yaml` 把它们声明为 buf 依赖、`api/buf.lock` 按 commit 钉定（与上游 lock 同源，重新同步时会比对两把锁）。注解里携带两类关键信息——`google.api.http` 路由绑定与错误码注解（reason → HTTP 状态映射）——它们是整条生成链的输入。
 
 ## 2. 构建期双面编译
 
-`crates/proto/build.rs` 把契约树编译成**两个面**，这是理解本仓的关键一刀：
+`apps/admin/build.rs` 把契约工作区编译成**两个面**（admin 树与 fork 模块树同区编译，每个源树再各出一个 gen face），这是理解本仓的关键一刀：
 
 ```text
-backend/api/protos（+ buf 依赖的注解模块）
+backend/apps/admin/api/protos（admin 树）+ api/fork/protos（fork 模块树，+ buf 依赖的注解模块）
         │
         ├─ buf build → 全量闭包注解镜像（含 google.api.http / 错误码等自定义选项字节）
         │     └─ rushwind-gen-http（框架仓的生成器）解析描述符，确定性生成：
@@ -41,13 +41,13 @@ backend/api/protos（+ buf 依赖的注解模块）
 
 | 符号 | 内容 | 谁消费 |
 |---|---|---|
-| `proto::proto::<module>::<service>::v1::*` | 请求/响应/实体类型（prost + pbjson） | service 层、绑定层 |
-| `proto::gen::services::XxxServiceHandlers` | 服务 trait（async-trait，dyn 兼容） | service 层实现 |
-| `proto::gen::mounts::mount_xxx_service` | 挂载胶水：接收 `(router_pub, router_gate, service, wrap)` 双路由线程 | `server/rest.rs` 的 `mount_services!` |
-| `proto::tables` | ROUTES 路由表 + reason→状态表 | 绑定层、错误编码 |
-| `proto::AUTH_FREE` | 免鉴权端点白名单（8 端点，单源 `src/auth_free.rs`） | 鉴权门、守卫测试 |
+| `crate::proto::<module>::<service>::v1::*` | 请求/响应/实体类型（prost + pbjson） | service 层、绑定层 |
+| `crate::proto::gen::services::XxxServiceHandlers` | 服务 trait（async-trait，dyn 兼容） | service 层实现 |
+| `crate::proto::gen::mounts::mount_xxx_service` | 挂载胶水：接收 `(router_pub, router_gate, service, wrap)` 双路由线程 | `admin/server/rest.rs` 的 `mount_service!` |
+| `crate::proto::tables` | ROUTES 路由表 + reason→状态表 | 绑定层、错误编码 |
+| `crate::AUTH_FREE`（面内 `crate::proto::AUTH_FREE` 再导出） | 免鉴权端点白名单（8 端点，单源 `apps/admin/src/auth_free.rs`） | 鉴权门、守卫测试 |
 
-`server/rest.rs` 的 `mount_services!` 表是服务与挂载的唯一对接点——每个服务一行 `($mount, $Service)`，绑定计划决定 `wrap` 怎么组合层级。
+`admin/server/rest.rs` 的 `mount_service!` 表是服务与挂载的唯一对接点——每个服务一行 `($mount, $Service)`，绑定计划决定 `wrap` 怎么组合层级。
 
 > **已知例外（284 条中的 1 条）**：`POST /admin/v1/bi-dashboards/{id}:copy`
 > 是 AIP-136 "资源上的自定义动作"形态——路径段里参数后跟 `:verb` 字面量。

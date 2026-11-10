@@ -103,16 +103,18 @@
 Protobuf が唯一の API 契約です。ルート、エラーステータステーブル、サービスインターフェース、マウントグルー、フロントエンド TypeScript クライアントは、すべてビルド時に契約から決定論的に生成されます。リポジトリに手書きルートは 1 本もなく、契約を 1 か所変えればバックエンドと 3 フロントエンドが同時に追従します。
 
 ```text
-backend/api/protos/              proto 契約（唯一の事実源、MANIFEST 検証ゲート、手編集禁止）
-        │  buf + protox が注釈ディスクリプタへコンパイル
+backend/apps/admin/api/protos/   proto 契約・admin ツリー（唯一の事実源、MANIFEST 検証ゲート、手編集禁止）
+backend/apps/admin/api/fork/     proto 契約・fork モジュールツリー（fork 自有、自由編集）
+        │  1 つの buf ワークスペースが 1 つの注釈ディスクリプタへコンパイル（1 プール、1 パッケージ 1 型）
         ▼
-backend/crates/proto             build.rs がビルド時に生成
+backend/apps/admin               build.rs がビルド時に生成（crate::proto フェース）
         ├── ROUTES ルートテーブル（284 本、additional_bindings を含む）
         ├── エラーステータステーブル（546 件の reason → HTTP ステータス対応）
         ├── サービス trait（556 メソッド）+ マウントグルー
         └── protojson コーデック（ゴールデンテストで固定）
         ▼
-backend/services/admin-api       生成された trait に手書きサービス実装を接続
+src/admin/                       生成された trait に手書きサービス実装を接続（上流同期の着地点）
+src/modules/                     fork のビジネスモジュール（template の copy-rename で開始）
 ```
 
 ### 1 リクエストの経路
@@ -139,10 +141,12 @@ backend/services/admin-api       生成された trait に手書きサービス�
 
 | 位置 | 生成方式 | 手編集可否 |
 |------|---------|---------|
-| `backend/api/protos/**` | `sync-protos.sh` が契約ソースから同期（MANIFEST 検証ゲート） | ❌ ソース変更後に再同期 |
-| `backend/crates/proto` の生成面 | `build.rs` がビルド時に決定論的に再生成 | ❌ |
+| `backend/apps/admin/api/protos/**` | `sync-protos.sh` が契約ソースから同期（MANIFEST 検証ゲート） | ❌ ソース変更後に再同期 |
+| `backend/apps/admin/api/fork/protos/**` | fork 自有の契約ツリー | ✅ モジュールの契約面 |
+| `apps/admin/src/proto` の生成面 | `build.rs` がビルド時に決定論的に再生成 | ❌ |
 | フロントエンド `src/api/generated/**` | 契約から生成された TypeScript クライアント | ❌ |
-| `services/admin-api/src/services/**`、`src/data/**` | 手書きのビジネスロジックとデータ層 | ✅ |
+| `apps/admin/src/admin/services/**`、`apps/admin/src/admin/data/**` | 手書きのビジネスロジックとデータ層（上流同期の着地点） | fork は読むだけ |
+| `apps/admin/src/modules/**` | fork のビジネスモジュール | ✅ |
 
 層ごとの詳しい解説は[チュートリアル第 1 章：アーキテクチャ概観](./docs/tutorial/01-architecture-overview.md)を参照。
 
@@ -206,10 +210,10 @@ backend/services/admin-api       生成された trait に手書きサービス�
 
 ```shell
 cd backend
-cargo run -p admin-api   # バイナリ admin-api、REST :7788 で待受
+cargo run -p admin   # バイナリ admin、REST :7788 で待受（ビジネスモジュール面も同一プロセス）
 ```
 
-- 起動時に PostgreSQL と Redis に接続します。設定は `backend/services/admin-api/assets/`（`auth.yaml` / `data.yaml` / `oss.yaml`）
+- 起動時に PostgreSQL と Redis に接続します。設定は `backend/apps/admin/assets/`（`auth.yaml` / `data.yaml` / `oss.yaml`）
 - `assets/jwt_public_key.pem` と `auth.yaml` 埋め込み鍵は**デモ用鍵**です。本番導入時は必ず交換してください
 - 起動シーケンス：マイグレーション → シード → REST（:7788）+ SSE（:7789、`/events`）+ タスクワーカー + cron の 4 transport を同一ライフサイクルで起動
 
@@ -218,17 +222,17 @@ cargo run -p admin-api   # バイナリ admin-api、REST :7788 で待受
 proto 契約はスクリプトによって上流の契約ソースから同期され、MANIFEST 検証ゲートで守られています：
 
 ```shell
-bash backend/api/sync-protos.sh          # proto を同期し MANIFEST を再構築
-bash backend/api/sync-protos.sh --check  # 検証ゲート（CI と同一）
+bash backend/apps/admin/api/sync-protos.sh          # proto を同期し MANIFEST を再構築
+bash backend/apps/admin/api/sync-protos.sh --check  # 検証ゲート（CI と同一）
 ```
 
-同期元の既定パスと上書き方法はスクリプト先頭の説明（`backend/api/sync-protos.sh`）を参照。`backend/api/protos/` は**手で編集しないでください**。
+同期元の既定パスと上書き方法はスクリプト先頭の説明（`backend/apps/admin/api/sync-protos.sh`）を参照。`backend/apps/admin/api/protos/` は**手で編集しないでください**。
 
 ### 品質ゲート
 
 ```shell
 cd backend
-cargo fmt -p proto -p auth -p admin-api -p admin-diff -- --check
+cargo fmt -p auth -p admin -p admin-diff -p biz-proto-build -- --check
 cargo clippy --workspace -- -D warnings
 cargo test --workspace
 ```
@@ -266,7 +270,7 @@ pnpm dev:antd       # :5666、REST :7788 へプロキシ
 
 ## 機能一覧
 
-すべての機能は単一サービス（admin-api）内で提供され、3 フロントエンドは機能的に同型です。以下「組織と権限 / システム機能 / メッセージとログ / 個人センター」の 4 グループで列挙します。
+すべての機能は単一アプリケーション（apps/admin）内で提供され、3 フロントエンドは機能的に同型です。以下「組織と権限 / システム機能 / メッセージとログ / 個人センター」の 4 グループで列挙します。
 
 > 各一覧ページ（業務データと監査ログ）は現在の絞り込み条件でページング集約エクスポートに対応、CSV / XLSX 形式（上限 1 万行）。バックエンドのモジュール別実装状況は[現在の進捗](#現在の進捗)を参照。
 
@@ -337,17 +341,28 @@ pnpm dev:antd       # :5666、REST :7788 へプロキシ
 ```text
 rushwind-admin/
 ├── backend/
-│   ├── api/                        # API 契約ツリー（唯一の契約ソース）
-│   │   ├── protos/                 # proto 契約コピー（MANIFEST.sha256 検証ゲート）
-│   │   ├── buf.lock                # buf 依存の commit ピン止め（6 BSR モジュール、上流 lock と同源）
-│   │   └── sync-protos.sh          # 契約同期・検証スクリプト
-│   ├── crates/                     # 共有 crate（proto 契約生成 crate、auth 認証ゲート）
-│   └── services/
-│       └── admin-api/              # Admin サービス crate（src/ モジュールツリー + assets 埋め込みリソース）
+│   ├── crates/
+│   │   ├── auth/                   # 認証ゲート（フレームワーク crate。ステータスはリテラルで固定、等価ガードは app 側）
+│   │   └── biz-proto-build/        # 契約ビルドエンジン（manifest_dir/api レイアウト、1 プール多フェース）
+│   └── apps/
+│       └── admin/                  # ★ 唯一のプロダクトアプリケーション：1 crate、1 バイナリ
+│           ├── api/                # アプリの契約ワークスペース（1 buf.yaml + 1 buf.lock）
+│           │   ├── protos/         #   admin 契約ツリー（★ 上流同期の着地点、MANIFEST 検証ゲート）
+│           │   ├── fork/protos/    #   fork モジュール契約ツリー（★ fork 自有、自由編集）
+│           │   └── sync-protos.sh  #   契約同期・検証スクリプト
+│           ├── src/
+│           │   ├── main.rs         #   アセンブリ：移行チェーン → シード → route packs → cron/sse/tasks（モジュール 4 行）
+│           │   ├── proto/          #   契約フェース（生成物：型 / プール / face ごとの gen）
+│           │   ├── admin/          #   ★ 上流同期マシンルーム：41 サービス + データ層 + ルートエッジ + 監査（fork は読むだけ）
+│           │   └── modules/        #   ★ fork が所有するすべて（template の copy-rename で開始）
+│           └── tests/              #   ワイヤ契約ガード + モジュールガード + ゲートステータス等価ガード
+├── testbed/admin-diff/             # URL 駆動の差分台架（Go リファレンス実装と対拍）
 ├── frontend/                       # 3 フロントエンド同期スナップショット（sync-frontend.sh + 双マニフェストゲート + RushWind ブランドオーバーレイ）
 ├── docs/                           # プロジェクトドキュメント（チュートリアル tutorial / 索引 README / binding-spec / development-plan / operator-matrix / screenshots）
 └── .github/workflows/              # CI（fmt / clippy / test / 契約同期ゲート）
 ```
+
+所有権を一言で：**上流同期が着地するのは `src/admin/` と `api/protos/` のみ。あなたが書くコードはすべて `src/modules/`、`api/fork/protos/`、そして `main.rs` のアセンブリ行の中に。**
 
 ---
 

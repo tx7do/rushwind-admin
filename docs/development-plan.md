@@ -80,7 +80,7 @@ Set-Cookie 精确属性（Go 侧 `authentication_service.go:74-111`）：
 - 手写 Go 代码 ~63.9k 行：`pkg/` 17 个横切包 20.3k，`app/admin/service` 非 ent 部分 43.4k（其中 service 层 10.5k、repo+基础设施 22.2k、GORM 备用后端 9.1k）。另有 ent 生成 340.9k、api/gen 生成 160.6k（复刻中由等价生成器替代，不手写）。
 - 存储实体 50 个（表名映射见 §7 模块清单），约 30 个带 `TenantID` mixin；树形：menu/org_unit（`Tree`+`TreePath` 物化路径，org_unit）、permission_group（`Tree`）；**无软删除**（物理 DELETE）；复合唯一索引（如 tenant_id+username、tenant_id+parent_id+name）依赖 Atlas 迁移建出。
 
-### 2.3 代码生成链（`backend/api/buf*.yaml`）
+### 2.3 代码生成链（`backend/apps/admin/api/buf*.yaml`）
 
 Go 侧：`protoc-gen-go`、`go-grpc`（未用）、**`protoc-gen-go-http`（路由 + 参数绑定 + operation id 生成器）**、`go-errors`（reason→HTTP 状态错误构造器）、`validate`（PGV）、`go-redact`（响应脱敏包装器）；OpenAPI v3 资产（merged、enum_type=string）；三前端 TS 客户端（`protoc-gen-typescript-http`，三份输出字节相同）。
 `make register`（`tools/register`）向 `wiring_ent.go` / `rest_server.go` 的 5 个锚点注入新模块登记行。`.zcode/skills/add-crud-module` 记录了标准模块九步模板（源 proto → BFF proto → make api → ent schema → repo → service → register）。
@@ -692,7 +692,7 @@ P4 收尾/验收                                    █████  (2-3M)
 
 1. [x] 仓库骨架 + workspace（backend/ 结构就位）；CI 已建（.github/workflows/
        ci.yml：fmt/clippy/test + protoc 安装 + sync-protos --check 门，双 OS 矩阵）。
-2. [x] `backend/api/protos` 同步脚本 + MANIFEST checksum 门（BOM 归一，含源仓漂移
+2. [x] `backend/apps/admin/api/protos` 同步脚本 + MANIFEST checksum 门（BOM 归一，含源仓漂移
        检测，已验证生效）；third_party vendor 脚本（六模块锁定版本，PROVENANCE.md
        记录来源）。
 3. [x] `admin-proto` crate：protox→prost/pbjson 类型生成（全量数据包，构建绿灯）。

@@ -23,7 +23,7 @@
 | [06 多租户与行级隔离](./tutorial/06-multi-tenant-isolation.md) | 租户 HTTP 闸门、数据层 Viewer 三态、套餐与到期策略 | 05 | 理解"行级谁的数据"与部署闸门 |
 | [07 审计与等保](./tutorial/07-audit-compliance.md) | 六类审计日志的采集与留存、身份鉴别三件套、MFA | 01 | 知道审计能力怎么用、边界在哪 |
 | [08 部署上线](./tutorial/08-deployment.md) | 配置模型、装配文档、生产密钥、启动序列、上线检查单 | 02 | 把系统安全地放到生产 |
-| [09 写下游：加你的第一个业务模块](./tutorial/09-write-your-first-module.md) | fork 工作流、module-template 解剖、platform 双面装配、跟进上游 SOP | 04, 06 | 业务模块以独立目录长在基座上，且与上游零冲突可合并 |
+| [09 写下游：加你的第一个业务模块](./tutorial/09-write-your-first-module.md) | fork 工作流、template 解剖、main.rs 四行装配、跟进上游 SOP | 04, 06 | 业务模块以独立目录长在基座上，且与上游零冲突可合并 |
 
 ### 按角色的推荐路线
 

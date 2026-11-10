@@ -6,7 +6,7 @@
 
 ## 1. 契约落树，构建出骨架
 
-同步后 `backend/api/protos/<模块>/` 里出现该服务的 proto；`cargo build` 时生成链自动产出（见[第 3 章](./03-codegen-chain.md)）：
+同步后 `backend/apps/admin/api/protos/<模块>/` 里出现该服务的 proto；`cargo build` 时生成链自动产出（见[第 3 章](./03-codegen-chain.md)）：
 
 - 类型：`proto::proto::dict::service::v1::{Language, ListLanguageResponse, ...}`
 - trait：`proto::gen::services::LanguageServiceHandlers`（556 个方法之一）

@@ -51,9 +51,9 @@ code + reason 必须一致，message 文本因两侧解析器措辞不同而归�
 cd backend/testbed
 docker compose up -d --build
 
-# 2. 起 Rust 侧（宿主 :7788；服务包 backend/services/admin-api）
+# 2. 起 Rust 侧（宿主 :7788；服务包 backend/apps/admin）
 cd ../
-cargo run -p admin-api
+cargo run -p admin
 
 # 3. 回放（在 backend/ 下；报告写入 testbed/reports/report.jsonl）
 cargo run -p admin-diff -- --go http://127.0.0.1:27788 --rust http://127.0.0.1:7788

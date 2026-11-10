@@ -30,18 +30,18 @@ docker run -d --name rw-minio -p 9000:9000 -e MINIO_ROOT_USER=root -e MINIO_ROOT
 
 ```bash
 cd backend
-cargo run -p admin-api     # 二进制 admin-api，监听 REST :7788 + SSE :7789
+cargo run -p admin        # 二进制 admin，监听 REST :7788 + SSE :7789（业务模块面同进程）
 ```
 
 - 首次构建需数分钟；**启动到监听约 24–50 秒属正常**——启动序列包含迁移（44 张表，`database.migrate` 门开启时）和种子数据（内置菜单、权限点、平台参数、默认语言、平台管理员）。
-- 配置内嵌在 `services/admin-api/assets/`（`server.yaml` / `auth.yaml` / `data.yaml` / `oss.yaml`），其中中间件地址指向容器主机名（`postgres:5432` 等）——**本机直跑必须用环境变量覆盖**：
+- 配置内嵌在 `apps/admin/assets/`（`server.yaml` / `auth.yaml` / `data.yaml` / `oss.yaml`），其中中间件地址指向容器主机名（`postgres:5432` 等）——**本机直跑必须用环境变量覆盖**：
 
 ```bash
 export RUSHWIND_DATABASE_SOURCE="postgres://postgres:*Abcd123456@127.0.0.1:5432/rushwind_admin?sslmode=disable"
 export RUSHWIND_REDIS_ADDR="127.0.0.1:6379"
 export RUSHWIND_REDIS_PASSWORD="*Abcd123456"
 export RUSHWIND_OSS_ENDPOINT="127.0.0.1:9000"
-cargo run -p admin-api
+cargo run -p admin
 ```
 
 注意两点：`RUSHWIND_DATABASE_SOURCE` 必须是 URL 形式（sqlx 不认 libpq key=value 串）；本机开发库通常关 TLS，追加 `?sslmode=disable`。全部环境变量清单见[第 8 章](./08-deployment.md)。
@@ -75,7 +75,7 @@ pnpm dev                   # :5888，dev 代理把 /admin 转发到 :7788
 
 ```bash
 cd backend
-cargo fmt -p proto -p auth -p admin-api -p admin-diff -- --check
+cargo fmt -p auth -p admin -p admin-diff -p biz-proto-build -- --check
 cargo clippy --workspace -- -D warnings
 cargo test --workspace
 bash api/sync-protos.sh --check     # 契约同步校验门（与 CI 一致）

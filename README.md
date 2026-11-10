@@ -103,16 +103,18 @@
 Protobuf 是唯一 API 契约：路由、错误状态表、服务接口、挂载胶水、前端 TypeScript 客户端全部在构建期从契约确定性生成，仓库里没有一条手写路由；契约改一处，后端与三套前端同时生效。
 
 ```text
-backend/api/protos/              proto 契约（唯一事实源，MANIFEST 校验门，禁手改）
-        │  buf + protox 编译出注解描述符
+backend/apps/admin/api/protos/   proto 契约·admin 树（唯一事实源，MANIFEST 校验门，禁手改）
+backend/apps/admin/api/fork/     proto 契约·fork 模块树（fork 自有，自由编辑）
+        │  一个 buf 工作区编译出一份注解描述符（一池一类型）
         ▼
-backend/crates/proto             build.rs 构建期生成
+backend/apps/admin               build.rs 构建期生成（crate::proto 面）
         ├── ROUTES 路由表（284 条，含 additional_bindings）
         ├── 错误状态表（546 条 reason → HTTP 状态映射）
         ├── 服务 trait（556 个方法）+ mounts 挂载胶水
         └── protojson 编解码（金样测试锁定）
         ▼
-backend/services/admin-api       手写服务实现挂到生成的 trait 上
+src/admin/                       手写服务实现挂到生成的 trait 上（上行同步落点）
+src/modules/                     fork 业务模块（copy-rename template 起步）
 ```
 
 ### 一次请求的路径
@@ -139,10 +141,12 @@ backend/services/admin-api       手写服务实现挂到生成的 trait 上
 
 | 位置 | 产生方式 | 能否手改 |
 |------|---------|---------|
-| `backend/api/protos/**` | `sync-protos.sh` 从契约源同步（MANIFEST 校验门） | ❌ 改契约源后重新同步 |
-| `backend/crates/proto` 生成面 | `build.rs` 构建期确定性再生 | ❌ |
+| `backend/apps/admin/api/protos/**` | `sync-protos.sh` 从契约源同步（MANIFEST 校验门） | ❌ 改契约源后重新同步 |
+| `backend/apps/admin/api/fork/protos/**` | fork 自有契约树 | ✅ 模块契约面 |
+| `apps/admin/src/proto` 生成面 | `build.rs` 构建期确定性再生 | ❌ |
 | 前端 `src/api/generated/**` | 从契约生成的 TypeScript 客户端 | ❌ |
-| `services/admin-api/src/services/**`、`src/data/**` | 手写业务逻辑与数据层 | ✅ |
+| `apps/admin/src/admin/services/**`、`apps/admin/src/admin/data/**` | 手写业务逻辑与数据层（上行同步落点） | fork 只读 |
+| `src/modules/**` | fork 业务模块 | ✅ |
 
 逐层拆解与机制细节见[教程第一章：架构全景](./docs/tutorial/01-architecture-overview.md)。
 
@@ -206,10 +210,10 @@ backend/services/admin-api       手写服务实现挂到生成的 trait 上
 
 ```shell
 cd backend
-cargo run -p admin-api   # 二进制 admin-api，监听 REST :7788
+cargo run -p admin   # 二进制 admin，监听 REST :7788（+ 业务模块面同进程）
 ```
 
-- 启动时连接 PostgreSQL 与 Redis，配置位于 `backend/services/admin-api/assets/`（`auth.yaml` / `data.yaml` / `oss.yaml`）
+- 启动时连接 PostgreSQL 与 Redis，配置位于 `backend/apps/admin/assets/`（`auth.yaml` / `data.yaml` / `oss.yaml`）
 - `assets/jwt_public_key.pem` 与 `auth.yaml` 内嵌密钥为**演示密钥**，生产部署必须更换
 - 启动序列：迁移 → 种子 → REST（:7788）+ SSE（:7789，`/events`）+ 任务 worker + cron 四个 transport 一并起
 
@@ -218,17 +222,17 @@ cargo run -p admin-api   # 二进制 admin-api，监听 REST :7788
 proto 契约由脚本从上游契约源同步进本仓，并加 MANIFEST 校验门防止手改：
 
 ```shell
-bash backend/api/sync-protos.sh          # 同步 proto 并重建 MANIFEST
-bash backend/api/sync-protos.sh --check  # 校验门（与 CI 一致）
+bash backend/apps/admin/api/sync-protos.sh          # 同步 proto 并重建 MANIFEST
+bash backend/apps/admin/api/sync-protos.sh --check  # 校验门（与 CI 一致）
 ```
 
-同步源的默认路径与覆盖方式见脚本头部说明（`backend/api/sync-protos.sh`）。**不要手改** `backend/api/protos/`。
+同步源的默认路径与覆盖方式见脚本头部说明（`backend/apps/admin/api/sync-protos.sh`）。**不要手改** `backend/apps/admin/api/protos/`。
 
 ### 质量门
 
 ```shell
 cd backend
-cargo fmt -p proto -p auth -p admin-api -p admin-diff -- --check
+cargo fmt -p auth -p admin -p admin-diff -p biz-proto-build -- --check
 cargo clippy --workspace -- -D warnings
 cargo test --workspace
 ```
@@ -266,7 +270,7 @@ pnpm dev:antd       # :5666，代理转发至 REST :7788
 
 ## 功能列表
 
-全部功能在单服务（admin-api）内交付，三套前端功能同构，以下按组织与权限 / 系统功能 / 消息与日志 / 个人中心四组列出。
+全部功能在单应用（apps/admin）内交付，三套前端功能同构，以下按组织与权限 / 系统功能 / 消息与日志 / 个人中心四组列出。
 
 > 各列表页（业务数据与审计日志）均支持按当前筛选条件分页聚合导出，格式可选 CSV / XLSX（上限 1 万行）。后端各模块的实现覆盖情况见[当前进度](#当前进度)。
 
@@ -337,17 +341,28 @@ pnpm dev:antd       # :5666，代理转发至 REST :7788
 ```text
 rushwind-admin/
 ├── backend/
-│   ├── api/                        # API 契约（唯一契约源）
-│   │   ├── protos/                 # proto 契约副本（MANIFEST.sha256 校验门）
-│   │   ├── buf.lock                # buf 依赖 commit 钉定（六 BSR 模块，与上游 lock 同源）
-│   │   └── sync-protos.sh          # 契约同步与校验脚本
-│   ├── crates/                     # 共享 crate（proto 契约生成 crate、auth 鉴权门）
-│   └── services/
-│       └── admin-api/              # Admin 服务 crate（src/ 模块树 + assets/ 内嵌资源）
+│   ├── crates/
+│   │   ├── auth/                   # 鉴权门（框架 crate：门状态钉字面量，等值守卫在 app 侧）
+│   │   └── biz-proto-build/        # 契约构建引擎（manifest_dir/api 布局，单池多 face）
+│   └── apps/
+│       └── admin/                  # ★ 唯一的产品应用：一个 crate，一个二进制
+│           ├── api/                # 应用的契约工作区（一个 buf.yaml + 一个 buf.lock）
+│           │   ├── protos/         #   admin 契约树（★ 上行同步落点，MANIFEST 校验门）
+│           │   ├── fork/protos/    #   fork 模块契约树（★ fork 自有，自由编辑）
+│           │   └── sync-protos.sh  #   契约同步与校验脚本
+│           ├── src/
+│           │   ├── main.rs         #   装配：迁移链→种子→route packs→cron/sse/tasks（每模块四行）
+│           │   ├── proto/          #   契约面（生成：类型/池/gen 各 face）
+│           │   ├── admin/          #   ★ 上行同步机房：41 服务 + 数据层 + 路由边 + 审计（fork 只读）
+│           │   └── modules/        #   ★ fork 自有的一切（copy-rename template 起步）
+│           └── tests/              #   线契约守卫 + 模板守卫 + 等值守卫
+├── testbed/admin-diff/             # URL 驱动的差分台架（对拍 Go 参考实现）
 ├── frontend/                       # 三套前端同步快照（sync-frontend.sh + 双清单门 + RushWind 品牌覆写）
 ├── docs/                           # 项目文档（教程 tutorial / 索引 README / binding-spec / development-plan / operator-matrix / screenshots）
 └── .github/workflows/              # CI（fmt / clippy / test / 契约同步门）
 ```
+
+所有权一句话：**上行同步只落 `src/admin/` 与 `api/protos/`；你的一切代码活在 `src/modules/`、`api/fork/protos/` 和 `main.rs` 的装配行里。**
 
 ---
 

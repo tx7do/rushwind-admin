@@ -59,7 +59,7 @@ rushwind-transport-axum 使用 axum 0.8（`crates/rushwind-transport-axum/Cargo.
 ### 1.3 gorilla/mux v1.8.1 匹配语义（Rust 端对齐基准）
 
 - `{name}` → 匹配 `[^/]+`，捕获为路径参数（与 axum `{name}` 等价）。
-- **匹配优先级：先注册者先匹配（mux.Match 按注册序线性扫描，返回首个命中）**。`{var}` 模式段匹配任意段——因此**更晚注册的字面路径若与更早注册的同方法 `{var}` 模式同形，则被该模式路由吸收、自身不可达**。axum/matchit 相反：**静态段恒优先**。对语料做 gorilla 遮蔽分析（生成器 `shadow_flags`）：恰好 1 条被遮蔽绑定（route 16，`GET /admin/v1/apis/walk-route`，被同文件更早注册的 `GET /admin/v1/apis/{id}` 吸收；集合由 admin-api 守卫测试硬钉）。**对齐手段**：被遮蔽绑定不挂载——两侧请求都落在吸收它的 `{var}` 路由上；该路由的路径变量对字面段取值必然畸形，落入 §2.3 的路径绑定排序分歧（豁免类 `router-shadow`）。
+- **匹配优先级：先注册者先匹配（mux.Match 按注册序线性扫描，返回首个命中）**。`{var}` 模式段匹配任意段——因此**更晚注册的字面路径若与更早注册的同方法 `{var}` 模式同形，则被该模式路由吸收、自身不可达**。axum/matchit 相反：**静态段恒优先**。对语料做 gorilla 遮蔽分析（生成器 `shadow_flags`）：恰好 1 条被遮蔽绑定（route 16，`GET /admin/v1/apis/walk-route`，被同文件更早注册的 `GET /admin/v1/apis/{id}` 吸收；集合由 admin 应用的守卫测试硬钉）。**对齐手段**：被遮蔽绑定不挂载——两侧请求都落在吸收它的 `{var}` 路由上；该路由的路径变量对字面段取值必然畸形，落入 §2.3 的路径绑定排序分歧（豁免类 `router-shadow`）。
 - 方法不匹配 → mux `MethodNotAllowedHandler`；未匹配 → `NotFoundHandler`（Go 后端均接 `http.DefaultServeMux` → 404）。axum 对应 405/404，行为近似。axum 的 `MethodFilter::GET` 同时接受 HEAD（已知分歧，豁免类 `head-on-get`）。
 - `StrictSlash(true)`：`/path/` ↔ `/path` 相互 301 重定向（server.go:189）。**已知分歧**：axum 无此行为（尾斜杠 404）。
 - mux 默认对请求路径做 `cleanPath`（`//`、`/../` 归一）并 301。**已知分歧**：axum 不做。
@@ -119,12 +119,12 @@ rushwind-transport-axum 使用 axum 0.8（`crates/rushwind-transport-axum/Cargo.
 
 三步均在 `ctx.Middleware`（鉴权链）**之前**执行；任何一步失败 → 直接上抛 → 400/CODEC 信封（`{"code":400,"reason":"CODEC","message":"…","metadata":{}}`）——即：**绑定/解码失败先于 401 到达**（差分 2026-09-14 两轮实证：80 条门控 body 路由的缺 CT 探针两侧同为 400，114 条门控非 body 路由两侧同为 401）。
 
-**Rust 侧实现**（`rushwind-http-binding::bindgate`，装配为**逐路由的最外层**，见 services/admin-api/src/server/rest_server.rs 的 `wrap` 组合）：body（含 CT 查表）+ query 的绑定在层内完成，产出 DynamicMessage 经请求扩展传递给 handler。**唯一排序分歧**：路径变量绑定——axum 中间件拿不到路由捕获值，只能在鉴权层之后于 handler（框架 `rushwind-http-binding::glue` 生命周期尾）内执行；当「路径变量值畸形」且「令牌缺失/无效」同时发生时两侧分歧（参照 400 先行、复刻 401 先行；令牌有效时两侧同为 400）。豁免类 `path-bind-post-auth`。
+**Rust 侧实现**（`rushwind-http-binding::bindgate`，装配为**逐路由的最外层**，见 apps/admin/src/admin/server/edge.rs 的 `make_wrap` 组合）：body（含 CT 查表）+ query 的绑定在层内完成，产出 DynamicMessage 经请求扩展传递给 handler。**唯一排序分歧**：路径变量绑定——axum 中间件拿不到路由捕获值，只能在鉴权层之后于 handler（框架 `rushwind-http-binding::glue` 生命周期尾）内执行；当「路径变量值畸形」且「令牌缺失/无效」同时发生时两侧分歧（参照 400 先行、复刻 401 先行；令牌有效时两侧同为 400）。豁免类 `path-bind-post-auth`。
 
 ### 2.4 Rust 实现决策
 
 - 绑定器本体：`rushwind-http-binding::binder`（§2.2 全表语义的 1:1 移植，2026-09-14 迁入框架仓）。
-- 生成器（框架 `rushwind-gen-http`，admin-api 构建期调用）从 descriptor 产出每方法的**绑定计划**：路径变量名列表（proto 字段路径）、body 模式（无/`*`）、query 叶子字段枚举（含嵌套点路径、map/list 标记、字段类型）。
+- 生成器（框架 `rushwind-gen-http`，admin 应用构建期调用）从 descriptor 产出每方法的**绑定计划**：路径变量名列表（proto 字段路径）、body 模式（无/`*`）、query 叶子字段枚举（含嵌套点路径、map/list 标记、字段类型）。
 - 预绑定层（bindgate）按计划执行 2.1/2.2 的 body+query 语义；glue（`rushwind-http-binding::glue`，2026-09-15 起自 admin-runtime 下沉框架仓）只做：取扩展内已绑定消息 → 路径变量绑定（§2.3 分歧）→ 静态 prost 转换 → 服务调用 → 响应序列化。
 - 类型转换错误 → `StatusError::new(400, "CODEC", message)`。
 - 业务层只接触静态类型；动态面（prost-reflect）只在「错误信封与响应序列化」需要 schema 时使用。
@@ -140,7 +140,7 @@ rushwind-transport-axum 使用 axum 0.8（`crates/rushwind-transport-axum/Cargo.
 - Content-Type：`application/json`。
 - **pbjson（标准 protojson）省略未填充字段——与 Go 相反。** Rust 响应路径因此不走 pbjson 序列化，改走：
   `静态 prost 结构 → encode_to_vec（二进制）→ prost-reflect DynamicMessage::decode（运行时 DescriptorPool）→ prost-reflect protojson 序列化 + serialize_defaults(true)`。
-  prost-reflect 的 protojson 实现以 protojson 一致性为目标，`serialize_defaults` 对应 `EmitUnpopulated`。该等价性在 admin-api 的序列化金样测试中逐条钉死（枚举/整型字符串化/bytes/oneof/map/Timestamp/Empty）。
+  prost-reflect 的 protojson 实现以 protojson 一致性为目标，`serialize_defaults` 对应 `EmitUnpopulated`。该等价性在 admin 应用的序列化金样测试中逐条钉死（枚举/整型字符串化/bytes/oneof/map/Timestamp/Empty）。
 
 ### 3.1 静态脱敏（redact.v1；Go 侧锚点：protoc-gen-go-redact 生成的 RedactedXxxServiceServer 包装器）
 
@@ -154,7 +154,7 @@ rushwind-transport-axum 使用 axum 0.8（`crates/rushwind-transport-axum/Cargo.
   - `(redact.value).element = { nested: true }`：对 repeated/map 的每个元素递归应用**元素自身类型**的规则（`redact.Apply(item)`）；
   - `(redact.method_skip)`：该操作的响应完全不脱敏（生成包装器的 `// Redaction skipped`）。
 - 语料现状：identity/user.proto（email/mobile 规则、ListUserResponse.items 嵌套）、authentication.proto（LoginRequest.password 固定空串——请求消息的 Redact 方法从不被响应路径调用）、admin/i_user.proto（Create/Update/Delete/UserExists/EditUserPassword 五个 method_skip）。
-- 金样：`crates/proto/tests/golden.rs` 钉了掩码后的字节级 wire 形状（字段序、EmitUnpopulated 空数组、掩码值），以及 method_skip 与无 plan 时不脱敏。
+- 金样：`apps/admin/tests/golden.rs` 钉了掩码后的字节级 wire 形状（字段序、EmitUnpopulated 空数组、掩码值），以及 method_skip 与无 plan 时不脱敏。
 
 ## 4. 错误信封（`DefaultErrorEncoder`，codec.go:107-118 + errors/errors.go）
 
@@ -208,7 +208,7 @@ SSE 是独立 transport server（`sse_server.go` → `sse.NewSseServer(cfg.Serve
 | 事件帧 | 固定顺序 `id:`（GUIDv4）→ `data:`（recipient protojson）→ `event: notification`，空行终止；无 retry 字段、无 keep-alive ping（空转静默） |
 | 订阅语义 | stream = userId：一用户多设备共享一条流，仅收本人 recipient 事件；`auto_stream: true` 下流随订阅自动建 |
 
-Rust 侧：`services/admin-api/src/server/sse.rs`——`events_preflight`（OPTIONS 静态应答）+ `sse_error`（401 纯文本形态，code 字段取 `error_status` 表值）+ 流响应头三枚插入（ACAO/ACAH/Connection 叠加在 axum `Sse` 自带的 content-type/cache-control 之上）+ `Event` builder 调用序 id→data→event（axum 按调用序拼帧，与上述顺序对位）+ Hub 广播按 uid 过滤（等价 per-stream 订阅）。路由路径接 `server.sse.path`（缺省回退 `/`）。2026-09-15 四路探针（预检 / 无 token / 成功路径头集 / stream 失配体）逐字节对位通过。
+Rust 侧：`apps/admin/src/admin/server/sse.rs`——`events_preflight`（OPTIONS 静态应答）+ `sse_error`（401 纯文本形态，code 字段取 `error_status` 表值）+ 流响应头三枚插入（ACAO/ACAH/Connection 叠加在 axum `Sse` 自带的 content-type/cache-control 之上）+ `Event` builder 调用序 id→data→event（axum 按调用序拼帧，与上述顺序对位）+ Hub 广播按 uid 过滤（等价 per-stream 订阅）。路由路径接 `server.sse.path`（缺省回退 `/`）。2026-09-15 四路探针（预检 / 无 token / 成功路径头集 / stream 失配体）逐字节对位通过。
 
 已知分歧（差分台架未覆盖 SSE——:7789 不在 sweep 语料，本节为源码推导 + 探针验证的契约记录）：
 - **方法面**：参照 mux 对全部方法走同一 handler（POST 也能开流）；axum 侧 GET（含 HEAD）+ OPTIONS 之外返 405（无 CORS 头）——前端只用 GET，不可达。

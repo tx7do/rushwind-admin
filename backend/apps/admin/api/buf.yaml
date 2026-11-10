@@ -1,12 +1,12 @@
 # buf 工作区——契约树 + BSR 依赖，无 vendored 第三方：
 #
-#   cd backend/api
+#   cd backend/apps/admin/api
 #   buf lint                              # 样式报告（仅契约树；快照禁手改，
 #                                         #   发现的问题回上游 go-wind-admin 修）
 #   buf build -o /tmp/api-image.binpb     # 编译全工作区（含注解闭包，选项字节保真；
 #                                         #   首次构建会按 buf.lock 拉取六个依赖模块
 #                                         #   进模块缓存，之后离线可用）
-#   buf breaking --against "../../.git#branch=main,subdir=backend/api"
+#   buf breaking --against "../../.git#branch=main,subdir=backend/apps/admin/api"
 #                                         # 再同步接受新 vintage 前的契约演进检查
 #                                         #   （工作区对工作区；基线要求 buf.yaml
 #                                         #    已入库；FILE 规则下仅删除/改型算破坏）

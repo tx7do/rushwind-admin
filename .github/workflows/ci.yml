@@ -36,8 +36,8 @@ jobs:
         with:
           workspaces: backend
 
-      # admin-proto's build script compiles the annotated closure through
-      # `buf build` (backend/api/buf.yaml workspace) — buf preserves the
+      # The admin app's build script compiles the annotated closure through
+      # `buf build` (backend/apps/admin/api/buf.yaml workspace) — buf preserves the
       # custom-option bytes (google.api.http / errors.code / gnostic / redact)
       # that protox's serializer drops, replacing the former protoc dependency.
       - uses: bufbuild/buf-setup-action@v1
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.cache/buf
-          key: buf-modules-${{ hashFiles('backend/api/buf.lock') }}
+          key: buf-modules-${{ hashFiles('backend/apps/admin/api/buf.lock') }}
           restore-keys: buf-modules-
 
       # Vendored protos must match MANIFEST.sha256 (anti-tamper gate).
@@ -59,7 +59,7 @@ jobs:
       # comparison self-skips inside the script (exit 0); drift
       # acceptance happens on dev machines where both repos exist.
       - name: Proto contract gate (MANIFEST consistency)
-        run: bash api/sync-protos.sh --check
+        run: bash apps/admin/api/sync-protos.sh --check
 
       # Frontend snapshots must match <frontend>.MANIFEST.sha256 (anti-tamper
       # gates). The upstream source repo is absent on CI, so the drift
@@ -76,14 +76,14 @@ jobs:
       - name: Buf lint (report)
         if: runner.os == 'Linux'
         continue-on-error: true
-        working-directory: backend/api
+        working-directory: backend/apps/admin/api
         run: buf lint
 
       # Scoped to THIS repo's packages: `cargo fmt --all` would also
       # enforce on the framework path-deps, which the framework repo's
       # own CI owns.
       - name: Format
-        run: cargo fmt -p proto -p auth -p admin-api -p admin-diff -p biz-proto-build -p module-template -p platform -- --check
+        run: cargo fmt -p auth -p admin -p admin-diff -p biz-proto-build -- --check
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings

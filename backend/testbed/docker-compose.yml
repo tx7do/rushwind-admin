@@ -2,7 +2,7 @@
 #
 # 用法（见 testbed/README.md）：
 #   docker compose up -d --build     # 起 pg/redis/minio + go-admin（127.0.0.1:27788）
-#   cargo run -p admin-api       # Rust 侧跑宿主 :7788
+#   cargo run -p admin       # Rust 侧跑宿主 :7788
 #   cargo run -p admin-diff -- --go http://127.0.0.1:27788 --rust http://127.0.0.1:7788
 #
 # 基础设施三个服务的名字/凭据与 go 仓 backend/docker-compose.yaml 逐字一致

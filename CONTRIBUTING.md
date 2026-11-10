@@ -33,11 +33,11 @@
 
 ### 契约优先
 
-proto 是唯一 API 契约，经 `sync-protos.sh` 从上游契约源同步进本仓。本仓不直接修改 `backend/api/protos/`：
+proto 是唯一 API 契约。上游同步面经 `sync-protos.sh` 同步进 `backend/apps/admin/api/protos/`（字节快照 + MANIFEST 门）；fork 自有契约树在 `backend/apps/admin/api/fork/protos/`，自由编辑、不做字节门。两者共享一次 buf 编译、一个池、一套分页类型：
 
 ```bash
-bash backend/api/sync-protos.sh          # 从上游同步并重建 MANIFEST
-bash backend/api/sync-protos.sh --check  # 校验门（与 CI 一致）
+bash backend/apps/admin/api/sync-protos.sh          # 从上游同步并重建 MANIFEST（只动 protos/，fork 树不受影响）
+bash backend/apps/admin/api/sync-protos.sh --check  # 校验门（与 CI 一致）
 ```
 
 上游 proto 发生变更时：重新同步 → 按需更新 [docs/binding-spec.md](./docs/binding-spec.md)（wire 语义对齐基准）→ 跑差分台架回归，确认字节级兼容后再提交。
@@ -48,24 +48,22 @@ bash backend/api/sync-protos.sh --check  # 校验门（与 CI 一致）
 
 | 产物 | 来源 | 说明 |
 |------|------|------|
-| 路由面 / 绑定计划 / 服务 trait / 挂载胶水 | `rushwind-gen-http`（构建期，rushwind 仓） | 从 buf 注解描述符确定性生成，落位 `backend/api/admin-api/` |
-| proto 类型与 protojson serde | `backend/api/admin-api/build.rs` | prost + pbjson，从 `backend/api/protos/` 编译 |
-| 免鉴权白名单表 | `backend/api/admin-api/src/auth_free.rs` | 免鉴权端点白名单，单源维护 |
+| 路由面 / 绑定计划 / 服务 trait / 挂载胶水 | `rushwind-gen-http`（构建期，rushwind 仓） | 每个源树一个 face，从 buf 注解描述符确定性生成；admin 面落 `crate::proto::gen`，模块面落 `crate::proto::gen::<模块>` |
+| proto 类型与 protojson serde | `backend/apps/admin/build.rs` | prost + pbjson，从 `api/`（admin 树 + fork 树）一次编译，一池一类型 |
+| 免鉴权白名单表 | `backend/apps/admin/src/auth_free.rs` | 免鉴权端点白名单，单源维护（fork 模块在此追加自己的条目） |
 
 改生成器逻辑请到 rushwind 仓的 `rushwind-gen-http`，其 fixture 测试与本仓守卫测试（白名单、遮蔽路由等）会双向钉住行为。
 
-### 装配面（下游稳定门面）
+### 所有权规则（一条线，替代整份门面声明）
 
-本仓是脚手架：fork 的业务模块（`backend/business/*`、`backend/apps/*`）消费 `admin-api` 的库面做装配。以下入口按**下游稳定契约**维护——改动任何一项视为破坏性变更，须在 PR 描述与升级说明中显式声明：
+后端只有两个房间：**上游同步面**与**下游自有面**。
 
-- `admin_api::config::Config` 与 `AppState::connect` / `AppState` 的 pub 字段
-- `admin_api::server::rest::pack`、`admin_api::server::edge`（`EdgePack` / `edge_router` / `pack_with` / `make_wrap` 的签名与层序语义——bind 外、门内是 wire 契约）
-- `admin_api::server::sse::factory`、`admin_api::server::apalis`（`TaskQueue` / `cron_jobs` / `worker_factory`）
-- `admin_api::migration::run`、`admin_api::seed::run`（含幂等语义）
-- 导出的宏：`repo_shell!`、`query_by_id!`、`stamp_update!`（展开形状与 `$crate` 解析路径）
-- 错误助手与审计面：`admin_api::state::{status_error, not_found, operator_of, tenant_of, db_err}`、`admin_api::audit::AuditFace`
+- **上游同步面**——`backend/apps/admin/src/admin/`（41 个服务实现、数据层、路由边、审计、迁移种子）与 `backend/apps/admin/api/protos/`（契约快照）。上行同步波次只落这两个子树；fork **只读不写**。
+- **下游自有面**——`backend/apps/admin/src/modules/`（业务模块，copy-rename `template` 起步）与 `backend/apps/admin/api/fork/protos/`（模块契约树）+ `main.rs` 里每个模块四行装配（`mod` 声明、迁移链、种子、route pack）。fork 的一切代码活在这里；上行**永不触碰**。
 
-守卫面：`backend/business/module-template` 与 `backend/apps/platform` 本身就是装配面的下游消费者——它们编译失败即装配面被破坏，CI 的 workspace 构建把这条守卫常态化。业务模块的写法见教程 [09 写下游](./docs/tutorial/09-write-your-first-module.md)。
+跨线消费是稳定的：模块经 `crate::admin::{state, audit, data}` 与 `crate::repo_shell!` / `crate::stamp_update!` / `crate::query_by_id!` 骑 admin 的路由边（`EdgePack` / `edge_router` / `pack_with`）、状态助手与审计层。这些入口的签名与层序语义（bind 外、门内是 wire 契约）按稳定契约维护——改动须在 PR 中显式声明。
+
+守卫面：`apps/admin/src/modules/template` 与 `apps/admin/tests/` 的守卫测试本身就是这条线的常态化检查——它们编译失败即稳定面被破坏。业务模块的写法见教程 [09 写下游](./docs/tutorial/09-write-your-first-module.md)。
 
 ### 代码规范
 
@@ -73,7 +71,7 @@ bash backend/api/sync-protos.sh --check  # 校验门（与 CI 一致）
 
   ```bash
   cd backend
-  cargo fmt -p proto -p auth -p admin-api -p admin-diff -p biz-proto-build -p module-template -p platform -- --check
+  cargo fmt -p auth -p admin -p admin-diff -p biz-proto-build -- --check
   cargo clippy --workspace -- -D warnings
   cargo test --workspace
   ```
@@ -117,7 +115,7 @@ bash backend/api/sync-protos.sh --check  # 校验门（与 CI 一致）
 
 ### 评审标准
 
-- 是否手改了生成产物或 `backend/api/protos/`
+- 是否手改了生成产物或 `backend/apps/admin/api/protos/`
 - 是否破坏契约兼容基线（以 [docs/binding-spec.md](./docs/binding-spec.md) 与差分台架结论为准）
 - 是否绕过生成器手写路由 / 绑定逻辑
 - 是否引入新的硬编码密钥 / 凭据（应走配置；演示密钥不得用于生产语义的新代码路径）

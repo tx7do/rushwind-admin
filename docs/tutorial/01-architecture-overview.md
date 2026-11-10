@@ -7,23 +7,24 @@
 ```text
 rushwind-admin/
 ├── backend/                    Rust 后端（Cargo workspace）
-│   ├── api/                    API 契约树（唯一契约源）
-│   │   ├── protos/             proto 契约副本（MANIFEST.sha256 校验门，禁手改）
-│   │   ├── buf.yaml/buf.lock   buf 工作区与依赖钉定（google.api 等注解模块经 buf 依赖解析）
-│   │   └── sync-protos.sh      契约同步与校验脚本
-│   ├── crates/                 可被每个微服务共享的库
-│   │   ├── proto/              契约 crate：构建期编译契约树 + 生成路由/错误表/服务 trait/挂载
-│   │   └── auth/               鉴权门：auth_gate 与三个可注入 trait
-│   ├── services/
-│   │   └── admin-api/          Admin 服务 crate（src/ 模块树 + assets/ 内嵌配置）
-│   └── testbed/                差分回归台架（compose + admin-diff 全量路由 sweep）
+│   ├── crates/                 框架库：biz-proto-build（契约构建引擎）、auth（鉴权门）
+│   └── apps/
+│       └── admin/              ★ 唯一的产品应用（一个 crate，一个二进制）
+│           ├── api/            应用的契约工作区（一个 buf.yaml + 一个 buf.lock）
+│           │   ├── protos/     admin 契约树（MANIFEST.sha256 校验门，禁手改）
+│           │   └── fork/protos/ fork 模块契约树（fork 自有，自由编辑）
+│           ├── src/admin/      41 服务 + 数据层 + 路由边 + 审计（上行同步落点）
+│           ├── src/modules/    fork 业务模块（copy-rename template 起步）
+│           ├── src/proto/      契约面（构建期生成：类型/池/gen 各 face）
+│           └── assets/         内嵌配置（server.yaml / auth.yaml / …）
+│   （testbed/ 与 apps/ 平级：差分回归台架 compose + admin-diff 全量路由 sweep）
 ├── frontend/admin/             三套前端同步快照（react / vue-element / vue-vben）
 └── docs/                       本文档体系（教程层 + 参考层，见 [docs/README.md](../README.md)）
 ```
 
 两个要点：
 
-- **`backend/crates/` 与 `backend/services/` 的分工**：crates 放"每个微服务都能共用"的库（目前是契约 crate 和鉴权门），每个微服务一个 `services/<name>` crate（目前是 admin-api）；数据层（实体、仓储、租户范围）属于服务自身，放在服务 crate 的 `src/data/` 里，不抽公共 crate。
+- **`crates/` 与 `apps/` 的分工**：crates 放框架库（契约构建引擎、鉴权门——不含任何 admin 业务语义），apps 放产品应用；数据层（实体、仓储、租户范围）属于应用自身，放在 `apps/admin/src/admin/data/` 里，不抽公共 crate。业务模块长在应用内部 `src/modules/`，与上游同步面同仓不同室（所有权一条线，见 [09 章](./09-write-your-first-module.md)）。
 - **proto 是唯一 API 契约**：284 条 REST 路由全部由 proto 的 `google.api.http` 注解在构建期生成，仓库里没有一条手写路由。契约树的维护方式见[第 3 章](./03-codegen-chain.md)。
 
 前端说明：本仓随仓携带三套前端同步快照（`frontend/admin/{react,vue-element,vue-vben}`），生成的 TypeScript 客户端三份字节相同。三套前端功能同构、技术栈各异（React 19 + Ant Design V6 / Vue3 + Element Plus / Vben Admin 5.x）、共用同一套后端契约——**它们是给不同技术栈团队的三个并列选项，不是"同时要三套"的一套交付**。
@@ -40,7 +41,7 @@ rushwind-admin/
   │  VITE_PROXY='[["/admin", "http://127.0.0.1:7788/"]]'——vite 按 /admin 前缀
   │  转发到 7788，不做 rewrite（后端路由自带前缀），避免开发态跨域
   ▼
-RushWind 装配层（rushwind-bootstrap，由 services/admin-api/assets/server.yaml 驱动）
+RushWind 装配层（rushwind-bootstrap，由 apps/admin/assets/server.yaml 驱动）
   │  edge：gorilla 兼容的 CORS 层 + 10s 请求预算
   ▼
 REST transport（axum，:7788）
@@ -53,7 +54,7 @@ REST transport（axum，:7788）
 生成的 handler（proto::gen::mounts::mount_*）
   │  解参、构造对应 Service、调用 trait 方法
   ▼
-Service 层（services/admin-api/src/services/*.rs）
+Service 层（apps/admin/src/admin/services/*.rs）
   │  业务逻辑：从请求上下文取操作者、调仓储、做 proto↔模型映射
   ▼
 Repo 层（src/data/repos/*.rs）
@@ -107,12 +108,12 @@ SeaORM → PostgreSQL
 
 | 位置 | 产生方式 | 能否手改 |
 |---|---|---|
-| `backend/api/protos/**` | `sync-protos.sh` 从上游契约源同步（MANIFEST 门） | ❌ 改上游契约源后重新同步 |
+| `backend/apps/admin/api/protos/**` | `sync-protos.sh` 从上游契约源同步（MANIFEST 门） | ❌ 改上游契约源后重新同步 |
 | 契约树的注解依赖（google.api 等） | buf 工作区按 `buf.lock` 钉定（上游 lock 是唯一版本事实） | ❌ 随上游 lock 同步 |
-| `crates/proto` 生成面（路由表/错误表/服务 trait/mounts/prost 类型） | `build.rs` 每次构建确定性再生 | ❌ 全部由 `backend/api/protos` 派生 |
+| `apps/admin/src/proto` 生成面（路由表/错误表/服务 trait/mounts/prost 类型） | `build.rs` 每次构建确定性再生 | ❌ 全部由 `api/` 工作区（admin 树 + fork 树）派生 |
 | 前端 `src/api/generated/**` | 从契约生成的 TypeScript 客户端 | ❌ |
-| `services/admin-api/src/services/**` | 手写（模式化样板） | ✅ |
-| `services/admin-api/src/data/**` | 手写（实体/仓储/租户规则） | ✅ |
+| `apps/admin/src/admin/services/**` | 手写（模式化样板） | ✅ |
+| `apps/admin/src/admin/data/**` | 手写（实体/仓储/租户规则） | ✅ |
 | `crates/auth`、`src/server/**`、`src/audit/**` | 手写（门、装配、审计层） | ✅ |
 
 生成链路的完整机制在[第 3 章](./03-codegen-chain.md)，实战在[第 4 章](./04-first-service-module.md)。
