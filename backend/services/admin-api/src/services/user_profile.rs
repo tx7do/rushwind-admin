@@ -26,7 +26,7 @@ impl UserProfileService {
     /// old hash, revoke every session of the user.
     async fn change_credential(
         &self,
-        uid: u32,
+        uid: i64,
         old_encrypted: &str,
         new_encrypted: &str,
     ) -> Result<(), crate::state::StatusError> {

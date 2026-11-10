@@ -261,14 +261,14 @@ async fn seed_roles(state: &Arc<AppState>) -> Result<(), String> {
         }
     );
     for (role_id, is_template, template_for, scope) in [
-        (1u32, false, None, "PLATFORM"),
-        (2u32, true, Some("tenant:manager"), "TENANT"),
+        (1u64, false, None, "PLATFORM"),
+        (2u64, true, Some("tenant:manager"), "TENANT"),
     ] {
         insert_seed!(
             &state.db,
             role_meta::ActiveModel {
                 tenant_id: Set(Some(0)),
-                role_id: Set(Some(role_id)),
+                role_id: Set(Some(role_id as i64)),
                 is_template: Set(Some(is_template)),
                 template_for: Set(template_for.map(String::from)),
                 template_version: Set(Some(1)),
@@ -289,7 +289,7 @@ async fn seed_permission_groups(state: &Arc<AppState>) -> Result<(), String> {
         return Ok(());
     }
     let rows = [
-        (1u32, "系统管理", "/", Some(0u32)),
+        (1u64, "系统管理", "/", Some(0u64)),
         (2, "系统权限", "/1/2/", Some(1)),
         (3, "租户管理", "/1/3/", Some(1)),
         (4, "审计管理", "/1/4/", Some(1)),
@@ -299,11 +299,11 @@ async fn seed_permission_groups(state: &Arc<AppState>) -> Result<(), String> {
         insert_seed!(
             &state.db,
             groups::ActiveModel {
-                id: Set(id),
+                id: Set(id as i64),
                 name: Set(name.into()),
                 module: Set(Some("sys".into())),
                 path: Set(Some(path.into())),
-                parent_id: Set(parent),
+                parent_id: Set(parent.map(|v| v as i64)),
                 status: Set(Some("ON".into())),
                 created_at: Set(Some(crate::data::now())),
                 updated_at: Set(Some(crate::data::now())),
@@ -321,7 +321,7 @@ async fn seed_permissions(state: &Arc<AppState>) -> Result<(), String> {
         return Ok(());
     }
     let rows = [
-        (1u32, "访问后台", "sys:access_backend", 1u32),
+        (1u64, "访问后台", "sys:access_backend", 1u64),
         (2, "平台管理员", "sys:platform_admin", 2),
         (3, "租户管理员", "sys:tenant_manager", 2),
         (4, "租户管理", "sys:manage_tenants", 3),
@@ -331,10 +331,10 @@ async fn seed_permissions(state: &Arc<AppState>) -> Result<(), String> {
         insert_seed!(
             &state.db,
             perms::ActiveModel {
-                id: Set(id),
+                id: Set(id as i64),
                 name: Set(name.into()),
                 code: Set(code.into()),
-                group_id: Set(Some(group_id)),
+                group_id: Set(Some(group_id as i64)),
                 status: Set(Some("ON".into())),
                 created_at: Set(Some(crate::data::now())),
                 updated_at: Set(Some(crate::data::now())),
@@ -345,16 +345,16 @@ async fn seed_permissions(state: &Arc<AppState>) -> Result<(), String> {
     // 种子不硬编码 id：角色授权按 DefaultRolePermissionCodes 的 code 动态
     // 解析（上游 836334e3 同语义）——超管=当前全量；租户管理员模板=登录链路
     // 身份权限。权限行 id 在种子重建后漂移也不再错绑。
-    let perm_id_by_code: std::collections::HashMap<String, u32> = perms::Entity::find()
+    let perm_id_by_code: std::collections::HashMap<String, u64> = perms::Entity::find()
         .all(&state.db)
         .await
         .map_err(|e| e.to_string())?
         .into_iter()
-        .map(|r| (r.code, r.id))
+        .map(|r| (r.code.clone(), r.id as u64))
         .collect();
     for (role_id, codes) in [
         (
-            1u32,
+            1u64,
             vec![
                 "sys:access_backend",
                 "sys:platform_admin",
@@ -372,8 +372,8 @@ async fn seed_permissions(state: &Arc<AppState>) -> Result<(), String> {
                 &state.db,
                 role_perms::ActiveModel {
                     tenant_id: Set(Some(0)),
-                    role_id: Set(Some(role_id)),
-                    permission_id: Set(Some(perm)),
+                    role_id: Set(Some(role_id as i64)),
+                    permission_id: Set(Some(perm as i64)),
                     effect: Set(Some("ALLOW".into())),
                     status: Set(Some("ON".into())),
                     created_at: Set(Some(crate::data::now())),
@@ -417,7 +417,11 @@ async fn seed_menus(state: &Arc<AppState>) -> Result<(), String> {
             &state.db,
             menus::ActiveModel {
                 id: Set(id),
-                parent_id: Set(if parent == 0 { None } else { Some(parent) }),
+                parent_id: Set(if parent == 0 {
+                    None
+                } else {
+                    Some(parent as i64)
+                }),
                 type_column: Set(Some(menu_type.into())),
                 path: Set(Some(path.into())),
                 name: Set(name.into()),

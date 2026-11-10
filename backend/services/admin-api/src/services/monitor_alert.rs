@@ -26,7 +26,7 @@ use proto::proto::monitor_alert::service::v1::MonitorMetric as MetricEnum;
 
 fn rule_proto(r: crate::data::sys_monitor_alert_rules::Model) -> MonitorAlertRule {
     MonitorAlertRule {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         metric: r.metric.as_deref().and_then(mapping::monitor_metric_of),
         op: r.op.as_deref().and_then(mapping::monitor_alert_op_of),
@@ -252,7 +252,7 @@ impl proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertService {
         req: GetMonitorAlertRuleRequest,
     ) -> Result<MonitorAlertRule, StatusError> {
         let repo = crate::data::repos::MonitorAlertRepo::new(&self.state.db);
-        Ok(rule_proto(repo.get_by_id(req.id).await?))
+        Ok(rule_proto(repo.get_by_id(req.id as i64).await?))
     }
 
     async fn create_monitor_alert_rule(
@@ -287,7 +287,7 @@ impl proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertService {
         let data = require_data(req.data)?;
         validate_alert_rule(&data)?;
         let repo = crate::data::repos::MonitorAlertRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id).await?;
+        let row = repo.get_by_id(req.id as i64).await?;
         let mut a: crate::data::sys_monitor_alert_rules::ActiveModel = row.into();
         upsert_fields(&mut a, &data)?;
         crate::stamp_update!(a, payload.user_id);
@@ -301,8 +301,8 @@ impl proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertService {
         req: DeleteMonitorAlertRuleRequest,
     ) -> Result<Empty, StatusError> {
         let repo = crate::data::repos::MonitorAlertRepo::new(&self.state.db);
-        repo.get_by_id(req.id).await?;
-        repo.delete_by_id(req.id).await?;
+        repo.get_by_id(req.id as i64).await?;
+        repo.delete_by_id(req.id as i64).await?;
         Ok(Empty {})
     }
 
@@ -329,7 +329,7 @@ impl proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertService {
 
             let Some(value) = Self::metric_value(metric, &server, redis_size) else {
                 outcomes.push(RuleOutcome {
-                    rule_id: rule.id,
+                    rule_id: rule.id as u64,
                     name: rule.name.clone(),
                     firing: rule.last_firing.unwrap_or(false),
                     current_value: None,
@@ -373,7 +373,7 @@ impl proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertService {
             let _ = a.update(&self.state.db).await.map_err(db_err)?;
 
             outcomes.push(RuleOutcome {
-                rule_id: rule.id,
+                rule_id: rule.id as u64,
                 name: rule.name.clone(),
                 firing: breached,
                 current_value: Some(value),

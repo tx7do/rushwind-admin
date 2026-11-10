@@ -12,9 +12,9 @@ use proto::proto::pagination::PagingRequest;
 
 fn msg_proto(r: crate::data::sys_ai_messages::Model) -> AiMessage {
     AiMessage {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
-        conversation_id: Some(r.conversation_id),
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
+        conversation_id: Some(r.conversation_id as u64),
         role: r.role.as_deref().map(|s| match s {
             "ASSISTANT" => 1,
             "SYSTEM" => 2,
@@ -26,7 +26,7 @@ fn msg_proto(r: crate::data::sys_ai_messages::Model) -> AiMessage {
         completion_tokens: r.completion_tokens,
         duration_ms: r.duration_ms,
         error_message: r.error_message,
-        user_id: Some(r.user_id),
+        user_id: Some(r.user_id as u64),
         created_by: None,
         updated_by: None,
         deleted_by: None,
@@ -65,10 +65,10 @@ impl proto::gen::services::AiMessageServiceHandlers for AiMessageService {
             proto::proto::ai::service::v1::delete_ai_message_request::QueryBy
         );
         let repo = crate::data::repos::AiMessageRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
-        repo.find_scoped(id)
+        repo.find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("ai message"))?;
-        crate::data::sys_ai_messages::Entity::delete_by_id(id)
+        crate::data::sys_ai_messages::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;

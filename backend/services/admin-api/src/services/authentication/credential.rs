@@ -34,7 +34,7 @@ impl AuthenticationService {
     /// lookup (ambiguous → 500), miss → input unchanged.
     pub(super) async fn resolve_identifier(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         input: &str,
     ) -> Result<String, StatusError> {
         if input.is_empty() {
@@ -78,10 +78,10 @@ impl AuthenticationService {
     /// bcrypt → password-age policy. Returns the matched user id.
     pub(super) async fn verify_credential(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         identifier: &str,
         encrypted_password: &str,
-    ) -> Result<u32, StatusError> {
+    ) -> Result<u64, StatusError> {
         let plain = crate::crypto::decrypt_transfer_password(encrypted_password)
             .map_err(|_| status_error("BAD_REQUEST", "invalid credential format"))?;
 
@@ -130,6 +130,6 @@ impl AuthenticationService {
                 }
             }
         }
-        Ok(cred_user_id)
+        Ok(cred_user_id as u64)
     }
 }

@@ -36,13 +36,13 @@ const RAG_CHUNK_OVERLAP: usize = 50;
 
 fn base_proto(r: crate::data::sys_ai_knowledge_bases::Model) -> AiKnowledgeBase {
     AiKnowledgeBase {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
         name: Some(r.name),
         description: r.description,
-        provider_id: r.provider_id,
+        provider_id: r.provider_id.map(|v| v as u64),
         embedding_model: r.embedding_model,
-        user_id: Some(r.user_id),
+        user_id: Some(r.user_id as u64),
         doc_count: None,
         created_by: None,
         updated_by: None,
@@ -55,14 +55,14 @@ fn base_proto(r: crate::data::sys_ai_knowledge_bases::Model) -> AiKnowledgeBase 
 
 fn doc_proto(r: crate::data::sys_ai_docs::Model) -> AiDoc {
     AiDoc {
-        id: Some(r.id),
-        base_id: Some(r.base_id),
+        id: Some(r.id as u64),
+        base_id: Some(r.base_id as u64),
         name: Some(r.name),
         chunk_count: r.chunk_count,
         status: r.status,
         error_message: r.error_message,
-        user_id: r.user_id,
-        tenant_id: r.tenant_id,
+        user_id: r.user_id.map(|v| v as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
     }
 }
@@ -104,7 +104,7 @@ impl AiKnowledgeBaseService {
     async fn base_scoped(
         &self,
         ctx: &rushwind_http_binding::ctx::RequestContext,
-        id: u32,
+        id: i64,
     ) -> Result<crate::data::sys_ai_knowledge_bases::Model, StatusError> {
         let mut query = crate::data::sys_ai_knowledge_bases::Entity::find_by_id(id);
         if let Some(tid) = Viewer::from_ctx(ctx).tenant_scope() {
@@ -141,8 +141,8 @@ impl AiKnowledgeBaseService {
         &self,
         provider: &crate::data::sys_ai_providers::Model,
         base: &crate::data::sys_ai_knowledge_bases::Model,
-        user_id: u32,
-        tenant_id: u32,
+        user_id: i64,
+        tenant_id: i64,
         texts: &[String],
     ) -> Result<Vec<String>, StatusError> {
         let model = base
@@ -187,8 +187,8 @@ impl AiKnowledgeBaseService {
     /// 污染整个请求语义——错误信息保留在文档行）。
     async fn ingest_doc(
         &self,
-        tenant_id: u32,
-        user_id: u32,
+        tenant_id: i64,
+        user_id: i64,
         base: &crate::data::sys_ai_knowledge_bases::Model,
         name: &str,
         content: &str,
@@ -221,7 +221,14 @@ impl AiKnowledgeBaseService {
             .await
         {
             Ok(literals) => {
-                insert_chunks(&self.state.db, tenant_id, doc_id_of(&a), &chunks, &literals).await?;
+                insert_chunks(
+                    &self.state.db,
+                    tenant_id,
+                    doc_id_of(&a) as i64,
+                    &chunks,
+                    &literals,
+                )
+                .await?;
                 a.status = Set(Some("READY".into()));
                 a.error_message = Set(None);
                 a.chunk_count = Set(Some(chunks.len() as u32));
@@ -237,9 +244,9 @@ impl AiKnowledgeBaseService {
     }
 }
 
-fn doc_id_of(a: &crate::data::sys_ai_docs::ActiveModel) -> u32 {
+fn doc_id_of(a: &crate::data::sys_ai_docs::ActiveModel) -> u64 {
     match &a.id {
-        sea_orm::ActiveValue::Unchanged(v) | sea_orm::ActiveValue::Set(v) => *v,
+        sea_orm::ActiveValue::Unchanged(v) | sea_orm::ActiveValue::Set(v) => *v as u64,
         _ => 0,
     }
 }
@@ -247,8 +254,8 @@ fn doc_id_of(a: &crate::data::sys_ai_docs::ActiveModel) -> u32 {
 /// 切片批量落库（原生 SQL：pgvector 列不在实体模型内）。
 async fn insert_chunks(
     db: &sea_orm::DatabaseConnection,
-    tenant_id: u32,
-    doc_id: u32,
+    tenant_id: i64,
+    doc_id: i64,
     chunks: &[String],
     vectors: &[String],
 ) -> Result<(), StatusError> {
@@ -289,9 +296,9 @@ async fn insert_chunks(
 /// 检索 → 命中内容列表（按分数序）。
 pub async fn search_knowledge_base(
     state: &Arc<AppState>,
-    tenant_id: u32,
-    user_id: u32,
-    base_id: u32,
+    tenant_id: i64,
+    user_id: i64,
+    base_id: i64,
     query: &str,
     top_k: usize,
 ) -> Result<Vec<String>, StatusError> {
@@ -353,7 +360,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
             req.query_by,
             proto::proto::ai::service::v1::get_ai_knowledge_base_request::QueryBy
         );
-        Ok(base_proto(self.base_scoped(&ctx, id).await?))
+        Ok(base_proto(self.base_scoped(&ctx, id as i64).await?))
     }
 
     async fn create(
@@ -375,7 +382,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
             tenant_id: Set(Some(payload.tenant_id)),
             name: Set(data.name.clone().unwrap_or_default()),
             description: Set(data.description.clone()),
-            provider_id: Set(data.provider_id),
+            provider_id: Set(data.provider_id.map(|v| v as i64)),
             embedding_model: Set(data.embedding_model.clone()),
             user_id: Set(payload.user_id),
             created_at: Set(Some(crate::data::now())),
@@ -395,7 +402,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let row = self.base_scoped(&ctx, req.id).await?;
+        let row = self.base_scoped(&ctx, req.id as i64).await?;
         let mut a: crate::data::sys_ai_knowledge_bases::ActiveModel = row.into();
         if let Some(v) = &data.name {
             a.name = Set(v.clone());
@@ -404,7 +411,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
             a.description = Set(Some(v.clone()));
         }
         if let Some(v) = data.provider_id {
-            a.provider_id = Set(Some(v));
+            a.provider_id = Set(Some(v as i64));
         }
         if let Some(v) = &data.embedding_model {
             a.embedding_model = Set(Some(v.clone()));
@@ -424,7 +431,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
             req.query_by,
             proto::proto::ai::service::v1::delete_ai_knowledge_base_request::QueryBy
         );
-        self.base_scoped(&ctx, id).await?;
+        self.base_scoped(&ctx, id as i64).await?;
         // 级联清文档与切片（含向量列行——原生 SQL）。
         use sea_orm::ConnectionTrait;
         let _ = self
@@ -439,7 +446,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        crate::data::sys_ai_knowledge_bases::Entity::delete_by_id(id)
+        crate::data::sys_ai_knowledge_bases::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -459,7 +466,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
                 "base_id, name and content are required",
             ));
         }
-        let base = self.base_scoped(&ctx, req.base_id).await?;
+        let base = self.base_scoped(&ctx, req.base_id as i64).await?;
         let doc = self
             .ingest_doc(
                 payload.tenant_id,
@@ -493,7 +500,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: ListAiDocsRequest,
     ) -> Result<proto::proto::ai::service::v1::ListAiDocsResponse, StatusError> {
-        let base = self.base_scoped(&ctx, req.base_id).await?;
+        let base = self.base_scoped(&ctx, req.base_id as i64).await?;
         let rows = crate::data::sys_ai_docs::Entity::find()
             .filter(crate::data::sys_ai_docs::Column::BaseId.eq(base.id))
             .order_by_desc(crate::data::sys_ai_docs::Column::Id)
@@ -513,8 +520,8 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
         req: DeleteAiDocRequest,
     ) -> Result<Empty, StatusError> {
         let (base_id, id) = (req.base_id, req.id);
-        self.base_scoped(&ctx, base_id).await?;
-        crate::data::sys_ai_docs::Entity::find_by_id(id)
+        self.base_scoped(&ctx, base_id as i64).await?;
+        crate::data::sys_ai_docs::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -525,7 +532,7 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
             .db
             .execute_unprepared(&format!("DELETE FROM sys_ai_chunks WHERE doc_id = {id}"))
             .await;
-        crate::data::sys_ai_docs::Entity::delete_by_id(id)
+        crate::data::sys_ai_docs::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -544,12 +551,12 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
                 "base_id and query are required",
             ));
         }
-        self.base_scoped(&ctx, req.base_id).await?;
+        self.base_scoped(&ctx, req.base_id as i64).await?;
         let hits = search_knowledge_base(
             &self.state,
             payload.tenant_id,
             payload.user_id,
-            req.base_id,
+            req.base_id as i64,
             &req.query,
             req.top_k.unwrap_or(4).max(1) as usize,
         )

@@ -27,8 +27,8 @@ pub enum ViewerKind {
 #[derive(Clone, Debug, Copy)]
 pub struct Viewer {
     pub kind: ViewerKind,
-    pub user_id: u32,
-    pub tenant_id: u32,
+    pub user_id: i64,
+    pub tenant_id: i64,
 }
 
 impl Viewer {
@@ -68,7 +68,7 @@ impl Viewer {
 
     /// Tenant enforcement — `Some(tenant)` when rows must be
     /// constrained, `None` for platform/system/noop wide reads.
-    pub fn tenant_scope(&self) -> Option<u32> {
+    pub fn tenant_scope(&self) -> Option<i64> {
         match self.kind {
             ViewerKind::User if self.tenant_id > 0 => Some(self.tenant_id),
             _ => None,
@@ -76,7 +76,7 @@ impl Viewer {
     }
 
     /// Create stamping: tenant viewers force their tenant onto new rows.
-    pub fn stamp_tenant(&self, requested: Option<u32>) -> Option<u32> {
+    pub fn stamp_tenant(&self, requested: Option<i64>) -> Option<i64> {
         match self.kind {
             ViewerKind::User if self.tenant_id > 0 => Some(self.tenant_id),
             _ => requested.or(Some(0)),

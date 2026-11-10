@@ -23,7 +23,7 @@ use proto::proto::print::service::v1::{
 
 fn tpl_proto(r: crate::data::print_templates::Model) -> PrintTemplate {
     PrintTemplate {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         code: Some(r.code),
         resource_key: r.resource_key,
@@ -33,9 +33,9 @@ fn tpl_proto(r: crate::data::print_templates::Model) -> PrintTemplate {
         orientation: r.orientation,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -101,7 +101,7 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
             crate::data::repos::PrintTemplateRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = match req.query_by {
             Some(proto::proto::print::service::v1::get_print_template_request::QueryBy::Id(id)) => {
-                repo.find_scoped(id).await?
+                repo.find_scoped(id as i64).await?
             }
             None => None,
         }
@@ -153,12 +153,12 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
         let repo =
             crate::data::repos::PrintTemplateRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(req.id)
+            .find_scoped(req.id as i64)
             .await?
             .ok_or_else(|| not_found("print template"))?;
         if let Some(code) = data.code.as_deref().filter(|c| !c.is_empty()) {
             if let Some(other) = repo.find_by_code(code).await? {
-                if other.id != req.id {
+                if other.id != req.id as i64 {
                     return Err(status_error("CONFLICT", "template code already exists"));
                 }
             }
@@ -183,7 +183,7 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
         let repo =
             crate::data::repos::PrintTemplateRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(id)
+            .find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("print template"))?;
         // 内置行禁删（与上游 repo 同则）。
@@ -193,7 +193,7 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
                 "built-in print template cannot be deleted",
             ));
         }
-        crate::data::print_templates::Entity::delete_by_id(id)
+        crate::data::print_templates::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;

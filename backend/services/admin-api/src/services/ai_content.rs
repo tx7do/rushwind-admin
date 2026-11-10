@@ -29,7 +29,7 @@ fn scene_prompt(scene: i32, lang: &str) -> String {
 
 /// 待索引菜单收集后的文档（真实菜单 id + 标题 + 路由）。
 struct MenuIndexDoc {
-    menu_id: u32,
+    menu_id: i64,
     title: String,
     route: String,
 }
@@ -50,7 +50,7 @@ fn collect_menu_index_docs(rows: Vec<crate::data::sys_menus::Model>) -> Vec<Menu
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| m.name.clone());
             MenuIndexDoc {
-                menu_id: m.id,
+                menu_id: (m.id as u64 as i64),
                 title,
                 route: m.path.unwrap_or_default(),
             }
@@ -74,7 +74,7 @@ impl AiContentService {
 
     /// 重建索引：TRUNCATE 后按批 embedding 写入（对齐响应 index 校验
     /// 由 llm.rs 的对位返回保证——数与文一一对应）。
-    async fn rebuild_index_inner(&self, tenant_id: u32, user_id: u32) -> Result<u32, StatusError> {
+    async fn rebuild_index_inner(&self, tenant_id: i64, user_id: i64) -> Result<u32, StatusError> {
         let menus = crate::data::sys_menus::Entity::find()
             .all(&self.state.db)
             .await
@@ -291,7 +291,7 @@ mod tests {
     use super::*;
 
     fn menu(
-        id: u32,
+        id: i64,
         name: &str,
         path: Option<&str>,
         meta: Option<serde_json::Value>,

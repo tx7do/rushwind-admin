@@ -7,7 +7,7 @@ pub mod sys_monitor_alert_rules {
     #[sea_orm(table_name = "monitor_alert_rules")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         pub name: String,
         /// enum(GO_GOROUTINES,GO_MEM_ALLOC_MB,DB_OPEN_CONNECTIONS,DB_PING_FAIL,REDIS_DB_SIZE).
         pub metric: Option<String>,
@@ -29,9 +29,9 @@ pub mod sys_monitor_alert_rules {
         pub last_firing: Option<bool>,
         pub last_value: Option<f64>,
         pub last_alerted_at: Option<chrono::NaiveDateTime>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,

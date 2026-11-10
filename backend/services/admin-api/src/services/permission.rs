@@ -18,7 +18,7 @@ use proto::proto::permission::service::v1::{
 };
 
 async fn permission_proto(state: &AppState, r: crate::data::sys_permissions::Model) -> Permission {
-    let menu_ids: Vec<u32> = crate::data::sys_permission_menus::Entity::find()
+    let menu_ids: Vec<i64> = crate::data::sys_permission_menus::Entity::find()
         .filter(crate::data::sys_permission_menus::Column::PermissionId.eq(r.id))
         .all(&state.db)
         .await
@@ -26,7 +26,7 @@ async fn permission_proto(state: &AppState, r: crate::data::sys_permissions::Mod
         .iter()
         .filter_map(|m| m.menu_id)
         .collect();
-    let api_ids: Vec<u32> = crate::data::sys_permission_apis::Entity::find()
+    let api_ids: Vec<i64> = crate::data::sys_permission_apis::Entity::find()
         .filter(crate::data::sys_permission_apis::Column::PermissionId.eq(r.id))
         .all(&state.db)
         .await
@@ -44,18 +44,18 @@ async fn permission_proto(state: &AppState, r: crate::data::sys_permissions::Mod
         None => None,
     };
     Permission {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         code: Some(r.code),
         description: r.description,
         status: r.status.as_deref().map(|s| if s == "OFF" { 0 } else { 1 }),
-        group_id: r.group_id,
+        group_id: r.group_id.map(|v| v as u64),
         group_name,
-        menu_ids,
-        api_ids,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        menu_ids: menu_ids.iter().map(|v| *v as u64).collect(),
+        api_ids: api_ids.iter().map(|v| *v as u64).collect(),
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -163,8 +163,8 @@ fn api_code(method: &str, path: &str) -> String {
 /// AssignSyncBindings 替换语义）。
 async fn replace_menu_binding(
     txn: &sea_orm::DatabaseTransaction,
-    permission_id: u32,
-    menu: Option<(u32, String)>,
+    permission_id: i64,
+    menu: Option<(u64, String)>,
 ) -> Result<(), StatusError> {
     crate::data::sys_permission_menus::Entity::delete_many()
         .filter(crate::data::sys_permission_menus::Column::PermissionId.eq(permission_id))
@@ -174,7 +174,7 @@ async fn replace_menu_binding(
     if let Some((menu_id, full_path)) = menu {
         crate::data::sys_permission_menus::ActiveModel {
             permission_id: Set(Some(permission_id)),
-            menu_id: Set(Some(menu_id)),
+            menu_id: Set(Some(menu_id as i64)),
             full_path: Set(Some(full_path)),
             created_at: Set(Some(crate::data::now())),
             updated_at: Set(Some(crate::data::now())),
@@ -191,8 +191,8 @@ async fn replace_menu_binding(
 /// 同写——快照是裁决键，api_id 仅历史兼容。
 async fn replace_api_binding(
     txn: &sea_orm::DatabaseTransaction,
-    permission_id: u32,
-    api: &Option<(u32, String, String)>,
+    permission_id: i64,
+    api: &Option<(u64, String, String)>,
 ) -> Result<(), StatusError> {
     crate::data::sys_permission_apis::Entity::delete_many()
         .filter(crate::data::sys_permission_apis::Column::PermissionId.eq(permission_id))
@@ -202,7 +202,7 @@ async fn replace_api_binding(
     if let Some((api_id, path, method)) = api {
         crate::data::sys_permission_apis::ActiveModel {
             permission_id: Set(Some(permission_id)),
-            api_id: Set(Some(*api_id)),
+            api_id: Set(Some(*api_id as i64)),
             endpoint_path: Set(Some(path.clone())),
             endpoint_method: Set(Some(method.clone())),
             created_at: Set(Some(crate::data::now())),
@@ -220,11 +220,11 @@ async fn replace_api_binding(
 /// （api 行已删的 id 落 NULL 快照——不匹配任何端点，fail-closed）。
 async fn bind_api_rows(
     db: &sea_orm::DatabaseConnection,
-    permission_id: u32,
-    api_ids: &[u32],
+    permission_id: i64,
+    api_ids: &[u64],
 ) -> Result<(), StatusError> {
     for api_id in api_ids {
-        let row = crate::data::sys_apis::Entity::find_by_id(*api_id)
+        let row = crate::data::sys_apis::Entity::find_by_id(*api_id as i64)
             .one(db)
             .await
             .map_err(db_err)?;
@@ -238,7 +238,7 @@ async fn bind_api_rows(
             .unwrap_or_default();
         crate::data::sys_permission_apis::ActiveModel {
             permission_id: Set(Some(permission_id)),
-            api_id: Set(Some(*api_id)),
+            api_id: Set(Some(*api_id as i64)),
             endpoint_path: Set((!path.is_empty()).then_some(path)),
             endpoint_method: Set((!method.is_empty()).then_some(method)),
             created_at: Set(Some(crate::data::now())),
@@ -256,7 +256,7 @@ async fn bind_api_rows(
 /// 环路由 32 层上限兜底（与角色继承环走查同参）。
 async fn menu_full_path(
     db: &sea_orm::DatabaseConnection,
-    menu_id: u32,
+    menu_id: i64,
 ) -> Result<Option<String>, StatusError> {
     let mut parts: Vec<String> = Vec::new();
     let mut current = Some(menu_id);
@@ -288,7 +288,7 @@ impl PermissionService {
     /// SyncPermissions: truncate biz permissions + groups, rebuild from
     /// ON menus (codes per menu type; CATALOG → group) and from enabled
     /// apis (code by path, grouped under UncategorizedPermissionGroup
-    async fn sync_from_sources(&self, operator_id: u32) -> Result<(), StatusError> {
+    async fn sync_from_sources(&self, operator_id: i64) -> Result<(), StatusError> {
         use sea_orm::TransactionTrait as _;
         let txn = self.state.db.begin().await.map_err(db_err)?;
         let result = self.sync_from_sources_in_txn(&txn, operator_id).await;
@@ -316,7 +316,7 @@ impl PermissionService {
     async fn sync_from_sources_in_txn(
         &self,
         txn: &sea_orm::DatabaseTransaction,
-        operator_id: u32,
+        operator_id: i64,
     ) -> Result<(), StatusError> {
         crate::data::sys_permission_groups::Entity::delete_many()
             .exec(txn)
@@ -332,22 +332,25 @@ impl PermissionService {
             .map_err(db_err)?;
 
         // parent chain → full path.
-        let mut path_by_id: BTreeMap<u32, String> = BTreeMap::new();
+        let mut path_by_id: BTreeMap<u64, String> = BTreeMap::new();
         for menu in &menus {
             let parent_path = menu
                 .parent_id
-                .and_then(|pid| path_by_id.get(&pid).cloned())
+                .and_then(|pid| path_by_id.get(&(pid as u64)).cloned())
                 .unwrap_or_default();
             let full = format!("{}{}", parent_path, menu.path.clone().unwrap_or_default());
-            path_by_id.insert(menu.id, full);
+            path_by_id.insert(menu.id as u64, full);
         }
 
         // 分组重建（CATALOG 菜单成组；键 = 组码，插入序即路径序）。
-        let mut group_ids: BTreeMap<String, u32> = BTreeMap::new();
+        let mut group_ids: BTreeMap<String, u64> = BTreeMap::new();
         let mut group_codes_in_order: Vec<String> = Vec::new();
         for menu in &menus {
             let menu_type = menu.type_column.clone().unwrap_or_default();
-            let full_path = path_by_id.get(&menu.id).cloned().unwrap_or_default();
+            let full_path = path_by_id
+                .get(&(menu.id as u64))
+                .cloned()
+                .unwrap_or_default();
             if full_path.is_empty() || menu_type != "CATALOG" {
                 continue;
             }
@@ -370,7 +373,7 @@ impl PermissionService {
             .insert(txn)
             .await
             .map_err(db_err)?;
-            group_ids.insert(code.clone(), group.id);
+            group_ids.insert(code.clone(), group.id as u64);
             group_codes_in_order.push(code);
         }
 
@@ -381,14 +384,17 @@ impl PermissionService {
             String,
             String,
             Option<String>,
-            Option<(u32, String)>,
-            Option<(u32, String, String)>,
+            Option<(u64, String)>,
+            Option<(u64, String, String)>,
         );
         let mut derived: Vec<DerivedPermission> = Vec::new();
-        let mut menu_code_by_menu: BTreeMap<u32, String> = BTreeMap::new();
+        let mut menu_code_by_menu: BTreeMap<u64, String> = BTreeMap::new();
         for menu in &menus {
             let menu_type = menu.type_column.clone().unwrap_or_default();
-            let full_path = path_by_id.get(&menu.id).cloned().unwrap_or_default();
+            let full_path = path_by_id
+                .get(&(menu.id as u64))
+                .cloned()
+                .unwrap_or_default();
             if full_path.is_empty() {
                 continue;
             }
@@ -401,10 +407,10 @@ impl PermissionService {
                 code.clone(),
                 menu.name.clone(),
                 group_code,
-                Some((menu.id, full_path.clone())),
+                Some((menu.id as u64, full_path.clone())),
                 None,
             ));
-            menu_code_by_menu.insert(menu.id, code);
+            menu_code_by_menu.insert(menu.id as u64, code);
         }
 
         let apis = crate::data::sys_apis::Entity::find()
@@ -434,7 +440,7 @@ impl PermissionService {
                 code.clone(),
                 group_code,
                 None,
-                Some((api.id, path, method.to_uppercase())),
+                Some((api.id as u64, path, method.to_uppercase())),
             ));
         }
 
@@ -465,11 +471,11 @@ impl PermissionService {
             let gid = group_code.as_ref().and_then(|g| group_ids.get(g).copied());
             let mut a: crate::data::sys_permissions::ActiveModel = exist.clone().into();
             a.name = Set(name.clone());
-            a.group_id = Set(gid);
+            a.group_id = Set(gid.map(|v| v as i64));
             a.updated_at = Set(Some(crate::data::now()));
             a.update(txn).await.map_err(db_err)?;
-            replace_menu_binding(txn, exist.id, menu_id.clone()).await?;
-            replace_api_binding(txn, exist.id, api_binding).await?;
+            replace_menu_binding(txn, exist.id as u64 as i64, menu_id.clone()).await?;
+            replace_api_binding(txn, exist.id as u64 as i64, api_binding).await?;
             merge_hit.insert(code.clone());
         }
 
@@ -482,7 +488,7 @@ impl PermissionService {
             let perm = crate::data::sys_permissions::ActiveModel {
                 name: Set(name.clone()),
                 code: Set(code.clone()),
-                group_id: Set(gid),
+                group_id: Set(gid.map(|v| v as i64)),
                 status: Set(Some("ON".into())),
                 created_at: Set(Some(crate::data::now())),
                 updated_at: Set(Some(crate::data::now())),
@@ -491,13 +497,13 @@ impl PermissionService {
             .insert(txn)
             .await
             .map_err(db_err)?;
-            replace_menu_binding(txn, perm.id, menu_id.clone()).await?;
-            replace_api_binding(txn, perm.id, api_binding).await?;
+            replace_menu_binding(txn, perm.id as u64 as i64, menu_id.clone()).await?;
+            replace_api_binding(txn, perm.id as u64 as i64, api_binding).await?;
         }
 
         // 删除段：库有、派生集没有 → 删行并级联清角色授权/端点/菜单绑定
         //（授权链上不允许残留指向已删权限行的绑定）。
-        let gone_ids: Vec<u32> = existing_by_code
+        let gone_ids: Vec<i64> = existing_by_code
             .iter()
             .filter(|(code, _)| !merge_hit.contains(*code))
             .map(|(_, r)| r.id)
@@ -561,7 +567,7 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
             req.query_by,
             proto::proto::permission::service::v1::get_permission_request::QueryBy
         );
-        let row = crate::data::sys_permissions::Entity::find_by_id(id)
+        let row = crate::data::sys_permissions::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -580,7 +586,7 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
             name: Set(data.name.clone().unwrap_or_default()),
             code: Set(data.code.clone().unwrap_or_default()),
             description: Set(data.description.clone()),
-            group_id: Set(data.group_id),
+            group_id: Set(data.group_id.map(|v| v as i64)),
             status: Set(Some("ON".into())),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::data::now())),
@@ -591,10 +597,10 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
         .await
         .map_err(db_err)?;
         for menu_id in &data.menu_ids {
-            let full_path = menu_full_path(&self.state.db, *menu_id).await?;
+            let full_path = menu_full_path(&self.state.db, *menu_id as i64).await?;
             crate::data::sys_permission_menus::ActiveModel {
                 permission_id: Set(Some(perm.id)),
-                menu_id: Set(Some(*menu_id)),
+                menu_id: Set(Some(*menu_id as i64)),
                 full_path: Set(full_path),
                 created_at: Set(Some(crate::data::now())),
                 updated_at: Set(Some(crate::data::now())),
@@ -604,7 +610,7 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
             .await
             .map_err(db_err)?;
         }
-        bind_api_rows(&self.state.db, perm.id, &data.api_ids).await?;
+        bind_api_rows(&self.state.db, perm.id as u64 as i64, &data.api_ids).await?;
         Ok(Empty {})
     }
 
@@ -614,7 +620,7 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
         req: UpdatePermissionRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_permissions::Entity::find_by_id(req.id)
+        let row = crate::data::sys_permissions::Entity::find_by_id(req.id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -631,7 +637,7 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
                 a.description = Set(Some(v.clone()));
             }
             if let Some(v) = data.group_id {
-                a.group_id = Set(Some(v));
+                a.group_id = Set(Some(v as i64));
             }
             if let Some(v) = data.status {
                 a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
@@ -647,10 +653,10 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
                     .await
                     .map_err(db_err)?;
                 for menu_id in &data.menu_ids {
-                    let full_path = menu_full_path(&self.state.db, *menu_id).await?;
+                    let full_path = menu_full_path(&self.state.db, *menu_id as i64).await?;
                     crate::data::sys_permission_menus::ActiveModel {
-                        permission_id: Set(Some(req.id)),
-                        menu_id: Set(Some(*menu_id)),
+                        permission_id: Set(Some(req.id as i64)),
+                        menu_id: Set(Some(*menu_id as i64)),
                         full_path: Set(full_path),
                         created_at: Set(Some(crate::data::now())),
                         updated_at: Set(Some(crate::data::now())),
@@ -667,7 +673,7 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
                     .exec(&self.state.db)
                     .await
                     .map_err(db_err)?;
-                bind_api_rows(&self.state.db, req.id, &data.api_ids).await?;
+                bind_api_rows(&self.state.db, req.id as i64, &data.api_ids).await?;
             }
         }
         Ok(Empty {})
@@ -698,7 +704,7 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        crate::data::sys_permissions::Entity::delete_by_id(id)
+        crate::data::sys_permissions::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;

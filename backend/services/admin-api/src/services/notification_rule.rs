@@ -25,7 +25,7 @@ use proto::proto::pagination::PagingRequest;
 /// uses for its own unported outbounds.
 fn rule_proto(r: crate::data::sys_notification_rules::Model) -> NotificationRule {
     NotificationRule {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         event_type: r
             .event_type
             .as_deref()
@@ -37,8 +37,8 @@ fn rule_proto(r: crate::data::sys_notification_rules::Model) -> NotificationRule
         is_async: r.is_async,
         is_enabled: r.is_enabled,
         remark: r.remark,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
     }
@@ -95,7 +95,7 @@ impl proto::gen::services::NotificationRuleServiceHandlers for NotificationRuleS
         req: GetNotificationRuleRequest,
     ) -> Result<NotificationRule, StatusError> {
         let repo = crate::data::repos::NotificationRuleRepo::new(&self.state.db);
-        Ok(rule_proto(repo.get_by_id(req.id).await?))
+        Ok(rule_proto(repo.get_by_id(req.id as i64).await?))
     }
 
     async fn create_notification_rule(
@@ -135,14 +135,14 @@ impl proto::gen::services::NotificationRuleServiceHandlers for NotificationRuleS
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
         let repo = crate::data::repos::NotificationRuleRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id).await?;
+        let row = repo.get_by_id(req.id as i64).await?;
         let mut a: crate::data::sys_notification_rules::ActiveModel = row.into();
         upsert_fields(&mut a, &data)?;
         if let sea_orm::ActiveValue::Set(v) = &a.event_type {
             let ev = v.clone().unwrap_or_default();
             if !ev.is_empty() {
                 if let Some(other) = repo.find_by_event_type(&ev).await? {
-                    if other.id != req.id {
+                    if other.id != req.id as i64 {
                         return Err(status_error("CONFLICT", "event_type already routed"));
                     }
                 }
@@ -159,8 +159,8 @@ impl proto::gen::services::NotificationRuleServiceHandlers for NotificationRuleS
         req: DeleteNotificationRuleRequest,
     ) -> Result<Empty, StatusError> {
         let repo = crate::data::repos::NotificationRuleRepo::new(&self.state.db);
-        repo.get_by_id(req.id).await?;
-        repo.delete_by_id(req.id).await?;
+        repo.get_by_id(req.id as i64).await?;
+        repo.delete_by_id(req.id as i64).await?;
         Ok(Empty {})
     }
 
@@ -171,7 +171,7 @@ impl proto::gen::services::NotificationRuleServiceHandlers for NotificationRuleS
     ) -> Result<TestDispatchNotificationResponse, StatusError> {
         let payload = operator_of(&ctx)?;
         let repo = crate::data::repos::NotificationRuleRepo::new(&self.state.db);
-        let rule = repo.get_by_id(req.id).await?;
+        let rule = repo.get_by_id(req.id as i64).await?;
         if !rule.is_enabled.unwrap_or(false) {
             return Err(status_error("BAD_REQUEST", "rule is disabled"));
         }

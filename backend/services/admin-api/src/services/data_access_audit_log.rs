@@ -13,10 +13,10 @@ use proto::proto::pagination::PagingRequest;
 
 fn log_proto(r: crate::data::sys_data_access_audit_logs::Model) -> DataAccessAuditLog {
     DataAccessAuditLog {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
         tenant_name: None,
-        user_id: r.user_id,
+        user_id: r.user_id.map(|v| v as u64),
         username: r.username,
         ip_address: r.ip_address,
         request_id: r.request_id,
@@ -75,7 +75,7 @@ impl proto::gen::services::DataAccessAuditLogServiceHandlers for DataAccessAudit
             req.query_by,
             proto::proto::audit::service::v1::get_data_access_audit_log_request::QueryBy
         );
-        let row = crate::data::sys_data_access_audit_logs::Entity::find_by_id(id)
+        let row = crate::data::sys_data_access_audit_logs::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?

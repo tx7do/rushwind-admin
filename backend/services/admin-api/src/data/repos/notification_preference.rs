@@ -16,7 +16,7 @@ impl<'a> NotificationPreferenceRepo<'a> {
     }
 
     /// The user's row, if they ever saved one.
-    pub async fn get_by_user_id(&self, user_id: u32) -> Result<Option<entity::Model>, StatusError> {
+    pub async fn get_by_user_id(&self, user_id: i64) -> Result<Option<entity::Model>, StatusError> {
         entity::Entity::find()
             .filter(entity::Column::UserId.eq(user_id))
             .one(self.db)
@@ -28,12 +28,12 @@ impl<'a> NotificationPreferenceRepo<'a> {
     /// caller owns validation (quiet-window arithmetic, category cap).
     pub async fn upsert(
         &self,
-        user_id: u32,
+        user_id: i64,
         quiet_enabled: bool,
         quiet_start_minute: i32,
         quiet_end_minute: i32,
         muted_category_ids: Option<sea_orm::prelude::Json>,
-        operator_id: u32,
+        operator_id: i64,
     ) -> Result<entity::Model, StatusError> {
         let existing = self.get_by_user_id(user_id).await?;
         match existing {

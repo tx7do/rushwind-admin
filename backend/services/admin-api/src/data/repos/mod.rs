@@ -126,8 +126,8 @@ macro_rules! repo_shell {
 
         impl<'a> $name<'a> {
             /// The row by id: 404 when absent.
-            pub async fn get_by_id(&self, id: u32) -> Result<$entity::Model, StatusError> {
-                $entity::Entity::find_by_id(id)
+            pub async fn get_by_id(&self, id: i64) -> Result<$entity::Model, StatusError> {
+                $entity::Entity::find_by_id(id as i64)
                     .one(self.db)
                     .await
                     .map_err(db_err)?
@@ -135,8 +135,8 @@ macro_rules! repo_shell {
             }
 
             /// Delete by id; callers decide whether absence is an error.
-            pub async fn delete_by_id(&self, id: u32) -> Result<(), StatusError> {
-                $entity::Entity::delete_by_id(id)
+            pub async fn delete_by_id(&self, id: i64) -> Result<(), StatusError> {
+                $entity::Entity::delete_by_id(id as i64)
                     .exec(self.db)
                     .await
                     .map_err(db_err)?;

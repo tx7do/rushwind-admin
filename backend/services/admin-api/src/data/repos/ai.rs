@@ -41,7 +41,7 @@ impl<'a> AiProviderRepo<'a> {
         .await
     }
 
-    pub async fn find_scoped(&self, id: u32) -> Result<Option<provider::Model>, StatusError> {
+    pub async fn find_scoped(&self, id: i64) -> Result<Option<provider::Model>, StatusError> {
         let mut query = provider::Entity::find_by_id(id);
         if let Some(tid) = self.viewer.tenant_scope() {
             query = query.filter(provider::Column::TenantId.eq(tid));
@@ -109,7 +109,7 @@ impl<'a> AiUsageLogRepo<'a> {
     /// quota_value。None = 未配置（平台租户 / 无套餐 / 未配该维度 → 不限）。
     pub async fn tenant_token_quota_limit(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
     ) -> Result<Option<i64>, StatusError> {
         use sea_orm::QueryOrder as _;
         if tenant_id == 0 {
@@ -137,7 +137,7 @@ impl<'a> AiUsageLogRepo<'a> {
     /// SumTokensByTenantSince 同型）。
     pub async fn sum_tokens_by_tenant_since(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         month_start: chrono::NaiveDateTime,
     ) -> Result<u32, StatusError> {
         let row = usage::Entity::find()
@@ -186,7 +186,7 @@ impl<'a> AiConversationRepo<'a> {
 
     pub async fn find_scoped(
         &self,
-        id: u32,
+        id: i64,
     ) -> Result<Option<crate::data::sys_ai_conversations::Model>, StatusError> {
         let mut query = crate::data::sys_ai_conversations::Entity::find_by_id(id);
         if let Some(tid) = self.viewer.tenant_scope() {
@@ -239,7 +239,7 @@ impl<'a> AiMessageRepo<'a> {
 
     pub async fn find_scoped(
         &self,
-        id: u32,
+        id: i64,
     ) -> Result<Option<crate::data::sys_ai_messages::Model>, StatusError> {
         crate::data::sys_ai_messages::Entity::find_by_id(id)
             .one(self.db)
@@ -272,11 +272,11 @@ impl<'a> AiAgentRevisionRepo<'a> {
     #[allow(clippy::too_many_arguments)]
     pub async fn create(
         &self,
-        tenant_id: Option<u32>,
-        app_id: u32,
+        tenant_id: Option<i64>,
+        app_id: i64,
         graph: Option<String>,
         source: &str,
-        created_by: u32,
+        created_by: i64,
     ) -> Result<(), StatusError> {
         use crate::data::sys_ai_agent_revisions as rev;
         use sea_orm::ActiveModelTrait;
@@ -300,7 +300,7 @@ impl<'a> AiAgentRevisionRepo<'a> {
     /// 按应用拉取快照分页（新快照在前：created_at DESC, id DESC）。
     pub async fn list_paged(
         &self,
-        app_id: u32,
+        app_id: i64,
         page: Option<u32>,
         page_size: Option<u32>,
     ) -> Result<(Vec<crate::data::sys_ai_agent_revisions::Model>, u64), StatusError> {
@@ -326,7 +326,7 @@ impl<'a> AiAgentRevisionRepo<'a> {
     /// 取单个快照（恢复时校验归属）。
     pub async fn find_scoped(
         &self,
-        id: u32,
+        id: i64,
     ) -> Result<Option<crate::data::sys_ai_agent_revisions::Model>, StatusError> {
         use crate::data::sys_ai_agent_revisions as rev;
         rev::Entity::find_by_id(id)
@@ -337,7 +337,7 @@ impl<'a> AiAgentRevisionRepo<'a> {
     }
 
     /// 主表删除时的级联清理。
-    pub async fn delete_for_app(&self, app_id: u32) -> Result<(), StatusError> {
+    pub async fn delete_for_app(&self, app_id: i64) -> Result<(), StatusError> {
         use crate::data::sys_ai_agent_revisions as rev;
         use sea_orm::EntityTrait;
         rev::Entity::delete_many()

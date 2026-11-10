@@ -38,7 +38,7 @@ impl<'a> PlanModuleRepo<'a> {
         .await
     }
 
-    pub async fn get_by_id(&self, id: u32) -> Result<sys_plan_modules::Model, StatusError> {
+    pub async fn get_by_id(&self, id: i64) -> Result<sys_plan_modules::Model, StatusError> {
         sys_plan_modules::Entity::find_by_id(id)
             .one(self.db)
             .await
@@ -46,7 +46,7 @@ impl<'a> PlanModuleRepo<'a> {
             .ok_or_else(|| StatusError::new(404, "NOT_FOUND", "plan module not found"))
     }
 
-    pub async fn delete_by_id(&self, id: u32) -> Result<(), StatusError> {
+    pub async fn delete_by_id(&self, id: i64) -> Result<(), StatusError> {
         sys_plan_modules::Entity::delete_by_id(id)
             .exec(self.db)
             .await

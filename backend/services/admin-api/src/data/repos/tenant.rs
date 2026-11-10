@@ -20,7 +20,7 @@ impl<'a> TenantRepo<'a> {
         Self { db }
     }
 
-    pub async fn find_by_id(&self, id: u32) -> Result<Option<tenants::Model>, StatusError> {
+    pub async fn find_by_id(&self, id: i64) -> Result<Option<tenants::Model>, StatusError> {
         tenants::Entity::find_by_id(id)
             .one(self.db)
             .await
@@ -92,7 +92,7 @@ impl<'a> TenantRepo<'a> {
     }
 
     /// Best-effort tenant user count (dashboard/usage surfaces).
-    pub async fn user_count(&self, tenant_id: u32) -> u64 {
+    pub async fn user_count(&self, tenant_id: i64) -> u64 {
         users::Entity::find()
             .filter(users::Column::TenantId.eq(tenant_id))
             .count(self.db)

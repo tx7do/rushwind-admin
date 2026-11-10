@@ -50,16 +50,16 @@ fn quota_type_to_str(v: i32) -> String {
 
 fn plan_proto(r: crate::data::sys_plans::Model) -> Plan {
     Plan {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         version: r.version.as_deref().map(plan_version_to_proto),
         expiry_policy: r.expiry_policy.as_deref().map(expiry_policy_to_proto),
         data_retention_days: r.data_retention_days,
         description: r.description,
         remark: r.remark,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -68,15 +68,15 @@ fn plan_proto(r: crate::data::sys_plans::Model) -> Plan {
 
 fn plan_module_proto(r: crate::data::sys_plan_modules::Model) -> PlanModule {
     PlanModule {
-        id: Some(r.id),
-        plan_id: Some(r.plan_id),
+        id: Some(r.id as u64),
+        plan_id: Some(r.plan_id as u64),
         module: r
             .module
             .as_deref()
             .map(|s| mapping::menu_module_of(s).unwrap_or(0)),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -85,16 +85,16 @@ fn plan_module_proto(r: crate::data::sys_plan_modules::Model) -> PlanModule {
 
 fn plan_quota_proto(r: crate::data::sys_plan_quotas::Model) -> PlanQuota {
     PlanQuota {
-        id: Some(r.id),
-        plan_id: Some(r.plan_id),
+        id: Some(r.id as u64),
+        plan_id: Some(r.plan_id as u64),
         quota_type: r
             .quota_type
             .as_deref()
             .map(|s| mapping::plan_quota_type_of(s).unwrap_or(0)),
         quota_value: r.quota_value.map(|v| v as u64),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -129,7 +129,7 @@ impl proto::gen::services::PlanServiceHandlers for PlanService {
             req.query_by,
             proto::proto::identity::service::v1::get_plan_request::QueryBy
         );
-        let row = crate::data::sys_plans::Entity::find_by_id(id)
+        let row = crate::data::sys_plans::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -168,7 +168,7 @@ impl proto::gen::services::PlanServiceHandlers for PlanService {
         req: UpdatePlanRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_plans::Entity::find_by_id(req.id)
+        let row = crate::data::sys_plans::Entity::find_by_id(req.id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -219,7 +219,7 @@ impl proto::gen::services::PlanServiceHandlers for PlanService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        crate::data::sys_plans::Entity::delete_by_id(id)
+        crate::data::sys_plans::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -255,7 +255,7 @@ impl proto::gen::services::PlanModuleServiceHandlers for PlanModuleService {
             req.query_by,
             proto::proto::identity::service::v1::get_plan_module_request::QueryBy
         );
-        let row = crate::data::sys_plan_modules::Entity::find_by_id(id)
+        let row = crate::data::sys_plan_modules::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -271,7 +271,7 @@ impl proto::gen::services::PlanModuleServiceHandlers for PlanModuleService {
         let payload = operator_of(&ctx)?;
         let data = crate::state::require_data(req.data)?;
         crate::data::sys_plan_modules::ActiveModel {
-            plan_id: Set(data.plan_id.unwrap_or(0)),
+            plan_id: Set(data.plan_id.map(|v| v as i64).unwrap_or(0)),
             module: Set(Some(module_to_str(data.module.unwrap_or(0)))),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::data::now())),
@@ -290,7 +290,7 @@ impl proto::gen::services::PlanModuleServiceHandlers for PlanModuleService {
         req: UpdatePlanModuleRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_plan_modules::Entity::find_by_id(req.id)
+        let row = crate::data::sys_plan_modules::Entity::find_by_id(req.id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -315,7 +315,7 @@ impl proto::gen::services::PlanModuleServiceHandlers for PlanModuleService {
             req.query_by,
             proto::proto::identity::service::v1::delete_plan_module_request::QueryBy
         );
-        crate::data::sys_plan_modules::Entity::delete_by_id(id)
+        crate::data::sys_plan_modules::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -350,7 +350,7 @@ impl proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService {
         let payload = operator_of(&ctx)?;
         let data = crate::state::require_data(req.data)?;
         crate::data::sys_plan_quotas::ActiveModel {
-            plan_id: Set(data.plan_id.unwrap_or(0)),
+            plan_id: Set(data.plan_id.map(|v| v as i64).unwrap_or(0)),
             quota_type: Set(Some(quota_type_to_str(data.quota_type.unwrap_or(0)))),
             quota_value: Set(data.quota_value.map(|v| v as i64)),
             created_by: Set(Some(payload.user_id)),
@@ -370,7 +370,7 @@ impl proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService {
         req: UpdatePlanQuotaRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_plan_quotas::Entity::find_by_id(req.id)
+        let row = crate::data::sys_plan_quotas::Entity::find_by_id(req.id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -395,7 +395,7 @@ impl proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService {
             req.query_by,
             proto::proto::identity::service::v1::delete_plan_quota_request::QueryBy
         );
-        crate::data::sys_plan_quotas::Entity::delete_by_id(id)
+        crate::data::sys_plan_quotas::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;

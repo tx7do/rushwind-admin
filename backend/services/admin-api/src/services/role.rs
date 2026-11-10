@@ -42,7 +42,7 @@ fn type_to_proto(s: &str) -> i32 {
 }
 
 async fn role_proto(state: &AppState, r: crate::data::sys_roles::Model) -> Role {
-    let perm_ids: Vec<u32> = crate::data::sys_role_permissions::Entity::find()
+    let perm_ids: Vec<i64> = crate::data::sys_role_permissions::Entity::find()
         .filter(crate::data::sys_role_permissions::Column::RoleId.eq(r.id))
         .all(&state.db)
         .await
@@ -50,7 +50,7 @@ async fn role_proto(state: &AppState, r: crate::data::sys_roles::Model) -> Role 
         .iter()
         .filter_map(|row| row.permission_id)
         .collect();
-    let org_units: Vec<u32> = crate::data::sys_role_org_units::Entity::find()
+    let org_units: Vec<i64> = crate::data::sys_role_org_units::Entity::find()
         .filter(crate::data::sys_role_org_units::Column::RoleId.eq(r.id))
         .all(&state.db)
         .await
@@ -91,10 +91,10 @@ async fn role_proto(state: &AppState, r: crate::data::sys_roles::Model) -> Role 
         None => None,
     };
     Role {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         code: Some(r.code),
-        parent_id: r.parent_id,
+        parent_id: r.parent_id.map(|v| v as u64),
         parent_name,
         sort_order: r.sort_order,
         status: r.status.as_deref().map(crate::state::status_to_proto),
@@ -102,14 +102,14 @@ async fn role_proto(state: &AppState, r: crate::data::sys_roles::Model) -> Role 
         is_protected: r.is_protected,
         r#type: r.type_column.as_deref().map(type_to_proto),
         data_scope: r.data_scope.as_deref().map(scope_to_proto),
-        permissions: perm_ids,
-        org_units,
+        permissions: perm_ids.iter().map(|v| *v as u64).collect(),
+        org_units: org_units.iter().map(|v| *v as u64).collect(),
         field_permissions,
-        tenant_id: r.tenant_id,
+        tenant_id: r.tenant_id.map(|v| v as u64),
         tenant_name: None,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -129,7 +129,7 @@ impl RoleService {
             a.code = Set(v.clone());
         }
         if let Some(v) = data.parent_id {
-            a.parent_id = Set(Some(v));
+            a.parent_id = Set(Some(v as i64));
         }
         if let Some(v) = &data.description {
             a.description = Set(Some(v.clone()));
@@ -167,7 +167,7 @@ impl RoleService {
     }
 
     /// 父角色已绑定的权限集（继承约束的容量面）。
-    async fn parent_perm_ids(&self, parent_id: u32) -> Result<Vec<u32>, StatusError> {
+    async fn parent_perm_ids(&self, parent_id: i64) -> Result<Vec<i64>, StatusError> {
         Ok(crate::data::sys_role_permissions::Entity::find()
             .filter(crate::data::sys_role_permissions::Column::RoleId.eq(parent_id))
             .all(&self.state.db)
@@ -185,9 +185,9 @@ impl RoleService {
     ///   3. wantPerms ⊆ 父角色已绑定权限集。
     async fn validate_parent_binding(
         &self,
-        parent_id: u32,
-        tenant_id: u32,
-        want_perms: &[u32],
+        parent_id: i64,
+        tenant_id: i64,
+        want_perms: &[u64],
     ) -> Result<(), StatusError> {
         if parent_id == 0 {
             return Ok(());
@@ -206,9 +206,12 @@ impl RoleService {
         if want_perms.is_empty() {
             return Ok(());
         }
-        let cap_set: std::collections::HashSet<u32> =
+        let cap_set: std::collections::HashSet<i64> =
             self.parent_perm_ids(parent_id).await?.into_iter().collect();
-        let exceeding = want_perms.iter().filter(|p| !cap_set.contains(p)).count();
+        let exceeding = want_perms
+            .iter()
+            .filter(|p| !cap_set.contains(&(**p as i64)))
+            .count();
         if exceeding > 0 {
             return Err(status_error(
                 "FORBIDDEN",
@@ -223,7 +226,7 @@ impl RoleService {
     /// 沿候选父角色上溯检测层级环（Update 改父时调用）：若从候选父出发
     /// 能回到自身，说明会成环，拒绝。上溯深度设上限防脏数据死循环。
     /// 上溯链断裂（父角色不存在）不在此处报错，交给 validate_parent_binding。
-    async fn ensure_no_role_cycle(&self, role_id: u32, parent_id: u32) -> Result<(), StatusError> {
+    async fn ensure_no_role_cycle(&self, role_id: i64, parent_id: i64) -> Result<(), StatusError> {
         const MAX_DEPTH: u32 = 32;
         let mut current = parent_id;
         for _ in 0..MAX_DEPTH {
@@ -241,7 +244,7 @@ impl RoleService {
                 .await
                 .map_err(db_err)?;
             match parent {
-                Some(p) => current = p.parent_id.unwrap_or(0),
+                Some(p) => current = p.parent_id.unwrap_or(0) as u64 as i64,
                 None => return Ok(()),
             }
         }
@@ -249,22 +252,22 @@ impl RoleService {
     }
 
     /// 本角色现绑定的权限集（Update 侧 effective perms 的库中现值）。
-    async fn own_perm_ids(&self, role_id: u32) -> Result<Vec<u32>, StatusError> {
+    async fn own_perm_ids(&self, role_id: i64) -> Result<Vec<u64>, StatusError> {
         Ok(crate::data::sys_role_permissions::Entity::find()
             .filter(crate::data::sys_role_permissions::Column::RoleId.eq(role_id))
             .all(&self.state.db)
             .await
             .map_err(db_err)?
             .iter()
-            .filter_map(|row| row.permission_id)
+            .filter_map(|row| row.permission_id.map(|v| v as u64))
             .collect())
     }
 
     /// Sync the role's permission/org-unit/field-permission bindings.
     async fn sync_bindings(
         &self,
-        tenant_id: u32,
-        role_id: u32,
+        tenant_id: i64,
+        role_id: i64,
         data: &Role,
     ) -> Result<(), StatusError> {
         self.sync_permissions(tenant_id, role_id, &data.permissions)
@@ -282,8 +285,8 @@ impl RoleService {
     /// 处 effective_perms 的取舍同口径。
     async fn sync_bindings_update(
         &self,
-        tenant_id: u32,
-        role_id: u32,
+        tenant_id: i64,
+        role_id: i64,
         data: &Role,
     ) -> Result<(), StatusError> {
         if !data.permissions.is_empty() {
@@ -303,9 +306,9 @@ impl RoleService {
 
     async fn sync_permissions(
         &self,
-        tenant_id: u32,
-        role_id: u32,
-        permissions: &[u32],
+        tenant_id: i64,
+        role_id: i64,
+        permissions: &[u64],
     ) -> Result<(), StatusError> {
         crate::data::sys_role_permissions::Entity::delete_many()
             .filter(
@@ -320,7 +323,7 @@ impl RoleService {
             crate::data::sys_role_permissions::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 role_id: Set(Some(role_id)),
-                permission_id: Set(Some(*perm)),
+                permission_id: Set(Some(*perm as i64)),
                 effect: Set(Some("ALLOW".into())),
                 status: Set(Some("ON".into())),
                 created_at: Set(Some(crate::data::now())),
@@ -336,9 +339,9 @@ impl RoleService {
 
     async fn sync_org_units(
         &self,
-        tenant_id: u32,
-        role_id: u32,
-        units: &[u32],
+        tenant_id: i64,
+        role_id: i64,
+        units: &[u64],
     ) -> Result<(), StatusError> {
         crate::data::sys_role_org_units::Entity::delete_many()
             .filter(crate::data::sys_role_org_units::Column::RoleId.eq(role_id))
@@ -349,7 +352,7 @@ impl RoleService {
             crate::data::sys_role_org_units::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 role_id: Set(Some(role_id)),
-                org_unit_id: Set(Some(*unit)),
+                org_unit_id: Set(Some(*unit as i64)),
                 created_at: Set(Some(crate::data::now())),
                 updated_at: Set(Some(crate::data::now())),
                 ..Default::default()
@@ -363,8 +366,8 @@ impl RoleService {
 
     async fn sync_field_permissions(
         &self,
-        tenant_id: u32,
-        role_id: u32,
+        tenant_id: i64,
+        role_id: i64,
         fps: &[proto::proto::permission::service::v1::RoleFieldPermission],
     ) -> Result<(), StatusError> {
         crate::data::sys_role_field_permissions::Entity::delete_many()
@@ -417,7 +420,7 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
         let tid = tenant_of(&ctx);
         let row = match req.query_by {
             Some(proto::proto::permission::service::v1::get_role_request::QueryBy::Id(id)) => {
-                crate::data::sys_roles::Entity::find_by_id(id)
+                crate::data::sys_roles::Entity::find_by_id(id as i64)
                     .one(&self.state.db)
                     .await
                     .map_err(db_err)?
@@ -466,7 +469,7 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
         // 父角色与本角色同租户。归属租户以操作者上下文折算（与下方 tenant_id
         // 落库同口径），载荷里的 tenant_id 不可信。
         self.validate_parent_binding(
-            data.parent_id.unwrap_or(0),
+            data.parent_id.unwrap_or(0) as i64,
             payload.tenant_id,
             &data.permissions,
         )
@@ -486,7 +489,7 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
             a.status = Set(Some("ON".into()));
         }
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
-        self.sync_bindings(payload.tenant_id, inserted.id, &data)
+        self.sync_bindings(payload.tenant_id, inserted.id as u64 as i64, &data)
             .await?;
         Ok(Empty {})
     }
@@ -497,7 +500,7 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
         req: UpdateRoleRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_roles::Entity::find_by_id(req.id)
+        let row = crate::data::sys_roles::Entity::find_by_id(req.id as i64)
             .filter(crate::data::sys_roles::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -519,21 +522,22 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
             // 父角色绑定校验（权限继承，编辑时校验语义）：本次请求生效的父角色
             // 与权限集分别按"载荷是否声明"取舍——声明了取载荷，未声明取库中
             // 现值（改权限不动父、或换父不动权限，都要重新对齐约束）。
-            let effective_parent = data.parent_id.unwrap_or(row_parent_id);
+            let effective_parent = data.parent_id.map(|v| v as i64).unwrap_or(row_parent_id);
             let effective_perms = if data.permissions.is_empty() {
-                self.own_perm_ids(req.id).await?
+                self.own_perm_ids(req.id as i64).await?
             } else {
                 data.permissions.clone()
             };
             self.validate_parent_binding(effective_parent, payload.tenant_id, &effective_perms)
                 .await?;
             if effective_parent != row_parent_id {
-                self.ensure_no_role_cycle(req.id, effective_parent).await?;
+                self.ensure_no_role_cycle(req.id as i64, effective_parent)
+                    .await?;
             }
             Self::apply_fields(&mut a, data);
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
-            self.sync_bindings_update(payload.tenant_id, req.id, data)
+            self.sync_bindings_update(payload.tenant_id, req.id as i64, data)
                 .await?;
         }
         Ok(Empty {})
@@ -549,7 +553,7 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
             req.query_by,
             proto::proto::permission::service::v1::delete_role_request::QueryBy
         );
-        let row = crate::data::sys_roles::Entity::find_by_id(id)
+        let row = crate::data::sys_roles::Entity::find_by_id(id as i64)
             .filter(crate::data::sys_roles::Column::TenantId.eq(tid))
             .one(&self.state.db)
             .await
@@ -576,7 +580,7 @@ impl proto::gen::services::RoleServiceHandlers for RoleService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        crate::data::sys_roles::Entity::delete_by_id(id)
+        crate::data::sys_roles::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;

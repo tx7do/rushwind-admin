@@ -34,14 +34,11 @@ pub struct NotificationPreferenceService {
 
 fn pref_proto(r: crate::data::sys_notification_preferences::Model) -> NotificationPreference {
     let muted = r.muted_category_ids.and_then(|v| {
-        v.as_array().map(|arr| {
-            arr.iter()
-                .filter_map(|x| x.as_u64().map(|n| n as u32))
-                .collect::<Vec<u32>>()
-        })
+        v.as_array()
+            .map(|arr| arr.iter().filter_map(|x| x.as_u64()).collect::<Vec<u64>>())
     });
     NotificationPreference {
-        user_id: Some(r.user_id),
+        user_id: Some(r.user_id as u64),
         quiet_enabled: r.quiet_enabled,
         quiet_start_minute: r.quiet_start_minute,
         quiet_end_minute: r.quiet_end_minute,
@@ -118,7 +115,7 @@ impl proto::gen::services::NotificationPreferenceServiceHandlers for Notificatio
         match repo.get_by_user_id(payload.user_id).await? {
             Some(row) => Ok(pref_proto(row)),
             None => Ok(NotificationPreference {
-                user_id: Some(payload.user_id),
+                user_id: Some(payload.user_id as u64),
                 quiet_enabled: Some(false),
                 quiet_start_minute: Some(DEFAULT_QUIET_START_MINUTE),
                 quiet_end_minute: Some(DEFAULT_QUIET_END_MINUTE),
@@ -183,7 +180,7 @@ impl proto::gen::services::NotificationPreferenceServiceHandlers for Notificatio
             items: rows
                 .into_iter()
                 .map(|c| NotificationCategoryItem {
-                    id: Some(c.id),
+                    id: Some(c.id as u64),
                     name: Some(c.name),
                 })
                 .collect(),

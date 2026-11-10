@@ -13,7 +13,7 @@ use proto::proto::pagination::PagingRequest;
 
 fn delivery_proto(r: crate::data::sys_notification_deliveries::Model) -> NotificationDelivery {
     NotificationDelivery {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         event_type: r
             .event_type
             .as_deref()
@@ -22,9 +22,9 @@ fn delivery_proto(r: crate::data::sys_notification_deliveries::Model) -> Notific
             .channel
             .as_deref()
             .and_then(mapping::notification_channel_kind_of),
-        channel_id: r.channel_id,
-        recipient_user_id: r.recipient_user_id,
-        related_id: r.related_id,
+        channel_id: r.channel_id.map(|v| v as u64),
+        recipient_user_id: r.recipient_user_id.map(|v| v as u64),
+        related_id: r.related_id.map(|v| v as u64),
         target: r.target,
         status: r
             .status
@@ -34,8 +34,8 @@ fn delivery_proto(r: crate::data::sys_notification_deliveries::Model) -> Notific
         sent_at: None,
         request_id: r.request_id,
         attempts: r.attempts,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
     }
@@ -66,6 +66,6 @@ impl proto::gen::services::NotificationServiceHandlers for NotificationDeliveryS
         req: GetNotificationDeliveryRequest,
     ) -> Result<NotificationDelivery, StatusError> {
         let repo = crate::data::repos::NotificationDeliveryRepo::new(&self.state.db);
-        Ok(delivery_proto(repo.get_by_id(req.id).await?))
+        Ok(delivery_proto(repo.get_by_id(req.id as i64).await?))
     }
 }

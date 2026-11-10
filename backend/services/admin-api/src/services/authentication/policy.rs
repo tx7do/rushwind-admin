@@ -12,8 +12,8 @@ impl AuthenticationService {
     /// a hit, per IP/TIME/DEVICE in the checker's order. Fail-open.
     pub(super) async fn check_login_policies(
         &self,
-        tenant_id: u32,
-        user_id: u32,
+        tenant_id: i64,
+        user_id: i64,
         ip: &str,
         device_id: &str,
     ) -> bool {
@@ -32,7 +32,7 @@ impl AuthenticationService {
                 if p.method.as_deref() != Some(method) {
                     continue;
                 }
-                let target = p.target_id.as_deref().and_then(|t| t.parse::<u32>().ok());
+                let target = p.target_id.as_deref().and_then(|t| t.parse::<i64>().ok());
                 if let Some(target) = target {
                     if target != 0 && target != user_id {
                         continue;

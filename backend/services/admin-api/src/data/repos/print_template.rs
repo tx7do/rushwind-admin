@@ -16,7 +16,7 @@ repo_shell!(tenant PrintTemplateRepo, entity);
 impl<'a> PrintTemplateRepo<'a> {
     /// The scoped row lookup — tenant viewers see own-tenant rows only,
     /// platform/system viewers any named row.
-    pub async fn find_scoped(&self, id: u32) -> Result<Option<entity::Model>, StatusError> {
+    pub async fn find_scoped(&self, id: i64) -> Result<Option<entity::Model>, StatusError> {
         let mut query = entity::Entity::find_by_id(id);
         if let Some(tid) = self.viewer.tenant_scope() {
             query = query.filter(entity::Column::TenantId.eq(tid));

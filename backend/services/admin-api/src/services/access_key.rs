@@ -36,7 +36,7 @@ fn new_secret() -> String {
 impl AccessKeyService {
     fn to_proto(&self, row: crate::data::sys_access_keys::Model) -> AccessKey {
         AccessKey {
-            id: Some(row.id),
+            id: Some(row.id as u64),
             name: Some(row.name),
             access_key: Some(row.access_key),
             status: Some(if row.status.as_deref() == Some("OFF") {
@@ -46,10 +46,10 @@ impl AccessKeyService {
             }),
             expires_at: row.expires_at.and_then(crate::state::naive_to_ts),
             last_used_at: row.last_used_at.and_then(crate::state::naive_to_ts),
-            tenant_id: row.tenant_id,
-            created_by: row.created_by,
-            updated_by: row.updated_by,
-            deleted_by: row.deleted_by,
+            tenant_id: row.tenant_id.map(|v| v as u64),
+            created_by: row.created_by.map(|v| v as u64),
+            updated_by: row.updated_by.map(|v| v as u64),
+            deleted_by: row.deleted_by.map(|v| v as u64),
             created_at: row.created_at.and_then(crate::state::naive_to_ts),
             updated_at: row.updated_at.and_then(crate::state::naive_to_ts),
             deleted_at: row.deleted_at.and_then(crate::state::naive_to_ts),
@@ -89,7 +89,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         let row = match req.query_by {
             Some(proto::proto::access_key::service::v1::get_access_key_request::QueryBy::Id(
                 id,
-            )) => Some(repo.get_by_id(id).await?),
+            )) => Some(repo.get_by_id(id as i64).await?),
             Some(
                 proto::proto::access_key::service::v1::get_access_key_request::QueryBy::AccessKey(
                     ak,
@@ -145,7 +145,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
             crate::data::Viewer::from_ctx(&ctx),
         );
         let mut active: crate::data::sys_access_keys::ActiveModel =
-            repo.get_by_id(req.id).await?.into();
+            repo.get_by_id(req.id as i64).await?.into();
         if let Some(data) = &req.data {
             if let Some(name) = &data.name {
                 active.name = Set(name.clone());
@@ -179,8 +179,8 @@ impl AccessKeyServiceHandlers for AccessKeyService {
             &self.state.db,
             crate::data::Viewer::from_ctx(&ctx),
         );
-        repo.get_by_id(req.id).await?;
-        repo.delete_by_id(req.id).await?;
+        repo.get_by_id(req.id as i64).await?;
+        repo.delete_by_id(req.id as i64).await?;
         Ok(Empty {})
     }
 
@@ -196,7 +196,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         );
         let secret = new_secret();
         let mut active: crate::data::sys_access_keys::ActiveModel =
-            repo.get_by_id(req.id).await?.into();
+            repo.get_by_id(req.id as i64).await?.into();
         active.secret_hash = Set(crate::crypto::sha256_hex(secret.as_bytes()));
         crate::stamp_update!(active, payload.user_id);
         let updated = active
@@ -252,7 +252,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         let payload = UserTokenPayload {
             username: format!("ak:{}", row.access_key),
             user_id: 0,
-            tenant_id: row.tenant_id.unwrap_or(0),
+            tenant_id: (row.tenant_id.unwrap_or(0) as u64 as i64),
             roles: vec!["machine".into()],
             ..Default::default()
         };

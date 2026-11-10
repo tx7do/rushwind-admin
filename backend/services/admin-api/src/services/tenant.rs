@@ -43,7 +43,7 @@ fn type_to_str(v: i32) -> String {
 
 fn tenant_proto(r: crate::data::sys_tenants::Model) -> Tenant {
     Tenant {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         code: Some(r.code),
         domain: r.domain,
@@ -51,13 +51,13 @@ fn tenant_proto(r: crate::data::sys_tenants::Model) -> Tenant {
         industry: r.industry,
         r#type: r.type_column.as_deref().map(type_to_proto),
         remark: r.remark,
-        admin_user_id: r.admin_user_id,
+        admin_user_id: r.admin_user_id.map(|v| v as u64),
         admin_user_name: None,
         subscription_at: r.subscription_at.and_then(crate::state::naive_to_ts),
         unsubscribe_at: r.unsubscribe_at.and_then(crate::state::naive_to_ts),
         expired_at: r.expired_at.and_then(crate::state::naive_to_ts),
         subscription_plan: r.subscription_plan,
-        plan_id: r.plan_id,
+        plan_id: r.plan_id.map(|v| v as u64),
         member_count: None,
         status: r.status.as_deref().map(status_to_proto),
         audit_status: r.audit_status.as_deref().map(|s| match s {
@@ -65,9 +65,9 @@ fn tenant_proto(r: crate::data::sys_tenants::Model) -> Tenant {
             "REJECTED" => 2,
             _ => 0,
         }),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -103,7 +103,7 @@ impl TenantService {
         use proto::proto::identity::service::v1::get_tenant_request::QueryBy;
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
         match query {
-            QueryBy::Id(id) => repo.find_by_id(id).await,
+            QueryBy::Id(id) => repo.find_by_id(id as i64).await,
             QueryBy::Code(code) => repo.find_by_code(&code).await,
             QueryBy::Name(name) => repo.find_by_name(&name).await,
         }
@@ -116,7 +116,7 @@ impl TenantService {
         tenant_data: Tenant,
         admin_user: proto::proto::identity::service::v1::User,
         password: &str,
-        operator_id: u32,
+        operator_id: i64,
     ) -> Result<(), StatusError> {
         // 1. tenant row.
         let tenant = crate::data::sys_tenants::ActiveModel {
@@ -138,7 +138,7 @@ impl TenantService {
                 .expired_at
                 .as_ref()
                 .and_then(crate::state::ts_to_naive)),
-            plan_id: Set(tenant_data.plan_id),
+            plan_id: Set(tenant_data.plan_id.map(|v| v as i64)),
             created_by: Set(Some(operator_id)),
             created_at: Set(Some(crate::data::now())),
             updated_at: Set(Some(crate::data::now())),
@@ -253,7 +253,7 @@ impl TenantService {
 
     /// CleanupData: delete every tenant-scoped row, keep the tenant row
     /// parked OFF, then revoke every user's sessions.
-    async fn cleanup_rows(&self, tenant_id: u32) -> Result<(), StatusError> {
+    async fn cleanup_rows(&self, tenant_id: i64) -> Result<(), StatusError> {
         use crate::data::*;
         macro_rules! wipe {
             ($($entity:ident)::+) => {
@@ -366,7 +366,7 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
             audit_status: Set(Some("APPROVED".into())),
             remark: Set(data.remark.clone()),
             expired_at: Set(data.expired_at.as_ref().and_then(crate::state::ts_to_naive)),
-            plan_id: Set(data.plan_id),
+            plan_id: Set(data.plan_id.map(|v| v as i64)),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::data::now())),
             updated_at: Set(Some(crate::data::now())),
@@ -386,7 +386,7 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
         let _ = operator_of(&ctx)?;
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
         let row = repo
-            .find_by_id(req.id)
+            .find_by_id(req.id as i64)
             .await?
             .ok_or_else(|| not_found("tenant"))?;
         let mut a: crate::data::sys_tenants::ActiveModel = row.into();
@@ -413,7 +413,7 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
                 a.status = Set(Some(status_to_str(v)));
             }
             if let Some(v) = data.plan_id {
-                a.plan_id = Set(Some(v));
+                a.plan_id = Set(Some(v as i64));
             }
             if let Some(v) = &data.expired_at {
                 a.expired_at = Set(crate::state::ts_to_naive(v));
@@ -436,7 +436,7 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
         );
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
         let row = repo
-            .find_by_id(id)
+            .find_by_id(id as i64)
             .await?
             .ok_or_else(|| not_found("tenant"))?;
         // Cleanup semantics ride along: the tenants themselves are parked,
@@ -507,7 +507,7 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
         _ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetTenantUsageRequest,
     ) -> Result<TenantUsage, StatusError> {
-        usage_for(&self.state, req.id).await
+        usage_for(&self.state, req.id as i64).await
     }
 
     async fn cleanup_data(
@@ -516,10 +516,10 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
         req: CleanupTenantDataRequest,
     ) -> Result<Empty, StatusError> {
         let _ = operator_of(&ctx)?;
-        self.cleanup_rows(req.id).await?;
+        self.cleanup_rows(req.id as i64).await?;
         // Park the tenant, keep the row.
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
-        if let Some(row) = repo.find_by_id(req.id).await? {
+        if let Some(row) = repo.find_by_id(req.id as i64).await? {
             let mut a: crate::data::sys_tenants::ActiveModel = row.into();
             a.status = Set(Some("OFF".into()));
             a.updated_at = Set(Some(crate::data::now()));
@@ -534,7 +534,7 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
 /// 存储用量/API 调用计数与配额行随各自的计费面里程碑接入，现读零值。
 pub(crate) async fn usage_for(
     state: &Arc<AppState>,
-    tenant_id: u32,
+    tenant_id: i64,
 ) -> Result<TenantUsage, StatusError> {
     let repo = crate::data::repos::TenantRepo::new(&state.db);
     let user_count = repo.user_count(tenant_id).await;
@@ -549,11 +549,11 @@ pub(crate) async fn usage_for(
         None => None,
     };
     Ok(TenantUsage {
-        tenant_id,
+        tenant_id: tenant_id as u64,
         user_count,
         storage_used_bytes: 0,
         api_call_count: 0,
-        plan_id: tenant.and_then(|t| t.plan_id),
+        plan_id: tenant.and_then(|t| t.plan_id).map(|v| v as u64),
         plan_name,
         quotas: Vec::new(),
     })

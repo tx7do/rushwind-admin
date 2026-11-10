@@ -25,7 +25,7 @@ impl<'a> InternalMessageRecipientRepo<'a> {
     /// The user inbox: own rows, newest first.
     pub async fn list_inbox(
         &self,
-        user_id: u32,
+        user_id: i64,
     ) -> Result<Vec<internal_message_recipients::Model>, StatusError> {
         internal_message_recipients::Entity::find()
             .filter(internal_message_recipients::Column::RecipientUserId.eq(user_id))
@@ -38,7 +38,7 @@ impl<'a> InternalMessageRecipientRepo<'a> {
     /// Paged inbox listing: returns (rows, total).
     pub async fn paged_inbox(
         &self,
-        user_id: u32,
+        user_id: i64,
         req: &proto::proto::pagination::PagingRequest,
     ) -> Result<(Vec<internal_message_recipients::Model>, u64), StatusError> {
         crate::paging::fetch_paged(
@@ -54,8 +54,8 @@ impl<'a> InternalMessageRecipientRepo<'a> {
     /// One IN query backfills the parent messages (N+1 guard).
     pub async fn list_messages_by_ids(
         &self,
-        ids: &[u32],
-    ) -> Result<std::collections::HashMap<u32, internal_messages::Model>, StatusError> {
+        ids: &[u64],
+    ) -> Result<std::collections::HashMap<i64, internal_messages::Model>, StatusError> {
         if ids.is_empty() {
             return Ok(Default::default());
         }
@@ -69,9 +69,9 @@ impl<'a> InternalMessageRecipientRepo<'a> {
             .collect())
     }
 
-    pub async fn mark_read(&self, user_id: u32, recipient_ids: &[u32]) -> Result<(), StatusError> {
+    pub async fn mark_read(&self, user_id: i64, recipient_ids: &[u64]) -> Result<(), StatusError> {
         for id in recipient_ids {
-            if let Some(row) = internal_message_recipients::Entity::find_by_id(*id)
+            if let Some(row) = internal_message_recipients::Entity::find_by_id(*id as i64)
                 .filter(internal_message_recipients::Column::RecipientUserId.eq(user_id))
                 .one(self.db)
                 .await
@@ -89,12 +89,12 @@ impl<'a> InternalMessageRecipientRepo<'a> {
 
     pub async fn mark_status(
         &self,
-        user_id: u32,
-        recipient_ids: &[u32],
+        user_id: i64,
+        recipient_ids: &[u64],
         status: &str,
     ) -> Result<(), StatusError> {
         for id in recipient_ids {
-            if let Some(row) = internal_message_recipients::Entity::find_by_id(*id)
+            if let Some(row) = internal_message_recipients::Entity::find_by_id(*id as i64)
                 .filter(internal_message_recipients::Column::RecipientUserId.eq(user_id))
                 .one(self.db)
                 .await
@@ -111,8 +111,8 @@ impl<'a> InternalMessageRecipientRepo<'a> {
 
     pub async fn delete_from_inbox(
         &self,
-        user_id: u32,
-        recipient_ids: &[u32],
+        user_id: i64,
+        recipient_ids: &[u64],
     ) -> Result<(), StatusError> {
         internal_message_recipients::Entity::delete_many()
             .filter(

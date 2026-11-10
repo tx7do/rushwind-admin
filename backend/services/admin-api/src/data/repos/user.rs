@@ -45,7 +45,7 @@ impl<'a> UserRepo<'a> {
     /// returns (rows, total).
     pub async fn paged_list(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         req: &proto::proto::pagination::PagingRequest,
     ) -> Result<(Vec<users::Model>, u64), StatusError> {
         crate::paging::fetch_paged(
@@ -66,7 +66,7 @@ impl<'a> UserRepo<'a> {
             .unwrap_or(0)
     }
 
-    pub async fn get_by_id(&self, id: u32) -> Result<users::Model, StatusError> {
+    pub async fn get_by_id(&self, id: i64) -> Result<users::Model, StatusError> {
         let mut query = users::Entity::find_by_id(id);
         if let Some(tid) = self.viewer.tenant_scope() {
             query = users::Entity::find_by_id(id).filter(users::Column::TenantId.eq(tid));
@@ -115,7 +115,7 @@ impl<'a> UserRepo<'a> {
     /// all-digits → mobile (ambiguous → 500), miss → input unchanged.
     pub async fn find_username_by_identifier(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         input: &str,
     ) -> Result<String, StatusError> {
         if input.is_empty() {
@@ -152,7 +152,7 @@ impl<'a> UserRepo<'a> {
     }
 
     /// Force-tenant-scoped list (tenants never see across).
-    pub async fn list_tenant(&self, tenant_id: u32) -> Result<Vec<users::Model>, StatusError> {
+    pub async fn list_tenant(&self, tenant_id: i64) -> Result<Vec<users::Model>, StatusError> {
         users::Entity::find()
             .filter(users::Column::TenantId.eq(tenant_id))
             .order_by_desc(users::Column::CreatedAt)
@@ -164,7 +164,7 @@ impl<'a> UserRepo<'a> {
     pub async fn create(
         &self,
         req: NewUser<'a>,
-        operator_id: u32,
+        operator_id: i64,
     ) -> Result<users::Model, StatusError> {
         let tenant_id = self.viewer.stamp_tenant(None);
         users::ActiveModel {
@@ -188,7 +188,7 @@ impl<'a> UserRepo<'a> {
     }
 
     /// recordUserLastLogin — non-blocking best-effort update.
-    pub async fn record_last_login(&self, user_id: u32, ip: &str) {
+    pub async fn record_last_login(&self, user_id: i64, ip: &str) {
         if let Ok(Some(row)) = users::Entity::find_by_id(user_id).one(self.db).await {
             let mut a: users::ActiveModel = row.into();
             a.last_login_at = Set(Some(crate::data::now()));
@@ -201,7 +201,7 @@ impl<'a> UserRepo<'a> {
 
     pub async fn find_credential(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         identifier: &str,
     ) -> Result<Option<credentials::Model>, StatusError> {
         credentials::Entity::find()
@@ -233,11 +233,11 @@ impl<'a> UserRepo<'a> {
 
     pub async fn upsert_credential(
         &self,
-        tenant_id: u32,
-        user_id: u32,
+        tenant_id: i64,
+        user_id: i64,
         identifier: &str,
         bcrypt_hash: &str,
-        operator_id: u32,
+        operator_id: i64,
     ) -> Result<(), StatusError> {
         let existing = self.find_credential(tenant_id, identifier).await?;
         match existing {
@@ -293,21 +293,21 @@ impl<'a> UserRepo<'a> {
     }
 
     /// Role bindings of a user (sys_user_roles).
-    pub async fn list_role_ids(&self, user_id: u32) -> Result<Vec<u32>, StatusError> {
+    pub async fn list_role_ids(&self, user_id: i64) -> Result<Vec<u64>, StatusError> {
         Ok(sys_user_roles::Entity::find()
             .filter(sys_user_roles::Column::UserId.eq(user_id))
             .all(self.db)
             .await
             .map_err(db_err)?
             .iter()
-            .filter_map(|r| r.role_id)
+            .filter_map(|r| r.role_id.map(|v| v as u64))
             .collect())
     }
 
     pub async fn delete_with_relations(
         &self,
-        tenant_id: u32,
-        user_id: u32,
+        tenant_id: i64,
+        user_id: i64,
     ) -> Result<(), StatusError> {
         credentials::Entity::delete_many()
             .filter(

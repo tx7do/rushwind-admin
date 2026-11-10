@@ -35,7 +35,7 @@ pub trait TenantAccessChecker: Send + Sync {
     /// HTTP verb. `Err` carries the exact FORBIDDEN envelope text.
     async fn check_tenant_access(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         path: &str,
         method: &str,
     ) -> Result<(), String>;
@@ -43,8 +43,8 @@ pub trait TenantAccessChecker: Send + Sync {
 
 /// The per-request inputs of the authorization evaluation.
 pub struct AuthzEvaluation<'a> {
-    pub user_id: u32,
-    pub tenant_id: u32,
+    pub user_id: i64,
+    pub tenant_id: i64,
     /// The token's role codes — one evaluation per role, the first
     /// permitting role wins.
     pub roles: &'a [String],
@@ -119,12 +119,7 @@ pub async fn auth_gate(
     let trace_id = rushwind_authn_gate::trace_id(req.headers());
 
     // The tenant stage: tenant members only.
-    let tenant_id = claims
-        .0
-        .get("tid")
-        .and_then(|v| v.as_u64())
-        .map(|v| v as u32)
-        .unwrap_or(0);
+    let tenant_id = claims.0.get("tid").and_then(|v| v.as_i64()).unwrap_or(0);
     if tenant_id > 0 {
         if let Err(message) = tenant_checker
             .check_tenant_access(tenant_id, &path, &method)
@@ -147,12 +142,7 @@ pub async fn auth_gate(
         })
         .unwrap_or_default();
     let evaluation = AuthzEvaluation {
-        user_id: claims
-            .0
-            .get("uid")
-            .and_then(|v| v.as_u64())
-            .map(|v| v as u32)
-            .unwrap_or(0),
+        user_id: claims.0.get("uid").and_then(|v| v.as_i64()).unwrap_or(0),
         tenant_id,
         roles: &roles,
         action: &method,

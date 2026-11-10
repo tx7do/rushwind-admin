@@ -29,14 +29,14 @@ impl<'a> PermissionGroupRepo<'a> {
         .await
     }
 
-    pub async fn find(&self, id: u32) -> Result<Option<entity::Model>, StatusError> {
+    pub async fn find(&self, id: i64) -> Result<Option<entity::Model>, StatusError> {
         entity::Entity::find_by_id(id)
             .one(self.db)
             .await
             .map_err(db_err)
     }
 
-    pub async fn delete_by_id(&self, id: u32) -> Result<(), StatusError> {
+    pub async fn delete_by_id(&self, id: i64) -> Result<(), StatusError> {
         entity::Entity::delete_by_id(id)
             .exec(self.db)
             .await

@@ -23,7 +23,7 @@ repo_shell!(tenant BiDashboardRepo, entity);
 impl<'a> BiDashboardRepo<'a> {
     /// The scoped row lookup — tenant viewers see own-tenant rows only,
     /// platform/system viewers any named row.
-    pub async fn find_scoped(&self, id: u32) -> Result<Option<entity::Model>, StatusError> {
+    pub async fn find_scoped(&self, id: i64) -> Result<Option<entity::Model>, StatusError> {
         let mut query = entity::Entity::find_by_id(id);
         if let Some(tid) = self.viewer.tenant_scope() {
             query = query.filter(entity::Column::TenantId.eq(tid));
@@ -66,13 +66,13 @@ impl<'a> BiDashboardRevisionRepo<'a> {
     #[allow(clippy::too_many_arguments)]
     pub async fn create(
         &self,
-        tenant_id: Option<u32>,
-        dashboard_id: u32,
+        tenant_id: Option<i64>,
+        dashboard_id: i64,
         version: Option<u32>,
         name: Option<String>,
         payload: Option<String>,
         source: &str,
-        created_by: u32,
+        created_by: i64,
     ) -> Result<(), StatusError> {
         revision::ActiveModel {
             tenant_id: sea_orm::Set(tenant_id),
@@ -96,7 +96,7 @@ impl<'a> BiDashboardRevisionRepo<'a> {
     /// Order(Desc(version), Desc(id)) 同序，分页默认 1/20 也同参）。
     pub async fn list_paged(
         &self,
-        dashboard_id: u32,
+        dashboard_id: i64,
         page: Option<u32>,
         page_size: Option<u32>,
     ) -> Result<(Vec<revision::Model>, u64), StatusError> {
@@ -118,7 +118,7 @@ impl<'a> BiDashboardRevisionRepo<'a> {
     }
 
     /// 取单个快照（恢复时校验归属）。
-    pub async fn find_scoped(&self, id: u32) -> Result<Option<revision::Model>, StatusError> {
+    pub async fn find_scoped(&self, id: i64) -> Result<Option<revision::Model>, StatusError> {
         revision::Entity::find_by_id(id)
             .filter(self.condition())
             .one(self.db)
@@ -127,7 +127,7 @@ impl<'a> BiDashboardRevisionRepo<'a> {
     }
 
     /// 主表删除时的级联清理（SeaORM 无库级 cascade，随 delete 流程显式执行）。
-    pub async fn delete_for_dashboard(&self, dashboard_id: u32) -> Result<(), StatusError> {
+    pub async fn delete_for_dashboard(&self, dashboard_id: i64) -> Result<(), StatusError> {
         revision::Entity::delete_many()
             .filter(revision::Column::DashboardId.eq(dashboard_id))
             .exec(self.db)

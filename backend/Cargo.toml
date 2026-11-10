@@ -29,7 +29,7 @@ prost-reflect = { version = "0.16", features = ["serde"] }
 # 生成器产物中的服务 trait 用 async-trait 保证 dyn 兼容。
 async-trait = "0.1"
 # 管理服务直用的工具链：Django 风格 query 解析。
-rust-utils = { git = "https://github.com/tx7do/rust-utils", rev = "5023c3f9c4bdb37f3d44eafdb1d538e48917c5ba", features = [
+rust-utils = { git = "https://github.com/tx7do/rust-utils", rev = "05000a8", features = [
     "json",
     "otp",
     "crypto",
@@ -57,8 +57,8 @@ redis = { version = "1", default-features = false, features = ["tokio-comp", "co
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time", "net"] }
 futures-util = "0.3"
 # 任务队列：apalis Postgres 后端 + worker runtime 门面。
-rushwind-transport-cron = { git = "https://github.com/tx7do/rushwind", rev = "a344105bda4475b42a3b3feaf8782147895b10e6" }
-rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "a344105bda4475b42a3b3feaf8782147895b10e6" }
+rushwind-transport-cron = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
+rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
 apalis-core = { version = "0.7", features = ["json", "sleep"] }
 bcrypt = "0.15"
 aes = "0.8"

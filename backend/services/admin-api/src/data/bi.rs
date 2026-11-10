@@ -8,8 +8,8 @@ pub mod bi_dashboards {
     #[sea_orm(table_name = "bi_dashboards")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub name: String,
         /// 编码，租户内唯一，业务侧按编码取仪表盘。
         pub code: String,
@@ -37,9 +37,9 @@ pub mod bi_dashboards {
         pub is_enabled: Option<bool>,
         #[sea_orm(default_value = 0)]
         pub sort_order: Option<u32>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -61,10 +61,10 @@ pub mod bi_dashboard_revisions {
     #[sea_orm(table_name = "sys_bi_dashboard_revisions")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         /// 所属仪表盘 ID。
-        pub dashboard_id: Option<u32>,
+        pub dashboard_id: Option<i64>,
         /// 快照对应的仪表盘版本号（保存前的旧版本）。
         #[sea_orm(default_value = 0)]
         pub version: Option<u32>,
@@ -75,7 +75,7 @@ pub mod bi_dashboard_revisions {
         /// 快照来源（SAVE=常规保存触发 RESTORE=恢复前留底）。
         #[sea_orm(default_value = "SAVE")]
         pub source: Option<String>,
-        pub created_by: Option<u32>,
+        pub created_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
     }

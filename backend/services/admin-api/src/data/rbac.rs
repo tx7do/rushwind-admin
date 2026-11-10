@@ -8,13 +8,13 @@ pub mod sys_roles {
     #[sea_orm(table_name = "sys_roles")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub name: String,
         pub code: String,
         /// 父角色（权限继承：子角色权限集必须 ⊆ 父角色已绑定权限集）；
         /// NULL = 根角色。
-        pub parent_id: Option<u32>,
+        pub parent_id: Option<i64>,
         #[sea_orm(default_value = false)]
         pub is_protected: Option<bool>,
         /// enum(SYSTEM,TEMPLATE,TENANT) default TENANT.
@@ -28,9 +28,9 @@ pub mod sys_roles {
         pub status: Option<String>,
         #[sea_orm(default_value = 0)]
         pub sort_order: Option<u32>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -48,19 +48,19 @@ pub mod sys_role_permissions {
     #[sea_orm(table_name = "sys_role_permissions")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub role_id: Option<u32>,
-        pub permission_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub role_id: Option<i64>,
+        pub permission_id: Option<i64>,
         /// enum(ALLOW,DENY) default ALLOW.
         pub effect: Option<String>,
         #[sea_orm(default_value = 0)]
         pub priority: Option<i32>,
         /// enum(OFF,ON) default ON.
         pub status: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -78,9 +78,9 @@ pub mod sys_role_metadata {
     #[sea_orm(table_name = "sys_role_metadata")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub role_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub role_id: Option<i64>,
         #[sea_orm(default_value = false)]
         pub is_template: Option<bool>,
         pub template_for: Option<String>,
@@ -94,9 +94,9 @@ pub mod sys_role_metadata {
         pub scope: Option<String>,
         /// jsonb RoleOverride.
         pub custom_overrides: Option<Json>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -114,16 +114,16 @@ pub mod sys_permissions {
     #[sea_orm(table_name = "sys_permissions")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         pub name: String,
         pub code: String,
-        pub group_id: Option<u32>,
+        pub group_id: Option<i64>,
         pub description: Option<String>,
         /// enum(OFF,ON) default ON.
         pub status: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -141,8 +141,8 @@ pub mod sys_permission_groups {
     #[sea_orm(table_name = "sys_permission_groups")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub parent_id: Option<u32>,
+        pub id: i64,
+        pub parent_id: Option<i64>,
         pub name: String,
         pub module: Option<String>,
         pub path: Option<String>,
@@ -151,9 +151,9 @@ pub mod sys_permission_groups {
         pub status: Option<String>,
         #[sea_orm(default_value = 0)]
         pub sort_order: Option<u32>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -171,18 +171,18 @@ pub mod sys_permission_apis {
     #[sea_orm(table_name = "sys_permission_apis")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub permission_id: Option<u32>,
+        pub id: i64,
+        pub permission_id: Option<i64>,
         /// 旧版按 api_id 绑定（id 重编号即漂移）；快照列落地后仅作历史
         /// 兼容保留，裁决与写入都以 (endpoint_path, endpoint_method) 为准。
-        pub api_id: Option<u32>,
+        pub api_id: Option<i64>,
         /// 绑定端点身份快照——与 authorizer 路由闸/策略链的裁决键同形，
         /// 免疫 sys_apis 删除重建（上游 7eb7f9f0 同语义）。
         pub endpoint_path: Option<String>,
         pub endpoint_method: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -200,15 +200,15 @@ pub mod sys_permission_menus {
     #[sea_orm(table_name = "sys_permission_menus")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub permission_id: Option<u32>,
-        pub menu_id: Option<u32>,
+        pub id: i64,
+        pub permission_id: Option<i64>,
+        pub menu_id: Option<i64>,
         /// 菜单全路径快照——绑定键与身份同形，菜单删除重建不再漂移授权
         /// （绝对路径子菜单按 path 原样，不做父链拼接；上游 836334e3 同语义）。
         pub full_path: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -226,8 +226,8 @@ pub mod sys_menus {
     #[sea_orm(table_name = "sys_menus")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub parent_id: Option<u32>,
+        pub id: i64,
+        pub parent_id: Option<i64>,
         /// enum(CATALOG,MENU,BUTTON,EMBEDDED,LINK) default MENU.
         #[sea_orm(column_name = "type")]
         pub type_column: Option<String>,
@@ -245,9 +245,9 @@ pub mod sys_menus {
         pub remark: Option<String>,
         /// enum(OFF,ON) default ON.
         pub status: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -265,7 +265,7 @@ pub mod sys_apis {
     #[sea_orm(table_name = "sys_apis")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         pub description: Option<String>,
         /// enum(DASHBOARD,OPM,SYSTEM,DICT,TENANT,PERMISSION,LOG,INTERNAL_MESSAGE,FILE,TASK).
         pub module: Option<String>,
@@ -278,9 +278,9 @@ pub mod sys_apis {
         pub scope: Option<String>,
         /// enum(OFF,ON) default ON.
         pub status: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -298,13 +298,13 @@ pub mod sys_role_org_units {
     #[sea_orm(table_name = "sys_role_org_units")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub role_id: Option<u32>,
-        pub org_unit_id: Option<u32>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub role_id: Option<i64>,
+        pub org_unit_id: Option<i64>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -322,14 +322,14 @@ pub mod sys_role_field_permissions {
     #[sea_orm(table_name = "sys_role_field_permissions")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub role_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub role_id: Option<i64>,
         pub resource: Option<String>,
         pub field_name: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,

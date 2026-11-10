@@ -14,16 +14,16 @@ use proto::proto::pagination::PagingRequest;
 
 fn language_proto(r: crate::data::sys_languages::Model) -> Language {
     Language {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         language_code: Some(r.language_code),
         language_name: Some(r.language_name),
         native_name: r.native_name,
         is_default: r.is_default,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -64,7 +64,7 @@ impl proto::gen::services::LanguageServiceHandlers for LanguageService {
             }
             None => return Err(status_error("BAD_REQUEST", "query_by required")),
         };
-        Ok(language_proto(repo.get_by_id(id).await?))
+        Ok(language_proto(repo.get_by_id(id as i64).await?))
     }
 
     async fn create(
@@ -122,7 +122,8 @@ impl proto::gen::services::LanguageServiceHandlers for LanguageService {
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let repo = crate::data::repos::LanguageRepo::new(&self.state.db);
-        let mut a: crate::data::sys_languages::ActiveModel = repo.get_by_id(req.id).await?.into();
+        let mut a: crate::data::sys_languages::ActiveModel =
+            repo.get_by_id(req.id as i64).await?.into();
         if let Some(data) = &req.data {
             if let Some(v) = data.language_name.clone() {
                 a.language_name = Set(v);
@@ -155,7 +156,7 @@ impl proto::gen::services::LanguageServiceHandlers for LanguageService {
             proto::proto::dict::service::v1::delete_language_request::QueryBy
         );
         crate::data::repos::LanguageRepo::new(&self.state.db)
-            .delete_by_id(id)
+            .delete_by_id(id as i64)
             .await?;
         Ok(Empty {})
     }

@@ -28,7 +28,7 @@ fn language_to_str(v: i32) -> String {
 
 fn script_proto(r: crate::data::sys_scripts::Model) -> Script {
     Script {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         language: r.language.as_deref().map(language_to_proto),
         hook_point: r.hook_point,
@@ -38,9 +38,9 @@ fn script_proto(r: crate::data::sys_scripts::Model) -> Script {
         critical: r.critical,
         version: r.version,
         is_enabled: r.is_enabled,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -49,8 +49,8 @@ fn script_proto(r: crate::data::sys_scripts::Model) -> Script {
 
 fn script_log_proto(r: crate::data::sys_script_logs::Model) -> ScriptLog {
     ScriptLog {
-        id: Some(r.id),
-        script_id: r.script_id,
+        id: Some(r.id as u64),
+        script_id: r.script_id.map(|v| v as u64),
         script_name: r.script_name,
         language: r.language,
         trigger_type: r.trigger_type,
@@ -104,7 +104,7 @@ impl proto::gen::services::ScriptServiceHandlers for ScriptService {
             req.query_by,
             proto::proto::script::service::v1::get_script_request::QueryBy
         );
-        let row = crate::data::sys_scripts::Entity::find_by_id(id)
+        let row = crate::data::sys_scripts::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -146,7 +146,7 @@ impl proto::gen::services::ScriptServiceHandlers for ScriptService {
         req: UpdateScriptRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_scripts::Entity::find_by_id(req.id)
+        let row = crate::data::sys_scripts::Entity::find_by_id(req.id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?

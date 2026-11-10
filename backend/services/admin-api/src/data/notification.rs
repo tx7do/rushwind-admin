@@ -7,7 +7,7 @@ pub mod sys_notification_channels {
     #[sea_orm(table_name = "sys_notification_channels")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         pub name: String,
         /// enum(EMAIL,WEBHOOK) default EMAIL.
         #[sea_orm(column_name = "type")]
@@ -40,9 +40,9 @@ pub mod sys_notification_channels {
         pub remark: Option<String>,
         /// enum(OFF,ON) default ON.
         pub status: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -60,7 +60,7 @@ pub mod sys_notification_rules {
     #[sea_orm(table_name = "sys_notification_rules")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         /// enum(PASSWORD_RESET_CODE,CONTACT_BIND_CODE,CHANNEL_TEST_EMAIL,INTERNAL_MESSAGE) unique.
         pub event_type: Option<String>,
         /// enum(EMAIL,SMS,WEBHOOK,INTERNAL).
@@ -70,9 +70,9 @@ pub mod sys_notification_rules {
         #[sea_orm(default_value = true)]
         pub is_enabled: Option<bool>,
         pub remark: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -90,14 +90,14 @@ pub mod sys_notification_deliveries {
     #[sea_orm(table_name = "sys_notification_deliveries")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         /// enum(PASSWORD_RESET_CODE,CONTACT_BIND_CODE,CHANNEL_TEST_EMAIL,INTERNAL_MESSAGE).
         pub event_type: Option<String>,
         /// enum(EMAIL,SMS,WEBHOOK,INTERNAL).
         pub channel: Option<String>,
-        pub channel_id: Option<u32>,
-        pub recipient_user_id: Option<u32>,
-        pub related_id: Option<u32>,
+        pub channel_id: Option<i64>,
+        pub recipient_user_id: Option<i64>,
+        pub related_id: Option<i64>,
         pub target: Option<String>,
         /// enum(SENDING,SENT,FAILED,SKIPPED) default SENDING.
         pub status: Option<String>,
@@ -105,9 +105,9 @@ pub mod sys_notification_deliveries {
         pub request_id: Option<String>,
         #[sea_orm(default_value = 0)]
         pub attempts: Option<u32>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -125,12 +125,12 @@ pub mod sys_notification_preferences {
     #[sea_orm(table_name = "notification_preferences")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         /// The owning user — one row per user (unique). Deliberately
         /// tenant-free: preferences follow the person, not the tenant
         /// (broadcast reads cross tenants under the system context).
         #[sea_orm(unique)]
-        pub user_id: u32,
+        pub user_id: i64,
         #[sea_orm(default_value = false)]
         pub quiet_enabled: Option<bool>,
         /// Minutes from local midnight; defaults 22:00 → 08:00 (crossing
@@ -142,8 +142,8 @@ pub mod sys_notification_preferences {
         /// Unsubscribed internal-message category ids (JSON array); only
         /// constrains all-hands broadcasts, never direct sends.
         pub muted_category_ids: Option<Json>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
     }
@@ -160,7 +160,7 @@ pub mod sys_notification_templates {
     #[sea_orm(table_name = "notification_templates")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         pub name: Option<String>,
         /// Global-unique reference anchor (senders cite template_code).
         pub code: Option<String>,
@@ -171,9 +171,9 @@ pub mod sys_notification_templates {
         #[sea_orm(default_value = true)]
         pub is_enabled: Option<bool>,
         pub remark: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,

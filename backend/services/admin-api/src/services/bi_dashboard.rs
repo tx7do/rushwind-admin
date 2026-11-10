@@ -36,7 +36,7 @@ fn kind_proto(s: &str) -> i32 {
 
 fn dash_proto(r: crate::data::bi_dashboards::Model) -> BiDashboard {
     BiDashboard {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         code: Some(r.code),
         kind: r.kind.as_deref().map(kind_proto),
@@ -50,9 +50,9 @@ fn dash_proto(r: crate::data::bi_dashboards::Model) -> BiDashboard {
         version: r.version,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -61,13 +61,13 @@ fn dash_proto(r: crate::data::bi_dashboards::Model) -> BiDashboard {
 
 fn rev_proto(r: crate::data::bi_dashboard_revisions::Model) -> BiDashboardRevision {
     BiDashboardRevision {
-        id: r.id,
-        dashboard_id: r.dashboard_id.unwrap_or(0),
+        id: r.id as u64,
+        dashboard_id: r.dashboard_id.unwrap_or(0) as u64,
         version: r.version.unwrap_or(0),
         name: r.name,
         payload: r.payload,
         source: r.source,
-        created_by: r.created_by,
+        created_by: r.created_by.map(|v| v as u64),
         // 与上游 DTO 同口径："2006-01-02 15:04:05"
         created_at: r
             .created_at
@@ -141,7 +141,7 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         let repo = crate::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = match req.query_by {
             Some(proto::proto::bi::service::v1::get_bi_dashboard_request::QueryBy::Id(id)) => {
-                repo.find_scoped(id).await?
+                repo.find_scoped(id as i64).await?
             }
             None => None,
         }
@@ -193,12 +193,12 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         let data = require_data(req.data)?;
         let repo = crate::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(req.id)
+            .find_scoped(req.id as i64)
             .await?
             .ok_or_else(|| crate::state::not_found("bi dashboard"))?;
         if let Some(code) = data.code.as_deref().filter(|c| !c.is_empty()) {
             if let Some(other) = repo.find_by_code(code).await? {
-                if other.id != req.id {
+                if other.id != req.id as i64 {
                     return Err(status_error("CONFLICT", "dashboard code already exists"));
                 }
             }
@@ -240,7 +240,7 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         if let Err(serr) = revisions
             .create(
                 pre.0,
-                req.id,
+                req.id as i64,
                 pre.1,
                 Some(pre.2),
                 pre.3,
@@ -268,7 +268,7 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         );
         let repo = crate::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(id)
+            .find_scoped(id as i64)
             .await?
             .ok_or_else(|| crate::state::not_found("bi dashboard"))?;
         // 内置行禁删（内置模板只读，派生出来的才是租户自有资产）。
@@ -278,13 +278,13 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
                 "built-in dashboard cannot be deleted",
             ));
         }
-        crate::data::bi_dashboards::Entity::delete_by_id(id)
+        crate::data::bi_dashboards::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
         // 快照随主表级联清理（SeaORM 无库级 cascade，显式随行）
         crate::data::repos::BiDashboardRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx))
-            .delete_for_dashboard(id)
+            .delete_for_dashboard(id as i64)
             .await?;
         Ok(Empty {})
     }
@@ -300,7 +300,7 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         let payload = operator_of(&ctx)?;
         let repo = crate::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let source = repo
-            .find_scoped(req.id)
+            .find_scoped(req.id as i64)
             .await?
             .ok_or_else(|| crate::state::not_found("bi dashboard"))?;
 
@@ -361,7 +361,7 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
         );
         let (rows, total) = repo
             .list_paged(
-                req.dashboard_id,
+                req.dashboard_id as i64,
                 req.page.as_ref().and_then(|p| p.page),
                 req.page.as_ref().and_then(|p| p.page_size),
             )
@@ -388,7 +388,7 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
             Viewer::from_ctx(&ctx),
         );
         let revision = revisions
-            .find_scoped(req.id)
+            .find_scoped(req.id as i64)
             .await?
             .ok_or_else(|| crate::state::not_found("bi dashboard revision"))?;
         let dashboard_id = revision.dashboard_id.unwrap_or(0);

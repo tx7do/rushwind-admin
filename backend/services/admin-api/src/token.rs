@@ -12,9 +12,9 @@ pub const CLIENT_TYPE_ADMIN: u32 = 0;
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct UserTokenPayload {
     pub username: String,
-    pub user_id: u32,
-    pub tenant_id: u32,
-    pub org_unit_id: Option<u32>,
+    pub user_id: i64,
+    pub tenant_id: i64,
+    pub org_unit_id: Option<i64>,
     pub roles: Vec<String>,
     pub client_id: Option<String>,
     pub device_id: Option<String>,
@@ -30,9 +30,9 @@ pub struct UserTokenPayload {
 
 impl UserTokenPayload {
     pub fn from_claims(claims: &Map<String, Value>) -> Option<Self> {
-        let get_u32 = |key: &str| -> Option<u32> {
+        let get_i64 = |key: &str| -> Option<i64> {
             match claims.get(key)? {
-                Value::Number(n) => n.as_u64().map(|v| v as u32),
+                Value::Number(n) => n.as_i64(),
                 Value::String(s) => s.parse().ok(),
                 _ => None,
             }
@@ -58,9 +58,9 @@ impl UserTokenPayload {
         };
         Some(UserTokenPayload {
             username: get_str("sub")?,
-            user_id: get_u32("uid")?,
-            tenant_id: get_u32("tid").unwrap_or(0),
-            org_unit_id: get_u32("ouid"),
+            user_id: get_i64("uid")?,
+            tenant_id: get_i64("tid").unwrap_or(0),
+            org_unit_id: get_i64("ouid"),
             roles: get_strs("roc"),
             client_id: get_str("cid"),
             device_id: get_str("did"),
@@ -142,15 +142,15 @@ pub struct TokenStore {
     pub refresh_expires_secs: i64,
 }
 
-fn at_key(ct: u32, uid: u32, jti: &str) -> String {
+fn at_key(ct: u32, uid: i64, jti: &str) -> String {
     format!("at:{ct}:{uid}:{jti}")
 }
 
-fn rt_key(ct: u32, uid: u32, jti: &str) -> String {
+fn rt_key(ct: u32, uid: i64, jti: &str) -> String {
     format!("rt:{ct}:{uid}:{jti}")
 }
 
-fn us_key(ct: u32, uid: u32, jti: &str) -> String {
+fn us_key(ct: u32, uid: i64, jti: &str) -> String {
     format!("us:{ct}:{uid}:{jti}")
 }
 
@@ -164,7 +164,7 @@ pub struct SessionMeta {
     #[serde(rename = "username")]
     pub username: String,
     #[serde(rename = "tenantId")]
-    pub tenant_id: u32,
+    pub tenant_id: i64,
     #[serde(rename = "ip")]
     pub ip: String,
     #[serde(rename = "ua")]
@@ -203,7 +203,7 @@ impl TokenStore {
     /// AddTokenPair — TxPipeline SET at:/rt: with their TTLs.
     pub async fn add_token_pair(
         &self,
-        uid: u32,
+        uid: i64,
         jti: &str,
         access_token: &str,
         refresh_token: &str,
@@ -229,7 +229,7 @@ impl TokenStore {
     /// AddAccessToken — machine tokens (uid 0) ride the same whitelist.
     pub async fn add_access_token(
         &self,
-        uid: u32,
+        uid: i64,
         jti: &str,
         access_token: &str,
     ) -> Result<(), String> {
@@ -244,7 +244,7 @@ impl TokenStore {
     }
 
     /// IsValidAccessToken — exact stored-token compare.
-    pub async fn is_valid_access_token(&self, uid: u32, jti: &str, token: &str) -> bool {
+    pub async fn is_valid_access_token(&self, uid: i64, jti: &str, token: &str) -> bool {
         let mut conn = self.redis.clone();
         let stored: Option<String> = conn.get(at_key(CLIENT_TYPE_ADMIN, uid, jti)).await.ok();
         stored.as_deref() == Some(token)
@@ -259,7 +259,7 @@ impl TokenStore {
     /// IsExistRefreshToken — the refresh whitelist row for (uid, token).
     /// Wired with the online-session service (storage phase).
     #[allow(dead_code)]
-    pub async fn refresh_token_matches(&self, uid: u32, token: &str) -> Option<String> {
+    pub async fn refresh_token_matches(&self, uid: i64, token: &str) -> Option<String> {
         let mut conn = self.redis.clone();
         let _jti_out = String::new();
         // The jti is inside the token itself; scan this user's rt: rows.
@@ -275,7 +275,7 @@ impl TokenStore {
     }
 
     /// The Lua verify-and-revoke: GET rt == token → DEL rt/at/us.
-    pub async fn verify_and_revoke_refresh_token(&self, uid: u32, jti: &str, token: &str) -> bool {
+    pub async fn verify_and_revoke_refresh_token(&self, uid: i64, jti: &str, token: &str) -> bool {
         let mut conn = self.redis.clone();
         let script = redis::Script::new(
             r#"
@@ -309,7 +309,7 @@ impl TokenStore {
     /// RecordSessionMeta — us:{ct}:{uid}:{jti} JSON, refresh TTL.
     pub async fn set_session_meta(
         &self,
-        uid: u32,
+        uid: i64,
         jti: &str,
         meta: &SessionMeta,
     ) -> Result<(), String> {
@@ -326,14 +326,14 @@ impl TokenStore {
 
     /// Wired with the online-session service (storage phase).
     #[allow(dead_code)]
-    pub async fn get_session_meta(&self, uid: u32, jti: &str) -> Option<SessionMeta> {
+    pub async fn get_session_meta(&self, uid: i64, jti: &str) -> Option<SessionMeta> {
         let mut conn = self.redis.clone();
         let raw: Option<String> = conn.get(us_key(CLIENT_TYPE_ADMIN, uid, jti)).await.ok()?;
         serde_json::from_str(raw.as_deref()?).ok()
     }
 
     /// All online sessions for a user (us:0:{uid}:* → (jti, meta)).
-    pub async fn list_user_sessions(&self, uid: u32) -> Vec<(String, SessionMeta)> {
+    pub async fn list_user_sessions(&self, uid: i64) -> Vec<(String, SessionMeta)> {
         let mut conn = self.redis.clone();
         let pattern = format!("us:{CLIENT_TYPE_ADMIN}:{uid}:*");
         let keys = scan_keys(&mut conn, pattern).await.unwrap_or_default();
@@ -349,7 +349,7 @@ impl TokenStore {
     }
 
     /// ALL online sessions (us:* → (ct, uid, jti, meta)) — admin listing.
-    pub async fn list_all_sessions(&self) -> Vec<(u32, u32, String, SessionMeta)> {
+    pub async fn list_all_sessions(&self) -> Vec<(u32, u64, String, SessionMeta)> {
         let mut conn = self.redis.clone();
         let all_keys = scan_keys(&mut conn, "us:*".to_string())
             .await
@@ -360,7 +360,7 @@ impl TokenStore {
             if parts.len() != 4 {
                 continue;
             }
-            let (Ok(ct), Ok(uid)) = (parts[1].parse::<u32>(), parts[2].parse::<u32>()) else {
+            let (Ok(ct), Ok(uid)) = (parts[1].parse::<u32>(), parts[2].parse::<u64>()) else {
                 continue;
             };
             let raw: Option<String> = conn.get(&key).await.ok();
@@ -372,7 +372,7 @@ impl TokenStore {
     }
 
     /// RevokeToken — SCAN-delete at/rt/us rows of (ct, uid).
-    pub async fn revoke_user_token(&self, uid: u32) {
+    pub async fn revoke_user_token(&self, uid: i64) {
         let mut conn = self.redis.clone();
         for prefix in ["at", "rt", "us"] {
             let pattern = format!("{prefix}:{CLIENT_TYPE_ADMIN}:{uid}:*");
@@ -386,7 +386,7 @@ impl TokenStore {
     }
 
     /// RevokeTokenByJti across both client types.
-    pub async fn revoke_token_by_jti(&self, uid: u32, jti: &str) {
+    pub async fn revoke_token_by_jti(&self, uid: i64, jti: &str) {
         let mut conn = self.redis.clone();
         let _: Result<i64, _> = conn
             .del(&[
@@ -401,7 +401,7 @@ impl TokenStore {
     /// Client-type sweeping mirrors the all-client-types revoke.
     /// Wired with the online-session service (storage phase).
     #[allow(dead_code)]
-    pub async fn revoke_user_token_all_client_types(&self, uid: u32) {
+    pub async fn revoke_user_token_all_client_types(&self, uid: i64) {
         self.revoke_user_token(uid).await;
     }
 

@@ -12,7 +12,7 @@ use proto::proto::online_session::service::v1::{
     RevokeMyOnlineSessionRequest, RevokeMyOnlineSessionResponse,
 };
 
-fn session_proto(jti: &str, uid: u32, meta: &SessionMeta, current_uid: u32) -> OnlineSession {
+fn session_proto(jti: &str, uid: i64, meta: &SessionMeta, current_uid: i64) -> OnlineSession {
     let login_at = chrono::NaiveDateTime::parse_from_str(&meta.login_at, "%Y-%m-%d %H:%M:%S%.f")
         .or_else(|_| chrono::NaiveDateTime::parse_from_str(&meta.login_at, "%Y-%m-%d %H:%M:%S"))
         .ok()
@@ -20,9 +20,9 @@ fn session_proto(jti: &str, uid: u32, meta: &SessionMeta, current_uid: u32) -> O
     OnlineSession {
         current: Some(uid == current_uid),
         jti: Some(jti.to_string()),
-        user_id: Some(uid),
+        user_id: Some(uid as u64),
         username: Some(meta.username.clone()),
-        tenant_id: Some(meta.tenant_id),
+        tenant_id: Some(meta.tenant_id as u64),
         client_type: Some(0),
         ip_address: Some(meta.ip.clone()),
         user_agent: Some(meta.user_agent.clone()),
@@ -52,7 +52,7 @@ impl proto::gen::services::OnlineSessionServiceHandlers for OnlineSessionService
                     || meta.username.to_lowercase().contains(&keyword)
                     || meta.ip.to_lowercase().contains(&keyword)
             })
-            .map(|(_, uid, jti, meta)| session_proto(jti, *uid, meta, me.user_id))
+            .map(|(_, uid, jti, meta)| session_proto(jti, *uid as i64, meta, me.user_id))
             .collect();
         items.sort_by(|a, b| {
             b.login_at
@@ -87,8 +87,10 @@ impl proto::gen::services::OnlineSessionServiceHandlers for OnlineSessionService
             ));
         }
         match req.jti.as_deref() {
-            Some(jti) if !jti.is_empty() => self.state.tokens.revoke_token_by_jti(uid, jti).await,
-            _ => self.state.tokens.revoke_user_token(uid).await,
+            Some(jti) if !jti.is_empty() => {
+                self.state.tokens.revoke_token_by_jti(uid as i64, jti).await
+            }
+            _ => self.state.tokens.revoke_user_token(uid as i64).await,
         }
         Ok(ForceLogoutSessionResponse {})
     }

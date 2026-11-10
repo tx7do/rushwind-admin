@@ -32,15 +32,15 @@ fn value_type_to_proto(s: &str) -> i32 {
 
 fn config_proto(r: crate::data::sys_configs::Model) -> Config {
     Config {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         key: Some(r.key),
         value: r.value,
         value_type: r.value_type.as_deref().map(value_type_to_proto),
         is_built_in: r.is_built_in,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -75,7 +75,7 @@ impl proto::gen::services::ConfigServiceHandlers for ConfigService {
             req.query_by,
             proto::proto::config::service::v1::get_config_request::QueryBy
         );
-        let row = crate::data::sys_configs::Entity::find_by_id(id)
+        let row = crate::data::sys_configs::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -125,7 +125,7 @@ impl proto::gen::services::ConfigServiceHandlers for ConfigService {
                 .await
                 .map_err(db_err)?
         } else {
-            crate::data::sys_configs::Entity::find_by_id(req.id)
+            crate::data::sys_configs::Entity::find_by_id(req.id as i64)
                 .one(&self.state.db)
                 .await
                 .map_err(db_err)?
@@ -177,7 +177,7 @@ impl proto::gen::services::ConfigServiceHandlers for ConfigService {
             req.query_by,
             proto::proto::config::service::v1::delete_config_request::QueryBy
         );
-        let row = crate::data::sys_configs::Entity::find_by_id(id)
+        let row = crate::data::sys_configs::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?;

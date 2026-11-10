@@ -13,9 +13,9 @@ use proto::proto::pagination::PagingRequest;
 
 fn log_proto(r: crate::data::sys_permission_audit_logs::Model) -> PermissionAuditLog {
     PermissionAuditLog {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
-        operator_id: r.operator_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
+        operator_id: r.operator_id.map(|v| v as u64),
         operator_name: r.operator_name,
         target_type: r.target_type,
         target_id: r.target_id,
@@ -63,7 +63,7 @@ impl proto::gen::services::PermissionAuditLogServiceHandlers for PermissionAudit
             req.query_by,
             proto::proto::audit::service::v1::get_permission_audit_log_request::QueryBy
         );
-        let row = crate::data::sys_permission_audit_logs::Entity::find_by_id(id)
+        let row = crate::data::sys_permission_audit_logs::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?

@@ -21,22 +21,21 @@ struct AdminGate {
 }
 
 impl Gate for AdminGate {
-    async fn authorize(&self, token: &str) -> Result<u32, Failure> {
+    async fn authorize(&self, token: &str) -> Result<u64, Failure> {
         let Ok(claims) = self.authenticator.authenticate_token(token) else {
             return Err(Failure::new("UNAUTHORIZED", "invalid token"));
         };
-        let Some(uid) = claims
-            .0
-            .get("uid")
-            .and_then(|v| v.as_u64())
-            .map(|v| v as u32)
-        else {
+        let Some(uid) = claims.0.get("uid").and_then(|v| v.as_u64()) else {
             return Err(Failure::new("UNAUTHORIZED", "invalid token"));
         };
         let Ok(jti) = claims.get_jwt_id() else {
             return Err(Failure::new("UNAUTHORIZED", "invalid token"));
         };
-        if !self.tokens.is_valid_access_token(uid, &jti, token).await {
+        if !self
+            .tokens
+            .is_valid_access_token(uid as i64, &jti, token)
+            .await
+        {
             return Err(Failure::new(
                 "UNAUTHORIZED",
                 "access token is revoked or expired",
@@ -92,9 +91,9 @@ pub fn factory(
 /// after the recipient rows land. Payload = the recipient protojson,
 /// assembled field-by-field (the proto types carry no serde derives).
 pub struct NotificationPayload {
-    pub id: u32,
-    pub message_id: u32,
-    pub recipient_user_id: u32,
+    pub id: i64,
+    pub message_id: i64,
+    pub recipient_user_id: i64,
     pub title: String,
     pub content: String,
     pub received_at: Option<pbjson_types::Timestamp>,
@@ -113,5 +112,5 @@ pub fn publish_recipient(hub: &Hub, payload: &NotificationPayload) {
             "nanos": ts.nanos,
         })),
     });
-    hub.publish(payload.recipient_user_id, json.to_string());
+    hub.publish(payload.recipient_user_id as u64, json.to_string());
 }

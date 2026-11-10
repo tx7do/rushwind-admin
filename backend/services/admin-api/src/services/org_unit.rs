@@ -30,11 +30,11 @@ fn org_type_to_str(v: i32) -> String {
 
 fn org_proto(r: crate::data::sys_org_units::Model) -> OrgUnit {
     OrgUnit {
-        id: Some(r.id),
-        parent_id: r.parent_id,
+        id: Some(r.id as u64),
+        parent_id: r.parent_id.map(|v| v as u64),
         name: Some(r.name),
         code: r.code,
-        leader_id: r.leader_id,
+        leader_id: r.leader_id.map(|v| v as u64),
         leader_name: None,
         r#type: Some(org_type_to_proto(
             r.type_column.as_deref().unwrap_or("DEPARTMENT"),
@@ -63,9 +63,9 @@ fn org_proto(r: crate::data::sys_org_units::Model) -> OrgUnit {
         country: r.country,
         remark: r.remark,
         description: r.description,
-        tenant_id: r.tenant_id,
+        tenant_id: r.tenant_id.map(|v| v as u64),
         tenant_name: None,
-        contact_user_id: r.contact_user_id,
+        contact_user_id: r.contact_user_id.map(|v| v as u64),
         contact_user_name: None,
         attributes: std::collections::HashMap::new(),
         permission_tags: r
@@ -79,9 +79,9 @@ fn org_proto(r: crate::data::sys_org_units::Model) -> OrgUnit {
             })
             .unwrap_or_default(),
         children: Vec::new(),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -89,7 +89,7 @@ fn org_proto(r: crate::data::sys_org_units::Model) -> OrgUnit {
         longitude: r.longitude,
         start_at: r.start_at.and_then(crate::state::naive_to_ts),
         end_at: r.end_at.and_then(crate::state::naive_to_ts),
-        legal_entity_org_id: r.legal_entity_org_id,
+        legal_entity_org_id: r.legal_entity_org_id.map(|v| v as u64),
     }
 }
 
@@ -100,7 +100,7 @@ pub struct OrgUnitService {
 impl OrgUnitService {
     /// setTreePath: the parent's path (a missing parent for a non-root
     /// node fails; a root takes the fresh root prefix).
-    async fn build_path(&self, parent_id: Option<u32>, own_id: u32) -> Result<String, StatusError> {
+    async fn build_path(&self, parent_id: Option<i64>, own_id: i64) -> Result<String, StatusError> {
         let repo = crate::data::repos::OrgUnitRepo::new(&self.state.db);
         let parent_path = match parent_id.filter(|v| *v != 0) {
             Some(pid) => {
@@ -119,7 +119,7 @@ impl OrgUnitService {
 
 /// The materialized-path join: roots take "/id/", children append to
 /// the parent's path (trailing slash normalized).
-fn compute_tree_path(parent_path: &str, node_id: u32) -> String {
+fn compute_tree_path(parent_path: &str, node_id: i64) -> String {
     if parent_path.is_empty() {
         return format!("/{node_id}/");
     }
@@ -158,7 +158,7 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
         let scope = crate::data::Viewer::from_ctx(&ctx).tenant_scope();
         let repo = crate::data::repos::OrgUnitRepo::new(&self.state.db);
         let row = repo
-            .find_scoped(id, scope)
+            .find_scoped(id as i64, scope)
             .await?
             .ok_or_else(|| not_found("org unit"))?;
         Ok(org_proto(row))
@@ -173,10 +173,10 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
         let data = crate::state::require_data(req.data)?;
         let inserted = crate::data::sys_org_units::ActiveModel {
             tenant_id: Set(Some(payload.tenant_id)),
-            parent_id: Set(data.parent_id),
+            parent_id: Set(data.parent_id.map(|v| v as i64)),
             name: Set(data.name.unwrap_or_default()),
             code: Set(data.code),
-            leader_id: Set(data.leader_id),
+            leader_id: Set(data.leader_id.map(|v| v as i64)),
             type_column: Set(Some(org_type_to_str(data.r#type.unwrap_or(0)))),
             business_scopes: Set((!data.business_scopes.is_empty()).then(|| {
                 serde_json::Value::Array(
@@ -215,7 +215,7 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
         let scope = crate::data::Viewer::from_ctx(&ctx).tenant_scope();
         let repo = crate::data::repos::OrgUnitRepo::new(&self.state.db);
         let row = repo
-            .find_scoped(req.id, scope)
+            .find_scoped(req.id as i64, scope)
             .await?
             .ok_or_else(|| not_found("org unit"))?;
         let mut a: crate::data::sys_org_units::ActiveModel = row.into();
@@ -254,13 +254,13 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
                 a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
             }
             if let Some(v) = data.parent_id {
-                a.parent_id = Set(if v == 0 { None } else { Some(v) });
+                a.parent_id = Set(if v == 0 { None } else { Some(v as i64) });
             }
             if let Some(v) = &data.path {
                 a.path = Set(Some(v.clone()));
             }
             if let Some(v) = data.leader_id {
-                a.leader_id = Set(Some(v));
+                a.leader_id = Set(Some(v as i64));
             }
             if let Some(v) = &data.external_id {
                 a.external_id = Set(Some(v.clone()));
@@ -275,7 +275,7 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
                 a.tax_id = Set(Some(v.clone()));
             }
             if let Some(v) = data.legal_entity_org_id {
-                a.legal_entity_org_id = Set(Some(v));
+                a.legal_entity_org_id = Set(Some(v as i64));
             }
             if let Some(v) = &data.address {
                 a.address = Set(Some(v.clone()));
@@ -305,7 +305,7 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
                 a.end_at = Set(crate::state::ts_to_naive(v));
             }
             if let Some(v) = data.contact_user_id {
-                a.contact_user_id = Set(Some(v));
+                a.contact_user_id = Set(Some(v as i64));
             }
             // Absent scope/tag lists clear the columns (the reference's
             // nil-branch; present lists never ride an update).
@@ -341,20 +341,20 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
                     "cannot move org unit under its own descendant",
                 ));
             }
-            let mut queue: Vec<(u32, String)> = vec![(updated.id, parent_path)];
+            let mut queue: Vec<(u64, String)> = vec![(updated.id as u64, parent_path)];
             let mut head = 0;
             while head < queue.len() {
                 let (id, parent_path) = queue[head].clone();
                 head += 1;
-                let new_path = compute_tree_path(&parent_path, id);
+                let new_path = compute_tree_path(&parent_path, id as i64);
                 let current = repo
-                    .find(id)
+                    .find(id as i64)
                     .await
                     .map_err(|_| internal_error("query org unit failed"))?
                     .and_then(|m| m.path);
                 if current.as_deref() != Some(new_path.as_str()) {
                     if let Some(row) = repo
-                        .find_scoped(id, scope)
+                        .find_scoped(id as i64, scope)
                         .await
                         .map_err(|_| internal_error("query org unit failed"))?
                     {
@@ -365,7 +365,7 @@ impl proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
                             .map_err(|_| internal_error("update org unit path failed"))?;
                     }
                 }
-                for child in repo.children_ids(id).await? {
+                for child in repo.children_ids(id as i64).await? {
                     queue.push((child, new_path.clone()));
                 }
             }

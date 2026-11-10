@@ -6,8 +6,8 @@
 // one transposition away from a silent mis-seed.
 #[derive(Clone, Copy)]
 pub(super) struct MenuSeedRow {
-    pub id: u32,
-    pub parent: u32,
+    pub id: i64,
+    pub parent: u64,
     pub menu_type: &'static str,
     pub path: &'static str,
     pub name: &'static str,

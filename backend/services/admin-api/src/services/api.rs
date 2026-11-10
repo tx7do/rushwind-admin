@@ -77,7 +77,7 @@ fn tag_to_module(tag: &str) -> &'static str {
 
 fn api_proto(r: crate::data::sys_apis::Model) -> Api {
     Api {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         operation: r.operation,
         path: r.path,
         method: r.method,
@@ -90,9 +90,9 @@ fn api_proto(r: crate::data::sys_apis::Model) -> Api {
         description: r.description,
         scope: r.scope.as_deref().map(|s| if s == "APP" { 2 } else { 1 }),
         status: r.status.as_deref().map(crate::state::status_to_proto),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -112,22 +112,22 @@ impl ApiService {
         &self,
         txn: &sea_orm::DatabaseTransaction,
         rows: Vec<super::api::DerivedApiRow>,
-        operator_id: u32,
+        operator_id: i64,
     ) -> Result<(), StatusError> {
         let existing = crate::data::sys_apis::Entity::find()
             .all(txn)
             .await
             .map_err(db_err)?;
-        let mut existing_by_key: std::collections::HashMap<(String, String), u32> =
+        let mut existing_by_key: std::collections::HashMap<(String, String), u64> =
             std::collections::HashMap::with_capacity(existing.len());
-        let mut row_by_id: std::collections::HashMap<u32, &crate::data::sys_apis::Model> =
+        let mut row_by_id: std::collections::HashMap<u64, &crate::data::sys_apis::Model> =
             std::collections::HashMap::with_capacity(existing.len());
         for row in &existing {
             let (Some(path), Some(method)) = (row.path.clone(), row.method.clone()) else {
                 continue;
             };
-            existing_by_key.insert((path, method.to_uppercase()), row.id);
-            row_by_id.insert(row.id, row);
+            existing_by_key.insert((path, method.to_uppercase()), row.id as u64);
+            row_by_id.insert(row.id as u64, row);
         }
 
         let mut spec_keys = std::collections::HashSet::with_capacity(rows.len());
@@ -186,7 +186,7 @@ impl ApiService {
             })
             .collect();
         if !gone.is_empty() {
-            let gone_ids: Vec<u32> = gone.iter().map(|r| r.id).collect();
+            let gone_ids: Vec<i64> = gone.iter().map(|r| r.id).collect();
             for row in &gone {
                 let path = row.path.clone().unwrap_or_default();
                 let method = row.method.clone().unwrap_or_default();
@@ -247,7 +247,7 @@ impl proto::gen::services::ApiServiceHandlers for ApiService {
             req.query_by,
             proto::proto::permission::service::v1::get_api_request::QueryBy
         );
-        let row = crate::data::sys_apis::Entity::find_by_id(id)
+        let row = crate::data::sys_apis::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -309,7 +309,7 @@ impl proto::gen::services::ApiServiceHandlers for ApiService {
         req: UpdateApiRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_apis::Entity::find_by_id(req.id)
+        let row = crate::data::sys_apis::Entity::find_by_id(req.id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -349,7 +349,7 @@ impl proto::gen::services::ApiServiceHandlers for ApiService {
         // 先取行拿端点身份：删行后按 api_id 与 (path, method) 快照双口径
         // 级联清理权限绑定，消灭孤儿绑定（孤儿绑定会在 id 重编号后指到无关
         // 端点造成越权放行——上游 CascadeDeleteBindings 同语义）。
-        let row = crate::data::sys_apis::Entity::find_by_id(id)
+        let row = crate::data::sys_apis::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -376,7 +376,7 @@ impl proto::gen::services::ApiServiceHandlers for ApiService {
                     .map_err(db_err)?;
             }
         }
-        crate::data::sys_apis::Entity::delete_by_id(id)
+        crate::data::sys_apis::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;

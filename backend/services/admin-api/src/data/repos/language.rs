@@ -11,13 +11,13 @@ repo_shell!(global LanguageRepo, entity, "language");
 
 impl<'a> LanguageRepo<'a> {
     /// The id behind a language-code lookup (Get's query_by=code).
-    pub async fn find_id_by_code(&self, code: &str) -> Result<Option<u32>, StatusError> {
+    pub async fn find_id_by_code(&self, code: &str) -> Result<Option<u64>, StatusError> {
         entity::Entity::find()
             .filter(entity::Column::LanguageCode.eq(code))
             .one(self.db)
             .await
             .map_err(db_err)
-            .map(|row| row.map(|row| row.id))
+            .map(|row| row.map(|row| row.id as u64))
     }
 
     /// One insert, shared by create and batch_create.

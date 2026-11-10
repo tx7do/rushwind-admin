@@ -28,7 +28,7 @@ use proto::proto::pagination::PagingRequest;
 
 fn template_proto(r: crate::data::sys_notification_templates::Model) -> NotificationTemplate {
     NotificationTemplate {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: r.name,
         code: r.code,
         title_template: r.title_template,
@@ -103,7 +103,7 @@ impl proto::gen::services::NotificationTemplateServiceHandlers for NotificationT
             None => 0,
         };
         if id != 0 {
-            return Ok(template_proto(repo.get_by_id(id).await?));
+            return Ok(template_proto(repo.get_by_id(id as i64).await?));
         }
         Err(status_error("BAD_REQUEST", "id or code is required"))
     }
@@ -151,10 +151,10 @@ impl proto::gen::services::NotificationTemplateServiceHandlers for NotificationT
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
         let repo = crate::data::repos::NotificationTemplateRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id).await?;
+        let row = repo.get_by_id(req.id as i64).await?;
         if let Some(code) = data.code.as_deref().filter(|c| !c.is_empty()) {
             if let Some(other) = repo.get_by_code(code).await? {
-                if other.id != req.id {
+                if other.id != req.id as i64 {
                     return Err(status_error("CONFLICT", "template code already exists"));
                 }
             }
@@ -173,8 +173,8 @@ impl proto::gen::services::NotificationTemplateServiceHandlers for NotificationT
         req: DeleteNotificationTemplateRequest,
     ) -> Result<Empty, StatusError> {
         let repo = crate::data::repos::NotificationTemplateRepo::new(&self.state.db);
-        repo.get_by_id(req.id).await?;
-        repo.delete_by_id(req.id).await?;
+        repo.get_by_id(req.id as i64).await?;
+        repo.delete_by_id(req.id as i64).await?;
         Ok(Empty {})
     }
 
@@ -186,7 +186,7 @@ impl proto::gen::services::NotificationTemplateServiceHandlers for NotificationT
         req: RenderNotificationTemplateRequest,
     ) -> Result<RenderNotificationTemplateResponse, StatusError> {
         let repo = crate::data::repos::NotificationTemplateRepo::new(&self.state.db);
-        let tpl = repo.get_by_id(req.id).await?;
+        let tpl = repo.get_by_id(req.id as i64).await?;
         let vars: BTreeMap<String, String> = req.variables.into_iter().collect();
 
         let title = render_template(&tpl.title_template.unwrap_or_default(), &vars)

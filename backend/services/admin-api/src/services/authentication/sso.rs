@@ -346,7 +346,7 @@ impl AuthenticationService {
         }
 
         // 4. locate or provision the local account.
-        let mut tenant_id: u32 = 0;
+        let mut tenant_id: i64 = 0;
         if !cfg.tenant_code.is_empty() {
             let tenant = tenants::Entity::find()
                 .filter(tenants::Column::Code.eq(cfg.tenant_code.as_str()))
@@ -354,7 +354,7 @@ impl AuthenticationService {
                 .await
                 .map_err(|e| internal_error(format!("db: {e}")))?;
             match tenant {
-                Some(t) => tenant_id = t.id,
+                Some(t) => tenant_id = t.id as u64 as i64,
                 None => {
                     return Err(status_error(
                         "INTERNAL_SERVER_ERROR",
@@ -432,7 +432,7 @@ impl AuthenticationService {
     /// one), status NORMAL.
     async fn sso_auto_create_user(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         email: &str,
     ) -> Result<users::Model, StatusError> {
         let local = email.split('@').next().unwrap_or(email);

@@ -221,7 +221,10 @@ impl AuthenticationServiceHandlers for AuthenticationService {
             .await
             .map_err(|e| internal_error(format!("db: {e}")))?;
 
-        self.state.tokens.revoke_user_token(user.id).await;
+        self.state
+            .tokens
+            .revoke_user_token(user.id as u64 as i64)
+            .await;
         let _ = ctx;
         Ok(Empty {})
     }
@@ -263,7 +266,6 @@ impl AuthenticationServiceHandlers for AuthenticationService {
             .0
             .get("uid")
             .and_then(|v| v.as_u64())
-            .map(|v| v as u32)
             .ok_or_else(|| status_error("INCORRECT_REFRESH_TOKEN", "invalid refresh token"))?;
         let jti = claims
             .get_jwt_id()
@@ -271,7 +273,7 @@ impl AuthenticationServiceHandlers for AuthenticationService {
         if !self
             .state
             .tokens
-            .verify_and_revoke_refresh_token(uid, &jti, &token)
+            .verify_and_revoke_refresh_token(uid as i64, &jti, &token)
             .await
         {
             return Err(status_error(
@@ -281,7 +283,7 @@ impl AuthenticationServiceHandlers for AuthenticationService {
         }
 
         // Fresh authority resolution from the DB (roles may have changed).
-        let user = users::Entity::find_by_id(uid)
+        let user = users::Entity::find_by_id(uid as i64)
             .one(&self.state.db)
             .await
             .map_err(|e| internal_error(format!("db: {e}")))?
@@ -403,7 +405,7 @@ impl AuthenticationService {
         // 的变体键照常放行，用户维度锁形同虚设。统一用解析后的 username 作
         // 限流键，email/手机号/变体全落同一账号键；IsLocked 仍在 captcha
         // 之前，闸门顺序语义不变）。
-        let mut tenant_id: u32 = 0;
+        let mut tenant_id: i64 = 0;
         if let Some(code) = req
             .tenant_code
             .as_deref()
@@ -416,7 +418,7 @@ impl AuthenticationService {
                 .await
                 .map_err(|e| internal_error(format!("db: {e}")))?;
             match tenant {
-                Some(t) if t.status.as_deref() == Some("ON") => tenant_id = t.id,
+                Some(t) if t.status.as_deref() == Some("ON") => tenant_id = t.id as u64 as i64,
                 _ => return Err(status_error("BAD_REQUEST", "invalid tenant")),
             }
         }
@@ -483,7 +485,7 @@ impl AuthenticationService {
             }
         };
 
-        let user = users::Entity::find_by_id(matched_user_id)
+        let user = users::Entity::find_by_id(matched_user_id as i64)
             .one(&self.state.db)
             .await
             .map_err(|e| internal_error(format!("db: {e}")))?

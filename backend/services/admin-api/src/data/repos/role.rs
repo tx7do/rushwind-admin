@@ -52,7 +52,7 @@ impl<'a> RoleRepo<'a> {
         .await
     }
 
-    pub async fn get_by_id(&self, id: u32) -> Result<roles::Model, StatusError> {
+    pub async fn get_by_id(&self, id: i64) -> Result<roles::Model, StatusError> {
         let mut query = roles::Entity::find_by_id(id);
         if let Some(tid) = self.viewer.tenant_scope() {
             query = roles::Entity::find_by_id(id).filter(roles::Column::TenantId.eq(tid));
@@ -91,7 +91,7 @@ impl<'a> RoleRepo<'a> {
         name: &str,
         code: &str,
         role_type: &str,
-        operator_id: u32,
+        operator_id: i64,
     ) -> Result<roles::Model, StatusError> {
         roles::ActiveModel {
             tenant_id: Set(self.viewer.stamp_tenant(None)),
@@ -112,10 +112,10 @@ impl<'a> RoleRepo<'a> {
     /// Copy the template role's permission bindings into a fresh tenant role.
     pub async fn copy_permissions(
         &self,
-        from_role: u32,
-        to_role: u32,
-        to_tenant: u32,
-        _operator_id: u32,
+        from_role: u64,
+        to_role: u64,
+        to_tenant: u64,
+        _operator_id: i64,
     ) -> Result<(), StatusError> {
         let perms = sys_role_permissions::Entity::find()
             .filter(sys_role_permissions::Column::RoleId.eq(from_role))
@@ -124,8 +124,8 @@ impl<'a> RoleRepo<'a> {
             .map_err(db_err)?;
         for perm in perms {
             sys_role_permissions::ActiveModel {
-                tenant_id: Set(Some(to_tenant)),
-                role_id: Set(Some(to_role)),
+                tenant_id: Set(Some(to_tenant as i64)),
+                role_id: Set(Some(to_role as i64)),
                 permission_id: Set(perm.permission_id),
                 effect: Set(Some("ALLOW".into())),
                 status: Set(Some("ON".into())),
@@ -142,10 +142,10 @@ impl<'a> RoleRepo<'a> {
 
     pub async fn sync_permissions(
         &self,
-        tenant_id: u32,
-        role_id: u32,
-        permission_ids: &[u32],
-        _operator_id: u32,
+        tenant_id: i64,
+        role_id: i64,
+        permission_ids: &[u64],
+        _operator_id: i64,
     ) -> Result<(), StatusError> {
         sys_role_permissions::Entity::delete_many()
             .filter(
@@ -160,7 +160,7 @@ impl<'a> RoleRepo<'a> {
             sys_role_permissions::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 role_id: Set(Some(role_id)),
-                permission_id: Set(Some(*pid)),
+                permission_id: Set(Some(*pid as i64)),
                 effect: Set(Some("ALLOW".into())),
                 status: Set(Some("ON".into())),
                 created_at: Set(Some(crate::data::now())),
@@ -174,7 +174,7 @@ impl<'a> RoleRepo<'a> {
         Ok(())
     }
 
-    pub async fn delete(&self, id: u32) -> Result<(), StatusError> {
+    pub async fn delete(&self, id: i64) -> Result<(), StatusError> {
         sys_role_permissions::Entity::delete_many()
             .filter(sys_role_permissions::Column::RoleId.eq(id))
             .exec(self.db)

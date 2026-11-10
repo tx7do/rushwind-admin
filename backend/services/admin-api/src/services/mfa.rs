@@ -30,7 +30,7 @@ impl MfaService {
     fn ctx_of(
         &self,
         ctx: &rushwind_http_binding::ctx::RequestContext,
-    ) -> Result<(u32, u32, String), StatusError> {
+    ) -> Result<(i64, i64, String), StatusError> {
         let payload = crate::state::operator_of(ctx)?;
         Ok((payload.user_id, payload.tenant_id, payload.username))
     }
@@ -39,8 +39,8 @@ impl MfaService {
     /// status=ENABLED 才可参与验证）。
     async fn enabled_totp_for(
         &self,
-        tenant_id: u32,
-        user_id: u32,
+        tenant_id: i64,
+        user_id: i64,
     ) -> Option<crate::data::sys_user_mfa_factors::Model> {
         crate::data::sys_user_mfa_factors::Entity::find()
             .filter(
@@ -59,7 +59,7 @@ impl MfaService {
     /// 同码重放防线（P3 加固）：记录 (uid, code) 组合，90 秒内（TOTP ±skew
     /// 窗口）重复出现即拒绝。Redis 异常放行（防御性优化，不阻断正常流程；
     /// 主防线是挑战/因子校验本体）。
-    async fn try_acquire_used_totp_code(&self, user_id: u32, code: &str) -> bool {
+    async fn try_acquire_used_totp_code(&self, user_id: i64, code: &str) -> bool {
         let mut conn = self.state.redis.clone();
         let key = format!("mfa:usedcode:{user_id}:{code}");
         match redis::cmd("SET")
@@ -79,8 +79,8 @@ impl MfaService {
 
     async fn factor_for(
         &self,
-        tenant_id: u32,
-        user_id: u32,
+        tenant_id: i64,
+        user_id: i64,
     ) -> Option<crate::data::sys_user_mfa_factors::Model> {
         crate::data::sys_user_mfa_factors::Entity::find()
             .filter(
@@ -280,8 +280,8 @@ impl MfaServiceHandlers for MfaService {
             .as_str()
             .ok_or_else(|| internal_error("enroll payload"))?
             .to_string();
-        let stored_uid = data["userId"].as_u64().unwrap_or(0) as u32;
-        let stored_tid = data["tenantId"].as_u64().unwrap_or(0) as u32;
+        let stored_uid = data["userId"].as_i64().unwrap_or(0);
+        let stored_tid = data["tenantId"].as_i64().unwrap_or(0);
         if stored_uid != uid || stored_tid != tid {
             return Err(status_error("FORBIDDEN", "enroll operation owner mismatch"));
         }
@@ -326,7 +326,7 @@ impl MfaServiceHandlers for MfaService {
         // 管理端救援路径：目标用户由 user_id 指定（≠ 本人），仅平台管理员，
         // 用于用户认证器丢失时的救援重置（按 credential_id 精确删，或按
         // method 清空该用户该方法全部因子），留告警日志。
-        let target = req.user_id.unwrap_or(0);
+        let target = req.user_id.map(|v| v as i64).unwrap_or(0);
         if target != 0 && target != uid {
             if payload.is_platform_admin != Some(true) {
                 return Err(status_error(
@@ -337,10 +337,10 @@ impl MfaServiceHandlers for MfaService {
             if let Some(id) = req
                 .credential_id
                 .as_deref()
-                .and_then(|v| v.parse::<u32>().ok())
+                .and_then(|v| v.parse::<u64>().ok())
             {
                 // 凭 credential_id 定位因子行（目标用户可能在任意租户）
-                let factor = crate::data::sys_user_mfa_factors::Entity::find_by_id(id)
+                let factor = crate::data::sys_user_mfa_factors::Entity::find_by_id(id as i64)
                     .one(&self.state.db)
                     .await
                     .map_err(|e| internal_error(format!("db: {e}")))?;
@@ -429,7 +429,7 @@ impl MfaServiceHandlers for MfaService {
         if let Some(id) = req
             .credential_id
             .as_deref()
-            .and_then(|v| v.parse::<u32>().ok())
+            .and_then(|v| v.parse::<u64>().ok())
         {
             delete = delete.filter(crate::data::sys_user_mfa_factors::Column::Id.eq(id));
         }
@@ -446,7 +446,7 @@ impl MfaServiceHandlers for MfaService {
         req: RevokeMfaDeviceRequest,
     ) -> Result<pbjson_types::Empty, crate::state::StatusError> {
         let (uid, tid, _) = self.ctx_of(&ctx)?;
-        let id: u32 = req
+        let id: i64 = req
             .credential_id
             .parse()
             .map_err(|_| status_error("BAD_REQUEST", "invalid credential id"))?;

@@ -15,15 +15,15 @@ use proto::proto::pagination::PagingRequest;
 
 fn conv_proto(r: crate::data::sys_ai_conversations::Model) -> AiConversation {
     AiConversation {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
         title: r.title,
-        provider_id: r.provider_id,
-        user_id: Some(r.user_id),
+        provider_id: r.provider_id.map(|v| v as u64),
+        user_id: Some(r.user_id as u64),
         last_message_at: r.last_message_at.and_then(crate::state::naive_to_ts),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -62,7 +62,7 @@ impl proto::gen::services::AiConversationServiceHandlers for AiConversationServi
             proto::proto::ai::service::v1::get_ai_conversation_request::QueryBy
         );
         let row = repo
-            .find_scoped(id)
+            .find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("ai conversation"))?;
         Ok(conv_proto(row))
@@ -78,7 +78,7 @@ impl proto::gen::services::AiConversationServiceHandlers for AiConversationServi
         let repo =
             crate::data::repos::AiConversationRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(req.id)
+            .find_scoped(req.id as i64)
             .await?
             .ok_or_else(|| not_found("ai conversation"))?;
         let mut a: crate::data::sys_ai_conversations::ActiveModel = row.into();
@@ -104,7 +104,7 @@ impl proto::gen::services::AiConversationServiceHandlers for AiConversationServi
         );
         let repo =
             crate::data::repos::AiConversationRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
-        repo.find_scoped(id)
+        repo.find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("ai conversation"))?;
         // 会话删除级联消息行（上游 delete cascade 同语义）。
@@ -114,7 +114,7 @@ impl proto::gen::services::AiConversationServiceHandlers for AiConversationServi
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        crate::data::sys_ai_conversations::Entity::delete_by_id(id)
+        crate::data::sys_ai_conversations::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;

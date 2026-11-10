@@ -47,7 +47,7 @@ impl<'a> DictEntryRepo<'a> {
     /// entries under the type, sort_order ascending.
     pub async fn list_by_type_code(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         type_code: &str,
     ) -> Result<Vec<sys_dict_entries::Model>, StatusError> {
         let type_row = sys_dict_types::Entity::find()

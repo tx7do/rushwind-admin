@@ -50,7 +50,10 @@ pub use scope::Viewer;
 /// 子树收集（上游 collectTreeIDs 同语义）：内存 parent→children 映射 +
 /// visited 防护——存量环脏数据正常收敛不打转。委托 `rust_utils::sliceutil`
 /// （环收敛 doctest 落在库侧），本仓保留转发以稳定数十个调用点。
-pub fn collect_subtree_ids(rows: &[(u32, Option<u32>)], root: u32) -> Vec<u32> {
+pub fn collect_subtree_ids<T: Copy + Eq + std::hash::Hash>(
+    rows: &[(T, Option<T>)],
+    root: T,
+) -> Vec<T> {
     rust_utils::sliceutil::collect_subtree_ids(rows, root)
 }
 

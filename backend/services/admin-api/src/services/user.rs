@@ -33,7 +33,7 @@ impl UserService {
 
     async fn find_by_username(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         username: &str,
     ) -> Result<Option<crate::data::sys_users::Model>, StatusError> {
         crate::data::sys_users::Entity::find()
@@ -50,8 +50,8 @@ impl UserService {
     /// The credential row create/update used by create + password edits.
     async fn upsert_credential(
         &self,
-        tenant_id: u32,
-        user_id: u32,
+        tenant_id: i64,
+        user_id: i64,
         username: &str,
         encrypted_password: Option<&str>,
     ) -> Result<(), StatusError> {
@@ -103,9 +103,9 @@ impl UserService {
     /// The role binding for create/update (role_ids on the payload).
     async fn sync_roles(
         &self,
-        tenant_id: u32,
-        user_id: u32,
-        role_ids: &[u32],
+        tenant_id: i64,
+        user_id: i64,
+        role_ids: &[u64],
     ) -> Result<(), StatusError> {
         crate::data::sys_user_roles::Entity::delete_many()
             .filter(
@@ -120,7 +120,7 @@ impl UserService {
             crate::data::sys_user_roles::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 user_id: Set(Some(user_id)),
-                role_id: Set(Some(*role_id)),
+                role_id: Set(Some(*role_id as i64)),
                 status: Set(Some("ACTIVE".into())),
                 assigned_at: Set(Some(crate::data::now())),
                 created_at: Set(Some(crate::data::now())),
@@ -220,7 +220,7 @@ impl proto::gen::services::UserServiceHandlers for UserService {
         let tid = tenant_of(&ctx);
         let row = match req.query_by {
             Some(proto::proto::identity::service::v1::get_user_request::QueryBy::Id(id)) => {
-                crate::data::sys_users::Entity::find_by_id(id)
+                crate::data::sys_users::Entity::find_by_id(id as i64)
                     .one(&self.state.db)
                     .await
                     .map_err(db_err)?
@@ -284,7 +284,7 @@ impl proto::gen::services::UserServiceHandlers for UserService {
         req: UpdateUserRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_users::Entity::find_by_id(req.id)
+        let row = crate::data::sys_users::Entity::find_by_id(req.id as i64)
             .filter(crate::data::sys_users::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -297,19 +297,19 @@ impl proto::gen::services::UserServiceHandlers for UserService {
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
             if !data.role_ids.is_empty() {
-                self.sync_roles(payload.tenant_id, req.id, &data.role_ids)
+                self.sync_roles(payload.tenant_id, req.id as i64, &data.role_ids)
                     .await?;
             }
         }
         if req.password.as_deref().is_some_and(|v| !v.is_empty()) {
             self.upsert_credential(
                 payload.tenant_id,
-                req.id,
+                req.id as i64,
                 &username_before,
                 req.password.as_deref(),
             )
             .await?;
-            self.state.tokens.revoke_user_token(req.id).await;
+            self.state.tokens.revoke_user_token(req.id as i64).await;
         }
         Ok(Empty {})
     }
@@ -321,7 +321,9 @@ impl proto::gen::services::UserServiceHandlers for UserService {
     ) -> Result<Empty, StatusError> {
         let tid = tenant_of(&ctx);
         let id = match req.query_by {
-            Some(proto::proto::identity::service::v1::delete_user_request::QueryBy::Id(id)) => id,
+            Some(proto::proto::identity::service::v1::delete_user_request::QueryBy::Id(id)) => {
+                id as i64
+            }
             Some(proto::proto::identity::service::v1::delete_user_request::QueryBy::Username(
                 name,
             )) => self
@@ -361,7 +363,7 @@ impl proto::gen::services::UserServiceHandlers for UserService {
         let tid = tenant_of(&ctx);
         let exist = match req.query_by {
             Some(proto::proto::identity::service::v1::user_exists_request::QueryBy::Id(id)) => {
-                crate::data::sys_users::Entity::find_by_id(id)
+                crate::data::sys_users::Entity::find_by_id(id as i64)
                     .one(&self.state.db)
                     .await
                     .map_err(db_err)?
@@ -412,7 +414,10 @@ impl proto::gen::services::UserServiceHandlers for UserService {
         a.credential = Set(hash);
         a.updated_at = Set(Some(crate::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
-        self.state.tokens.revoke_user_token(req.user_id).await;
+        self.state
+            .tokens
+            .revoke_user_token(req.user_id as i64)
+            .await;
         Ok(Empty {})
     }
 }
@@ -421,14 +426,14 @@ impl proto::gen::services::UserServiceHandlers for UserService {
 /// shape).
 pub(crate) async fn load_user(
     state: &AppState,
-    uid: u32,
+    uid: i64,
 ) -> Result<(crate::data::sys_users::Model, Vec<String>), crate::state::StatusError> {
     let user = crate::data::sys_users::Entity::find_by_id(uid)
         .one(&state.db)
         .await
         .map_err(|e| internal_error(format!("db: {e}")))?
         .ok_or_else(|| status_error("USER_NOT_FOUND", "user not found"))?;
-    let role_ids: Vec<u32> = crate::data::sys_user_roles::Entity::find()
+    let role_ids: Vec<i64> = crate::data::sys_user_roles::Entity::find()
         .filter(crate::data::sys_user_roles::Column::UserId.eq(uid))
         .all(&state.db)
         .await
@@ -455,8 +460,8 @@ pub(crate) async fn load_user(
 /// `roles` list).
 pub(crate) fn user_to_proto(user: crate::data::sys_users::Model, role_codes: Vec<String>) -> User {
     User {
-        id: Some(user.id),
-        tenant_id: user.tenant_id,
+        id: Some(user.id as u64),
+        tenant_id: user.tenant_id.map(|v| v as u64),
         username: Some(user.username),
         nickname: user.nickname,
         realname: user.realname,
@@ -479,9 +484,9 @@ pub(crate) fn user_to_proto(user: crate::data::sys_users::Model, role_codes: Vec
             .as_deref()
             .map(|s| mapping::user_status_of(s).unwrap_or(0)),
         locked_until: user.locked_until.and_then(crate::state::naive_to_ts),
-        created_by: user.created_by,
-        updated_by: user.updated_by,
-        deleted_by: user.deleted_by,
+        created_by: user.created_by.map(|v| v as u64),
+        updated_by: user.updated_by.map(|v| v as u64),
+        deleted_by: user.deleted_by.map(|v| v as u64),
         created_at: user.created_at.and_then(crate::state::naive_to_ts),
         updated_at: user.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: user.deleted_at.and_then(crate::state::naive_to_ts),

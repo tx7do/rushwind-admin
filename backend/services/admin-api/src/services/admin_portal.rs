@@ -26,9 +26,9 @@ impl AdminPortalService {
     /// The role-permitted menu ids → menu rows (non-BUTTON, status ON).
     async fn permitted_menus(
         &self,
-        uid: u32,
+        uid: i64,
     ) -> Result<Vec<crate::data::sys_menus::Model>, crate::state::StatusError> {
-        let role_ids: Vec<u32> = crate::data::sys_user_roles::Entity::find()
+        let role_ids: Vec<i64> = crate::data::sys_user_roles::Entity::find()
             .filter(crate::data::sys_user_roles::Column::UserId.eq(uid))
             .all(&self.state.db)
             .await
@@ -36,9 +36,9 @@ impl AdminPortalService {
             .iter()
             .filter_map(|r| r.role_id)
             .collect();
-        let mut menu_ids: Vec<u32> = Vec::new();
+        let mut menu_ids: Vec<i64> = Vec::new();
         if !role_ids.is_empty() {
-            let perm_ids: Vec<u32> = crate::data::sys_role_permissions::Entity::find()
+            let perm_ids: Vec<i64> = crate::data::sys_role_permissions::Entity::find()
                 .filter(crate::data::sys_role_permissions::Column::RoleId.is_in(role_ids))
                 .all(&self.state.db)
                 .await
@@ -89,13 +89,13 @@ impl AdminPortalService {
         }
         fn attach(
             rows: &[crate::data::sys_menus::Model],
-            parent: Option<u32>,
+            parent: Option<u64>,
         ) -> Vec<MenuRouteItem> {
             rows.iter()
-                .filter(|r| r.parent_id == parent)
+                .filter(|r| r.parent_id == parent.map(|v| v as i64))
                 .map(|r| {
                     let mut node = item(r);
-                    node.children = attach(rows, Some(r.id));
+                    node.children = attach(rows, Some(r.id as u64));
                     node
                 })
                 .collect()
@@ -103,8 +103,8 @@ impl AdminPortalService {
         attach(rows, None)
     }
 
-    async fn permission_codes(&self, uid: u32) -> Result<Vec<String>, crate::state::StatusError> {
-        let role_ids: Vec<u32> = crate::data::sys_user_roles::Entity::find()
+    async fn permission_codes(&self, uid: i64) -> Result<Vec<String>, crate::state::StatusError> {
+        let role_ids: Vec<i64> = crate::data::sys_user_roles::Entity::find()
             .filter(crate::data::sys_user_roles::Column::UserId.eq(uid))
             .all(&self.state.db)
             .await
@@ -115,7 +115,7 @@ impl AdminPortalService {
         if role_ids.is_empty() {
             return Ok(Vec::new());
         }
-        let perm_ids: Vec<u32> = crate::data::sys_role_permissions::Entity::find()
+        let perm_ids: Vec<i64> = crate::data::sys_role_permissions::Entity::find()
             .filter(crate::data::sys_role_permissions::Column::RoleId.is_in(role_ids))
             .all(&self.state.db)
             .await

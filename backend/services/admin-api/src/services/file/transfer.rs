@@ -169,7 +169,7 @@ impl proto::gen::services::FileTransferServiceHandlers for FileTransferService {
         let row = match &req.selector {
             Some(proto::proto::storage::service::v1::download_file_request::Selector::FileId(
                 id,
-            )) => crate::data::files::Entity::find_by_id(*id)
+            )) => crate::data::files::Entity::find_by_id(*id as i64)
                 .one(&self.state.db)
                 .await
                 .map_err(db_err)?,

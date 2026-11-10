@@ -60,8 +60,8 @@ struct RedisTokenChecker(crate::token::TokenStore);
 
 #[async_trait::async_trait]
 impl auth::AccessTokenChecker for RedisTokenChecker {
-    async fn is_valid_access_token(&self, uid: u32, jti: &str, token: &str) -> bool {
-        self.0.is_valid_access_token(uid, jti, token).await
+    async fn is_valid_access_token(&self, uid: u64, jti: &str, token: &str) -> bool {
+        self.0.is_valid_access_token(uid as i64, jti, token).await
     }
     async fn is_blocked_access_token(&self, jti: &str) -> bool {
         self.0.is_blocked_access_token(jti).await

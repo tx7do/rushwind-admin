@@ -14,18 +14,18 @@ use proto::proto::permission::service::v1::{
 
 fn group_proto(r: crate::data::sys_permission_groups::Model) -> PermissionGroup {
     PermissionGroup {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: Some(r.name),
         path: r.path,
         module: r.module,
         sort_order: r.sort_order,
         status: r.status.as_deref().map(crate::state::status_to_proto),
         description: r.description,
-        parent_id: r.parent_id,
+        parent_id: r.parent_id.map(|v| v as u64),
         children: Vec::new(),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -62,7 +62,7 @@ impl proto::gen::services::PermissionGroupServiceHandlers for PermissionGroupSer
         );
         let repo = crate::data::repos::PermissionGroupRepo::new(&self.state.db);
         let row = repo
-            .find(id)
+            .find(id as i64)
             .await?
             .ok_or_else(|| not_found("permission group"))?;
         Ok(group_proto(row))
@@ -79,7 +79,7 @@ impl proto::gen::services::PermissionGroupServiceHandlers for PermissionGroupSer
             name: Set(data.name.unwrap_or_default()),
             module: Set(data.module),
             path: Set(data.path),
-            parent_id: Set(data.parent_id),
+            parent_id: Set(data.parent_id.map(|v| v as i64)),
             description: Set(data.description),
             status: Set(Some("ON".into())),
             sort_order: Set(data.sort_order.or(Some(0))),
@@ -102,7 +102,7 @@ impl proto::gen::services::PermissionGroupServiceHandlers for PermissionGroupSer
         let payload = operator_of(&ctx)?;
         let repo = crate::data::repos::PermissionGroupRepo::new(&self.state.db);
         let row = repo
-            .find(req.id)
+            .find(req.id as i64)
             .await?
             .ok_or_else(|| not_found("permission group"))?;
         let mut a: crate::data::sys_permission_groups::ActiveModel = row.into();
@@ -117,7 +117,7 @@ impl proto::gen::services::PermissionGroupServiceHandlers for PermissionGroupSer
                 a.path = Set(Some(v.clone()));
             }
             if let Some(v) = data.parent_id {
-                a.parent_id = Set(Some(v));
+                a.parent_id = Set(Some(v as i64));
             }
             if let Some(v) = &data.description {
                 a.description = Set(Some(v.clone()));
@@ -144,7 +144,7 @@ impl proto::gen::services::PermissionGroupServiceHandlers for PermissionGroupSer
             proto::proto::permission::service::v1::delete_permission_group_request::QueryBy
         );
         let repo = crate::data::repos::PermissionGroupRepo::new(&self.state.db);
-        repo.delete_by_id(id).await?;
+        repo.delete_by_id(id as i64).await?;
         Ok(Empty {})
     }
 }

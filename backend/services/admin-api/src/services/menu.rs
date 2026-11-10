@@ -35,7 +35,7 @@ fn module_to_str(v: i32) -> String {
 
 fn menu_proto(r: crate::data::sys_menus::Model) -> Menu {
     Menu {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         status: r.status.as_deref().map(crate::state::status_to_proto),
         r#type: r.type_column.as_deref().map(type_to_proto),
         path: r.path,
@@ -45,11 +45,11 @@ fn menu_proto(r: crate::data::sys_menus::Model) -> Menu {
         component: r.component,
         meta: r.meta.as_ref().and_then(menu_meta_from_json),
         module: r.module.as_deref().map(module_to_proto),
-        parent_id: r.parent_id,
+        parent_id: r.parent_id.map(|v| v as u64),
         children: Vec::new(),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -63,7 +63,7 @@ pub struct MenuService {
 impl MenuService {
     /// parent 是否落在 node 的子树内（含环防护——脏环数据收敛返回 false，
     /// 交由 collect_subtree_ids 的 visited 语义兜底）。
-    async fn is_menu_descendant(&self, node: u32, parent: u32) -> Result<bool, StatusError> {
+    async fn is_menu_descendant(&self, node: u64, parent: u64) -> Result<bool, StatusError> {
         let rows = crate::data::sys_menus::Entity::find()
             .all(&self.state.db)
             .await
@@ -71,7 +71,7 @@ impl MenuService {
             .into_iter()
             .map(|m| (m.id, m.parent_id))
             .collect::<Vec<_>>();
-        Ok(crate::data::collect_subtree_ids(&rows, node).contains(&parent))
+        Ok(crate::data::collect_subtree_ids(&rows, node as i64).contains(&(parent as i64)))
     }
 
     fn apply_fields(a: &mut crate::data::sys_menus::ActiveModel, data: &Menu) {
@@ -100,7 +100,7 @@ impl MenuService {
             a.module = Set(Some(module_to_str(v)));
         }
         if let Some(v) = data.parent_id {
-            a.parent_id = Set(if v == 0 { None } else { Some(v) });
+            a.parent_id = Set(if v == 0 { None } else { Some(v as i64) });
         }
         if let Some(meta) = &data.meta {
             a.meta = Set(Some(menu_meta_to_json(meta)));
@@ -132,7 +132,7 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
             req.query_by,
             proto::proto::permission::service::v1::get_menu_request::QueryBy
         );
-        let row = crate::data::sys_menus::Entity::find_by_id(id)
+        let row = crate::data::sys_menus::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -168,7 +168,7 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
         req: UpdateMenuRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_menus::Entity::find_by_id(req.id)
+        let row = crate::data::sys_menus::Entity::find_by_id(req.id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -211,7 +211,7 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
             .into_iter()
             .map(|m| (m.id, m.parent_id))
             .collect::<Vec<_>>();
-        let ids = crate::data::collect_subtree_ids(&rows, id);
+        let ids = crate::data::collect_subtree_ids(&rows, id as i64);
         use sea_orm::TransactionTrait as _;
         let txn = self.state.db.begin().await.map_err(db_err)?;
         crate::data::sys_permission_menus::Entity::delete_many()
@@ -238,7 +238,7 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
         for data in &req.items {
             match data.id {
                 Some(id) if id > 0 => {
-                    if let Some(row) = crate::data::sys_menus::Entity::find_by_id(id)
+                    if let Some(row) = crate::data::sys_menus::Entity::find_by_id(id as i64)
                         .one(&self.state.db)
                         .await
                         .map_err(db_err)?

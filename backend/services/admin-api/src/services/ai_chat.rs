@@ -13,15 +13,15 @@ use proto::proto::ai::service::v1::{AiConversation, AiMessage, ChatRequest, Chat
 
 fn conv_proto(r: crate::data::sys_ai_conversations::Model) -> AiConversation {
     AiConversation {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
         title: r.title,
-        provider_id: r.provider_id,
-        user_id: Some(r.user_id),
+        provider_id: r.provider_id.map(|v| v as u64),
+        user_id: Some(r.user_id as u64),
         last_message_at: r.last_message_at.and_then(crate::state::naive_to_ts),
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -30,9 +30,9 @@ fn conv_proto(r: crate::data::sys_ai_conversations::Model) -> AiConversation {
 
 fn msg_proto(r: crate::data::sys_ai_messages::Model) -> AiMessage {
     AiMessage {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
-        conversation_id: Some(r.conversation_id),
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
+        conversation_id: Some(r.conversation_id as u64),
         role: r.role.as_deref().map(|s| match s {
             "ASSISTANT" => 1,
             "SYSTEM" => 2,
@@ -44,7 +44,7 @@ fn msg_proto(r: crate::data::sys_ai_messages::Model) -> AiMessage {
         completion_tokens: r.completion_tokens,
         duration_ms: r.duration_ms,
         error_message: r.error_message,
-        user_id: Some(r.user_id),
+        user_id: Some(r.user_id as u64),
         created_by: None,
         updated_by: None,
         deleted_by: None,
@@ -62,7 +62,7 @@ impl AiChatService {
     /// 会话内最近 N 轮作为上下文（与上游 chatContextMaxMessages 的窗口语义同形）。
     async fn context_messages(
         &self,
-        conversation_id: u32,
+        conversation_id: i64,
     ) -> Result<Vec<super::llm::ChatMessage>, StatusError> {
         use sea_orm::QueryOrder as _;
         use sea_orm::QuerySelect as _;
@@ -90,8 +90,8 @@ impl AiChatService {
 
     async fn load_provider(
         &self,
-        tenant_id: u32,
-        provider_id: Option<u32>,
+        tenant_id: i64,
+        provider_id: Option<i64>,
     ) -> Result<crate::data::sys_ai_providers::Model, StatusError> {
         let viewer = Viewer::system();
         let repo = crate::data::repos::AiProviderRepo::new(&self.state.db, viewer);
@@ -134,7 +134,7 @@ impl proto::gen::services::AiChatServiceHandlers for AiChatService {
         // 会话解析：显式 id 优先；缺省时以内容前 20 字为题建会话。
         let conversation = if let Some(cid) = req.conversation_id.filter(|c| *c > 0) {
             crate::data::repos::AiConversationRepo::new(&self.state.db, Viewer::from_ctx(&ctx))
-                .find_scoped(cid)
+                .find_scoped(cid as i64)
                 .await?
                 .ok_or_else(|| not_found("ai conversation"))?
         } else {
@@ -142,7 +142,7 @@ impl proto::gen::services::AiChatServiceHandlers for AiChatService {
             crate::data::sys_ai_conversations::ActiveModel {
                 tenant_id: Set(Some(payload.tenant_id)),
                 title: Set(Some(title)),
-                provider_id: Set(req.provider_id),
+                provider_id: Set(req.provider_id.map(|v| v as i64)),
                 user_id: Set(payload.user_id),
                 created_by: Set(Some(payload.user_id)),
                 updated_by: Set(Some(payload.user_id)),
@@ -156,7 +156,10 @@ impl proto::gen::services::AiChatServiceHandlers for AiChatService {
         };
 
         // Provider 解析：载荷 > 会话绑定 > 默认。
-        let provider_id = req.provider_id.or(conversation.provider_id);
+        let provider_id = req
+            .provider_id
+            .map(|v| v as i64)
+            .or(conversation.provider_id);
         let provider = self.load_provider(payload.tenant_id, provider_id).await?;
 
         // 用户消息落库。

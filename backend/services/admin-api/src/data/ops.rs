@@ -7,8 +7,8 @@ pub mod sys_tasks {
     #[sea_orm(table_name = "sys_tasks")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         /// enum(PERIODIC,DELAY,WAIT_RESULT) default PERIODIC.
         #[sea_orm(column_name = "type")]
         pub type_column: Option<String>,
@@ -21,9 +21,9 @@ pub mod sys_tasks {
         #[sea_orm(default_value = false)]
         pub enable: Option<bool>,
         pub remark: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -41,7 +41,7 @@ pub mod sys_scripts {
     #[sea_orm(table_name = "sys_scripts")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         pub name: String,
         /// enum(LUA,JAVASCRIPT) default LUA.
         pub language: Option<String>,
@@ -56,9 +56,9 @@ pub mod sys_scripts {
         pub version: Option<u32>,
         #[sea_orm(default_value = true)]
         pub is_enabled: Option<bool>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -76,8 +76,8 @@ pub mod sys_script_logs {
     #[sea_orm(table_name = "sys_script_logs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub script_id: Option<u32>,
+        pub id: i64,
+        pub script_id: Option<i64>,
         pub script_name: Option<String>,
         /// enum(LUA,JAVASCRIPT).
         pub language: Option<String>,

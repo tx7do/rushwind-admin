@@ -25,7 +25,7 @@ pub(super) fn is_private_ip(ip: &str) -> bool {
 /// Risk score computation (0-100).
 pub(super) fn risk_score(
     failed: bool,
-    user_id: u32,
+    user_id: i64,
     username: &str,
     ip: &str,
     has_device: bool,
@@ -60,7 +60,7 @@ pub(super) fn risk_level(score: u32) -> &'static str {
 #[allow(clippy::too_many_arguments)]
 pub(super) fn risk_factors(
     failed: bool,
-    user_id: u32,
+    user_id: i64,
     username: &str,
     ip: &str,
     has_device: bool,

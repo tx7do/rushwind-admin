@@ -19,15 +19,15 @@ use proto::proto::pagination::PagingRequest;
 
 fn dict_type_proto(r: crate::data::sys_dict_types::Model) -> DictType {
     DictType {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
         type_code: Some(r.type_code),
         type_name: Some(r.type_name),
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -62,7 +62,9 @@ impl proto::gen::services::DictTypeServiceHandlers for DictTypeService {
     ) -> Result<DictType, StatusError> {
         let tenant = tenant_of(&ctx);
         let id = match req.query_by {
-            Some(proto::proto::dict::service::v1::get_dict_type_request::QueryBy::Id(id)) => id,
+            Some(proto::proto::dict::service::v1::get_dict_type_request::QueryBy::Id(id)) => {
+                id as i64
+            }
             Some(proto::proto::dict::service::v1::get_dict_type_request::QueryBy::Code(code)) => {
                 crate::data::sys_dict_types::Entity::find()
                     .filter(
@@ -116,7 +118,7 @@ impl proto::gen::services::DictTypeServiceHandlers for DictTypeService {
         req: UpdateDictTypeRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_dict_types::Entity::find_by_id(req.id)
+        let row = crate::data::sys_dict_types::Entity::find_by_id(req.id as i64)
             .filter(crate::data::sys_dict_types::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await

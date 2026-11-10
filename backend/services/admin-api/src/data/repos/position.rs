@@ -11,7 +11,7 @@ use crate::state::{db_err, not_found, StatusError};
 repo_shell!(tenant PositionRepo, entity);
 
 impl<'a> PositionRepo<'a> {
-    pub async fn get_by_id(&self, id: u32) -> Result<entity::Model, StatusError> {
+    pub async fn get_by_id(&self, id: i64) -> Result<entity::Model, StatusError> {
         let mut query = entity::Entity::find_by_id(id);
         if let Some(tid) = self.viewer.tenant_scope() {
             query = entity::Entity::find_by_id(id).filter(entity::Column::TenantId.eq(tid));
@@ -23,7 +23,7 @@ impl<'a> PositionRepo<'a> {
             .ok_or_else(|| not_found("position"))
     }
 
-    pub async fn delete_by_id(&self, id: u32) -> Result<(), StatusError> {
+    pub async fn delete_by_id(&self, id: i64) -> Result<(), StatusError> {
         if self.viewer.tenant_scope().is_some() {
             entity::Entity::delete_many()
                 .filter(entity::Column::TenantId.eq(self.viewer.tenant_scope().unwrap_or(0)))

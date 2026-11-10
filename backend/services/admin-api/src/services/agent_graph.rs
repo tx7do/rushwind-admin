@@ -255,10 +255,21 @@ fn data_string(data: &serde_json::Value, key: &str) -> String {
 }
 
 /// data.map 的 u32 取值（JSON 数字或数字字符串）。
+#[cfg(test)]
 pub fn data_u32(data: &serde_json::Value, key: &str) -> u32 {
     match data.get(key) {
         Some(serde_json::Value::Number(n)) => n.as_u64().filter(|v| *v > 0).unwrap_or(0) as u32,
         Some(serde_json::Value::String(s)) => s.trim().parse::<u32>().unwrap_or(0),
+        _ => 0,
+    }
+}
+
+/// data.map 的 u64 取值（JSON 数字或数字字符串）——节点里的实体 ID
+/// （providerId/baseId）随契约批量扩宽走 u64。
+pub fn data_u64(data: &serde_json::Value, key: &str) -> u64 {
+    match data.get(key) {
+        Some(serde_json::Value::Number(n)) => n.as_u64().filter(|v| *v > 0).unwrap_or(0),
+        Some(serde_json::Value::String(s)) => s.trim().parse::<u64>().unwrap_or(0),
         _ => 0,
     }
 }

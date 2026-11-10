@@ -136,7 +136,7 @@ pub async fn chat_completion(
 /// tokens ≥ 上限即拒。月起点取本地时区（与台账 month_summary 同口径）。
 pub async fn check_token_quota(
     db: &sea_orm::DatabaseConnection,
-    tenant_id: u32,
+    tenant_id: i64,
 ) -> Result<(), crate::state::StatusError> {
     use chrono::Datelike as _;
     if tenant_id == 0 {

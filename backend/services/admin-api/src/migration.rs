@@ -128,6 +128,7 @@ impl MigratorTrait for Migrator {
             Box::new(AiAgentRevisionIndexes),
             Box::new(ApiEndpointIdentity),
             Box::new(PermissionMenuFullPath),
+            Box::new(IdWidenU64),
         ]
     }
 }
@@ -538,6 +539,425 @@ impl MigrationTrait for AiAgentRevisionIndexes {
     }
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// b5b336d9 的 ID 全链升级：实体标识位 u32→u64，Postgres 列型 int/serial
+/// → bigint/bigserial。实体驱动的建表在新库上天然 bigint；本迁移把存量库
+/// 的同名列加宽（int→bigint 是纯加宽，值域无损；serial 的 nextval 默认值
+/// 与 int8 序列不受影响）。对已是 bigint 的列是 no-op 重校验，新库重放安全。
+struct IdWidenU64;
+
+impl MigrationName for IdWidenU64 {
+    fn name(&self) -> &str {
+        "m20251110_000001_id_widen_u64"
+    }
+}
+
+/// (table, id-ish columns) — 从实体定义导出（与 crate::data 的 u64 字段
+/// 一一对应；度量/序号列不在列）。
+const ID_WIDEN_TABLES: &[(&str, &[&str])] = &[
+    (
+        "sys_ai_providers",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_ai_agent_apps",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_ai_agent_runs",
+        &["id", "tenant_id", "app_id", "user_id"],
+    ),
+    (
+        "sys_ai_conversations",
+        &[
+            "id",
+            "tenant_id",
+            "provider_id",
+            "user_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_ai_messages",
+        &["id", "tenant_id", "conversation_id", "user_id"],
+    ),
+    (
+        "sys_ai_knowledge_bases",
+        &["id", "tenant_id", "provider_id", "user_id"],
+    ),
+    ("sys_ai_docs", &["id", "tenant_id", "base_id", "user_id"]),
+    ("sys_ai_chunks", &["id", "tenant_id", "doc_id"]),
+    (
+        "sys_ai_usage_logs",
+        &[
+            "id",
+            "tenant_id",
+            "provider_id",
+            "conversation_id",
+            "user_id",
+        ],
+    ),
+    (
+        "sys_ai_agent_revisions",
+        &["id", "tenant_id", "app_id", "created_by"],
+    ),
+    ("sys_api_audit_logs", &["id", "tenant_id", "user_id"]),
+    ("sys_operation_audit_logs", &["id", "tenant_id", "user_id"]),
+    ("sys_login_audit_logs", &["id", "tenant_id", "user_id"]),
+    (
+        "sys_data_access_audit_logs",
+        &["id", "tenant_id", "user_id"],
+    ),
+    (
+        "sys_permission_audit_logs",
+        &["id", "tenant_id", "operator_id"],
+    ),
+    (
+        "sys_policy_evaluation_logs",
+        &[
+            "id",
+            "tenant_id",
+            "user_id",
+            "membership_id",
+            "permission_id",
+            "policy_id",
+        ],
+    ),
+    (
+        "bi_dashboards",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_bi_dashboard_revisions",
+        &["id", "tenant_id", "dashboard_id", "created_by"],
+    ),
+    (
+        "sys_dict_types",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_dict_entries",
+        &[
+            "id",
+            "tenant_id",
+            "type_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_dict_entry_i18n",
+        &[
+            "id",
+            "tenant_id",
+            "entry_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_languages",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_users",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_user_credentials",
+        &[
+            "id",
+            "tenant_id",
+            "user_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_user_mfa_factors",
+        &[
+            "id",
+            "tenant_id",
+            "user_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_user_roles",
+        &[
+            "id",
+            "tenant_id",
+            "user_id",
+            "role_id",
+            "assigned_by",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_org_units",
+        &[
+            "id",
+            "tenant_id",
+            "parent_id",
+            "leader_id",
+            "legal_entity_org_id",
+            "contact_user_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_positions",
+        &[
+            "id",
+            "tenant_id",
+            "org_unit_id",
+            "reports_to_position_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_tenants",
+        &[
+            "id",
+            "admin_user_id",
+            "plan_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_plans",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_plan_modules",
+        &["id", "plan_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_plan_quotas",
+        &["id", "plan_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "internal_messages",
+        &[
+            "id",
+            "tenant_id",
+            "sender_id",
+            "category_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "internal_message_categories",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "internal_message_recipients",
+        &[
+            "id",
+            "tenant_id",
+            "message_id",
+            "recipient_user_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "monitor_alert_rules",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_notification_channels",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_notification_rules",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_notification_deliveries",
+        &[
+            "id",
+            "channel_id",
+            "recipient_user_id",
+            "related_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "notification_preferences",
+        &["id", "user_id", "created_by", "updated_by"],
+    ),
+    (
+        "notification_templates",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_tasks",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_scripts",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    ("sys_script_logs", &["id", "script_id"]),
+    (
+        "sys_access_keys",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_configs",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_login_policies",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "files",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "print_templates",
+        &["id", "tenant_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_roles",
+        &[
+            "id",
+            "tenant_id",
+            "parent_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_role_permissions",
+        &[
+            "id",
+            "tenant_id",
+            "role_id",
+            "permission_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_role_metadata",
+        &[
+            "id",
+            "tenant_id",
+            "role_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_permissions",
+        &["id", "group_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_permission_groups",
+        &["id", "parent_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_permission_apis",
+        &[
+            "id",
+            "permission_id",
+            "api_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_permission_menus",
+        &[
+            "id",
+            "permission_id",
+            "menu_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_menus",
+        &["id", "parent_id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_apis",
+        &["id", "created_by", "updated_by", "deleted_by"],
+    ),
+    (
+        "sys_role_org_units",
+        &[
+            "id",
+            "tenant_id",
+            "role_id",
+            "org_unit_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+    (
+        "sys_role_field_permissions",
+        &[
+            "id",
+            "tenant_id",
+            "role_id",
+            "created_by",
+            "updated_by",
+            "deleted_by",
+        ],
+    ),
+];
+
+#[async_trait::async_trait]
+impl MigrationTrait for IdWidenU64 {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        let conn = manager.get_connection();
+        for (table, columns) in ID_WIDEN_TABLES {
+            let alters = columns
+                .iter()
+                .map(|c| format!("ALTER COLUMN {c} TYPE bigint"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            conn.execute_unprepared(&format!("ALTER TABLE {table} {alters}"))
+                .await?;
+        }
+        Ok(())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        // 加宽不回退：u64 契约是前进方向。
         Ok(())
     }
 }

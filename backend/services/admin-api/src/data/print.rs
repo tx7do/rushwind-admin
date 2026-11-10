@@ -7,8 +7,8 @@ pub mod print_templates {
     #[sea_orm(table_name = "print_templates")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub name: String,
         /// 编码（业务侧引用锚）。
         pub code: String,
@@ -26,9 +26,9 @@ pub mod print_templates {
         pub is_enabled: Option<bool>,
         #[sea_orm(default_value = 0)]
         pub sort_order: Option<u32>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,

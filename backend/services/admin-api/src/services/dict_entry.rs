@@ -15,16 +15,16 @@ use proto::proto::pagination::PagingRequest;
 
 fn dict_entry_proto(r: crate::data::sys_dict_entries::Model) -> DictEntry {
     DictEntry {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
-        type_id: r.type_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
+        type_id: r.type_id.map(|v| v as u64),
         entry_value: r.entry_value,
         numeric_value: r.numeric_value,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -66,7 +66,7 @@ impl proto::gen::services::DictEntryServiceHandlers for DictEntryService {
         let data = crate::state::require_data(req.data)?;
         crate::data::sys_dict_entries::ActiveModel {
             tenant_id: Set(Some(payload.tenant_id)),
-            type_id: Set(data.type_id),
+            type_id: Set(data.type_id.map(|v| v as i64)),
             entry_value: Set(data.entry_value),
             numeric_value: Set(data.numeric_value),
             is_enabled: Set(data.is_enabled.or(Some(true))),
@@ -88,7 +88,7 @@ impl proto::gen::services::DictEntryServiceHandlers for DictEntryService {
         req: UpdateDictEntryRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::sys_dict_entries::Entity::find_by_id(req.id)
+        let row = crate::data::sys_dict_entries::Entity::find_by_id(req.id as i64)
             .filter(crate::data::sys_dict_entries::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await

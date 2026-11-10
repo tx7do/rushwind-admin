@@ -8,8 +8,8 @@ pub mod sys_users {
     #[sea_orm(table_name = "sys_users")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub username: String,
         pub nickname: Option<String>,
         pub realname: Option<String>,
@@ -35,9 +35,9 @@ pub mod sys_users {
         /// enum(NORMAL,DISABLED,PENDING,LOCKED,EXPIRED,CLOSED) default NORMAL.
         pub status: Option<String>,
         pub remark: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -55,9 +55,9 @@ pub mod sys_user_credentials {
     #[sea_orm(table_name = "sys_user_credentials")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub user_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
         /// enum(USERNAME,USERID,EMAIL,PHONE,… ) default USERNAME.
         pub identity_type: Option<String>,
         pub identifier: String,
@@ -78,9 +78,9 @@ pub mod sys_user_credentials {
         pub reset_token_hash: Option<String>,
         pub reset_token_expires_at: Option<chrono::NaiveDateTime>,
         pub reset_token_used_at: Option<chrono::NaiveDateTime>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -98,9 +98,9 @@ pub mod sys_user_mfa_factors {
     #[sea_orm(table_name = "sys_user_mfa_factors")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub user_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
         /// enum(TOTP,SMS,EMAIL,WEBAUTHN) default TOTP.
         pub method: Option<String>,
         /// AES-GCM ciphertext (`enc:` prefix) or plaintext.
@@ -109,9 +109,9 @@ pub mod sys_user_mfa_factors {
         /// enum(DISABLED,ENABLED) default ENABLED.
         pub status: Option<String>,
         pub last_used_at: Option<chrono::NaiveDateTime>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -129,21 +129,21 @@ pub mod sys_user_roles {
     #[sea_orm(table_name = "sys_user_roles")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub user_id: Option<u32>,
-        pub role_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
+        pub role_id: Option<i64>,
         pub start_at: Option<chrono::NaiveDateTime>,
         pub end_at: Option<chrono::NaiveDateTime>,
         pub assigned_at: Option<chrono::NaiveDateTime>,
-        pub assigned_by: Option<u32>,
+        pub assigned_by: Option<i64>,
         #[sea_orm(default_value = false)]
         pub is_primary: Option<bool>,
         /// enum(PENDING,ACTIVE,DISABLED,EXPIRED) default ACTIVE.
         pub status: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -161,12 +161,12 @@ pub mod sys_org_units {
     #[sea_orm(table_name = "sys_org_units")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub parent_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub parent_id: Option<i64>,
         pub name: String,
         pub code: Option<String>,
-        pub leader_id: Option<u32>,
+        pub leader_id: Option<i64>,
         /// enum(COMPANY,DIVISION,DEPARTMENT,TEAM,…) default DEPARTMENT.
         #[sea_orm(column_name = "type")]
         pub type_column: Option<String>,
@@ -177,7 +177,7 @@ pub mod sys_org_units {
         pub is_legal_entity: Option<bool>,
         pub registration_number: Option<String>,
         pub tax_id: Option<String>,
-        pub legal_entity_org_id: Option<u32>,
+        pub legal_entity_org_id: Option<i64>,
         pub address: Option<String>,
         pub phone: Option<String>,
         pub email: Option<String>,
@@ -187,7 +187,7 @@ pub mod sys_org_units {
         pub longitude: Option<f64>,
         pub start_at: Option<chrono::NaiveDateTime>,
         pub end_at: Option<chrono::NaiveDateTime>,
-        pub contact_user_id: Option<u32>,
+        pub contact_user_id: Option<i64>,
         /// jsonb []string.
         pub permission_tags: Option<Json>,
         pub path: Option<String>,
@@ -197,9 +197,9 @@ pub mod sys_org_units {
         pub status: Option<String>,
         #[sea_orm(default_value = 0)]
         pub sort_order: Option<u32>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -217,12 +217,12 @@ pub mod sys_positions {
     #[sea_orm(table_name = "sys_positions")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub name: String,
         pub code: Option<String>,
-        pub org_unit_id: Option<u32>,
-        pub reports_to_position_id: Option<u32>,
+        pub org_unit_id: Option<i64>,
+        pub reports_to_position_id: Option<i64>,
         pub description: Option<String>,
         pub job_family: Option<String>,
         pub job_grade: Option<String>,
@@ -241,9 +241,9 @@ pub mod sys_positions {
         pub status: Option<String>,
         #[sea_orm(default_value = 0)]
         pub sort_order: Option<u32>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -261,13 +261,13 @@ pub mod sys_tenants {
     #[sea_orm(table_name = "sys_tenants")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         pub name: String,
         pub code: String,
         pub logo_url: Option<String>,
         pub domain: Option<String>,
         pub industry: Option<String>,
-        pub admin_user_id: Option<u32>,
+        pub admin_user_id: Option<i64>,
         /// enum(ON,OFF,EXPIRED,FREEZE) default ON.
         pub status: Option<String>,
         /// enum(TRIAL,PAID,INTERNAL,PARTNER,CUSTOM) default PAID.
@@ -279,11 +279,11 @@ pub mod sys_tenants {
         pub unsubscribe_at: Option<chrono::NaiveDateTime>,
         pub subscription_plan: Option<String>,
         pub expired_at: Option<chrono::NaiveDateTime>,
-        pub plan_id: Option<u32>,
+        pub plan_id: Option<i64>,
         pub remark: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -301,7 +301,7 @@ pub mod sys_plans {
     #[sea_orm(table_name = "sys_plans")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
+        pub id: i64,
         pub name: String,
         /// enum(FREE,STANDARD,ENTERPRISE) default FREE.
         pub version: Option<String>,
@@ -310,9 +310,9 @@ pub mod sys_plans {
         pub data_retention_days: Option<u32>,
         pub description: Option<String>,
         pub remark: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -330,13 +330,13 @@ pub mod sys_plan_modules {
     #[sea_orm(table_name = "sys_plan_modules")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub plan_id: u32,
+        pub id: i64,
+        pub plan_id: i64,
         /// enum(DASHBOARD,OPM,SYSTEM,DICT,TENANT,PERMISSION,LOG,INTERNAL_MESSAGE,FILE,TASK).
         pub module: Option<String>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -354,14 +354,14 @@ pub mod sys_plan_quotas {
     #[sea_orm(table_name = "sys_plan_quotas")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub plan_id: u32,
+        pub id: i64,
+        pub plan_id: i64,
         /// enum(USER_LIMIT,STORAGE,API_CALL).
         pub quota_type: Option<String>,
         pub quota_value: Option<i64>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,

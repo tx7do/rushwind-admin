@@ -24,7 +24,7 @@ pub struct SendRequest {
     pub title: String,
     pub content: String,
     /// 显式渠道配置 ID；0 = 由渠道策略自选（第一个启用的同类型渠道）。
-    pub channel_id: u32,
+    pub channel_id: i64,
     pub event_type: String,
     /// 渠道原生参数：SMS 只消费 params["code"]（服务商审核模板的验证码占位值）。
     pub params: BTreeMap<String, String>,
@@ -33,11 +33,11 @@ pub struct SendRequest {
 /// 投递结论：台账的写法由它决定（SENT / FAILED / SKIPPED）。
 pub enum Outcome {
     Sent {
-        channel_id: u32,
+        channel_id: i64,
     },
     /// 拨过号了才走这里；channel_id 在账号已选出时带回（排障先知道走的哪条配置）。
     Failed {
-        channel_id: Option<u32>,
+        channel_id: Option<i64>,
         error: String,
     },
     /// 一次都没联系对端（配置类原因）。
@@ -70,7 +70,7 @@ fn skipped(error: impl Into<String>) -> Outcome {
     }
 }
 
-fn failed(channel_id: Option<u32>, error: impl Into<String>) -> Outcome {
+fn failed(channel_id: Option<i64>, error: impl Into<String>) -> Outcome {
     Outcome::Failed {
         channel_id,
         error: error.into(),
@@ -82,7 +82,7 @@ fn failed(channel_id: Option<u32>, error: impl Into<String>) -> Outcome {
 async fn resolve_channel(
     db: &sea_orm::DatabaseConnection,
     type_name: &str,
-    channel_id: u32,
+    channel_id: i64,
 ) -> Result<chan::Model, String> {
     if channel_id == 0 {
         let row = chan::Entity::find()
@@ -172,7 +172,12 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
     };
     let to_mailbox: Mailbox = match req.target.trim().parse() {
         Ok(m) => m,
-        Err(e) => return failed(Some(row.id), format!("email target invalid: {e}")),
+        Err(e) => {
+            return failed(
+                Some(row.id as u64 as i64),
+                format!("email target invalid: {e}"),
+            )
+        }
     };
     let email = match Message::builder()
         .from(from_mailbox)
@@ -181,7 +186,12 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
         .body(req.content.clone())
     {
         Ok(m) => m,
-        Err(e) => return failed(Some(row.id), format!("build mail failed: {e}")),
+        Err(e) => {
+            return failed(
+                Some(row.id as u64 as i64),
+                format!("build mail failed: {e}"),
+            )
+        }
     };
 
     use lettre::transport::smtp::client::Tls;
@@ -208,7 +218,7 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
         }
         _ => match AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(&host) {
             Ok(b) => b,
-            Err(e) => return failed(Some(row.id), format!("smtp relay build: {e}")),
+            Err(e) => return failed(Some(row.id as u64 as i64), format!("smtp relay build: {e}")),
         },
     };
     builder = builder.tls(tls_mode).port(port);
@@ -218,7 +228,9 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
     let mailer = builder.build();
 
     match mailer.send(email).await {
-        Ok(_) => Outcome::Sent { channel_id: row.id },
+        Ok(_) => Outcome::Sent {
+            channel_id: (row.id as u64 as i64),
+        },
         Err(e) => failed(
             Some(row.id),
             format!("send mail via channel [{}] failed: {e}", row.id),
@@ -536,7 +548,12 @@ async fn send_webhook(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Ou
     // 只追加两个键——先定最终地址再构造请求。
     let mut endpoint = match reqwest::Url::parse(req.target.trim()) {
         Ok(u) => u,
-        Err(e) => return failed(Some(row.id), format!("webhook url parse: {e}")),
+        Err(e) => {
+            return failed(
+                Some(row.id as u64 as i64),
+                format!("webhook url parse: {e}"),
+            )
+        }
     };
     if let Some(query) = &outbound.query {
         for (k, v) in query {
@@ -560,11 +577,11 @@ async fn send_webhook(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Ou
                 .header("X-Gw-Signature", sig);
         }
     }
-    finish_webhook(row.id, &style, request.send().await).await
+    finish_webhook(row.id as u64 as i64, &style, request.send().await).await
 }
 
 async fn finish_webhook(
-    channel_id: u32,
+    channel_id: i64,
     style: &str,
     response: Result<reqwest::Response, reqwest::Error>,
 ) -> Outcome {
@@ -779,7 +796,7 @@ async fn send_sms(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outcom
 
 /// SMS 出站配置（上游 sms.Config 同构，channel_id 兼作台账回执）。
 struct SmsConfig<'a> {
-    channel_id: u32,
+    channel_id: i64,
     phone: &'a str,
     access_key_id: &'a str,
     access_secret: &'a str,
@@ -1012,8 +1029,8 @@ pub async fn deliver_once(
     db: &sea_orm::DatabaseConnection,
     channel_type: &str,
     req: &SendRequest,
-    operator_id: u32,
-) -> Result<(u32, Outcome), StatusError> {
+    operator_id: i64,
+) -> Result<(u64, Outcome), StatusError> {
     use sea_orm::ActiveModelTrait;
     let delivery = crate::data::repos::NotificationDeliveryRepo::new(db)
         .insert(crate::data::sys_notification_deliveries::ActiveModel {
@@ -1048,7 +1065,7 @@ pub async fn deliver_once(
     if let Err(e) = a.update(db).await {
         eprintln!("[notify] mark result for delivery failed: {e:?}");
     }
-    Ok((delivery_id, outcome))
+    Ok(((delivery_id as u64), outcome))
 }
 
 #[cfg(test)]

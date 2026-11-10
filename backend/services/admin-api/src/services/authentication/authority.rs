@@ -46,7 +46,7 @@ impl AuthenticationService {
             .all(&self.state.db)
             .await
             .map_err(|e| internal_error(format!("db: {e}")))?;
-        let role_ids: Vec<u32> = role_rows.iter().filter_map(|r| r.role_id).collect();
+        let role_ids: Vec<i64> = role_rows.iter().filter_map(|r| r.role_id).collect();
 
         let perm_rows = if role_ids.is_empty() {
             Vec::new()
@@ -57,7 +57,7 @@ impl AuthenticationService {
                 .await
                 .map_err(|e| internal_error(format!("db: {e}")))?
         };
-        let perm_ids: Vec<u32> = perm_rows.iter().filter_map(|r| r.permission_id).collect();
+        let perm_ids: Vec<i64> = perm_rows.iter().filter_map(|r| r.permission_id).collect();
 
         let codes: Vec<String> = if perm_ids.is_empty() {
             Vec::new()
@@ -94,7 +94,7 @@ impl AuthenticationService {
 
         // dss: the roles' data-scope enum names (unique, order stable).
         let mut dss = Vec::new();
-        let mut dsu_units: Vec<u32> = Vec::new();
+        let mut dsu_units: Vec<i64> = Vec::new();
         for role in &role_rows {
             if let Some(scope) = &role.data_scope {
                 if !dss.iter().any(|s| s == scope) {
@@ -104,7 +104,7 @@ impl AuthenticationService {
         }
         payload.data_scopes = dss;
         // dsu: the unit targets of UNIT_* scopes (union).
-        let unit_roles: Vec<u32> = role_rows
+        let unit_roles: Vec<i64> = role_rows
             .iter()
             .filter(|r| {
                 matches!(
@@ -166,8 +166,8 @@ impl AuthenticationService {
         device_id: Option<String>,
     ) -> Result<UserTokenPayload, StatusError> {
         let mut payload = UserTokenPayload {
-            user_id: user.id,
-            tenant_id: user.tenant_id.unwrap_or(0),
+            user_id: (user.id as u64 as i64),
+            tenant_id: (user.tenant_id.unwrap_or(0) as u64 as i64),
             username: user.username.clone(),
             client_id,
             device_id,

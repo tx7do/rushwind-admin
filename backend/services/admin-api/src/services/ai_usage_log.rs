@@ -9,11 +9,11 @@ use proto::proto::pagination::PagingRequest;
 
 fn log_proto(r: crate::data::sys_ai_usage_logs::Model) -> AiUsageLog {
     AiUsageLog {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
-        provider_id: r.provider_id,
-        conversation_id: r.conversation_id,
-        user_id: r.user_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
+        provider_id: r.provider_id.map(|v| v as u64),
+        conversation_id: r.conversation_id.map(|v| v as u64),
+        user_id: r.user_id.map(|v| v as u64),
         model_name: r.model_name,
         prompt_tokens: r.prompt_tokens,
         completion_tokens: r.completion_tokens,

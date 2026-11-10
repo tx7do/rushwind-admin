@@ -58,7 +58,7 @@ fn hint_of(key: &str) -> String {
 
 fn provider_proto(r: crate::data::sys_ai_providers::Model) -> AiProvider {
     AiProvider {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         name: r.name,
         model_type: r.model_type.as_deref().map(model_type_proto),
         model_name: r.model_name,
@@ -74,9 +74,9 @@ fn provider_proto(r: crate::data::sys_ai_providers::Model) -> AiProvider {
         is_default: r.is_default,
         remark: r.remark,
         is_enabled: r.is_enabled,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -127,7 +127,7 @@ pub struct AiProviderService {
 }
 
 impl AiProviderService {
-    async fn clear_other_defaults(&self, tenant_id: u32, keep_id: u32) -> Result<(), StatusError> {
+    async fn clear_other_defaults(&self, tenant_id: i64, keep_id: i64) -> Result<(), StatusError> {
         let rows = crate::data::sys_ai_providers::Entity::find()
             .filter(
                 sea_orm::Condition::all()
@@ -175,7 +175,7 @@ impl proto::gen::services::AiProviderServiceHandlers for AiProviderService {
             proto::proto::ai::service::v1::get_ai_provider_request::QueryBy
         );
         let row = repo
-            .find_scoped(id)
+            .find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("ai provider"))?;
         Ok(provider_proto(row))
@@ -211,7 +211,7 @@ impl proto::gen::services::AiProviderServiceHandlers for AiProviderService {
         }
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
         if inserted.is_default == Some(true) {
-            self.clear_other_defaults(payload.tenant_id, inserted.id)
+            self.clear_other_defaults(payload.tenant_id, inserted.id as u64 as i64)
                 .await?;
         }
         Ok(Empty {})
@@ -226,7 +226,7 @@ impl proto::gen::services::AiProviderServiceHandlers for AiProviderService {
         let data = require_data(req.data)?;
         let repo = crate::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(req.id)
+            .find_scoped(req.id as i64)
             .await?
             .ok_or_else(|| not_found("ai provider"))?;
         let mut a: crate::data::sys_ai_providers::ActiveModel = row.into();
@@ -244,7 +244,8 @@ impl proto::gen::services::AiProviderServiceHandlers for AiProviderService {
         let is_default = a.is_default.clone().unwrap() == Some(true);
         a.update(&self.state.db).await.map_err(db_err)?;
         if is_default {
-            self.clear_other_defaults(payload.tenant_id, req.id).await?;
+            self.clear_other_defaults(payload.tenant_id, req.id as i64)
+                .await?;
         }
         Ok(Empty {})
     }
@@ -259,10 +260,10 @@ impl proto::gen::services::AiProviderServiceHandlers for AiProviderService {
             proto::proto::ai::service::v1::delete_ai_provider_request::QueryBy
         );
         let repo = crate::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
-        repo.find_scoped(id)
+        repo.find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("ai provider"))?;
-        crate::data::sys_ai_providers::Entity::delete_by_id(id)
+        crate::data::sys_ai_providers::Entity::delete_by_id(id as i64)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;

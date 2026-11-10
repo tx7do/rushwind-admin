@@ -94,7 +94,7 @@ fn request_id(headers: &axum::http::HeaderMap) -> String {
 
 /// Decodes the bearer JWT payload without re-verification — attribution
 /// only (gated routes already verified it inside the gate).
-fn claims_from_token(headers: &axum::http::HeaderMap) -> Option<(u32, u32, String)> {
+fn claims_from_token(headers: &axum::http::HeaderMap) -> Option<(u64, u64, String)> {
     use base64::Engine as _;
     let token = rushwind_http_binding::ctx::bearer_token(headers)?;
     let payload_b64 = token.split('.').nth(1)?;
@@ -103,8 +103,8 @@ fn claims_from_token(headers: &axum::http::HeaderMap) -> Option<(u32, u32, Strin
         .ok()?;
     let claims: serde_json::Value =
         serde_json::from_str(std::str::from_utf8(&payload).ok()?).ok()?;
-    let uid = claims.get("uid")?.as_u64()? as u32;
-    let tid = claims.get("tid").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let uid = claims.get("uid")?.as_u64()?;
+    let tid = claims.get("tid").and_then(|v| v.as_u64()).unwrap_or(0);
     let username = claims
         .get("sub")
         .and_then(|v| v.as_str())
@@ -260,11 +260,11 @@ pub async fn layer(
                 None
             };
             let has_device = !user_agent.is_empty();
-            let score =
-                risk::risk_score(failed, uid, &login_username, &ip, has_device).max(0) as u32;
+            let score = risk::risk_score(failed, uid as i64, &login_username, &ip, has_device)
+                .max(0) as u32;
             let factors = risk::risk_factors(
                 failed,
-                uid,
+                uid as i64,
                 &login_username,
                 &ip,
                 has_device,
@@ -274,8 +274,8 @@ pub async fn layer(
                 score,
             );
             let row = crate::data::sys_login_audit_logs::ActiveModel {
-                tenant_id: Set(Some(tid)),
-                user_id: Set(Some(uid)),
+                tenant_id: Set(Some(tid as i64)),
+                user_id: Set(Some(uid as i64)),
                 username: Set(Some(login_username.clone())),
                 ip_address: Set(Some(ip.clone())),
                 request_id: Set(Some(request_id.clone())),
@@ -312,8 +312,8 @@ pub async fn layer(
         // ---- api audit (all except Login / VerifyMFAChallenge) ----
         if !SKIP_API_AUDIT.contains(&operation) {
             let row = crate::data::sys_api_audit_logs::ActiveModel {
-                tenant_id: Set(Some(tid)),
-                user_id: Set(Some(uid)),
+                tenant_id: Set(Some(tid as i64)),
+                user_id: Set(Some(uid as i64)),
                 username: Set(Some(username.clone())),
                 ip_address: Set(Some(ip.clone())),
                 http_method: Set(Some(method.to_string())),
@@ -375,8 +375,8 @@ pub async fn layer(
                     _ => "OTHER",
                 };
                 let row = crate::data::sys_operation_audit_logs::ActiveModel {
-                    tenant_id: Set(Some(tid)),
-                    user_id: Set(Some(uid)),
+                    tenant_id: Set(Some(tid as i64)),
+                    user_id: Set(Some(uid as i64)),
                     username: Set(Some(username.clone())),
                     resource_type: Set(Some(resource_type.clone())),
                     resource_id: Set(resource_id.clone()),
@@ -399,8 +399,8 @@ pub async fn layer(
             if !target_type.is_empty() {
                 let target_name = target_name_from_body(&body);
                 let row = crate::data::sys_permission_audit_logs::ActiveModel {
-                    tenant_id: Set(Some(tid)),
-                    operator_id: Set(Some(uid)),
+                    tenant_id: Set(Some(tid as i64)),
+                    operator_id: Set(Some(uid as i64)),
                     operator_name: Set(Some(username.clone())),
                     target_type: Set(Some(target_type)),
                     target_id: Set(resource_id),

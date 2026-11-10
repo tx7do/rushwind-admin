@@ -17,17 +17,17 @@ use proto::proto::pagination::PagingRequest;
 
 fn category_proto(r: crate::data::internal_message_categories::Model) -> InternalMessageCategory {
     InternalMessageCategory {
-        id: Some(r.id),
-        tenant_id: r.tenant_id,
+        id: Some(r.id as u64),
+        tenant_id: r.tenant_id.map(|v| v as u64),
         name: Some(r.name),
         code: Some(r.code),
         icon_url: r.icon_url,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
         tenant_name: None,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -65,7 +65,7 @@ impl proto::gen::services::InternalMessageCategoryServiceHandlers
         let scope = crate::data::Viewer::from_ctx(&ctx).tenant_scope();
         let repo = crate::data::repos::InternalMessageCategoryRepo::new(&self.state.db);
         let row = repo
-            .find_scoped(id, scope)
+            .find_scoped(id as i64, scope)
             .await?
             .ok_or_else(|| not_found("message category"))?;
         Ok(category_proto(row))
@@ -105,7 +105,7 @@ impl proto::gen::services::InternalMessageCategoryServiceHandlers
         let scope = crate::data::Viewer::from_ctx(&ctx).tenant_scope();
         let repo = crate::data::repos::InternalMessageCategoryRepo::new(&self.state.db);
         let row = repo
-            .find_scoped(req.id, scope)
+            .find_scoped(req.id as i64, scope)
             .await?
             .ok_or_else(|| not_found("message category"))?;
         let mut a: crate::data::internal_message_categories::ActiveModel = row.into();
@@ -136,7 +136,7 @@ impl proto::gen::services::InternalMessageCategoryServiceHandlers
         let id = crate::query_by_id!(req.query_by, DeleteQueryBy);
         let scope = crate::data::Viewer::from_ctx(&ctx).tenant_scope();
         let repo = crate::data::repos::InternalMessageCategoryRepo::new(&self.state.db);
-        repo.delete_scoped(id, scope).await?;
+        repo.delete_scoped(id as i64, scope).await?;
         Ok(Empty {})
     }
 }

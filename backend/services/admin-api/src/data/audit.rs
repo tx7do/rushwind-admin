@@ -8,9 +8,9 @@ pub mod sys_api_audit_logs {
     #[sea_orm(table_name = "sys_api_audit_logs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub user_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
         pub username: Option<String>,
         pub ip_address: Option<String>,
         /// jsonb GeoLocation.
@@ -52,9 +52,9 @@ pub mod sys_operation_audit_logs {
     #[sea_orm(table_name = "sys_operation_audit_logs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub user_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
         pub username: Option<String>,
         pub resource_type: Option<String>,
         pub resource_id: Option<String>,
@@ -92,9 +92,9 @@ pub mod sys_login_audit_logs {
     #[sea_orm(table_name = "sys_login_audit_logs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub user_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
         pub username: Option<String>,
         pub ip_address: Option<String>,
         /// jsonb GeoLocation.
@@ -134,9 +134,9 @@ pub mod sys_data_access_audit_logs {
     #[sea_orm(table_name = "sys_data_access_audit_logs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub user_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
         pub username: Option<String>,
         pub ip_address: Option<String>,
         /// jsonb GeoLocation.
@@ -179,9 +179,9 @@ pub mod sys_permission_audit_logs {
     #[sea_orm(table_name = "sys_permission_audit_logs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub operator_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub operator_id: Option<i64>,
         pub operator_name: Option<String>,
         pub target_type: Option<String>,
         pub target_id: Option<String>,
@@ -212,12 +212,12 @@ pub mod sys_policy_evaluation_logs {
     #[sea_orm(table_name = "sys_policy_evaluation_logs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub user_id: Option<u32>,
-        pub membership_id: Option<u32>,
-        pub permission_id: Option<u32>,
-        pub policy_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
+        pub membership_id: Option<i64>,
+        pub permission_id: Option<i64>,
+        pub policy_id: Option<i64>,
         pub request_path: Option<String>,
         pub request_method: Option<String>,
         pub result: Option<bool>,

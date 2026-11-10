@@ -13,8 +13,8 @@ pub mod sys_ai_providers {
     #[sea_orm(table_name = "sys_ai_providers")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub name: Option<String>,
         /// enum(OPENAI,AZURE_OPENAI,OLLAMA,OPENAI_COMPATIBLE,…) — the wire
         /// spelling the reference's ent enum carries.
@@ -38,9 +38,9 @@ pub mod sys_ai_providers {
         pub remark: Option<String>,
         #[sea_orm(default_value = true)]
         pub is_enabled: Option<bool>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -59,17 +59,17 @@ pub mod sys_ai_agent_apps {
     #[sea_orm(table_name = "sys_ai_agent_apps")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub name: String,
         pub description: Option<String>,
         /// 画布图（节点编排 JSON 原文；服务端不解析只透传）。
         pub graph: Option<String>,
         #[sea_orm(default_value = true)]
         pub enabled: Option<bool>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -88,9 +88,9 @@ pub mod sys_ai_agent_runs {
     #[sea_orm(table_name = "sys_ai_agent_runs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub app_id: u32,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub app_id: i64,
         /// enum(PENDING,RUNNING,SUCCESS,FAILED)（引擎回写）。
         pub status: Option<String>,
         pub input: Option<String>,
@@ -106,7 +106,7 @@ pub mod sys_ai_agent_runs {
         pub total_tokens: Option<u32>,
         #[sea_orm(default_value = 0)]
         pub duration_ms: Option<u32>,
-        pub user_id: Option<u32>,
+        pub user_id: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
     }
@@ -124,15 +124,15 @@ pub mod sys_ai_conversations {
     #[sea_orm(table_name = "sys_ai_conversations")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub title: Option<String>,
-        pub provider_id: Option<u32>,
-        pub user_id: u32,
+        pub provider_id: Option<i64>,
+        pub user_id: i64,
         pub last_message_at: Option<chrono::NaiveDateTime>,
-        pub created_by: Option<u32>,
-        pub updated_by: Option<u32>,
-        pub deleted_by: Option<u32>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -151,9 +151,9 @@ pub mod sys_ai_messages {
     #[sea_orm(table_name = "sys_ai_messages")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub conversation_id: u32,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub conversation_id: i64,
         /// enum(USER,ASSISTANT,SYSTEM).
         pub role: Option<String>,
         pub content: Option<String>,
@@ -165,7 +165,7 @@ pub mod sys_ai_messages {
         #[sea_orm(default_value = 0)]
         pub duration_ms: Option<u32>,
         pub error_message: Option<String>,
-        pub user_id: u32,
+        pub user_id: i64,
         pub created_at: Option<chrono::NaiveDateTime>,
     }
 
@@ -182,14 +182,14 @@ pub mod sys_ai_knowledge_bases {
     #[sea_orm(table_name = "sys_ai_knowledge_bases")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         pub name: String,
         pub description: Option<String>,
-        pub provider_id: Option<u32>,
+        pub provider_id: Option<i64>,
         /// embedding 模型名（按 provider 的 /v1/embeddings 调用）。
         pub embedding_model: Option<String>,
-        pub user_id: u32,
+        pub user_id: i64,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -208,16 +208,16 @@ pub mod sys_ai_docs {
     #[sea_orm(table_name = "sys_ai_docs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub base_id: u32,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub base_id: i64,
         pub name: String,
         #[sea_orm(default_value = 0)]
         pub chunk_count: Option<u32>,
         /// enum(PENDING,PROCESSING,READY,FAILED).
         pub status: Option<String>,
         pub error_message: Option<String>,
-        pub user_id: Option<u32>,
+        pub user_id: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
         pub deleted_at: Option<chrono::NaiveDateTime>,
@@ -236,9 +236,9 @@ pub mod sys_ai_chunks {
     #[sea_orm(table_name = "sys_ai_chunks")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub doc_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub doc_id: Option<i64>,
         pub content: Option<String>,
         pub chunk_index: Option<u32>,
         /// embedding 向量列（pgvector vector(1536)）不进本模型：
@@ -259,11 +259,11 @@ pub mod sys_ai_usage_logs {
     #[sea_orm(table_name = "sys_ai_usage_logs")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
-        pub provider_id: Option<u32>,
-        pub conversation_id: Option<u32>,
-        pub user_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub provider_id: Option<i64>,
+        pub conversation_id: Option<i64>,
+        pub user_id: Option<i64>,
         pub model_name: Option<String>,
         #[sea_orm(default_value = 0)]
         pub prompt_tokens: Option<u32>,
@@ -293,16 +293,16 @@ pub mod sys_ai_agent_revisions {
     #[sea_orm(table_name = "sys_ai_agent_revisions")]
     pub struct Model {
         #[sea_orm(primary_key)]
-        pub id: u32,
-        pub tenant_id: Option<u32>,
+        pub id: i64,
+        pub tenant_id: Option<i64>,
         /// 所属应用 ID。
-        pub app_id: Option<u32>,
+        pub app_id: Option<i64>,
         /// 更新前的图 DSL 快照。
         pub graph: Option<String>,
         /// 快照来源（SAVE=常规更新触发 RESTORE=恢复前留底）。
         #[sea_orm(default_value = "SAVE")]
         pub source: Option<String>,
-        pub created_by: Option<u32>,
+        pub created_by: Option<i64>,
         pub created_at: Option<chrono::NaiveDateTime>,
         pub updated_at: Option<chrono::NaiveDateTime>,
     }

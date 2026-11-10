@@ -170,7 +170,7 @@ pub fn operator_of(
 }
 
 /// The operator's tenant, platform (0) when no identity rides.
-pub fn tenant_of(ctx: &rushwind_http_binding::ctx::RequestContext) -> u32 {
+pub fn tenant_of(ctx: &rushwind_http_binding::ctx::RequestContext) -> i64 {
     operator_of(ctx).map(|p| p.tenant_id).unwrap_or(0)
 }
 

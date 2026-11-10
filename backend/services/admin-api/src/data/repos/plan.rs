@@ -38,7 +38,7 @@ impl<'a> PlanRepo<'a> {
         .await
     }
 
-    pub async fn get_by_id(&self, id: u32) -> Result<sys_plans::Model, StatusError> {
+    pub async fn get_by_id(&self, id: i64) -> Result<sys_plans::Model, StatusError> {
         sys_plans::Entity::find_by_id(id)
             .one(self.db)
             .await
@@ -46,7 +46,7 @@ impl<'a> PlanRepo<'a> {
             .ok_or_else(|| StatusError::new(404, "NOT_FOUND", "plan not found"))
     }
 
-    pub async fn delete_cascade(&self, id: u32) -> Result<(), StatusError> {
+    pub async fn delete_cascade(&self, id: i64) -> Result<(), StatusError> {
         sys_plan_modules::Entity::delete_many()
             .filter(sys_plan_modules::Column::PlanId.eq(id))
             .exec(self.db)

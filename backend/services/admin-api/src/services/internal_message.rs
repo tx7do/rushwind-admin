@@ -22,7 +22,7 @@ fn message_status_to_proto(s: &str) -> i32 {
 
 fn message_proto(r: crate::data::internal_messages::Model) -> InternalMessage {
     InternalMessage {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         title: r.title,
         content: r.content,
         status: r.status.as_deref().map(message_status_to_proto),
@@ -30,15 +30,15 @@ fn message_proto(r: crate::data::internal_messages::Model) -> InternalMessage {
             .type_column
             .as_deref()
             .map(|s| mapping::internal_message_type_of(s).unwrap_or(0)),
-        sender_id: r.sender_id,
+        sender_id: r.sender_id.map(|v| v as u64),
         sender_name: None,
-        category_id: r.category_id,
+        category_id: r.category_id.map(|v| v as u64),
         category_name: None,
-        tenant_id: r.tenant_id,
+        tenant_id: r.tenant_id.map(|v| v as u64),
         tenant_name: None,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -54,11 +54,11 @@ impl InternalMessageService {
     /// RECEIVED immediately — contract for inbox reads).
     pub async fn insert_recipients(
         &self,
-        tenant_id: u32,
-        message_id: u32,
+        tenant_id: i64,
+        message_id: i64,
         title: &str,
         content: &str,
-        recipient_ids: &[u32],
+        recipient_ids: &[i64],
     ) -> Result<(), StatusError> {
         for uid in recipient_ids {
             crate::data::internal_message_recipients::ActiveModel {
@@ -104,7 +104,7 @@ impl proto::gen::services::InternalMessageServiceHandlers for InternalMessageSer
             req.query_by,
             proto::proto::internal_message::service::v1::get_internal_message_request::QueryBy
         );
-        let row = crate::data::internal_messages::Entity::find_by_id(id)
+        let row = crate::data::internal_messages::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -118,7 +118,7 @@ impl proto::gen::services::InternalMessageServiceHandlers for InternalMessageSer
         req: UpdateInternalMessageRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::internal_messages::Entity::find_by_id(req.id)
+        let row = crate::data::internal_messages::Entity::find_by_id(req.id as i64)
             .filter(crate::data::internal_messages::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -148,7 +148,7 @@ impl proto::gen::services::InternalMessageServiceHandlers for InternalMessageSer
             req.query_by,
             proto::proto::internal_message::service::v1::delete_internal_message_request::QueryBy
         );
-        let row = crate::data::internal_messages::Entity::find_by_id(id)
+        let row = crate::data::internal_messages::Entity::find_by_id(id as i64)
             .filter(crate::data::internal_messages::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -183,7 +183,7 @@ impl proto::gen::services::InternalMessageServiceHandlers for InternalMessageSer
             title: Set(req.title.clone()),
             content: Set(Some(req.content.clone())),
             sender_id: Set(Some(payload.user_id)),
-            category_id: Set(req.category_id),
+            category_id: Set(req.category_id.map(|v| v as i64)),
             status: Set(Some("PUBLISHED".into())),
             type_column: Set(Some(type_str.into())),
             created_by: Set(Some(payload.user_id)),
@@ -198,10 +198,13 @@ impl proto::gen::services::InternalMessageServiceHandlers for InternalMessageSer
         // Recipients: explicit list (single or multi), else the whole
         // tenant fan-out (the broadcast rides the scheduler phase;
         // direct fan-out covers the API contract).
-        let recipient_ids: Vec<u32> = if !req.target_user_ids.is_empty() {
-            req.target_user_ids.clone()
+        let recipient_ids: Vec<i64> = if !req.target_user_ids.is_empty() {
+            req.target_user_ids
+                .iter()
+                .map(|v| *v as i64)
+                .collect::<Vec<i64>>()
         } else if let Some(uid) = req.recipient_user_id {
-            vec![uid]
+            vec![(uid as i64)]
         } else if req.target_all == Some(true) {
             crate::data::sys_users::Entity::find()
                 .filter(crate::data::sys_users::Column::TenantId.eq(payload.tenant_id))
@@ -231,7 +234,7 @@ impl proto::gen::services::InternalMessageServiceHandlers for InternalMessageSer
                     &self.state.hub,
                     &crate::server::sse::NotificationPayload {
                         id: message.id,
-                        message_id: message.id,
+                        message_id: (message.id as u64 as i64),
                         recipient_user_id: *uid,
                         title: req.title.clone().unwrap_or_default(),
                         content: req.content.clone(),
@@ -241,7 +244,7 @@ impl proto::gen::services::InternalMessageServiceHandlers for InternalMessageSer
             }
         }
         Ok(SendMessageResponse {
-            message_id: message.id,
+            message_id: message.id as u64,
         })
     }
 
@@ -251,7 +254,7 @@ impl proto::gen::services::InternalMessageServiceHandlers for InternalMessageSer
         req: RevokeMessageRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::internal_messages::Entity::find_by_id(req.message_id)
+        let row = crate::data::internal_messages::Entity::find_by_id(req.message_id as i64)
             .filter(crate::data::internal_messages::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await

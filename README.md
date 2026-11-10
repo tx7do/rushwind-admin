@@ -20,8 +20,8 @@
 - **企业级 RBAC**：支持多租户、多角色、多部门、菜单/按钮/数据级权限控制
 - **契约驱动的代码生成**：Protobuf 是唯一 API 契约——构建期确定性生成 284 条路由、546 条错误状态映射、556 个服务接口，零手写路由；前端 TypeScript 客户端三份字节相同
 - **安全与等保合规**：按等保 2.0 技术要求内置 180 天审计日志留存归档、口令策略三件套、TOTP MFA、口令应用层加密、动态 RBAC 与多租户隔离，详见[安全与等保合规](#安全与等保合规)
-- **生产就绪基座**：JWT RS256 鉴权、统一四字段错误信封、CORS、SSE 消息推送（规划）、异步任务调度（规划）
-- **质量门禁**：fmt / clippy / test / 契约同步四道 CI 门（ubuntu + windows 矩阵），外加差分回归台架对全量路由自动 sweep 逐字节比对
+- **生产就绪基座**：JWT RS256 鉴权、统一四字段错误信封、CORS、SSE 消息推送（:7789 /events）、异步任务队列（Postgres 队列 worker + cron 生产者）
+- **质量门禁**：fmt / clippy / test / 契约同步四道 CI 门（ubuntu + windows 矩阵）
 
 ## 演示地址
 
@@ -86,13 +86,65 @@
 <tr><th>层级</th><th>技术</th></tr>
 <tr><td><strong>后端框架</strong></td><td><code>Rust</code>（edition 2021 / MSRV 1.81） · <code>RushWind</code> 框架 · <code>axum 0.8</code> · <code>tokio</code></td></tr>
 <tr><td><strong>契约链</strong></td><td><code>Protobuf</code> · <code>buf + protox</code> · <code>prost / prost-reflect / pbjson</code> · <code>rushwind-gen-http</code>（路由生成）</td></tr>
-<tr><td><strong>存储层</strong></td><td><code>SeaORM</code> · <code>PostgreSQL</code> · <code>Redis</code>（接入中）</td></tr>
-<tr><td><strong>认证授权</strong></td><td><code>JWT RS256</code>（rushwind-authn-jwt） · <code>RBAC</code>（规划）</td></tr>
+<tr><td><strong>存储层</strong></td><td><code>SeaORM</code> · <code>PostgreSQL</code> · <code>Redis</code>（会话 / 验证码 / 发布订阅）</td></tr>
+<tr><td><strong>认证授权</strong></td><td><code>JWT RS256</code>（rushwind-authn-jwt） · <code>动态 RBAC</code>（策略存库，热更新）</td></tr>
 <tr><td><strong>Vue Vben 版</strong></td><td><code>Vue 3</code> · <code>TypeScript</code> · <code>Vite</code> · <code>Ant Design Vue</code> · <code>Vben Admin</code></td></tr>
 <tr><td><strong>Vue Element 版</strong></td><td><code>Vue 3</code> · <code>TypeScript</code> · <code>Vite</code> · <code>Element Plus</code>（轻量纯净版）</td></tr>
 <tr><td><strong>React 版</strong></td><td><code>React 19</code> · <code>TypeScript</code> · <code>Vite</code> · <code>Zustand</code> · <code>Ant Design V6</code>（无 UMI）</td></tr>
-<tr><td><strong>质量门禁</strong></td><td><code>差分回归台架</code> · <code>cargo fmt / clippy / test</code> · <code>GitHub Actions</code>（ubuntu + windows 矩阵）</td></tr>
+<tr><td><strong>质量门禁</strong></td><td><code>cargo fmt / clippy / test</code> · <code>GitHub Actions</code>（ubuntu + windows 矩阵）</td></tr>
 </table>
+
+---
+
+## 架构
+
+### 契约驱动的生成链
+
+Protobuf 是唯一 API 契约：路由、错误状态表、服务接口、挂载胶水、前端 TypeScript 客户端全部在构建期从契约确定性生成，仓库里没有一条手写路由；契约改一处，后端与三套前端同时生效。
+
+```text
+backend/api/protos/              proto 契约（唯一事实源，MANIFEST 校验门，禁手改）
+        │  buf + protox 编译出注解描述符
+        ▼
+backend/crates/proto             build.rs 构建期生成
+        ├── ROUTES 路由表（284 条，含 additional_bindings）
+        ├── 错误状态表（546 条 reason → HTTP 状态映射）
+        ├── 服务 trait（556 个方法）+ mounts 挂载胶水
+        └── protojson 编解码（金样测试锁定）
+        ▼
+backend/services/admin-api       手写服务实现挂到生成的 trait 上
+```
+
+### 一次请求的路径
+
+```text
+浏览器 → edge（CORS / 请求预算）→ 绑定层（protojson body + form query，绑定失败即 400，先于鉴权）
+      → 鉴权门（JWT RS256 验签 + Redis 会话检查 → 租户检查 → authz 授权评估）
+      → 生成 handler → Service（业务逻辑）→ Repo（查询谓词由 Viewer 派生）
+      → 数据层租户规则（平台视图全见 / 租户视图强制 tenant_id / 系统视图旁路）→ PostgreSQL
+```
+
+横切关注点不写进业务代码：认证在鉴权门、行级隔离在 Viewer 派生的查询谓词、字段级权限在服务端响应裁剪、六类审计在中间件层——业务代码“看不见”它们，但每条路径都在覆盖之下。
+
+### 一个生命周期，四个 transport
+
+| 通道 | 端口 | 用途 |
+|------|------|------|
+| REST | :7788 | 全部管理面路由 |
+| SSE | :7789 `/events` | 站内信 / 通知服务端推送，流按用户归属校验，连接独立鉴权 |
+| 任务 worker | —（无监听端口） | 消费 Postgres 队列：消息广播扇出、审计归档、定时备份等异步任务 |
+| cron 生产者 | —（无监听端口） | 周期投递任务：租户到期扫描、审计归档、sys_tasks 表驱动的用户任务 |
+
+### 生成物与手写物
+
+| 位置 | 产生方式 | 能否手改 |
+|------|---------|---------|
+| `backend/api/protos/**` | `sync-protos.sh` 从契约源同步（MANIFEST 校验门） | ❌ 改契约源后重新同步 |
+| `backend/crates/proto` 生成面 | `build.rs` 构建期确定性再生 | ❌ |
+| 前端 `src/api/generated/**` | 从契约生成的 TypeScript 客户端 | ❌ |
+| `services/admin-api/src/services/**`、`src/data/**` | 手写业务逻辑与数据层 | ✅ |
+
+逐层拆解与机制细节见[教程第一章：架构全景](./docs/tutorial/01-architecture-overview.md)。
 
 ---
 
@@ -123,14 +175,13 @@
 - 契约流水线：proto 同步（MANIFEST 校验门 + 漂移检测）→ 注解描述符 → 构建期确定性生成路由 / 错误状态表 / 服务接口 / 挂载胶水
 - REST :7788 装配：284 条路由、8 个免鉴权端点白名单、JWT RS256 鉴权门、CORS、统一四字段错误信封（code / reason / message / metadata）
 - 编解码对齐：protojson 请求绑定与响应发射（64 位整数字符串化、presence 省略、well-known 类型语义），金样测试锁定
-- 差分回归台架：284 条路由 + 93 条 HEAD 自动 sweep，豁免 4 类显式登记
 - 真实服务实现覆盖全部组织 / 权限 / 认证 / 消息 / 审计 / 监控域，并完整移植 ce8ab49 vintage 的新域：OIDC SSO 单点登录与租户白标、通知偏好与模板、渠道扩展（39 个 EXT 渠道 schema 注册表 + settings 存取）、监控告警（阈值评估器 + 冷却/恢复状态机）、系统任务巡检、BI 仪表盘（乐观锁 + 内置模板）、打印模板（服务端 HTML→PDF 渲染）、AI 全域（提供商 / 对话 / 消息 / 用量 / 知识库 RAG / Agent 图引擎 / 内容生成）
 - NL2SQL（智能问数）按显式边界声明 NOT_IMPLEMENTED：其四重只读护栏链（表白名单 / LIMIT 钳制 / 语句只读校验 / 租户后置 fail-closed）须整链落地后才放行生成 SQL 执行
 
 **进行中 / 规划**
 
 - 出站投递：SMTP / WEBHOOK / SMS / EXT 渠道真实 sender 与台账实投（通知域既有欠账）、告警周期扫描、事务性邮件按用户偏好语言渲染
-- SSE（:7789）、审计日志归档
+- SSE 业务推送接入（站内信 / 通知实时下发）、审计日志归档
 - 文件域入知识库（UploadDocFile）
 
 ---
@@ -143,8 +194,8 @@
 |------|------|
 | Rust | stable（workspace `rust-version = 1.81`） |
 | buf | 最新版（`curl -fsSL https://buf.build/install.sh | sh`，或 [GitHub releases](https://github.com/bufbuild/buf/releases) 单二进制）；`cargo build` 时需在 PATH（注解闭包编译） |
-| bash | 运行同步 / 台架脚本（Windows 推荐 Git Bash） |
-| Docker | 20.0+（本地中间件 / 差分台架） |
+| bash | 运行同步脚本（Windows 推荐 Git Bash） |
+| Docker | 20.0+（本地中间件） |
 | Node.js + pnpm | 以各前端 `package.json` 的 `engines` 为准（当前约束交集 ≥ 20.19.0），pnpm >= 10.0.0 |
 
 ### 依赖解析
@@ -184,10 +235,6 @@ cargo test --workspace
 
 CI（ubuntu + windows 矩阵）执行同样的四道门：fmt / clippy / test / 契约同步校验，见 [.github/workflows/ci.yml](./.github/workflows/ci.yml)。
 
-### 差分回归台架
-
-[backend/testbed](./backend/testbed) 通过 compose 拉起中间件与 Go / Rust 双栈后端，`admin-diff` 对 284 条路由 + 93 条 HEAD 自动 sweep 并逐字节比对响应，豁免登记于 `exemptions.json`。使用方式见 [backend/testbed/README.md](./backend/testbed/README.md)。
-
 ### 前端启动
 
 前端与后端是零改动兼容契约：API 基址指向本仓后端（REST :7788）即可，无需改动任何前端代码。三套前端均随本仓同步（同步快照 + RushWind 品牌覆写层 + 双清单校验门防手改），dev 代理默认已指向 :7788：
@@ -218,6 +265,8 @@ pnpm dev:antd       # :5666，代理转发至 REST :7788
 ---
 
 ## 功能列表
+
+全部功能在单服务（admin-api）内交付，三套前端功能同构，以下按组织与权限 / 系统功能 / 消息与日志 / 个人中心四组列出。
 
 > 各列表页（业务数据与审计日志）均支持按当前筛选条件分页聚合导出，格式可选 CSV / XLSX（上限 1 万行）。后端各模块的实现覆盖情况见[当前进度](#当前进度)。
 
@@ -293,9 +342,8 @@ rushwind-admin/
 │   │   ├── buf.lock                # buf 依赖 commit 钉定（六 BSR 模块，与上游 lock 同源）
 │   │   └── sync-protos.sh          # 契约同步与校验脚本
 │   ├── crates/                     # 共享 crate（proto 契约生成 crate、auth 鉴权门）
-│   ├── services/
-│   │   └── admin-api/              # Admin 服务 crate（src/ 模块树 + assets/ 内嵌资源）
-│   └── testbed/                    # 差分回归台架（compose + admin-diff sweep）
+│   └── services/
+│       └── admin-api/              # Admin 服务 crate（src/ 模块树 + assets/ 内嵌资源）
 ├── frontend/                       # 三套前端同步快照（sync-frontend.sh + 双清单门 + RushWind 品牌覆写）
 ├── docs/                           # 项目文档（教程 tutorial / 索引 README / binding-spec / development-plan / operator-matrix / screenshots）
 └── .github/workflows/              # CI（fmt / clippy / test / 契约同步门）

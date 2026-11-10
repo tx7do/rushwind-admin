@@ -23,7 +23,7 @@ impl<'a> InternalMessageCategoryRepo<'a> {
     /// Paged tenant-scoped listing: returns (rows, total).
     pub async fn paged_list(
         &self,
-        tenant_id: u32,
+        tenant_id: i64,
         req: &proto::proto::pagination::PagingRequest,
     ) -> Result<(Vec<crate::data::internal_message_categories::Model>, u64), StatusError> {
         crate::paging::fetch_paged(
@@ -40,8 +40,8 @@ impl<'a> InternalMessageCategoryRepo<'a> {
     /// platform/system viewers see everything.
     pub async fn find_scoped(
         &self,
-        id: u32,
-        scope: Option<u32>,
+        id: i64,
+        scope: Option<i64>,
     ) -> Result<Option<crate::data::internal_message_categories::Model>, StatusError> {
         let mut query = crate::data::internal_message_categories::Entity::find_by_id(id);
         if let Some(tid) = scope {
@@ -53,7 +53,7 @@ impl<'a> InternalMessageCategoryRepo<'a> {
 
     /// The scoped delete — tenant viewers delete own-tenant rows only,
     /// platform/system viewers any named row.
-    pub async fn delete_scoped(&self, id: u32, scope: Option<u32>) -> Result<(), StatusError> {
+    pub async fn delete_scoped(&self, id: i64, scope: Option<i64>) -> Result<(), StatusError> {
         let mut query = crate::data::internal_message_categories::Entity::delete_many()
             .filter(crate::data::internal_message_categories::Column::Id.eq(id));
         if let Some(tid) = scope {

@@ -40,7 +40,7 @@ fn provider_to_proto(s: &str) -> i32 {
 
 fn file_proto(r: crate::data::files::Model) -> File {
     File {
-        id: Some(r.id),
+        id: Some(r.id as u64),
         provider: r.provider.as_deref().map(provider_to_proto),
         bucket_name: r.bucket_name,
         file_directory: r.file_directory,
@@ -52,11 +52,11 @@ fn file_proto(r: crate::data::files::Model) -> File {
         size_format: r.size_format,
         link_url: r.link_url,
         content_hash: r.content_hash,
-        tenant_id: r.tenant_id,
+        tenant_id: r.tenant_id.map(|v| v as u64),
         tenant_name: None,
-        created_by: r.created_by,
-        updated_by: r.updated_by,
-        deleted_by: r.deleted_by,
+        created_by: r.created_by.map(|v| v as u64),
+        updated_by: r.updated_by.map(|v| v as u64),
+        deleted_by: r.deleted_by.map(|v| v as u64),
         created_at: r.created_at.and_then(crate::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::state::naive_to_ts),
@@ -92,7 +92,7 @@ impl proto::gen::services::FileServiceHandlers for FileService {
             req.query_by,
             proto::proto::storage::service::v1::get_file_request::QueryBy
         );
-        let row = crate::data::files::Entity::find_by_id(id)
+        let row = crate::data::files::Entity::find_by_id(id as i64)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -137,7 +137,7 @@ impl proto::gen::services::FileServiceHandlers for FileService {
         req: UpdateFileRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::data::files::Entity::find_by_id(req.id)
+        let row = crate::data::files::Entity::find_by_id(req.id as i64)
             .filter(crate::data::files::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -164,7 +164,7 @@ impl proto::gen::services::FileServiceHandlers for FileService {
             req.query_by,
             proto::proto::storage::service::v1::delete_file_request::QueryBy
         );
-        let row = crate::data::files::Entity::find_by_id(id)
+        let row = crate::data::files::Entity::find_by_id(id as i64)
             .filter(crate::data::files::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
