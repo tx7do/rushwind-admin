@@ -31,7 +31,9 @@ pub static DESCRIPTOR_BYTES: &[u8] =
 pub mod gen {
     include!(concat!(env!("OUT_DIR"), "/admin_gen.rs"));
 
-    /// The template module's face.
+    /// The template module's face. A fork's second module adds its own
+    /// sibling block here (one include per module face) beside the
+    /// build.rs face entry.
     pub mod template {
         include!(concat!(env!("OUT_DIR"), "/template_gen.rs"));
     }
