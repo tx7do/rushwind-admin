@@ -186,13 +186,13 @@ pub fn gen_service_fqs(rush_dir: &std::path::Path) -> std::collections::BTreeSet
 /// Builds the sweep from the generated route table.
 pub fn sweep(gen_services: &std::collections::BTreeSet<String>) -> Vec<Case> {
     let mut cases = Vec::new();
-    for (idx, spec) in proto::gen::routes::ROUTES.iter().enumerate() {
+    for (idx, spec) in admin::proto::gen::routes::ROUTES.iter().enumerate() {
         let concrete = concretize(spec.path);
         let (class, kind) = classify_route(
             spec.service_fq,
             spec.method_name,
             spec.shadowed,
-            proto::AUTH_FREE,
+            admin::AUTH_FREE,
             gen_services,
         );
         cases.push(Case {

@@ -9,7 +9,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
-name = "admin-api"
+name = "admin"
 version = "0.1.0"
 dependencies = [
  "aes",
@@ -20,6 +20,7 @@ dependencies = [
  "axum",
  "base64 0.22.1",
  "bcrypt",
+ "biz-proto-build",
  "captcha",
  "cbc",
  "chromiumoxide",
@@ -29,9 +30,10 @@ dependencies = [
  "hmac 0.12.1",
  "lettre",
  "lol_html",
+ "pbjson",
  "pbjson-types",
+ "prost",
  "prost-reflect",
- "proto",
  "qrcode",
  "rand 0.9.5",
  "redis",
@@ -45,6 +47,7 @@ dependencies = [
  "rushwind-oss",
  "rushwind-oss-local",
  "rushwind-oss-s3",
+ "rushwind-redact",
  "rushwind-storage-seaorm-migration",
  "rushwind-storage-seaorm-support",
  "rushwind-transport",
@@ -66,7 +69,7 @@ dependencies = [
 name = "admin-diff"
 version = "0.1.0"
 dependencies = [
- "proto",
+ "admin",
  "reqwest",
  "serde",
  "serde_json",
@@ -455,7 +458,6 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "axum",
- "proto",
  "rushwind-authn",
  "rushwind-authn-gate",
  "rushwind-http-binding",
@@ -2632,28 +2634,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "module-template"
-version = "0.1.0"
-dependencies = [
- "admin-api",
- "async-trait",
- "axum",
- "biz-proto-build",
- "chrono",
- "pbjson",
- "pbjson-types",
- "prost",
- "prost-reflect",
- "rushwind-bootstrap",
- "rushwind-http-binding",
- "rushwind-storage-seaorm-migration",
- "rushwind-storage-seaorm-support",
- "sea-orm",
- "sea-orm-migration",
- "serde_json",
-]
-
-[[package]]
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3108,19 +3088,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
-name = "platform"
-version = "0.1.0"
-dependencies = [
- "admin-api",
- "module-template",
- "rushwind-authn",
- "rushwind-authn-jwt",
- "rushwind-bootstrap",
- "rushwind-transport",
- "tokio",
-]
-
-[[package]]
 name = "pluralizer"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3320,24 +3287,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f94967dc7688f3054c7fac87473ffae4cc4c3904800e2d9f5b857246d8963b0a"
 dependencies = [
  "prost",
-]
-
-[[package]]
-name = "proto"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "axum",
- "pbjson",
- "pbjson-types",
- "prost",
- "prost-reflect",
- "rushwind-http-binding",
- "rushwind-proto-build",
- "rushwind-redact",
- "rushwind-storage-seaorm-support",
- "serde",
- "tokio",
 ]
 
 [[package]]
@@ -3981,18 +3930,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
-]
-
-[[package]]
-name = "rushwind-proto-build"
-version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
-dependencies = [
- "pbjson-build",
- "prost",
- "prost-build",
- "prost-types",
- "rushwind-gen-http",
 ]
 
 [[package]]

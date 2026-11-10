@@ -158,16 +158,27 @@ pub async fn auth_gate(
     next.run(req).await
 }
 
-/// The middleware failure: the status the admin error tables anchor to
-/// `UNAUTHORIZED` (401), and the stage failure's fixed message text.
+/// The gate's failure statuses, pinned as literals: the message texts
+/// AND these numbers are the wire contract (the differential harness
+/// byte-compares the 401 envelope). The admin contract's error table
+/// anchors the same pair — `apps/admin/tests/admin_error_statuses.rs`
+/// keeps that equivalence checked, so the framework crate stays free of
+/// a reverse dependency on the contract.
+const UNAUTHORIZED_STATUS: i32 = 401;
+const FORBIDDEN_STATUS: i32 = 403;
+
+/// The middleware failure: `UNAUTHORIZED` (401) with the stage
+/// failure's fixed message text.
 fn unauthorized(err: SessionError) -> rushwind_http_binding::envelope::StatusError {
-    let status = proto::tables::error_status("admin.service.v1", "UNAUTHORIZED").unwrap_or(401);
-    rushwind_http_binding::envelope::StatusError::new(status, "UNAUTHORIZED", err.message())
+    rushwind_http_binding::envelope::StatusError::new(
+        UNAUTHORIZED_STATUS,
+        "UNAUTHORIZED",
+        err.message(),
+    )
 }
 
 /// The tenant/authorization stage failure: `FORBIDDEN` (403) with the
 /// check's own message text.
 fn forbidden(message: &str) -> rushwind_http_binding::envelope::StatusError {
-    let status = proto::tables::error_status("admin.service.v1", "FORBIDDEN").unwrap_or(403);
-    rushwind_http_binding::envelope::StatusError::new(status, "FORBIDDEN", message)
+    rushwind_http_binding::envelope::StatusError::new(FORBIDDEN_STATUS, "FORBIDDEN", message)
 }

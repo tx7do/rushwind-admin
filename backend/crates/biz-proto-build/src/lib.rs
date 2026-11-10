@@ -61,6 +61,14 @@ pub struct Build {
     /// dropped from the workspace fails the build instead of silently
     /// losing the type.
     pub dep_data_files: &'static [&'static str],
+    /// Extra type roots under the api root (`fork/protos`) — the fork
+    /// module trees riding one workspace beside the admin contract
+    /// tree (`protos`). Their top-level dirs join the contract tops
+    /// for the TYPES filter, so a fork module's messages generate
+    /// beside the admin's; the pool closure is the whole workspace
+    /// either way (one pool, one type per proto package — a fork's
+    /// `PagingRequest` IS the admin's).
+    pub extra_type_roots: &'static [&'static str],
     /// The module's auth-free whitelist — single-sourced from the
     /// crate's `src/auth_free.rs`, included at build-script scope.
     pub auth_free: &'static [(&'static str, &'static str)],
@@ -84,8 +92,16 @@ pub struct Face {
     pub module_file: &'static str,
     /// The root prefix slicing the annotated closure to this face's
     /// sub-closure (`template/service/v1/`); `None` generates over the
-    /// full closure.
+    /// full closure. Ignored when [`Face::source_dir`] is present.
     pub root_prefix: Option<&'static str>,
+    /// When present, the face's gen closure is a dedicated `buf build`
+    /// of this workspace-relative module dir (`protos` — the admin
+    /// contract tree; `fork/protos` — a fork module tree) instead of
+    /// the full-workspace closure. One module dir per face: the admin
+    /// face must NOT see fork routes (its route table stays the synced
+    /// admin registration set — the differential harness sweeps it),
+    /// and a fork face must not re-generate the admin surface.
+    pub source_dir: Option<&'static str>,
     /// The generated self-references (`crate::gen::` — the generator's
     /// hardcoded module path) are rewritten to this path when present;
     /// `None` keeps `crate::gen::` (the single-face module's own
@@ -101,16 +117,27 @@ pub fn run(build: Build) -> Result<(), Box<dyn std::error::Error>> {
     let proto_root = api_root.join("protos");
 
     // The contract tree's own top-level modules — derived from the tree
-    // itself so a new module directory needs no whitelist edit. The types
-    // filter keeps a file when its top-level segment is one of these
-    // modules, or it is an explicitly declared dependency data file, or a
-    // well-known import.
+    // itself so a new module directory needs no whitelist edit: the
+    // admin tree's dirs (`protos/*`) plus each fork type root's dirs
+    // (`fork/protos/*`). The types filter keeps a file when its
+    // top-level segment is one of these modules, or it is an
+    // explicitly declared dependency data file, or a well-known import.
     let mut contract_tops: Vec<String> = fs::read_dir(&proto_root)?
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
         .filter_map(|e| e.file_name().into_string().ok())
         .collect();
+    for root in build.extra_type_roots {
+        let dir = api_root.join(root);
+        contract_tops.extend(
+            fs::read_dir(&dir)?
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().map(|t| t.is_dir()).unwrap_or(false))
+                .filter_map(|e| e.file_name().into_string().ok()),
+        );
+    }
     contract_tops.sort();
+    contract_tops.dedup();
     if contract_tops.is_empty() {
         return Err(format!("no contract protos found under {}", proto_root.display()).into());
     }
@@ -246,18 +273,54 @@ pub fn run(build: Build) -> Result<(), Box<dyn std::error::Error>> {
         redact_plan_expr: build.redact_plan_expr,
     };
     for face in build.faces {
-        let bytes = match face.root_prefix {
-            Some(prefix) => {
-                let sub = slice::sub_closure(&annotated, prefix).map_err(|e| e.to_string())?;
+        let bytes = match face.source_dir {
+            Some(dir) => {
+                // A dedicated closure for this face: buf builds ONLY
+                // the module dir (its files plus the transitive
+                // imports through the workspace's BSR deps), custom
+                // option bytes intact — the face's route table covers
+                // its own tree and nothing else.
+                let face_path = out_dir.join(format!("{}_closure.bin", face.label));
+                let mut face_cmd = Command::new("buf");
+                face_cmd
+                    .current_dir(&api_root)
+                    .arg("build")
+                    .arg(dir)
+                    .arg("--exclude-source-info")
+                    .arg("--output")
+                    .arg(&face_path);
+                let output = face_cmd.output().map_err(|e| format!("buf: {e}"))?;
+                if !output.status.success() {
+                    return Err(format!(
+                        "buf build ({} face, {dir}) failed: {}",
+                        face.label,
+                        String::from_utf8_lossy(&output.stderr)
+                    )
+                    .into());
+                }
+                let bytes = fs::read(&face_path)?;
+                let _ = fs::remove_file(&face_path);
                 eprintln!(
-                    "[biz-proto-build] {} face sub-closure: {} bytes (full: {})",
+                    "[biz-proto-build] {} face closure: {} bytes (dir: {dir}; full: {})",
                     face.label,
-                    sub.len(),
+                    bytes.len(),
                     annotated.len()
                 );
-                sub
+                bytes
             }
-            None => annotated.clone(),
+            None => match face.root_prefix {
+                Some(prefix) => {
+                    let sub = slice::sub_closure(&annotated, prefix).map_err(|e| e.to_string())?;
+                    eprintln!(
+                        "[biz-proto-build] {} face sub-closure: {} bytes (full: {})",
+                        face.label,
+                        sub.len(),
+                        annotated.len()
+                    );
+                    sub
+                }
+                None => annotated.clone(),
+            },
         };
         let src = match rushwind_gen_http::generate_from_bytes(&bytes, &cfg) {
             Ok(src) => src,
@@ -285,6 +348,9 @@ pub fn run(build: Build) -> Result<(), Box<dyn std::error::Error>> {
         api_root.join("buf.lock").display()
     );
     println!("cargo:rerun-if-changed={}", proto_root.display());
+    for root in build.extra_type_roots {
+        println!("cargo:rerun-if-changed={}", api_root.join(root).display());
+    }
 
     Ok(())
 }
