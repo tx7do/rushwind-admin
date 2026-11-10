@@ -6,12 +6,12 @@ use std::sync::Arc;
 
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-use pbjson_types::Empty;
-use crate::proto::gen::services::AdminPortalServiceHandlers;
 use crate::proto::admin::service::v1::{
     InitialContextResponse, ListPermissionCodeResponse, ListRouteResponse,
 };
+use crate::proto::gen::services::AdminPortalServiceHandlers;
 use crate::proto::permission::service::v1::MenuRouteItem;
+use pbjson_types::Empty;
 
 use crate::admin::state::{internal_error, AppState};
 
@@ -48,7 +48,10 @@ impl AdminPortalService {
                 .collect();
             if !perm_ids.is_empty() {
                 menu_ids = crate::admin::data::sys_permission_menus::Entity::find()
-                    .filter(crate::admin::data::sys_permission_menus::Column::PermissionId.is_in(perm_ids))
+                    .filter(
+                        crate::admin::data::sys_permission_menus::Column::PermissionId
+                            .is_in(perm_ids),
+                    )
                     .all(&self.state.db)
                     .await
                     .map_err(|e| internal_error(format!("db: {e}")))?
@@ -103,7 +106,10 @@ impl AdminPortalService {
         attach(rows, None)
     }
 
-    async fn permission_codes(&self, uid: i64) -> Result<Vec<String>, crate::admin::state::StatusError> {
+    async fn permission_codes(
+        &self,
+        uid: i64,
+    ) -> Result<Vec<String>, crate::admin::state::StatusError> {
         let role_ids: Vec<i64> = crate::admin::data::sys_user_roles::Entity::find()
             .filter(crate::admin::data::sys_user_roles::Column::UserId.eq(uid))
             .all(&self.state.db)

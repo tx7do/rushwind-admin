@@ -8,12 +8,12 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, tenant_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::internal_message::service::v1::{
     GetInternalMessageRequest, InternalMessage, ListInternalMessageResponse, RevokeMessageRequest,
     SendMessageRequest, SendMessageResponse, UpdateInternalMessageRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /// Unknown rows read as DRAFT.
 fn message_status_to_proto(s: &str) -> i32 {

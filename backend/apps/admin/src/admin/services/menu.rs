@@ -7,12 +7,12 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::permission::service::v1::{
     CreateMenuRequest, DeleteMenuRequest, GetMenuRequest, ListMenuResponse, Menu, SyncMenusRequest,
     UpdateMenuRequest,
 };
+use pbjson_types::Empty;
 
 /// Unknown rows read as MENU, the wire enum's default variant.
 fn type_to_proto(s: &str) -> i32 {
@@ -36,7 +36,10 @@ fn module_to_str(v: i32) -> String {
 fn menu_proto(r: crate::admin::data::sys_menus::Model) -> Menu {
     Menu {
         id: Some(r.id as u64),
-        status: r.status.as_deref().map(crate::admin::state::status_to_proto),
+        status: r
+            .status
+            .as_deref()
+            .map(crate::admin::state::status_to_proto),
         r#type: r.type_column.as_deref().map(type_to_proto),
         path: r.path,
         redirect: r.redirect,

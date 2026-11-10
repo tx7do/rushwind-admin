@@ -8,7 +8,6 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryF
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::script::service::v1::{
     CountScriptLogsResponse, CountScriptsResponse, CreateScriptRequest, DeleteScriptRequest,
@@ -16,6 +15,7 @@ use crate::proto::script::service::v1::{
     PurgeScriptLogsResponse, Script, ScriptLog, TestRunScriptRequest, TestRunScriptResponse,
     UpdateScriptRequest,
 };
+use pbjson_types::Empty;
 
 /// Unknown rows read as LUA.
 fn language_to_proto(s: &str) -> i32 {
@@ -279,7 +279,8 @@ impl crate::proto::gen::services::ScriptLogServiceHandlers for ScriptLogService 
         let mut query = crate::admin::data::sys_script_logs::Entity::delete_many();
         if let Some(before) = &req.before {
             if let Some(cutoff) = crate::admin::state::ts_to_naive(before) {
-                query = query.filter(crate::admin::data::sys_script_logs::Column::CreatedAt.lt(cutoff));
+                query =
+                    query.filter(crate::admin::data::sys_script_logs::Column::CreatedAt.lt(cutoff));
             }
         }
         let result = query.exec(&self.state.db).await.map_err(db_err)?;

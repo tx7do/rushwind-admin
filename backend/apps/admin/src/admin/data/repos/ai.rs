@@ -165,9 +165,8 @@ impl<'a> AiConversationRepo<'a> {
 
     fn condition(&self) -> Condition {
         match self.viewer.tenant_scope() {
-            Some(tid) => {
-                Condition::all().add(crate::admin::data::sys_ai_conversations::Column::TenantId.eq(tid))
-            }
+            Some(tid) => Condition::all()
+                .add(crate::admin::data::sys_ai_conversations::Column::TenantId.eq(tid)),
             None => Condition::all(),
         }
     }
@@ -190,7 +189,8 @@ impl<'a> AiConversationRepo<'a> {
     ) -> Result<Option<crate::admin::data::sys_ai_conversations::Model>, StatusError> {
         let mut query = crate::admin::data::sys_ai_conversations::Entity::find_by_id(id);
         if let Some(tid) = self.viewer.tenant_scope() {
-            query = query.filter(crate::admin::data::sys_ai_conversations::Column::TenantId.eq(tid));
+            query =
+                query.filter(crate::admin::data::sys_ai_conversations::Column::TenantId.eq(tid));
         }
         query.one(self.db).await.map_err(db_err)
     }
@@ -209,9 +209,8 @@ impl<'a> AiMessageRepo<'a> {
     /// 消息经会话归属租户（消息表自身无 tenant 列）。
     fn condition(&self) -> Condition {
         match self.viewer.tenant_scope() {
-            Some(tid) => {
-                Condition::all().add(crate::admin::data::sys_ai_conversations::Column::TenantId.eq(tid))
-            }
+            Some(tid) => Condition::all()
+                .add(crate::admin::data::sys_ai_conversations::Column::TenantId.eq(tid)),
             None => Condition::all(),
         }
     }
@@ -230,8 +229,9 @@ impl<'a> AiMessageRepo<'a> {
             .map_err(db_err)?;
         crate::admin::paging::fetch_paged(
             self.db,
-            crate::admin::data::sys_ai_messages::Entity::find()
-                .filter(crate::admin::data::sys_ai_messages::Column::ConversationId.is_in(conv_ids)),
+            crate::admin::data::sys_ai_messages::Entity::find().filter(
+                crate::admin::data::sys_ai_messages::Column::ConversationId.is_in(conv_ids),
+            ),
             req,
         )
         .await

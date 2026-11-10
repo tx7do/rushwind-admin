@@ -13,7 +13,6 @@ use sea_orm::{ActiveModelTrait, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, operator_of, require_data, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::monitor_alert::service::v1::{
     evaluate_monitor_alerts_response::RuleOutcome, CreateMonitorAlertRuleRequest,
     DeleteMonitorAlertRuleRequest, EvaluateMonitorAlertsRequest, EvaluateMonitorAlertsResponse,
@@ -21,6 +20,7 @@ use crate::proto::monitor_alert::service::v1::{
     UpdateMonitorAlertRuleRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 use crate::proto::monitor_alert::service::v1::MonitorMetric as MetricEnum;
 
@@ -325,7 +325,8 @@ impl crate::proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertSe
                 .as_deref()
                 .and_then(mapping::monitor_metric_of)
                 .unwrap_or(MetricEnum::GoGoroutines as i32);
-            let mut a: crate::admin::data::sys_monitor_alert_rules::ActiveModel = rule.clone().into();
+            let mut a: crate::admin::data::sys_monitor_alert_rules::ActiveModel =
+                rule.clone().into();
 
             let Some(value) = Self::metric_value(metric, &server, redis_size) else {
                 outcomes.push(RuleOutcome {

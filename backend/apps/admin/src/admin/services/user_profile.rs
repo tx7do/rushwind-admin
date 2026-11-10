@@ -7,12 +7,12 @@ use std::sync::Arc;
 
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
-use pbjson_types::Empty;
 use crate::proto::gen::services::UserProfileServiceHandlers;
 use crate::proto::identity::service::v1::{
     BindContactRequest, ChangePasswordRequest, UpdateUserRequest, UploadAvatarRequest,
     UploadAvatarResponse, User, VerifyContactRequest,
 };
+use pbjson_types::Empty;
 
 use crate::admin::services::user::{load_user, user_to_proto};
 use crate::admin::state::{internal_error, status_error, AppState};
@@ -53,8 +53,14 @@ impl UserProfileService {
             .filter(
                 sea_orm::sea_query::Condition::all()
                     .add(crate::admin::data::sys_user_credentials::Column::TenantId.eq(tenant_id))
-                    .add(crate::admin::data::sys_user_credentials::Column::IdentityType.eq("USERNAME"))
-                    .add(crate::admin::data::sys_user_credentials::Column::Identifier.eq(user.username)),
+                    .add(
+                        crate::admin::data::sys_user_credentials::Column::IdentityType
+                            .eq("USERNAME"),
+                    )
+                    .add(
+                        crate::admin::data::sys_user_credentials::Column::Identifier
+                            .eq(user.username),
+                    ),
             )
             .one(&self.state.db)
             .await
@@ -65,7 +71,8 @@ impl UserProfileService {
         }
 
         let min_len = config_int(&self.state, "sys.password.minLen", 8).await;
-        if (new_plain.len() as i64) < min_len || crate::admin::policy::char_classes(&new_plain) < 3 {
+        if (new_plain.len() as i64) < min_len || crate::admin::policy::char_classes(&new_plain) < 3
+        {
             return Err(status_error(
                 "BAD_REQUEST",
                 "password does not meet complexity requirements",
@@ -89,7 +96,8 @@ impl UserProfileService {
         history.drain(..keep);
 
         let mut active: crate::admin::data::sys_user_credentials::ActiveModel = cred.into();
-        active.credential = Set(crate::admin::crypto::hash_password(&new_plain).map_err(internal_error)?);
+        active.credential =
+            Set(crate::admin::crypto::hash_password(&new_plain).map_err(internal_error)?);
         active.updated_at = Set(Some(crate::admin::data::now()));
         active.extra_info = Set(Some(serde_json::json!({ "password_history": history })));
         active

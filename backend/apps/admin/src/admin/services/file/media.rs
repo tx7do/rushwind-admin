@@ -110,7 +110,9 @@ pub(super) fn signed_media_url(crypto_key: Option<[u8; 32]>, storage_path: &str)
 /// HMAC: verify expiry then signature, stream the object from the
 /// bucket the path names.
 pub async fn image_proxy(
-    axum::extract::State(state): axum::extract::State<std::sync::Arc<crate::admin::state::AppState>>,
+    axum::extract::State(state): axum::extract::State<
+        std::sync::Arc<crate::admin::state::AppState>,
+    >,
     params: axum::extract::Query<std::collections::HashMap<String, String>>,
 ) -> axum::response::Response {
     use axum::response::IntoResponse;

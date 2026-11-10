@@ -8,8 +8,8 @@
 use std::sync::Arc;
 
 use crate::admin::state::{operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::identity::service::v1::TenantUsage;
+use pbjson_types::Empty;
 
 pub struct MyTenantUsageService {
     pub state: Arc<AppState>,

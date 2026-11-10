@@ -10,12 +10,12 @@ use crate::admin::data::Viewer;
 use crate::admin::state::{
     db_err, not_found, operator_of, status_error, tenant_of, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::dict::service::v1::{
     CreateDictTypeRequest, DeleteDictTypeRequest, DictType, GetDictTypeRequest,
     ListDictTypeResponse, UpdateDictTypeRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn dict_type_proto(r: crate::admin::data::sys_dict_types::Model) -> DictType {
     DictType {

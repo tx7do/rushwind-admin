@@ -11,11 +11,11 @@ use sea_orm::{
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, internal_error, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::permission::service::v1::{
     Api, CreateApiRequest, DeleteApiRequest, GetApiRequest, ListApiResponse, UpdateApiRequest,
 };
+use pbjson_types::Empty;
 
 /// The `ServiceTagToBusinessModule` map
 /// (pkg/constants/module): tag → module string.
@@ -89,7 +89,10 @@ fn api_proto(r: crate::admin::data::sys_apis::Model) -> Api {
             .map(|m| mapping::menu_module_of(m).unwrap_or(0)),
         description: r.description,
         scope: r.scope.as_deref().map(|s| if s == "APP" { 2 } else { 1 }),
-        status: r.status.as_deref().map(crate::admin::state::status_to_proto),
+        status: r
+            .status
+            .as_deref()
+            .map(crate::admin::state::status_to_proto),
         created_by: r.created_by.map(|v| v as u64),
         updated_by: r.updated_by.map(|v| v as u64),
         deleted_by: r.deleted_by.map(|v| v as u64),
@@ -209,7 +212,9 @@ impl ApiService {
                 }
             }
             crate::admin::data::sys_permission_apis::Entity::delete_many()
-                .filter(crate::admin::data::sys_permission_apis::Column::ApiId.is_in(gone_ids.clone()))
+                .filter(
+                    crate::admin::data::sys_permission_apis::Column::ApiId.is_in(gone_ids.clone()),
+                )
                 .exec(txn)
                 .await
                 .map_err(db_err)?;
@@ -365,7 +370,10 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
                 crate::admin::data::sys_permission_apis::Entity::delete_many()
                     .filter(
                         Condition::all()
-                            .add(crate::admin::data::sys_permission_apis::Column::EndpointPath.eq(&path))
+                            .add(
+                                crate::admin::data::sys_permission_apis::Column::EndpointPath
+                                    .eq(&path),
+                            )
                             .add(
                                 crate::admin::data::sys_permission_apis::Column::EndpointMethod
                                     .eq(method.to_uppercase()),

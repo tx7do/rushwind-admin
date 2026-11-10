@@ -9,12 +9,12 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::internal_message::service::v1::{
     DeleteNotificationFromInboxRequest, InternalMessageRecipient, ListUserInboxResponse,
     MarkNotificationAsReadRequest, MarkNotificationsStatusRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /// Unknown rows read as RECEIVED.
 fn recipient_status_to_proto(s: &str) -> i32 {

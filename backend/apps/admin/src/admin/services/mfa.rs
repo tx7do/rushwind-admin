@@ -10,7 +10,6 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::state::{internal_error, status_error, AppState, StatusError};
 use crate::admin::token::{new_jwt_id, SessionMeta, UserTokenPayload};
-use crate::proto::gen::services::MfaServiceHandlers;
 use crate::proto::authentication::service::v1::{
     confirm_enroll_method_request, disable_mfa_request, start_enroll_method_response,
     verify_mfa_challenge_request, ConfirmEnrollMethodRequest, ConfirmEnrollMethodResponse,
@@ -18,6 +17,7 @@ use crate::proto::authentication::service::v1::{
     ListEnrolledMethodsRequest, ListEnrolledMethodsResponse, LoginResponse, RevokeMfaDeviceRequest,
     StartEnrollMethodRequest, StartEnrollMethodResponse, TotpResult, VerifyMfaChallengeRequest,
 };
+use crate::proto::gen::services::MfaServiceHandlers;
 use rushwind_authn::Authenticator as _;
 
 pub struct MfaService {
@@ -340,10 +340,11 @@ impl MfaServiceHandlers for MfaService {
                 .and_then(|v| v.parse::<u64>().ok())
             {
                 // 凭 credential_id 定位因子行（目标用户可能在任意租户）
-                let factor = crate::admin::data::sys_user_mfa_factors::Entity::find_by_id(id as i64)
-                    .one(&self.state.db)
-                    .await
-                    .map_err(|e| internal_error(format!("db: {e}")))?;
+                let factor =
+                    crate::admin::data::sys_user_mfa_factors::Entity::find_by_id(id as i64)
+                        .one(&self.state.db)
+                        .await
+                        .map_err(|e| internal_error(format!("db: {e}")))?;
                 let factor = match factor {
                     Some(f) if f.user_id == Some(target) => f,
                     _ => return Err(status_error("NOT_FOUND", "mfa credential not found")),
@@ -360,8 +361,12 @@ impl MfaServiceHandlers for MfaService {
                 let first = crate::admin::data::sys_user_mfa_factors::Entity::find()
                     .filter(
                         Condition::all()
-                            .add(crate::admin::data::sys_user_mfa_factors::Column::UserId.eq(target))
-                            .add(crate::admin::data::sys_user_mfa_factors::Column::Method.eq("TOTP")),
+                            .add(
+                                crate::admin::data::sys_user_mfa_factors::Column::UserId.eq(target),
+                            )
+                            .add(
+                                crate::admin::data::sys_user_mfa_factors::Column::Method.eq("TOTP"),
+                            ),
                     )
                     .one(&self.state.db)
                     .await
@@ -377,8 +382,12 @@ impl MfaServiceHandlers for MfaService {
                                 crate::admin::data::sys_user_mfa_factors::Column::TenantId
                                     .eq(first.tenant_id.unwrap_or(0)),
                             )
-                            .add(crate::admin::data::sys_user_mfa_factors::Column::UserId.eq(target))
-                            .add(crate::admin::data::sys_user_mfa_factors::Column::Method.eq("TOTP")),
+                            .add(
+                                crate::admin::data::sys_user_mfa_factors::Column::UserId.eq(target),
+                            )
+                            .add(
+                                crate::admin::data::sys_user_mfa_factors::Column::Method.eq("TOTP"),
+                            ),
                     )
                     .exec(&self.state.db)
                     .await

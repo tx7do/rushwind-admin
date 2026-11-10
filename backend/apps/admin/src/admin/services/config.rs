@@ -8,12 +8,12 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::config::service::v1::{
     Config, CreateConfigRequest, DeleteConfigRequest, GetConfigRequest, ListConfigResponse,
     UpdateConfigRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn value_type_to_str(v: i32) -> Option<String> {
     // ConfigValueType: INVALID=0 (skipped), STRING=1, BOOL=2, INT=3.

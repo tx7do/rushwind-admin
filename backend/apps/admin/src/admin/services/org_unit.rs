@@ -12,12 +12,12 @@ use crate::admin::mapping;
 use crate::admin::state::{
     db_err, internal_error, not_found, operator_of, status_error, tenant_of, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::identity::service::v1::{
     CreateOrgUnitRequest, DeleteOrgUnitRequest, GetOrgUnitRequest, ListOrgUnitResponse, OrgUnit,
     UpdateOrgUnitRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /// Unknown rows read as DEPARTMENT.
 fn org_type_to_proto(s: &str) -> i32 {
@@ -40,7 +40,10 @@ fn org_proto(r: crate::admin::data::sys_org_units::Model) -> OrgUnit {
             r.type_column.as_deref().unwrap_or("DEPARTMENT"),
         )),
         path: r.path,
-        status: r.status.as_deref().map(crate::admin::state::status_to_proto),
+        status: r
+            .status
+            .as_deref()
+            .map(crate::admin::state::status_to_proto),
         sort_order: r.sort_order,
         business_scopes: r
             .business_scopes

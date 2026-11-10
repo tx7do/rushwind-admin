@@ -119,7 +119,10 @@ impl crate::proto::gen::services::OnlineSessionServiceHandlers for OnlineSession
     ) -> Result<RevokeMyOnlineSessionResponse, StatusError> {
         let me = crate::admin::state::operator_of(&ctx)?;
         let Some(jti) = req.jti.clone().filter(|j| !j.is_empty()) else {
-            return Err(crate::admin::state::status_error("BAD_REQUEST", "jti required"));
+            return Err(crate::admin::state::status_error(
+                "BAD_REQUEST",
+                "jti required",
+            ));
         };
         let owned = self
             .state

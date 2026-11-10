@@ -76,8 +76,7 @@ impl AuditFace {
     /// builds one face and the packs thread handles, never copies of
     /// the route table.
     pub fn admin() -> std::sync::Arc<Self> {
-        static FACE: std::sync::OnceLock<std::sync::Arc<AuditFace>> =
-            std::sync::OnceLock::new();
+        static FACE: std::sync::OnceLock<std::sync::Arc<AuditFace>> = std::sync::OnceLock::new();
         FACE.get_or_init(|| {
             let mut face = Self::from_rows(
                 &crate::proto::gen::routes::ROUTES

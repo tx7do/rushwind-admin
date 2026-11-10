@@ -25,11 +25,19 @@ impl<'a> InternalMessageCategoryRepo<'a> {
         &self,
         tenant_id: i64,
         req: &crate::proto::pagination::PagingRequest,
-    ) -> Result<(Vec<crate::admin::data::internal_message_categories::Model>, u64), StatusError> {
+    ) -> Result<
+        (
+            Vec<crate::admin::data::internal_message_categories::Model>,
+            u64,
+        ),
+        StatusError,
+    > {
         crate::admin::paging::fetch_paged(
             self.db,
             crate::admin::data::internal_message_categories::Entity::find()
-                .filter(crate::admin::data::internal_message_categories::Column::TenantId.eq(tenant_id))
+                .filter(
+                    crate::admin::data::internal_message_categories::Column::TenantId.eq(tenant_id),
+                )
                 .order_by_asc(crate::admin::data::internal_message_categories::Column::SortOrder),
             req,
         )
@@ -45,8 +53,8 @@ impl<'a> InternalMessageCategoryRepo<'a> {
     ) -> Result<Option<crate::admin::data::internal_message_categories::Model>, StatusError> {
         let mut query = crate::admin::data::internal_message_categories::Entity::find_by_id(id);
         if let Some(tid) = scope {
-            query =
-                query.filter(crate::admin::data::internal_message_categories::Column::TenantId.eq(tid));
+            query = query
+                .filter(crate::admin::data::internal_message_categories::Column::TenantId.eq(tid));
         }
         query.one(self.db).await.map_err(db_err)
     }
@@ -57,8 +65,8 @@ impl<'a> InternalMessageCategoryRepo<'a> {
         let mut query = crate::admin::data::internal_message_categories::Entity::delete_many()
             .filter(crate::admin::data::internal_message_categories::Column::Id.eq(id));
         if let Some(tid) = scope {
-            query =
-                query.filter(crate::admin::data::internal_message_categories::Column::TenantId.eq(tid));
+            query = query
+                .filter(crate::admin::data::internal_message_categories::Column::TenantId.eq(tid));
         }
         query.exec(self.db).await.map_err(|_| {
             crate::admin::state::internal_error("delete internal message categories failed")

@@ -12,11 +12,11 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use chrono::Timelike;
 
 use crate::admin::state::{operator_of, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::notification::service::v1::{
     ListMyNotificationCategoriesResponse, NotificationCategoryItem, NotificationPreference,
     UpdateNotificationPreferenceRequest,
 };
+use pbjson_types::Empty;
 
 /// 静音时段默认窗口：22:00 → 次日 08:00（分钟数自当日 00:00 起）。
 const DEFAULT_QUIET_START_MINUTE: i32 = 1320;
@@ -32,7 +32,9 @@ pub struct NotificationPreferenceService {
     pub state: Arc<AppState>,
 }
 
-fn pref_proto(r: crate::admin::data::sys_notification_preferences::Model) -> NotificationPreference {
+fn pref_proto(
+    r: crate::admin::data::sys_notification_preferences::Model,
+) -> NotificationPreference {
     let muted = r.muted_category_ids.and_then(|v| {
         v.as_array()
             .map(|arr| arr.iter().filter_map(|x| x.as_u64()).collect::<Vec<u64>>())
@@ -102,7 +104,9 @@ pub fn in_quiet_window(pref: &QuietWindow, now: chrono::NaiveTime) -> bool {
 }
 
 #[async_trait::async_trait]
-impl crate::proto::gen::services::NotificationPreferenceServiceHandlers for NotificationPreferenceService {
+impl crate::proto::gen::services::NotificationPreferenceServiceHandlers
+    for NotificationPreferenceService
+{
     /// 返回当前用户的偏好；从未配置过时返回默认值（未启用静音、无退订），
     /// 前端据此渲染表单，落库发生在第一次保存。
     async fn get_my_notification_preference(
@@ -169,8 +173,8 @@ impl crate::proto::gen::services::NotificationPreferenceServiceHandlers for Noti
             .filter(crate::admin::data::internal_message_categories::Column::IsEnabled.eq(true))
             .order_by_asc(crate::admin::data::internal_message_categories::Column::SortOrder);
         if let Some(tid) = scope {
-            query =
-                query.filter(crate::admin::data::internal_message_categories::Column::TenantId.eq(tid));
+            query = query
+                .filter(crate::admin::data::internal_message_categories::Column::TenantId.eq(tid));
         }
         let rows = query
             .all(&self.state.db)

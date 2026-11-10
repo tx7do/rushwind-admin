@@ -10,13 +10,13 @@ use sea_orm::{ActiveModelTrait, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, operator_of, require_data, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::notification::service::v1::{
     CreateNotificationRuleRequest, DeleteNotificationRuleRequest, GetNotificationRuleRequest,
     ListNotificationRuleResponse, NotificationRule, TestDispatchNotificationRequest,
     TestDispatchNotificationResponse, UpdateNotificationRuleRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /// The test-dispatch verdict for a rule: a disabled rule (or one with
 /// no/unknown channel) skips; a channel whose Rust-side outbound is

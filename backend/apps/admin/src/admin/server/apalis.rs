@@ -99,7 +99,8 @@ impl ApalisServer {
                             .add(crate::admin::data::sys_tenants::Column::Status.eq("ON"))
                             .add(crate::admin::data::sys_tenants::Column::ExpiredAt.is_not_null())
                             .add(
-                                crate::admin::data::sys_tenants::Column::ExpiredAt.lte(crate::admin::data::now()),
+                                crate::admin::data::sys_tenants::Column::ExpiredAt
+                                    .lte(crate::admin::data::now()),
                             ),
                     )
                     .all(db)

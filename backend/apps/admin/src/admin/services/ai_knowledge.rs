@@ -16,7 +16,6 @@ use crate::admin::data::Viewer;
 use crate::admin::state::{
     db_err, not_found, operator_of, require_data, status_error, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::ai::service::v1::{
     AiDoc, AiKnowledgeBase, CreateAiKnowledgeBaseRequest, DeleteAiDocRequest,
     DeleteAiKnowledgeBaseRequest, GetAiKnowledgeBaseRequest, ListAiDocsRequest,
@@ -24,6 +23,7 @@ use crate::proto::ai::service::v1::{
     UpdateAiKnowledgeBaseRequest, UploadAiDocRequest, UploadAiDocResponse,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /** embedding 输出向量维度——与启动迁移 `AiChunkVectorColumn` 的
  * vector(1536) 定维互为文档；维度值本体钉在迁移 SQL 里，此处仅作
@@ -108,7 +108,8 @@ impl AiKnowledgeBaseService {
     ) -> Result<crate::admin::data::sys_ai_knowledge_bases::Model, StatusError> {
         let mut query = crate::admin::data::sys_ai_knowledge_bases::Entity::find_by_id(id);
         if let Some(tid) = Viewer::from_ctx(ctx).tenant_scope() {
-            query = query.filter(crate::admin::data::sys_ai_knowledge_bases::Column::TenantId.eq(tid));
+            query =
+                query.filter(crate::admin::data::sys_ai_knowledge_bases::Column::TenantId.eq(tid));
         }
         query
             .one(&self.state.db)
@@ -342,7 +343,8 @@ impl crate::proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledge
     ) -> Result<ListAiKnowledgeBaseResponse, StatusError> {
         let mut query = crate::admin::data::sys_ai_knowledge_bases::Entity::find();
         if let Some(tid) = Viewer::from_ctx(&ctx).tenant_scope() {
-            query = query.filter(crate::admin::data::sys_ai_knowledge_bases::Column::TenantId.eq(tid));
+            query =
+                query.filter(crate::admin::data::sys_ai_knowledge_bases::Column::TenantId.eq(tid));
         }
         let (rows, total) = crate::admin::paging::fetch_paged(&self.state.db, query, &req).await?;
         Ok(ListAiKnowledgeBaseResponse {

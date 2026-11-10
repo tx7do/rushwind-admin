@@ -6,9 +6,9 @@ use sea_orm::EntityTrait;
 
 use crate::admin::data::Viewer;
 use crate::admin::state::{db_err, not_found, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::ai::service::v1::{AiMessage, DeleteAiMessageRequest, ListAiMessageResponse};
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn msg_proto(r: crate::admin::data::sys_ai_messages::Model) -> AiMessage {
     AiMessage {
@@ -47,7 +47,8 @@ impl crate::proto::gen::services::AiMessageServiceHandlers for AiMessageService 
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: PagingRequest,
     ) -> Result<ListAiMessageResponse, StatusError> {
-        let repo = crate::admin::data::repos::AiMessageRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::AiMessageRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListAiMessageResponse {
             items: rows.into_iter().map(msg_proto).collect(),
@@ -64,7 +65,8 @@ impl crate::proto::gen::services::AiMessageServiceHandlers for AiMessageService 
             req.query_by,
             crate::proto::ai::service::v1::delete_ai_message_request::QueryBy
         );
-        let repo = crate::admin::data::repos::AiMessageRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::AiMessageRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         repo.find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("ai message"))?;

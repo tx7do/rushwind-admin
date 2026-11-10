@@ -5,12 +5,12 @@ use std::sync::Arc;
 use sea_orm::{ActiveModelTrait, Set};
 
 use crate::admin::state::{db_err, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::permission::service::v1::{
     CreatePermissionGroupRequest, DeletePermissionGroupRequest, GetPermissionGroupRequest,
     ListPermissionGroupResponse, PermissionGroup, UpdatePermissionGroupRequest,
 };
+use pbjson_types::Empty;
 
 fn group_proto(r: crate::admin::data::sys_permission_groups::Model) -> PermissionGroup {
     PermissionGroup {
@@ -19,7 +19,10 @@ fn group_proto(r: crate::admin::data::sys_permission_groups::Model) -> Permissio
         path: r.path,
         module: r.module,
         sort_order: r.sort_order,
-        status: r.status.as_deref().map(crate::admin::state::status_to_proto),
+        status: r
+            .status
+            .as_deref()
+            .map(crate::admin::state::status_to_proto),
         description: r.description,
         parent_id: r.parent_id.map(|v| v as u64),
         children: Vec::new(),

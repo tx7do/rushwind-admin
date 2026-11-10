@@ -10,11 +10,11 @@ use std::sync::Arc;
 use sea_orm::{ConnectionTrait, EntityTrait, Statement};
 
 use crate::admin::state::{operator_of, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::ai::service::v1::{
     GenerateContentRequest, GenerateContentResponse, RebuildSearchIndexResponse,
     SemanticSearchItem, SemanticSearchRequest, SemanticSearchResponse,
 };
+use pbjson_types::Empty;
 
 /// 场景 → 系统提示词（与上游 aiContentScenePrompts 逐字一致；%s = 输出语言）。
 fn scene_prompt(scene: i32, lang: &str) -> String {
@@ -65,11 +65,16 @@ pub struct AiContentService {
 
 impl AiContentService {
     /// 默认启用 provider（生成/索引/检索共用的取数锚）。
-    async fn default_provider(&self) -> Result<crate::admin::data::sys_ai_providers::Model, StatusError> {
-        crate::admin::data::repos::AiProviderRepo::new(&self.state.db, crate::admin::data::Viewer::system())
-            .find_default()
-            .await?
-            .ok_or_else(|| status_error("BAD_REQUEST", "no ai provider configured"))
+    async fn default_provider(
+        &self,
+    ) -> Result<crate::admin::data::sys_ai_providers::Model, StatusError> {
+        crate::admin::data::repos::AiProviderRepo::new(
+            &self.state.db,
+            crate::admin::data::Viewer::system(),
+        )
+        .find_default()
+        .await?
+        .ok_or_else(|| status_error("BAD_REQUEST", "no ai provider configured"))
     }
 
     /// 重建索引：TRUNCATE 后按批 embedding 写入（对齐响应 index 校验

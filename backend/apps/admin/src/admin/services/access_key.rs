@@ -8,14 +8,14 @@ use std::sync::Arc;
 
 use sea_orm::{ActiveModelTrait, Set};
 
-use pbjson_types::Empty;
-use crate::proto::gen::services::AccessKeyServiceHandlers;
 use crate::proto::access_key::service::v1::{
     AccessKey, CreateAccessKeyRequest, CreateAccessKeyResponse, DeleteAccessKeyRequest,
     GetAccessKeyRequest, IssueTokenRequest, IssueTokenResponse, ListAccessKeyResponse,
     ResetAccessKeySecretRequest, UpdateAccessKeyRequest,
 };
+use crate::proto::gen::services::AccessKeyServiceHandlers;
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 use crate::admin::state::{internal_error, status_error, AppState};
 use crate::admin::token::{new_jwt_id, UserTokenPayload};
@@ -117,7 +117,9 @@ impl AccessKeyServiceHandlers for AccessKeyService {
             name: Set(data.name.unwrap_or_else(|| "unnamed".into())),
             access_key: Set(new_access_key()),
             secret_hash: Set(crate::admin::crypto::sha256_hex(secret.as_bytes())),
-            expires_at: Set(data.expires_at.and_then(|t| crate::admin::state::ts_to_naive(&t))),
+            expires_at: Set(data
+                .expires_at
+                .and_then(|t| crate::admin::state::ts_to_naive(&t))),
             status: Set(Some("ON".into())),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::admin::data::now())),
@@ -231,7 +233,8 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         .find_by_access_key(&req.access_key.clone())
         .await?;
         let Some(row) = row else {
-            crate::admin::ratelimit::check_and_incr(&self.state.redis, &ctx.ip, &req.access_key).await;
+            crate::admin::ratelimit::check_and_incr(&self.state.redis, &ctx.ip, &req.access_key)
+                .await;
             return Err(status_error("BAD_REQUEST", "invalid access key or secret"));
         };
         if row.status.as_deref() != Some("ON") {
@@ -245,7 +248,8 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         // Constant-time compare of SHA-256 hex digests.
         let digest = crate::admin::crypto::sha256_hex(req.secret.as_bytes());
         if !constant_time_eq(digest.as_bytes(), row.secret_hash.as_bytes()) {
-            crate::admin::ratelimit::check_and_incr(&self.state.redis, &ctx.ip, &req.access_key).await;
+            crate::admin::ratelimit::check_and_incr(&self.state.redis, &ctx.ip, &req.access_key)
+                .await;
             return Err(status_error("BAD_REQUEST", "invalid access key or secret"));
         }
 

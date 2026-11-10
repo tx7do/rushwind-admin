@@ -6,12 +6,12 @@ use sea_orm::sea_query::Condition;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
 
 use crate::admin::state::{db_err, not_found, operator_of, tenant_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::dict::service::v1::{
     CreateDictEntryRequest, DeleteDictEntryRequest, DictEntry, ListDictEntryByTypeCodeRequest,
     ListDictEntryByTypeCodeResponse, ListDictEntryResponse, UpdateDictEntryRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn dict_entry_proto(r: crate::admin::data::sys_dict_entries::Model) -> DictEntry {
     DictEntry {
@@ -144,7 +144,10 @@ impl crate::proto::gen::services::DictEntryServiceHandlers for DictEntryService 
             .filter(
                 Condition::all()
                     .add(crate::admin::data::sys_dict_types::Column::TenantId.eq(tid))
-                    .add(crate::admin::data::sys_dict_types::Column::TypeCode.eq(req.type_code.clone())),
+                    .add(
+                        crate::admin::data::sys_dict_types::Column::TypeCode
+                            .eq(req.type_code.clone()),
+                    ),
             )
             .one(&self.state.db)
             .await

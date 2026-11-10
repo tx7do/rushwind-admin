@@ -11,7 +11,9 @@ use crate::proto::notification::service::v1::{
 };
 use crate::proto::pagination::PagingRequest;
 
-fn delivery_proto(r: crate::admin::data::sys_notification_deliveries::Model) -> NotificationDelivery {
+fn delivery_proto(
+    r: crate::admin::data::sys_notification_deliveries::Model,
+) -> NotificationDelivery {
     NotificationDelivery {
         id: Some(r.id as u64),
         event_type: r

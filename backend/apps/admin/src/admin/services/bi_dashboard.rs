@@ -9,7 +9,6 @@ use sea_orm::{ActiveModelTrait, EntityTrait, Set};
 
 use crate::admin::data::Viewer;
 use crate::admin::state::{db_err, operator_of, require_data, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::bi::service::v1::{
     BiDashboard, BiDashboardRevision, CopyBiDashboardRequest, CreateBiDashboardRequest,
     DeleteBiDashboardRequest, GetBiDashboardRequest, ListBiDashboardResponse,
@@ -17,6 +16,7 @@ use crate::proto::bi::service::v1::{
     RestoreBiDashboardRevisionRequest, UpdateBiDashboardRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn kind_str(v: i32) -> &'static str {
     match v {
@@ -125,7 +125,8 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: PagingRequest,
     ) -> Result<ListBiDashboardResponse, StatusError> {
-        let repo = crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListBiDashboardResponse {
             items: rows.into_iter().map(dash_proto).collect(),
@@ -138,7 +139,8 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetBiDashboardRequest,
     ) -> Result<BiDashboard, StatusError> {
-        let repo = crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = match req.query_by {
             Some(crate::proto::bi::service::v1::get_bi_dashboard_request::QueryBy::Id(id)) => {
                 repo.find_scoped(id as i64).await?
@@ -156,7 +158,8 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let repo = crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         if let Some(code) = data.code.as_deref().filter(|c| !c.is_empty()) {
             if repo.find_by_code(code).await?.is_some() {
                 return Err(status_error("CONFLICT", "dashboard code already exists"));
@@ -191,7 +194,8 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let repo = crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
             .find_scoped(req.id as i64)
             .await?
@@ -266,7 +270,8 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             req.query_by,
             crate::proto::bi::service::v1::delete_bi_dashboard_request::QueryBy
         );
-        let repo = crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
             .find_scoped(id as i64)
             .await?
@@ -283,9 +288,12 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             .await
             .map_err(db_err)?;
         // 快照随主表级联清理（SeaORM 无库级 cascade，显式随行）
-        crate::admin::data::repos::BiDashboardRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx))
-            .delete_for_dashboard(id as i64)
-            .await?;
+        crate::admin::data::repos::BiDashboardRevisionRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        )
+        .delete_for_dashboard(id as i64)
+        .await?;
         Ok(Empty {})
     }
 
@@ -298,7 +306,8 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         req: CopyBiDashboardRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let repo = crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let source = repo
             .find_scoped(req.id as i64)
             .await?
@@ -396,7 +405,8 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             return Err(crate::admin::state::not_found("bi dashboard"));
         }
 
-        let repo = crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let current = repo
             .find_scoped(dashboard_id)
             .await?

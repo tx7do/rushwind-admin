@@ -18,11 +18,11 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::storage::service::v1::{
     CreateFileRequest, DeleteFileRequest, File, GetFileRequest, ListFileResponse, UpdateFileRequest,
 };
+use pbjson_types::Empty;
 use rushwind_oss::ObjectStorage as _;
 
 /// The local-disk store for one bucket — the no-endpoint profile's
@@ -74,8 +74,10 @@ impl crate::proto::gen::services::FileServiceHandlers for FileService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: PagingRequest,
     ) -> Result<ListFileResponse, StatusError> {
-        let repo =
-            crate::admin::data::repos::FileRepo::new(&self.state.db, crate::admin::data::Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::FileRepo::new(
+            &self.state.db,
+            crate::admin::data::Viewer::from_ctx(&ctx),
+        );
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListFileResponse {
             items: rows.into_iter().map(file_proto).collect(),

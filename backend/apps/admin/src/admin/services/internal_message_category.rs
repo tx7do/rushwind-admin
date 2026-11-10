@@ -6,7 +6,6 @@ use std::sync::Arc;
 use sea_orm::{ActiveModelTrait, Set};
 
 use crate::admin::state::{db_err, not_found, operator_of, tenant_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::internal_message::service::v1::{
     delete_internal_message_category_request::QueryBy as DeleteQueryBy,
     get_internal_message_category_request::QueryBy as GetQueryBy,
@@ -14,8 +13,11 @@ use crate::proto::internal_message::service::v1::{
     ListInternalMessageCategoryResponse,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
-fn category_proto(r: crate::admin::data::internal_message_categories::Model) -> InternalMessageCategory {
+fn category_proto(
+    r: crate::admin::data::internal_message_categories::Model,
+) -> InternalMessageCategory {
     InternalMessageCategory {
         id: Some(r.id as u64),
         tenant_id: r.tenant_id.map(|v| v as u64),

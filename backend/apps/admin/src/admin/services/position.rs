@@ -7,12 +7,12 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::identity::service::v1::{
     CreatePositionRequest, DeletePositionRequest, GetPositionRequest, ListPositionResponse,
     Position, UpdatePositionRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn position_proto(r: crate::admin::data::sys_positions::Model) -> Position {
     Position {
@@ -21,7 +21,10 @@ fn position_proto(r: crate::admin::data::sys_positions::Model) -> Position {
         code: r.code,
         headcount: r.headcount,
         sort_order: r.sort_order,
-        status: r.status.as_deref().map(crate::admin::state::status_to_proto),
+        status: r
+            .status
+            .as_deref()
+            .map(crate::admin::state::status_to_proto),
         r#type: r
             .type_column
             .as_deref()

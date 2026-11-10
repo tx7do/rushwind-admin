@@ -85,10 +85,12 @@ pub fn make_wrap(
     let authenticator = Arc::clone(&state.authenticator);
     let checker = Arc::new(RedisTokenChecker(state.tokens.clone()))
         as Arc<dyn auth::AccessTokenChecker + 'static>;
-    let tenant_checker = Arc::new(crate::admin::authorizer::TenantAccessChecker(Arc::clone(state)))
-        as Arc<dyn auth::TenantAccessChecker + 'static>;
-    let authorizer = Arc::new(crate::admin::authorizer::AccessAuthorizer::new(Arc::clone(state)))
-        as Arc<dyn auth::AuthorizationEvaluator + 'static>;
+    let tenant_checker = Arc::new(crate::admin::authorizer::TenantAccessChecker(Arc::clone(
+        state,
+    ))) as Arc<dyn auth::TenantAccessChecker + 'static>;
+    let authorizer = Arc::new(crate::admin::authorizer::AccessAuthorizer::new(Arc::clone(
+        state,
+    ))) as Arc<dyn auth::AuthorizationEvaluator + 'static>;
 
     move |mr: MethodRouter, wire: &RouteWire, gated: bool| -> MethodRouter {
         let mut out = mr;

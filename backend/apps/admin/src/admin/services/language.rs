@@ -5,12 +5,12 @@ use std::sync::Arc;
 use sea_orm::{ActiveModelTrait, Set};
 
 use crate::admin::state::{db_err, not_found, operator_of, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::dict::service::v1::{
     BatchCreateLanguagesRequest, CreateLanguageRequest, DeleteLanguageRequest, Language,
     ListLanguageResponse, UpdateLanguageRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn language_proto(r: crate::admin::data::sys_languages::Model) -> Language {
     Language {

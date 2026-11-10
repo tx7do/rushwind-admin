@@ -10,14 +10,17 @@ use std::sync::Arc;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
 
 use crate::admin::state::{db_err, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::permission::service::v1::{
     CreatePermissionRequest, DeletePermissionRequest, GetPermissionRequest, ListPermissionResponse,
     Permission, UpdatePermissionRequest,
 };
+use pbjson_types::Empty;
 
-async fn permission_proto(state: &AppState, r: crate::admin::data::sys_permissions::Model) -> Permission {
+async fn permission_proto(
+    state: &AppState,
+    r: crate::admin::data::sys_permissions::Model,
+) -> Permission {
     let menu_ids: Vec<i64> = crate::admin::data::sys_permission_menus::Entity::find()
         .filter(crate::admin::data::sys_permission_menus::Column::PermissionId.eq(r.id))
         .all(&state.db)
@@ -454,11 +457,12 @@ impl PermissionService {
             .into_iter()
             .filter(|r| !r.code.starts_with("sys:"))
             .collect::<Vec<_>>();
-        let existing_by_code: BTreeMap<String, crate::admin::data::sys_permissions::Model> = existing
-            .iter()
-            .cloned()
-            .map(|r| (r.code.clone(), r))
-            .collect();
+        let existing_by_code: BTreeMap<String, crate::admin::data::sys_permissions::Model> =
+            existing
+                .iter()
+                .cloned()
+                .map(|r| (r.code.clone(), r))
+                .collect();
 
         let mut merge_hit: std::collections::HashSet<String> =
             std::collections::HashSet::with_capacity(derived.len());
@@ -511,21 +515,24 @@ impl PermissionService {
         if !gone_ids.is_empty() {
             crate::admin::data::sys_role_permissions::Entity::delete_many()
                 .filter(
-                    crate::admin::data::sys_role_permissions::Column::PermissionId.is_in(gone_ids.clone()),
+                    crate::admin::data::sys_role_permissions::Column::PermissionId
+                        .is_in(gone_ids.clone()),
                 )
                 .exec(txn)
                 .await
                 .map_err(db_err)?;
             crate::admin::data::sys_permission_apis::Entity::delete_many()
                 .filter(
-                    crate::admin::data::sys_permission_apis::Column::PermissionId.is_in(gone_ids.clone()),
+                    crate::admin::data::sys_permission_apis::Column::PermissionId
+                        .is_in(gone_ids.clone()),
                 )
                 .exec(txn)
                 .await
                 .map_err(db_err)?;
             crate::admin::data::sys_permission_menus::Entity::delete_many()
                 .filter(
-                    crate::admin::data::sys_permission_menus::Column::PermissionId.is_in(gone_ids.clone()),
+                    crate::admin::data::sys_permission_menus::Column::PermissionId
+                        .is_in(gone_ids.clone()),
                 )
                 .exec(txn)
                 .await
@@ -648,7 +655,9 @@ impl crate::proto::gen::services::PermissionServiceHandlers for PermissionServic
         if let Some(data) = &req.data {
             if !data.menu_ids.is_empty() {
                 crate::admin::data::sys_permission_menus::Entity::delete_many()
-                    .filter(crate::admin::data::sys_permission_menus::Column::PermissionId.eq(req.id))
+                    .filter(
+                        crate::admin::data::sys_permission_menus::Column::PermissionId.eq(req.id),
+                    )
                     .exec(&self.state.db)
                     .await
                     .map_err(db_err)?;
@@ -669,7 +678,9 @@ impl crate::proto::gen::services::PermissionServiceHandlers for PermissionServic
             }
             if !data.api_ids.is_empty() {
                 crate::admin::data::sys_permission_apis::Entity::delete_many()
-                    .filter(crate::admin::data::sys_permission_apis::Column::PermissionId.eq(req.id))
+                    .filter(
+                        crate::admin::data::sys_permission_apis::Column::PermissionId.eq(req.id),
+                    )
                     .exec(&self.state.db)
                     .await
                     .map_err(db_err)?;

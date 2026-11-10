@@ -39,7 +39,9 @@ pub struct PolicyEvaluationLogService {
 }
 
 #[async_trait::async_trait]
-impl crate::proto::gen::services::PolicyEvaluationLogServiceHandlers for PolicyEvaluationLogService {
+impl crate::proto::gen::services::PolicyEvaluationLogServiceHandlers
+    for PolicyEvaluationLogService
+{
     async fn list(
         &self,
         _ctx: rushwind_http_binding::ctx::RequestContext,

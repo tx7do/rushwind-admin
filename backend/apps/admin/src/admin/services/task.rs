@@ -13,12 +13,12 @@ use crate::admin::mapping;
 use crate::admin::state::{
     db_err, not_found, operator_of, status_error, tenant_of, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::task::service::v1::{
     ControlTaskRequest, CreateTaskRequest, DeleteTaskRequest, GetTaskRequest, ListTaskResponse,
     ListTaskTypeNameResponse, RestartAllTaskResponse, Task, UpdateTaskRequest,
 };
+use pbjson_types::Empty;
 
 /// The task types registered in the queue server.
 const REGISTERED_TASK_TYPES: &[&str] = &[
@@ -101,8 +101,10 @@ impl crate::proto::gen::services::TaskServiceHandlers for TaskService {
         req: PagingRequest,
     ) -> Result<ListTaskResponse, StatusError> {
         // Listing rides the repo: tenancy predicates live in the data layer.
-        let repo =
-            crate::admin::data::repos::TaskRepo::new(&self.state.db, crate::admin::data::Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::TaskRepo::new(
+            &self.state.db,
+            crate::admin::data::Viewer::from_ctx(&ctx),
+        );
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListTaskResponse {
             items: rows.into_iter().map(task_proto).collect(),

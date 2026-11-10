@@ -24,8 +24,6 @@ use std::sync::Arc;
 use sea_orm::sea_query::Condition;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-use pbjson_types::Empty;
-use crate::proto::gen::services::AuthenticationServiceHandlers;
 use crate::proto::authentication::service::v1::{login_request, GrantType};
 use crate::proto::authentication::service::v1::{
     ForgotPasswordRequest, GenerateCaptchaResponse, GetSsoLoginInfoRequest,
@@ -33,6 +31,8 @@ use crate::proto::authentication::service::v1::{
     GetTenantBrandingRequest, GetTenantBrandingResponse, LoginRequest, LoginResponse,
     ResetPasswordByCodeRequest, SsoLoginRequest, VerifyCaptchaRequest, VerifyCaptchaResponse,
 };
+use crate::proto::gen::services::AuthenticationServiceHandlers;
+use pbjson_types::Empty;
 use rushwind_http_binding::envelope::StatusError;
 
 use crate::admin::state::{internal_error, status_error, AppState};
@@ -173,7 +173,8 @@ impl AuthenticationServiceHandlers for AuthenticationService {
             .ok_or_else(|| status_error("BAD_REQUEST", "invalid credential format"))?;
 
         let min_len = self.config_int("sys.password.minLen", 8).await;
-        if (new_plain.len() as i64) < min_len || crate::admin::policy::char_classes(&new_plain) < 3 {
+        if (new_plain.len() as i64) < min_len || crate::admin::policy::char_classes(&new_plain) < 3
+        {
             return Err(status_error(
                 "BAD_REQUEST",
                 "password does not meet complexity requirements",
@@ -345,7 +346,8 @@ impl AuthenticationServiceHandlers for AuthenticationService {
         req: VerifyCaptchaRequest,
     ) -> Result<VerifyCaptchaResponse, StatusError> {
         let valid =
-            crate::admin::captcha::verify(&self.state.redis, &req.captcha_id, &req.user_input).await;
+            crate::admin::captcha::verify(&self.state.redis, &req.captcha_id, &req.user_input)
+                .await;
         Ok(VerifyCaptchaResponse { valid })
     }
 
@@ -473,7 +475,8 @@ impl AuthenticationService {
         {
             Ok(id) => id,
             Err(err) => {
-                crate::admin::ratelimit::check_and_incr(&self.state.redis, &client_ip, &username).await;
+                crate::admin::ratelimit::check_and_incr(&self.state.redis, &client_ip, &username)
+                    .await;
                 let reason = err.reason;
                 if matches!(
                     reason,

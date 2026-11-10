@@ -114,7 +114,8 @@ impl FileTransferService {
                     oss.download_host.trim_end_matches('/')
                 );
                 let storage_path = format!("/{bucket}/{object_name}");
-                let public_url = signed_media_url(crate::admin::crypto::crypto_key(), &storage_path);
+                let public_url =
+                    signed_media_url(crate::admin::crypto::crypto_key(), &storage_path);
                 (download_url, public_url)
             }
             None => {

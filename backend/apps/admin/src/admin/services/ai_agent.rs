@@ -11,7 +11,6 @@ use crate::admin::data::Viewer;
 use crate::admin::state::{
     db_err, not_found, operator_of, require_data, status_error, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::ai::service::v1::{
     AiAgentApp, AiAgentRevision, AiAgentRun, CreateAiAgentAppRequest, DeleteAiAgentAppRequest,
     GetAiAgentAppRequest, GetAiAgentRunRequest, ListAiAgentAppsResponse,
@@ -19,6 +18,7 @@ use crate::proto::ai::service::v1::{
     RestoreAiAgentRevisionRequest, RunAiAgentAppRequest, UpdateAiAgentAppRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 use super::agent_graph;
 
@@ -525,8 +525,10 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         if req.app_id == 0 {
             return Err(status_error("BAD_REQUEST", "appId is required"));
         }
-        let repo =
-            crate::admin::data::repos::AiAgentRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::AiAgentRevisionRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let (rows, total) = repo
             .list_paged(
                 req.app_id as i64,
@@ -552,8 +554,10 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
             return Err(status_error("BAD_REQUEST", "id is required"));
         }
         let payload = operator_of(&ctx)?;
-        let revisions =
-            crate::admin::data::repos::AiAgentRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let revisions = crate::admin::data::repos::AiAgentRevisionRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let revision = revisions
             .find_scoped(req.id as i64)
             .await?

@@ -6,12 +6,12 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, Set};
 
 use crate::admin::data::Viewer;
 use crate::admin::state::{db_err, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::ai::service::v1::{
     AiConversation, DeleteAiConversationRequest, GetAiConversationRequest,
     ListAiConversationResponse, UpdateAiConversationRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn conv_proto(r: crate::admin::data::sys_ai_conversations::Model) -> AiConversation {
     AiConversation {
@@ -41,8 +41,10 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: PagingRequest,
     ) -> Result<ListAiConversationResponse, StatusError> {
-        let repo =
-            crate::admin::data::repos::AiConversationRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::AiConversationRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListAiConversationResponse {
             items: rows.into_iter().map(conv_proto).collect(),
@@ -55,8 +57,10 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetAiConversationRequest,
     ) -> Result<AiConversation, StatusError> {
-        let repo =
-            crate::admin::data::repos::AiConversationRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::AiConversationRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let id = crate::query_by_id!(
             req.query_by,
             crate::proto::ai::service::v1::get_ai_conversation_request::QueryBy
@@ -75,8 +79,10 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
         req: UpdateAiConversationRequest,
     ) -> Result<Empty, StatusError> {
         let _payload = operator_of(&ctx)?;
-        let repo =
-            crate::admin::data::repos::AiConversationRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::AiConversationRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let row = repo
             .find_scoped(req.id as i64)
             .await?
@@ -102,8 +108,10 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
             req.query_by,
             crate::proto::ai::service::v1::delete_ai_conversation_request::QueryBy
         );
-        let repo =
-            crate::admin::data::repos::AiConversationRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::AiConversationRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         repo.find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("ai conversation"))?;

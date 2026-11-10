@@ -26,7 +26,9 @@ impl crate::proto::gen::services::ServerMonitorServiceHandlers for ServerMonitor
             go: None,
             database: None,
             host: None,
-            collected_at: Some(crate::admin::state::naive_to_ts(crate::admin::data::now()).unwrap()),
+            collected_at: Some(
+                crate::admin::state::naive_to_ts(crate::admin::data::now()).unwrap(),
+            ),
         })
     }
 }

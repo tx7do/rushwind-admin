@@ -133,10 +133,13 @@ impl crate::proto::gen::services::AiChatServiceHandlers for AiChatService {
 
         // 会话解析：显式 id 优先；缺省时以内容前 20 字为题建会话。
         let conversation = if let Some(cid) = req.conversation_id.filter(|c| *c > 0) {
-            crate::admin::data::repos::AiConversationRepo::new(&self.state.db, Viewer::from_ctx(&ctx))
-                .find_scoped(cid as i64)
-                .await?
-                .ok_or_else(|| not_found("ai conversation"))?
+            crate::admin::data::repos::AiConversationRepo::new(
+                &self.state.db,
+                Viewer::from_ctx(&ctx),
+            )
+            .find_scoped(cid as i64)
+            .await?
+            .ok_or_else(|| not_found("ai conversation"))?
         } else {
             let title: String = content.chars().take(20).collect();
             crate::admin::data::sys_ai_conversations::ActiveModel {
@@ -229,7 +232,8 @@ impl crate::proto::gen::services::AiChatServiceHandlers for AiChatService {
 
         // 会话 last_message_at 前移。
         {
-            let mut a: crate::admin::data::sys_ai_conversations::ActiveModel = conversation.clone().into();
+            let mut a: crate::admin::data::sys_ai_conversations::ActiveModel =
+                conversation.clone().into();
             a.last_message_at = Set(Some(crate::admin::data::now()));
             a.updated_at = Set(Some(crate::admin::data::now()));
             a.update(&self.state.db).await.map_err(db_err)?;

@@ -145,8 +145,9 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
     }
     let port = row.smtp_port.unwrap_or(465) as u16;
     let username = row.smtp_username.clone().unwrap_or_default();
-    let password = crate::admin::crypto::decrypt_if_needed(&row.smtp_password.clone().unwrap_or_default())
-        .unwrap_or_default();
+    let password =
+        crate::admin::crypto::decrypt_if_needed(&row.smtp_password.clone().unwrap_or_default())
+            .unwrap_or_default();
     let from = row.smtp_from.clone().unwrap_or_default();
     if from.trim().is_empty() {
         return skipped(format!("channel [{}] has no smtp from configured", row.id));
@@ -408,7 +409,10 @@ fn build_outbound(
     vars.insert("content".into(), json_escape(&req.content));
     vars.insert("delivered_at".into(), json_escape(&rfc3339_now()));
     vars.insert("timestamp".into(), json_escape(&timestamp));
-    vars.insert("nonce".into(), json_escape(&crate::admin::token::new_jwt_id()));
+    vars.insert(
+        "nonce".into(),
+        json_escape(&crate::admin::token::new_jwt_id()),
+    );
     for (k, v) in &req.params {
         vars.insert(k.clone(), json_escape(v));
     }
@@ -520,8 +524,9 @@ async fn send_webhook(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Ou
         Ok(s) => s.to_string(),
         Err(e) => return skipped(format!("channel [{}] {e}", row.id)),
     };
-    let secret = crate::admin::crypto::decrypt_if_needed(&row.webhook_secret.clone().unwrap_or_default())
-        .unwrap_or_default();
+    let secret =
+        crate::admin::crypto::decrypt_if_needed(&row.webhook_secret.clone().unwrap_or_default())
+            .unwrap_or_default();
 
     let outbound = match build_outbound(
         &style,
@@ -1033,20 +1038,22 @@ pub async fn deliver_once(
 ) -> Result<(u64, Outcome), StatusError> {
     use sea_orm::ActiveModelTrait;
     let delivery = crate::admin::data::repos::NotificationDeliveryRepo::new(db)
-        .insert(crate::admin::data::sys_notification_deliveries::ActiveModel {
-            event_type: Set(Some(req.event_type.clone())),
-            channel: Set(Some(channel_type.to_string())),
-            channel_id: Set((req.channel_id > 0).then_some(req.channel_id)),
-            recipient_user_id: Set(None),
-            related_id: Set(None),
-            target: Set(Some(req.target.clone())),
-            status: Set(Some("SENDING".into())),
-            attempts: Set(Some(1)),
-            created_by: Set(Some(operator_id)),
-            created_at: Set(Some(crate::admin::data::now())),
-            updated_at: Set(Some(crate::admin::data::now())),
-            ..Default::default()
-        })
+        .insert(
+            crate::admin::data::sys_notification_deliveries::ActiveModel {
+                event_type: Set(Some(req.event_type.clone())),
+                channel: Set(Some(channel_type.to_string())),
+                channel_id: Set((req.channel_id > 0).then_some(req.channel_id)),
+                recipient_user_id: Set(None),
+                related_id: Set(None),
+                target: Set(Some(req.target.clone())),
+                status: Set(Some("SENDING".into())),
+                attempts: Set(Some(1)),
+                created_by: Set(Some(operator_id)),
+                created_at: Set(Some(crate::admin::data::now())),
+                updated_at: Set(Some(crate::admin::data::now())),
+                ..Default::default()
+            },
+        )
         .await?;
     let delivery_id = delivery.id;
     let outcome = send(db, channel_type, req).await;

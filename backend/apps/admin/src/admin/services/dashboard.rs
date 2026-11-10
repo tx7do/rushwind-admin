@@ -6,11 +6,11 @@ use std::sync::Arc;
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 
 use crate::admin::state::{db_err, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::admin::service::v1::{
     ActionDistributionResponse, DashboardOverviewResponse, DistributionItem, GetLoginTrendRequest,
     LoginTrendResponse, StatusDistributionResponse, TrendPoint,
 };
+use pbjson_types::Empty;
 
 pub struct DashboardService {
     pub state: Arc<AppState>,
@@ -73,7 +73,8 @@ impl crate::proto::gen::services::DashboardServiceHandlers for DashboardService 
         let mut buckets: std::collections::BTreeMap<String, u32> =
             std::collections::BTreeMap::new();
         for offset in (0..days).rev() {
-            let date = (crate::admin::data::now().date() - chrono::Duration::days(offset)).to_string();
+            let date =
+                (crate::admin::data::now().date() - chrono::Duration::days(offset)).to_string();
             buckets.insert(date, 0);
         }
         for row in rows {

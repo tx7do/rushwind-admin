@@ -14,12 +14,12 @@ use crate::admin::mapping;
 use crate::admin::state::{
     db_err, not_found, operator_of, status_error, tenant_of, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::permission::service::v1::{
     CreateRoleRequest, DeleteRoleRequest, GetRoleRequest, ListRoleResponse, Role,
     RoleFieldPermission, UpdateRoleRequest,
 };
+use pbjson_types::Empty;
 
 fn scope_to_str(v: i32) -> String {
     match v {
@@ -97,7 +97,10 @@ async fn role_proto(state: &AppState, r: crate::admin::data::sys_roles::Model) -
         parent_id: r.parent_id.map(|v| v as u64),
         parent_name,
         sort_order: r.sort_order,
-        status: r.status.as_deref().map(crate::admin::state::status_to_proto),
+        status: r
+            .status
+            .as_deref()
+            .map(crate::admin::state::status_to_proto),
         description: r.description,
         is_protected: r.is_protected,
         r#type: r.type_column.as_deref().map(type_to_proto),

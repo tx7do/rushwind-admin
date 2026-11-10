@@ -14,12 +14,12 @@ use crate::admin::mapping;
 use crate::admin::state::{
     db_err, internal_error, not_found, operator_of, status_error, tenant_of, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::identity::service::v1::{
     CreateUserRequest, DeleteUserRequest, EditUserPasswordRequest, GetUserRequest,
     ListUserResponse, UpdateUserRequest, User, UserExistsRequest, UserExistsResponse,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 pub struct UserService {
     pub state: Arc<AppState>,
@@ -65,7 +65,10 @@ impl UserService {
             .filter(
                 Condition::all()
                     .add(crate::admin::data::sys_user_credentials::Column::TenantId.eq(tenant_id))
-                    .add(crate::admin::data::sys_user_credentials::Column::IdentityType.eq("USERNAME"))
+                    .add(
+                        crate::admin::data::sys_user_credentials::Column::IdentityType
+                            .eq("USERNAME"),
+                    )
                     .add(crate::admin::data::sys_user_credentials::Column::Identifier.eq(username)),
             )
             .one(&self.state.db)
@@ -399,11 +402,15 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
                 "password does not meet complexity requirements",
             ));
         }
-        let hash = crate::admin::crypto::hash_password(&req.new_password).map_err(internal_error)?;
+        let hash =
+            crate::admin::crypto::hash_password(&req.new_password).map_err(internal_error)?;
         let cred = crate::admin::data::sys_user_credentials::Entity::find()
             .filter(
                 Condition::all()
-                    .add(crate::admin::data::sys_user_credentials::Column::IdentityType.eq("USERNAME"))
+                    .add(
+                        crate::admin::data::sys_user_credentials::Column::IdentityType
+                            .eq("USERNAME"),
+                    )
                     .add(crate::admin::data::sys_user_credentials::Column::UserId.eq(req.user_id)),
             )
             .one(&self.state.db)
@@ -458,7 +465,10 @@ pub(crate) async fn load_user(
 
 /// User row → proto User (the identity fields; role codes ride the
 /// `roles` list).
-pub(crate) fn user_to_proto(user: crate::admin::data::sys_users::Model, role_codes: Vec<String>) -> User {
+pub(crate) fn user_to_proto(
+    user: crate::admin::data::sys_users::Model,
+    role_codes: Vec<String>,
+) -> User {
     User {
         id: Some(user.id as u64),
         tenant_id: user.tenant_id.map(|v| v as u64),
@@ -477,7 +487,9 @@ pub(crate) fn user_to_proto(user: crate::admin::data::sys_users::Model, role_cod
         region: user.region,
         locale: user.locale,
         description: user.description,
-        last_login_at: user.last_login_at.and_then(crate::admin::state::naive_to_ts),
+        last_login_at: user
+            .last_login_at
+            .and_then(crate::admin::state::naive_to_ts),
         last_login_ip: user.last_login_ip,
         status: user
             .status

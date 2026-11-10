@@ -20,10 +20,11 @@ use std::sync::Arc;
 /// const-and-guard pair died with the single workspace: the rows are
 /// the gen table by construction now).
 fn audit_face() -> Arc<crate::admin::audit::AuditFace> {
-    let rows: Vec<(&'static str, &'static str, &'static str)> = crate::proto::gen::template::routes::ROUTES
-        .iter()
-        .map(|spec| (spec.method, spec.path, spec.operation_id))
-        .collect();
+    let rows: Vec<(&'static str, &'static str, &'static str)> =
+        crate::proto::gen::template::routes::ROUTES
+            .iter()
+            .map(|spec| (spec.method, spec.path, spec.operation_id))
+            .collect();
     Arc::new(crate::admin::audit::AuditFace::from_rows(&rows))
 }
 

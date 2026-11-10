@@ -12,7 +12,6 @@ use crate::admin::data::Viewer;
 use crate::admin::state::{
     db_err, not_found, operator_of, require_data, status_error, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::print::service::v1::{
     CreatePrintTemplateRequest, DeletePrintTemplateRequest, GeneratePrintTemplateRequest,
@@ -20,6 +19,7 @@ use crate::proto::print::service::v1::{
     PrintTemplate, RenderPrintTemplateRequest, RenderPrintTemplateResponse,
     UpdatePrintTemplateRequest,
 };
+use pbjson_types::Empty;
 
 fn tpl_proto(r: crate::admin::data::print_templates::Model) -> PrintTemplate {
     PrintTemplate {
@@ -83,8 +83,10 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: PagingRequest,
     ) -> Result<ListPrintTemplateResponse, StatusError> {
-        let repo =
-            crate::admin::data::repos::PrintTemplateRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::PrintTemplateRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListPrintTemplateResponse {
             items: rows.into_iter().map(tpl_proto).collect(),
@@ -97,8 +99,10 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetPrintTemplateRequest,
     ) -> Result<PrintTemplate, StatusError> {
-        let repo =
-            crate::admin::data::repos::PrintTemplateRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::PrintTemplateRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let row = match req.query_by {
             Some(crate::proto::print::service::v1::get_print_template_request::QueryBy::Id(id)) => {
                 repo.find_scoped(id as i64).await?
@@ -116,8 +120,10 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let repo =
-            crate::admin::data::repos::PrintTemplateRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::PrintTemplateRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         if let Some(code) = data.code.as_deref().filter(|c| !c.is_empty()) {
             if repo.find_by_code(code).await?.is_some() {
                 return Err(status_error("CONFLICT", "template code already exists"));
@@ -150,8 +156,10 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let repo =
-            crate::admin::data::repos::PrintTemplateRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::PrintTemplateRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let row = repo
             .find_scoped(req.id as i64)
             .await?
@@ -180,8 +188,10 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
             req.query_by,
             crate::proto::print::service::v1::delete_print_template_request::QueryBy
         );
-        let repo =
-            crate::admin::data::repos::PrintTemplateRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo = crate::admin::data::repos::PrintTemplateRepo::new(
+            &self.state.db,
+            Viewer::from_ctx(&ctx),
+        );
         let row = repo
             .find_scoped(id as i64)
             .await?
@@ -245,10 +255,11 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
         super::llm::check_token_quota(&self.state.db, payload.tenant_id).await?;
 
         // Provider 默认解析（系统视角读全量 provider 表，与 chat 同口径）。
-        let provider = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::system())
-            .find_default()
-            .await?
-            .ok_or_else(|| status_error("BAD_REQUEST", "no ai provider configured"))?;
+        let provider =
+            crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::system())
+                .find_default()
+                .await?
+                .ok_or_else(|| status_error("BAD_REQUEST", "no ai provider configured"))?;
         if provider.is_enabled != Some(true) {
             return Err(status_error("BAD_REQUEST", "ai provider is disabled"));
         }

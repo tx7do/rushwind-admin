@@ -7,12 +7,12 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::authentication::service::v1::{
     CreateLoginPolicyRequest, DeleteLoginPolicyRequest, GetLoginPolicyRequest,
     ListLoginPolicyResponse, LoginPolicy, UpdateLoginPolicyRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /// Unknown rows read as BLACKLIST.
 fn type_to_str(v: i32) -> String {

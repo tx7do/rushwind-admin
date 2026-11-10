@@ -9,12 +9,12 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::data::Viewer;
 use crate::admin::state::{db_err, not_found, operator_of, require_data, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::ai::service::v1::{
     AiProvider, CreateAiProviderRequest, DeleteAiProviderRequest, GetAiProviderRequest,
     ListAiProviderResponse, UpdateAiProviderRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /// ModelType proto 枚举 ↔ ent 列值（与上游枚举名逐字一致）。
 fn model_type_str(v: i32) -> Option<&'static str> {
@@ -156,7 +156,8 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: PagingRequest,
     ) -> Result<ListAiProviderResponse, StatusError> {
-        let repo = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListAiProviderResponse {
             items: rows.into_iter().map(provider_proto).collect(),
@@ -169,7 +170,8 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetAiProviderRequest,
     ) -> Result<AiProvider, StatusError> {
-        let repo = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let id = crate::query_by_id!(
             req.query_by,
             crate::proto::ai::service::v1::get_ai_provider_request::QueryBy
@@ -188,12 +190,14 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let _repo = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let _repo =
+            crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         // api_key 明文非空 → 加密落库并刷新 hint；为空 → 不设 key。
         let (api_key, api_key_hint) = match data.api_key.as_deref().map(str::trim) {
-            Some(k) if !k.is_empty() => {
-                (Some(crate::admin::crypto::encrypt_if_needed(k)), Some(hint_of(k)))
-            }
+            Some(k) if !k.is_empty() => (
+                Some(crate::admin::crypto::encrypt_if_needed(k)),
+                Some(hint_of(k)),
+            ),
             _ => (None, None),
         };
         let mut a = crate::admin::data::sys_ai_providers::ActiveModel {
@@ -224,7 +228,8 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let repo = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
             .find_scoped(req.id as i64)
             .await?
@@ -259,7 +264,8 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
             req.query_by,
             crate::proto::ai::service::v1::delete_ai_provider_request::QueryBy
         );
-        let repo = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let repo =
+            crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         repo.find_scoped(id as i64)
             .await?
             .ok_or_else(|| not_found("ai provider"))?;

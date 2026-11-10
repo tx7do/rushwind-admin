@@ -164,7 +164,9 @@ mod kind_oracle {
     #[test]
     fn plan_version_column_binds_as_text() {
         assert_eq!(
-            std::mem::discriminant(&column_kind::<crate::admin::data::sys_plans::Entity>("version")),
+            std::mem::discriminant(&column_kind::<crate::admin::data::sys_plans::Entity>(
+                "version"
+            )),
             std::mem::discriminant(&Kind::Text)
         );
     }

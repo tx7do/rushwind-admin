@@ -15,13 +15,13 @@ use crate::admin::mapping;
 use crate::admin::state::{
     db_err, internal_error, not_found, operator_of, status_error, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::identity::service::v1::{
     CleanupTenantDataRequest, CreateTenantRequest, CreateTenantWithAdminUserRequest,
     DeleteTenantRequest, GetTenantRequest, GetTenantUsageRequest, ListTenantResponse, Tenant,
     TenantExistsRequest, TenantExistsResponse, TenantUsage, UpdateTenantRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /// Unknown rows read as ON.
 fn status_to_proto(s: &str) -> i32 {
@@ -365,7 +365,10 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
             status: Set(Some("ON".into())),
             audit_status: Set(Some("APPROVED".into())),
             remark: Set(data.remark.clone()),
-            expired_at: Set(data.expired_at.as_ref().and_then(crate::admin::state::ts_to_naive)),
+            expired_at: Set(data
+                .expired_at
+                .as_ref()
+                .and_then(crate::admin::state::ts_to_naive)),
             plan_id: Set(data.plan_id.map(|v| v as i64)),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::admin::data::now())),

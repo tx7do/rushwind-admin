@@ -17,7 +17,6 @@ use sea_orm::Set;
 use crate::admin::state::{
     db_err, not_found, operator_of, require_data, status_error, AppState, StatusError,
 };
-use pbjson_types::Empty;
 use crate::proto::notification::service::v1::{
     CreateNotificationTemplateRequest, DeleteNotificationTemplateRequest,
     GetNotificationTemplateRequest, ListNotificationTemplateResponse, NotificationTemplate,
@@ -25,8 +24,11 @@ use crate::proto::notification::service::v1::{
     UpdateNotificationTemplateRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
-fn template_proto(r: crate::admin::data::sys_notification_templates::Model) -> NotificationTemplate {
+fn template_proto(
+    r: crate::admin::data::sys_notification_templates::Model,
+) -> NotificationTemplate {
     NotificationTemplate {
         id: Some(r.id as u64),
         name: r.name,
@@ -69,7 +71,9 @@ pub struct NotificationTemplateService {
 }
 
 #[async_trait::async_trait]
-impl crate::proto::gen::services::NotificationTemplateServiceHandlers for NotificationTemplateService {
+impl crate::proto::gen::services::NotificationTemplateServiceHandlers
+    for NotificationTemplateService
+{
     /// 模板列表（分页，contains 搜索）。
     async fn list_notification_template(
         &self,

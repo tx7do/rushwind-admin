@@ -80,10 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route_pack("admin-surface", rest::pack(Arc::clone(&state)))
         // The business surface rides the same http server and edge —
         // one more line per module pack.
-        .route_pack(
-            "business-surface",
-            template::pack(Arc::clone(&state)),
-        );
+        .route_pack("business-surface", template::pack(Arc::clone(&state)));
     for (name, job) in apalis::cron_jobs(Arc::clone(&state), Arc::clone(&task_queue)) {
         assembler = assembler.cron_job(name, job);
     }

@@ -11,7 +11,6 @@ use sea_orm::{ActiveModelTrait, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, operator_of, require_data, status_error, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::notification_channel::service::v1::ChannelSchema;
 use crate::proto::notification_channel::service::v1::{
     CreateNotificationChannelRequest, DeleteNotificationChannelRequest,
@@ -19,6 +18,7 @@ use crate::proto::notification_channel::service::v1::{
     NotificationChannel, SendTestEmailRequest, SendTestRequest, UpdateNotificationChannelRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 use super::channel_schemas;
 
@@ -186,7 +186,9 @@ fn merge_settings_for_update(
 }
 
 #[async_trait::async_trait]
-impl crate::proto::gen::services::NotificationChannelServiceHandlers for NotificationChannelService {
+impl crate::proto::gen::services::NotificationChannelServiceHandlers
+    for NotificationChannelService
+{
     async fn list_notification_channel(
         &self,
         _ctx: rushwind_http_binding::ctx::RequestContext,

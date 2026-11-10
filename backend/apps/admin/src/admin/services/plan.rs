@@ -7,7 +7,6 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::identity::service::v1::{
     CreatePlanModuleRequest, CreatePlanQuotaRequest, CreatePlanRequest, DeletePlanModuleRequest,
     DeletePlanQuotaRequest, DeletePlanRequest, GetPlanModuleRequest, GetPlanRequest,
@@ -15,6 +14,7 @@ use crate::proto::identity::service::v1::{
     UpdatePlanModuleRequest, UpdatePlanQuotaRequest, UpdatePlanRequest,
 };
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 /// Unknown rows read as FREE.
 fn plan_version_to_str(v: i32) -> String {

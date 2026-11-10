@@ -3,9 +3,9 @@
 use std::sync::Arc;
 
 use crate::admin::state::{AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::ai::service::v1::{AiUsageLog, ListAiUsageLogResponse, UsageSummaryResponse};
 use crate::proto::pagination::PagingRequest;
+use pbjson_types::Empty;
 
 fn log_proto(r: crate::admin::data::sys_ai_usage_logs::Model) -> AiUsageLog {
     AiUsageLog {
@@ -48,9 +48,10 @@ impl crate::proto::gen::services::AiUsageLogServiceHandlers for AiUsageLogServic
         _req: Empty,
     ) -> Result<UsageSummaryResponse, StatusError> {
         // quota_configured：配额面随计费里程碑接入；台账先如实回答 tokens/calls。
-        let (month_tokens, month_calls) = crate::admin::data::repos::AiUsageLogRepo::new(&self.state.db)
-            .month_summary()
-            .await?;
+        let (month_tokens, month_calls) =
+            crate::admin::data::repos::AiUsageLogRepo::new(&self.state.db)
+                .month_summary()
+                .await?;
         Ok(UsageSummaryResponse {
             month_tokens,
             month_calls,
