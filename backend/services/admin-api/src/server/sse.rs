@@ -21,21 +21,17 @@ struct AdminGate {
 }
 
 impl Gate for AdminGate {
-    async fn authorize(&self, token: &str) -> Result<u64, Failure> {
+    async fn authorize(&self, token: &str) -> Result<i64, Failure> {
         let Ok(claims) = self.authenticator.authenticate_token(token) else {
             return Err(Failure::new("UNAUTHORIZED", "invalid token"));
         };
-        let Some(uid) = claims.0.get("uid").and_then(|v| v.as_u64()) else {
+        let Some(uid) = claims.0.get("uid").and_then(|v| v.as_i64()) else {
             return Err(Failure::new("UNAUTHORIZED", "invalid token"));
         };
         let Ok(jti) = claims.get_jwt_id() else {
             return Err(Failure::new("UNAUTHORIZED", "invalid token"));
         };
-        if !self
-            .tokens
-            .is_valid_access_token(uid as i64, &jti, token)
-            .await
-        {
+        if !self.tokens.is_valid_access_token(uid, &jti, token).await {
             return Err(Failure::new(
                 "UNAUTHORIZED",
                 "access token is revoked or expired",
@@ -112,5 +108,5 @@ pub fn publish_recipient(hub: &Hub, payload: &NotificationPayload) {
             "nanos": ts.nanos,
         })),
     });
-    hub.publish(payload.recipient_user_id as u64, json.to_string());
+    hub.publish(payload.recipient_user_id, json.to_string());
 }

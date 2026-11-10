@@ -13,24 +13,24 @@ workspace = true
 [dependencies]
 proto = { path = "../../crates/proto" }
 auth = { path = "../../crates/auth" }
-rushwind-authn = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-authn-jwt = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-bootstrap = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-http-binding = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-storage-seaorm-support = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-oss-local = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-transport-sse = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-oss = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-oss-s3 = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
+rushwind-authn = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-authn-jwt = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-bootstrap = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-http-binding = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-storage-seaorm-support = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-oss-local = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-transport-sse = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-oss = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-oss-s3 = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 rushwind-transport-cron = { workspace = true }
-rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
+rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 apalis-core = { workspace = true }
-rushwind-transport = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-transport-axum = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
+rushwind-transport = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-transport-axum = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query", "json", "matched-path"] }
 tokio = { workspace = true }
 sea-orm = { workspace = true }
-rushwind-storage-seaorm-migration = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
+rushwind-storage-seaorm-migration = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 redis = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }

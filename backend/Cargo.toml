@@ -57,8 +57,8 @@ redis = { version = "1", default-features = false, features = ["tokio-comp", "co
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time", "net"] }
 futures-util = "0.3"
 # 任务队列：apalis Postgres 后端 + worker runtime 门面。
-rushwind-transport-cron = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
-rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "3139c6e" }
+rushwind-transport-cron = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 apalis-core = { version = "0.7", features = ["json", "sleep"] }
 bcrypt = "0.15"
 aes = "0.8"
