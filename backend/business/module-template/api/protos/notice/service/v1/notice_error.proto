@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package notice.service.v1;
+
+import "errors/errors.proto";
+
+// Kratos 风格错误枚举：顶层 reason enum，(errors.code) 把 reason 钉到
+// HTTP 状态。生成器把表发射进 error_tables::ERROR_STATUS；模块的
+// status_error 助手按 (package, reason) 查表回状态。
+enum NoticeErrorReason {
+  option (errors.default_code) = 500;
+
+  BAD_REQUEST = 0 [(errors.code) = 400];
+  UNAUTHORIZED = 100 [(errors.code) = 401];
+  FORBIDDEN = 200 [(errors.code) = 403];
+  NOT_FOUND = 400 [(errors.code) = 404];
+  CONFLICT = 500 [(errors.code) = 409];
+  INTERNAL = 900 [(errors.code) = 500];
+}

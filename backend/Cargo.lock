@@ -30,6 +30,7 @@ dependencies = [
  "lettre",
  "lol_html",
  "pbjson-types",
+ "prost-reflect",
  "proto",
  "qrcode",
  "rand 0.9.5",
@@ -625,6 +626,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3ded4057c258ba199e2d26386d3af3780957ecaee6c4ef4041c6b4b8b97c0b06"
 dependencies = [
  "serde_core",
+]
+
+[[package]]
+name = "biz-proto-build"
+version = "0.1.0"
+dependencies = [
+ "pbjson-build",
+ "prost",
+ "prost-build",
+ "prost-types",
+ "rushwind-gen-http",
 ]
 
 [[package]]
@@ -2620,6 +2632,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "module-template"
+version = "0.1.0"
+dependencies = [
+ "admin-api",
+ "async-trait",
+ "axum",
+ "biz-proto-build",
+ "chrono",
+ "pbjson",
+ "pbjson-types",
+ "prost",
+ "prost-reflect",
+ "rushwind-bootstrap",
+ "rushwind-http-binding",
+ "rushwind-storage-seaorm-migration",
+ "rushwind-storage-seaorm-support",
+ "sea-orm",
+ "sea-orm-migration",
+ "serde_json",
+]
+
+[[package]]
 name = "moxcms"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3072,6 +3106,19 @@ name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
+
+[[package]]
+name = "platform"
+version = "0.1.0"
+dependencies = [
+ "admin-api",
+ "module-template",
+ "rushwind-authn",
+ "rushwind-authn-jwt",
+ "rushwind-bootstrap",
+ "rushwind-transport",
+ "tokio",
+]
 
 [[package]]
 name = "pluralizer"

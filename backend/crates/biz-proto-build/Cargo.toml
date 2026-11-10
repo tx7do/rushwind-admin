@@ -1,0 +1,20 @@
+[package]
+name = "biz-proto-build"
+description = "The contract build engine for the business modules: the rushwind-proto-build pipeline with the buf workspace rooted inside the module crate itself (module-dir/api), so a business module carries its own contract tree."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# Version parity with the framework engine (the same pins the admin
+# contract crate builds under — one prost/pbjson across the workspace).
+prost = { workspace = true }
+prost-types = { workspace = true }
+prost-build = { workspace = true }
+pbjson-build = { workspace = true }
+rushwind-gen-http = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }

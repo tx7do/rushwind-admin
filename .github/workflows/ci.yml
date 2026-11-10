@@ -83,7 +83,7 @@ jobs:
       # enforce on the framework path-deps, which the framework repo's
       # own CI owns.
       - name: Format
-        run: cargo fmt -p proto -p auth -p admin-api -p admin-diff -- --check
+        run: cargo fmt -p proto -p auth -p admin-api -p admin-diff -p biz-proto-build -p module-template -p platform -- --check
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets -- -D warnings

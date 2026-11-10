@@ -2,13 +2,11 @@
 //! unique reference anchor senders cite.
 
 use sea_orm::ColumnTrait;
-use sea_orm::Condition;
-use sea_orm::DatabaseConnection;
 use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 
 use crate::data::sys_notification_templates as entity;
-use crate::state::{db_err, not_found, StatusError};
+use crate::state::{db_err, StatusError};
 
 repo_shell!(global NotificationTemplateRepo, entity, "notification template");
 

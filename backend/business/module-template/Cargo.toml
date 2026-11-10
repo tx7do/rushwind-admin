@@ -1,0 +1,36 @@
+[package]
+name = "module-template"
+description = "The business-module skeleton: a self-contained copy-rename starting point carrying its own proto contract tree (api/), the biz-proto-build generation, one tenant-scoped service riding the admin route-pack edge, idempotent seeds (menu / permission / sys_apis), and its own migration chain."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+# The host library face: AppState, the route-pack edge, the audit face,
+# the exported macros (repo_shell!), the state helpers, and the admin
+# entities the seeds address.
+admin-api = { path = "../../services/admin-api" }
+# Generated-code runtime surface (the generated mounts reference axum
+# paths; prost for the paging-envelope conversion).
+axum = { version = "0.8", default-features = false }
+async-trait = { workspace = true }
+chrono = { workspace = true }
+pbjson = { workspace = true }
+pbjson-types = { workspace = true }
+prost = { workspace = true }
+prost-reflect = { workspace = true }
+sea-orm = { workspace = true }
+sea-orm-migration = { workspace = true }
+serde_json = { workspace = true }
+rushwind-bootstrap = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-http-binding = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-storage-seaorm-migration = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-storage-seaorm-support = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+
+[build-dependencies]
+biz-proto-build = { path = "../../crates/biz-proto-build" }

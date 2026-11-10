@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package notice.service.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+import "pagination/v1/pagination.proto";
+
+import "notice/service/v1/notice.proto";
+
+// 公告管理 BFF 服务——真正生成路由的那一个。路由前缀是模块独立前缀
+// /template/v1/…（fork 时改成 /<你的模块>/v1/…），全部路由默认 gated
+//（AUTH_FREE 为空表；要开放某端点，把它登记进 src/auth_free.rs 并在
+// rpc 上补 gnostic security: {} 文档标注）。
+service NoticeService {
+  // 分页查询公告列表
+  rpc List (pagination.PagingRequest) returns (notice.service.v1.ListNoticeResponse) {
+    option (google.api.http) = {
+      get: "/template/v1/notices"
+    };
+  }
+
+  // 查询公告详情
+  rpc Get (notice.service.v1.GetNoticeRequest) returns (notice.service.v1.Notice) {
+    option (google.api.http) = {
+      get: "/template/v1/notices/{id}"
+    };
+  }
+
+  // 创建公告
+  rpc Create (notice.service.v1.CreateNoticeRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/template/v1/notices"
+      body: "*"
+    };
+  }
+
+  // 更新公告
+  rpc Update (notice.service.v1.UpdateNoticeRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      put: "/template/v1/notices/{id}"
+      body: "*"
+    };
+  }
+
+  // 删除公告
+  rpc Delete (notice.service.v1.DeleteNoticeRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      delete: "/template/v1/notices/{id}"
+    };
+  }
+}

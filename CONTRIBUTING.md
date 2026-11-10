@@ -54,13 +54,26 @@ bash backend/api/sync-protos.sh --check  # 校验门（与 CI 一致）
 
 改生成器逻辑请到 rushwind 仓的 `rushwind-gen-http`，其 fixture 测试与本仓守卫测试（白名单、遮蔽路由等）会双向钉住行为。
 
+### 装配面（下游稳定门面）
+
+本仓是脚手架：fork 的业务模块（`backend/business/*`、`backend/apps/*`）消费 `admin-api` 的库面做装配。以下入口按**下游稳定契约**维护——改动任何一项视为破坏性变更，须在 PR 描述与升级说明中显式声明：
+
+- `admin_api::config::Config` 与 `AppState::connect` / `AppState` 的 pub 字段
+- `admin_api::server::rest::pack`、`admin_api::server::edge`（`EdgePack` / `edge_router` / `pack_with` / `make_wrap` 的签名与层序语义——bind 外、门内是 wire 契约）
+- `admin_api::server::sse::factory`、`admin_api::server::apalis`（`TaskQueue` / `cron_jobs` / `worker_factory`）
+- `admin_api::migration::run`、`admin_api::seed::run`（含幂等语义）
+- 导出的宏：`repo_shell!`、`query_by_id!`、`stamp_update!`（展开形状与 `$crate` 解析路径）
+- 错误助手与审计面：`admin_api::state::{status_error, not_found, operator_of, tenant_of, db_err}`、`admin_api::audit::AuditFace`
+
+守卫面：`backend/business/module-template` 与 `backend/apps/platform` 本身就是装配面的下游消费者——它们编译失败即装配面被破坏，CI 的 workspace 构建把这条守卫常态化。业务模块的写法见教程 [09 写下游](./docs/tutorial/09-write-your-first-module.md)。
+
 ### 代码规范
 
 - **Rust**：提交前请本地通过四道质量门（与 CI 一致）：
 
   ```bash
   cd backend
-  cargo fmt -p proto -p auth -p admin-api -p admin-diff -- --check
+  cargo fmt -p proto -p auth -p admin-api -p admin-diff -p biz-proto-build -p module-template -p platform -- --check
   cargo clippy --workspace -- -D warnings
   cargo test --workspace
   ```

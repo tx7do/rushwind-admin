@@ -1,10 +1,9 @@
 //! NotificationRuleRepo — platform-global routing rules (event_type unique).
 
-use sea_orm::sea_query::Condition;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::data::sys_notification_rules as entity;
-use crate::state::{db_err, not_found, StatusError};
+use crate::state::{db_err, StatusError};
 
 repo_shell!(global NotificationRuleRepo, entity, "notification rule");
 

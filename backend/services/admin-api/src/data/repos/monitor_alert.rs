@@ -3,13 +3,11 @@
 //! shell.
 
 use sea_orm::ColumnTrait;
-use sea_orm::Condition;
-use sea_orm::DatabaseConnection;
 use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 
 use crate::data::sys_monitor_alert_rules as entity;
-use crate::state::{db_err, not_found, StatusError};
+use crate::state::{db_err, StatusError};
 
 repo_shell!(global MonitorAlertRepo, entity, "monitor alert rule");
 

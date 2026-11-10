@@ -2,13 +2,10 @@
 //! business-side reference anchor.
 
 use sea_orm::ColumnTrait;
-use sea_orm::Condition;
-use sea_orm::DatabaseConnection;
 use sea_orm::EntityTrait;
 use sea_orm::QueryFilter;
 
 use crate::data::print_templates as entity;
-use crate::data::Viewer;
 use crate::state::{db_err, StatusError};
 
 repo_shell!(tenant PrintTemplateRepo, entity);

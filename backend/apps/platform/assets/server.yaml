@@ -1,0 +1,65 @@
+# The server assembly document: one lifecycle, four transports. The
+# http server carries the admin route surface behind its edge (the
+# CORS policy and the request budget); the remaining kinds are
+# factory transports — the SSE notification server and the task-queue
+# worker — plus the cron producer. The middleware toggles ride the
+# edge's defaults; the previous document's queue-tuning, middleware,
+# and profiling sections carry no transport here.
+app:
+  name: admin
+  version: 0.1.0
+servers:
+  - kind: http
+    bind: ":7788"
+    edge:
+      timeout: 10s
+      cors:
+        # 前端 refresh token 走 HttpOnly Cookie（withCredentials=true），
+        # 预检响应必须带 Access-Control-Allow-Credentials: true
+        credentials: true
+        # compat 选择 gorilla 兼容层（发射规则与参照系逐字节一致）。
+        compat: true
+        headers:
+          - "X-Requested-With"
+          - "X-Request-ID"
+          - "Content-Type"
+          - "Authorization"
+          - "X-Captcha-Id"
+          - "X-Captcha-Value"
+        methods:
+          - "GET"
+          - "POST"
+          - "PUT"
+          - "DELETE"
+          - "HEAD"
+          - "OPTIONS"
+        origins:
+          # 前端三套域名（与 README 演示地址一致）
+          - "https://vben.admin.rushwind.cloud"
+          - "https://ele.admin.rushwind.cloud"
+          - "https://react.admin.rushwind.cloud"
+          # 本地开发端口（与 README 启动命令一致）
+          - "http://localhost:5666"
+          - "http://localhost:5777"
+          - "http://localhost:5888"
+          - "http://localhost:5667"
+          - "http://localhost:5778"
+    route_packs:
+      - name: admin-surface
+        settings:
+          enable_swagger: true
+          enable_redoc: true
+      # The business-module surface: same http server, same edge —
+      # one entry per module pack. No docs settings node (the
+      # business pack ships no OpenAPI asset).
+      - name: business-surface
+  - kind: admin-sse
+    addr: ":7789"
+    path: "/events"
+  - kind: admin-tasks
+  - kind: cron
+    endpoint: cron://admin
+    jobs:
+      - tenant_expiry_scan
+      - audit_log_archive
+      - sys_tasks_periodic

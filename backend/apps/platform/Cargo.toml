@@ -1,0 +1,20 @@
+[package]
+name = "platform"
+description = "The fork's assembly binary: the admin surface and the business-module surface in one process — one auth gate, one audit layer, one lifecycle. The admin-api binary is the single-surface reference; this is the two-surface shape every fork starts from. Freely edited: nothing upstream reads this directory."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lints]
+workspace = true
+
+[dependencies]
+admin-api = { path = "../../services/admin-api" }
+module-template = { path = "../../business/module-template" }
+rushwind-authn = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-authn-jwt = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-bootstrap = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-transport = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+tokio = { workspace = true }

@@ -1,0 +1,27 @@
+# 模块契约工作区——buf 工作区就在模块 crate 自身内（biz-proto-build 以
+# manifest_dir/api 为根），模块目录整体 copy-rename 时契约树随之迁移。
+#
+#   cd backend/business/module-template/api
+#   buf lint                    # 样式报告（可选门）
+#   buf build -o /tmp/tpl.binpb # 首次构建按 buf.lock 拉取 BSR 依赖进模块缓存
+#
+# deps 与主仓 backend/api/buf.yaml 取用同一批 BSR 模块（commit 由 buf.lock
+# 钉死、digest 与主仓同源）。本工作区不做字节清单门（契约是 fork 自有物，
+# 不是上游同步冻结区）——直接编辑 protos/ 即可。
+version: v2
+
+modules:
+  - path: protos
+    lint:
+      use:
+        - STANDARD
+
+deps:
+  - 'buf.build/googleapis/googleapis'        # google.api.http 注解
+  - 'buf.build/kratos/apis'                  # (errors.code) reason→HTTP 状态注解
+  - 'buf.build/tx7do/pagination'             # go-crud PagingRequest（列表请求信封）
+  - 'buf.build/gnostic/gnostic'              # OpenAPI 字段描述注解
+
+breaking:
+  use:
+    - FILE

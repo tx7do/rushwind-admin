@@ -3,13 +3,18 @@
 //! audit tables.
 //!
 //! Trigger rules:
-//! * login audit — Login / VerifyMFAChallenge / Logout operations only,
-//!   with the stateless risk heuristics;
-//! * api audit — every request except Login / VerifyMFAChallenge;
+//! * login audit — the face's login operations only, with the stateless
+//!   risk heuristics;
+//! * api audit — every request except the face's api-audit skips;
 //! * operation audit — write methods only, session-maintenance
 //!   operations skipped (`sessionOnlyOperations`);
 //! * permission audit — write methods only, same session skips, target
 //!   from the operation's service part, action from the method part.
+//!
+//! The layer is parameterized by an [`AuditFace`] — the route table it
+//! resolves operations against plus the operation skip lists — so a
+//! business route pack audits its own operations into the same tables
+//! ([`AuditFace::admin`] is the admin face over the admin contract).
 //!
 //! The JWT is parsed from the bearer token directly (the
 //! `extractAuthToken` path) so the outer layer needs no inner state.
@@ -17,7 +22,6 @@
 
 use std::sync::Arc;
 
-use axum::extract::State;
 use axum::http::{header, Method, Request, StatusCode};
 use axum::middleware::Next;
 use axum::response::Response;
@@ -28,7 +32,65 @@ use crate::state::AppState;
 
 mod risk;
 
-/// The session-maintenance operation skip list.
+/// One uniform audit route row: the only fields the audit layer reads
+/// off a contract's route table (each contract crate emits its own
+/// nominal route-spec type; this is the shared shape).
+#[derive(Clone, Copy)]
+pub struct AuditRoute {
+    pub method: &'static str,
+    pub path: &'static str,
+    pub operation_id: &'static str,
+}
+
+/// One route pack's audit face: the route table the layer resolves
+/// operations against, plus the operation skip lists.
+#[derive(Clone)]
+pub struct AuditFace {
+    routes: Vec<AuditRoute>,
+    login_ops: Vec<&'static str>,
+    skip_api_audit: Vec<&'static str>,
+    session_only: Vec<&'static str>,
+}
+
+impl AuditFace {
+    /// Builds a face over `(method, path, operation_id)` rows with
+    /// empty skip lists — a business pack's typical shape.
+    pub fn from_rows(rows: &[(&'static str, &'static str, &'static str)]) -> Self {
+        Self {
+            routes: rows
+                .iter()
+                .map(|(method, path, operation_id)| AuditRoute {
+                    method,
+                    path,
+                    operation_id,
+                })
+                .collect(),
+            login_ops: Vec::new(),
+            skip_api_audit: Vec::new(),
+            session_only: Vec::new(),
+        }
+    }
+
+    /// The admin face: the admin contract's route table plus the
+    /// login-family skip lists.
+    pub fn admin() -> &'static Self {
+        static FACE: std::sync::OnceLock<AuditFace> = std::sync::OnceLock::new();
+        FACE.get_or_init(|| {
+            let mut face = Self::from_rows(
+                &proto::gen::routes::ROUTES
+                    .iter()
+                    .map(|spec| (spec.method, spec.path, spec.operation_id))
+                    .collect::<Vec<_>>(),
+            );
+            face.login_ops = LOGIN_OPS.to_vec();
+            face.skip_api_audit = SKIP_API_AUDIT.to_vec();
+            face.session_only = SESSION_ONLY.to_vec();
+            face
+        })
+    }
+}
+
+/// The admin face's login-family operation skip lists.
 const SESSION_ONLY: &[&str] = &[
     "/admin.service.v1.AuthenticationService/Login",
     "/admin.service.v1.AuthenticationService/RefreshToken",
@@ -64,9 +126,9 @@ fn path_matches(template: &str, path: &str) -> bool {
         .all(|(tt, pp)| tt.starts_with('{') || tt == pp)
 }
 
-/// Resolves the operation id by matching the static route table.
-fn resolve_operation(method: &Method, path: &str) -> &'static str {
-    for spec in proto::gen::routes::ROUTES {
+/// Resolves the operation id by matching the face's route table.
+fn resolve_operation(method: &Method, path: &str, face: &AuditFace) -> &'static str {
+    for spec in &face.routes {
         if spec.method == method.as_str() && path_matches(spec.path, path) {
             return spec.operation_id;
         }
@@ -173,9 +235,13 @@ fn last_numeric_segment(path: &str) -> Option<String> {
         .map(String::from)
 }
 
-/// The axum middleware body.
-pub async fn layer(
-    State(state): State<Arc<AppState>>,
+/// The axum middleware body over one audit face: resolves operations
+/// against the face's route table and applies the face's skip lists.
+/// The face rides the spawn as an owned handle — the audit write is
+/// best-effort and must not tie the response to the borrow.
+pub async fn run(
+    face: Arc<AuditFace>,
+    state: Arc<AppState>,
     req: Request<axum::body::Body>,
     next: Next,
 ) -> Response {
@@ -183,7 +249,7 @@ pub async fn layer(
 
     let method = req.method().clone();
     let path = req.uri().path().to_owned();
-    let operation = resolve_operation(&method, &path);
+    let operation = resolve_operation(&method, &path, &face);
     let ip = client_ip(req.headers());
     let user_agent = req
         .headers()
@@ -245,8 +311,8 @@ pub async fn layer(
         let username = claims.as_ref().map(|c| c.2.clone()).unwrap_or_default();
         let created = crate::data::now();
 
-        // ---- login audit (Login / VerifyMFAChallenge / Logout) ----
-        if LOGIN_OPS.contains(&operation) {
+        // ---- login audit (the face's login operations) ----
+        if face.login_ops.contains(&operation) {
             let is_logout = operation.ends_with("/Logout");
             let failed = !success;
             let login_username = if is_logout {
@@ -309,8 +375,8 @@ pub async fn layer(
             }
         }
 
-        // ---- api audit (all except Login / VerifyMFAChallenge) ----
-        if !SKIP_API_AUDIT.contains(&operation) {
+        // ---- api audit (all except the face's api-audit skips) ----
+        if !face.skip_api_audit.contains(&operation) {
             let row = crate::data::sys_api_audit_logs::ActiveModel {
                 tenant_id: Set(Some(tid as i64)),
                 user_id: Set(Some(uid as i64)),
@@ -346,7 +412,7 @@ pub async fn layer(
 
         // ---- operation audit (write methods, session ops skipped) ----
         // ---- permission audit (same skips; target/action parsed) ----
-        if is_write && !SESSION_ONLY.contains(&operation) && !operation.is_empty() {
+        if is_write && !face.session_only.contains(&operation) && !operation.is_empty() {
             let resource_id = last_numeric_segment(&path);
             let (target_type, perm_action) =
                 parse_target_and_action(operation).unwrap_or((String::new(), "OTHER".into()));

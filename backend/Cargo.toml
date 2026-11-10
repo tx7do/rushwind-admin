@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/*", "services/*", "testbed/admin-diff"]
+members = ["crates/*", "services/*", "business/*", "apps/*", "testbed/admin-diff"]
 
 [workspace.package]
 version = "0.1.0"
@@ -18,6 +18,7 @@ undocumented_unsafe_blocks = "warn"
 # proto 类型链——版本与 rushwind 工作区保持一致（prost 0.14 / pbjson 0.9 / protox 0.9）。
 prost = "0.14"
 prost-build = "0.14"
+prost-types = "0.14"
 pbjson = "0.9"
 pbjson-types = "0.9"
 pbjson-build = "0.9"

@@ -22,5 +22,7 @@ pub mod services;
 pub mod state;
 pub mod token;
 
-pub(crate) use macros::query_by_id;
-pub(crate) use macros::stamp_update;
+/// The admin contract crate, re-exported so the exported macros
+/// (`repo_shell!`'s paged-list envelope) resolve `$crate::proto`
+/// inside downstream module crates too.
+pub use proto;

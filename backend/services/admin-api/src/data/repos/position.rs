@@ -1,11 +1,9 @@
 //! PositionRepo — tenant-scoped queries with
 //! all predicates owned here (never ad-hoc in services).
 
-use sea_orm::sea_query::Condition;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::data::sys_positions as entity;
-use crate::data::Viewer;
 use crate::state::{db_err, not_found, StatusError};
 
 repo_shell!(tenant PositionRepo, entity);

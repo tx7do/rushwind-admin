@@ -1,31 +1,19 @@
-//! The REST route pack — //! `internal/server/module`: mounts the full
-//! route surface behind the real service implementations, splits the
-//! auth-free public subtree from the gated one (the auth-free set),
-//! composes the per-route layer stack, merges the two with the docs
-//! surface and the audit layer, and hands the router to the lifecycle
-//! assembler — whose edge block (the CORS policy and the request budget
-//! from the server document) wraps the whole thing.
+//! The admin REST route pack — the admin face over the reusable edge
+//! ([`super::edge`]): the admin contract's pool, the registered codec
+//! subtypes, the mounted service implementations, the docs face, and
+//! the admin audit face, all handed to the edge combinator that a
+//! business module's route pack rides identically.
 //!
-//! Per-route layer composition (the `wrap` closure below): the framework
-//! bind layer — body and query binding — outermost on EVERY route, and
-//! the auth gate (the auth crate) composed INSIDE it on gated routes
-//! only. That order is the wire contract: codec/binding failures answer
-//! 400 ahead of any 401.
-//!
-//! The authorization engine (crate::authorizer) evaluates the gated
-//! routes inside the gate; the 4-stage check itself lives in the auth
-//! crate.
-//!
-//! The docs switches (Swagger UI / Redoc / the raw spec mount) ride
-//! the pack's settings node; the CORS policy and the request budget
-//! ride the assembler's per-server edge block, through the
-//! gorilla-compatible CORS layer (see rushwind_http::cors_compat — wires
-//! gorilla/handlers there, whose emission rules tower-http does not
-//! reproduce).
+//! Per-route layer composition (see the edge module docs): the
+//! framework bind layer outermost on EVERY route, and the auth gate
+//! (the auth crate) composed INSIDE it on gated routes only — that
+//! order is the wire contract: codec/binding failures answer 400
+//! ahead of any 401. The CORS policy and the request budget ride the
+//! assembler's per-server edge block, through the gorilla-compatible
+//! CORS layer (see rushwind_http::cors_compat — wires gorilla/handlers
+//! there, whose emission rules tower-http does not reproduce).
 
 use std::sync::Arc;
-
-use axum::routing::MethodRouter;
 
 use crate::services::{
     AccessKeyService, AdminPortalService, AiAgentService, AiChatService, AiContentService,
@@ -45,28 +33,11 @@ use crate::services::{
     UserService,
 };
 use crate::state::AppState;
-use auth::auth_gate;
 use proto::pool;
-use rushwind_http_binding::bindgate::bind_run;
-use rushwind_http_binding::wire::RouteWire;
 
 /// The deployment's registered codec subtypes — the packages
 /// its binary imports (the compatibility spec §2.1 register).
 const REGISTERED_SUBTYPES: &[&str] = &["json", "proto", "x-www-form-urlencoded"];
-
-/// The adapter wiring the service-side Redis session store into the
-/// auth gate's server-side check stage.
-struct RedisTokenChecker(crate::token::TokenStore);
-
-#[async_trait::async_trait]
-impl auth::AccessTokenChecker for RedisTokenChecker {
-    async fn is_valid_access_token(&self, uid: i64, jti: &str, token: &str) -> bool {
-        self.0.is_valid_access_token(uid, jti, token).await
-    }
-    async fn is_blocked_access_token(&self, jti: &str) -> bool {
-        self.0.is_blocked_access_token(jti).await
-    }
-}
 
 /// The admin route pack: the mounted router (see the module docs)
 /// under this pack's settings node (the docs switches). The edge —
@@ -81,191 +52,192 @@ pub fn pack(
        + Send
        + Sync
        + 'static {
-    move |settings, _input| {
+    super::edge::pack_with(move |settings| {
         let docs = crate::server::docs::wire(settings)?;
-        Ok(rushwind_bootstrap::RouteSurface::new(build_router(
-            Arc::clone(&state),
-            docs,
-        )))
-    }
+        Ok(build_router(Arc::clone(&state), docs))
+    })
 }
 
 /// Builds the mounted router. `state` carries the verification engine
-/// and the server-side session store; the assembly order mirrors
-/// module.
+/// and the server-side session store; the assembly order lives in the
+/// edge combinator.
 pub fn build_router(state: Arc<AppState>, docs: crate::server::docs::Wire) -> axum::Router {
-    let descriptor_pool = pool();
-    let authenticator = Arc::clone(&state.authenticator);
-    let checker = Arc::new(RedisTokenChecker(state.tokens.clone()))
-        as Arc<dyn auth::AccessTokenChecker + 'static>;
-    let tenant_checker = Arc::new(crate::authorizer::TenantAccessChecker(Arc::clone(&state)))
-        as Arc<dyn auth::TenantAccessChecker + 'static>;
-    let authorizer = Arc::new(crate::authorizer::AccessAuthorizer::new(Arc::clone(&state)))
-        as Arc<dyn auth::AuthorizationEvaluator + 'static>;
-
-    // The per-route layer composition (see the module docs): bind layer
-    // outermost always, auth gate inside it on gated routes.
-    let wrap = |mr: MethodRouter, wire: &RouteWire, gated: bool| -> MethodRouter {
-        let mut out = mr;
-        if gated {
-            let auth = Arc::clone(&authenticator);
-            let checker = Arc::clone(&checker);
-            let tenant_checker = Arc::clone(&tenant_checker);
-            let authorizer = Arc::clone(&authorizer);
-            let gate = axum::middleware::from_fn(move |req, next| {
-                let auth = Arc::clone(&auth);
-                let checker = Arc::clone(&checker);
-                let tenant_checker = Arc::clone(&tenant_checker);
-                let authorizer = Arc::clone(&authorizer);
-                async move { auth_gate(auth, checker, tenant_checker, authorizer, req, next).await }
-            });
-            out = out.layer(gate);
-        }
-        let input_fq = wire.input_fq;
-        let body_star = wire.body_star;
-        let bind = axum::middleware::from_fn(move |req, next| {
-            let (fq, body) = (input_fq, body_star);
-            async move { bind_run(descriptor_pool, fq, body, REGISTERED_SUBTYPES, req, next).await }
-        });
-        out = out.layer(bind);
-        out
-    };
-
-    // The full mounted surface, placeholder services behind it. Every
-    // mount call threads both routers; the generator's auth-free table
-    // classifies each of its route bindings.
-    let mut router_pub = axum::Router::new();
-    let mut router_gate = axum::Router::new();
-    /// The uniform service mount: every service follows the same
-    /// router-threading, service-construction, and wrap handshake.
-    macro_rules! mount_services {
-    ($(($mount:ident, $service:ident)),* $(,)?) => {
-        $(
-            (router_pub, router_gate) = proto::gen::mounts::$mount(
-                router_pub,
-                router_gate,
-                std::sync::Arc::new($service {
-                    state: std::sync::Arc::clone(&state),
-                }),
-                &wrap,
-            );
-        )*
-    };
+    super::edge::edge_router(
+        &state,
+        super::edge::EdgePack {
+            pool: pool(),
+            subtypes: REGISTERED_SUBTYPES,
+            mounts: mount_items(&state),
+            docs: Some(docs),
+            audit: Some(crate::audit::AuditFace::admin().clone()),
+            extras: vec![image_proxy_router(&state)],
+        },
+    )
 }
 
-    // The full mounted surface. The generator's auth-free table
-    // classifies each of its route bindings.
-    mount_services!(
-        (mount_access_key_service, AccessKeyService),
-        (mount_ai_agent_service, AiAgentService),
-        (mount_ai_chat_service, AiChatService),
-        (mount_ai_content_service, AiContentService),
-        (mount_ai_knowledge_base_service, AiKnowledgeBaseService),
-        (mount_ai_query_service, AiQueryService),
-        (mount_ai_conversation_service, AiConversationService),
-        (mount_ai_message_service, AiMessageService),
-        (mount_ai_provider_service, AiProviderService),
-        (mount_ai_usage_log_service, AiUsageLogService),
-        (mount_admin_portal_service, AdminPortalService),
-        (mount_api_audit_log_service, ApiAuditLogService),
-        (mount_api_service, ApiService),
-        (mount_authentication_service, AuthenticationService),
-        (mount_bi_dashboard_service, BiDashboardService),
-        (mount_config_service, ConfigService),
-        (mount_dashboard_service, DashboardService),
-        (
-            mount_data_access_audit_log_service,
-            DataAccessAuditLogService
-        ),
-        (mount_dict_entry_service, DictEntryService),
-        (mount_dict_type_service, DictTypeService),
-        (mount_file_service, FileService),
-        (mount_file_transfer_service, FileTransferService),
-        (
-            mount_internal_message_category_service,
-            InternalMessageCategoryService
-        ),
-        (
-            mount_internal_message_recipient_service,
-            InternalMessageRecipientService
-        ),
-        (mount_internal_message_service, InternalMessageService),
-        (mount_language_service, LanguageService),
-        (mount_login_audit_log_service, LoginAuditLogService),
-        (mount_login_policy_service, LoginPolicyService),
-        (mount_menu_service, MenuService),
-        (mount_mfa_service, MfaService),
-        (
-            mount_notification_channel_service,
-            NotificationChannelService
-        ),
-        (mount_notification_service, NotificationDeliveryService),
-        (
-            mount_notification_preference_service,
-            NotificationPreferenceService
-        ),
-        (mount_notification_rule_service, NotificationRuleService),
-        (
-            mount_notification_template_service,
-            NotificationTemplateService
-        ),
-        (mount_online_session_service, OnlineSessionService),
-        (mount_operation_audit_log_service, OperationAuditLogService),
-        (mount_org_unit_service, OrgUnitService),
-        (
-            mount_permission_audit_log_service,
-            PermissionAuditLogService
-        ),
-        (mount_permission_group_service, PermissionGroupService),
-        (mount_permission_service, PermissionService),
-        (mount_plan_module_service, PlanModuleService),
-        (mount_plan_quota_service, PlanQuotaService),
-        (mount_plan_service, PlanService),
-        (
-            mount_policy_evaluation_log_service,
-            PolicyEvaluationLogService
-        ),
-        (mount_position_service, PositionService),
-        (mount_print_template_service, PrintTemplateService),
-        (mount_redis_cache_monitor_service, RedisCacheMonitorService),
-        (mount_monitor_alert_service, MonitorAlertService),
-        (mount_my_tenant_usage_service, MyTenantUsageService),
-        (mount_role_service, RoleService),
-        (mount_script_log_service, ScriptLogService),
-        (mount_script_service, ScriptService),
-        (mount_server_monitor_service, ServerMonitorService),
-        (mount_task_monitor_service, TaskMonitorService),
-        (mount_task_service, TaskService),
-        (mount_tenant_service, TenantService),
-        (mount_user_profile_service, UserProfileService),
-        (mount_user_service, UserService),
-    );
-
-    let mut app = router_pub.merge(router_gate);
-
-    // The docs surface (Swagger UI / Redoc / raw spec), switched by
-    // server.rest.enable_swagger / enable_redoc.
-    app = app.merge(crate::server::docs::router(
-        docs.enable_swagger,
-        docs.enable_redoc,
-    ));
-
-    // The signed public image proxy: public by design — the HMAC in
-    // the query is the credential — so it mounts without the gate,
-    // mirroring the reference's raw (Operation-less) route.
-    let image_proxy = axum::Router::new()
+/// The signed public image proxy: public by design — the HMAC in
+/// the query is the credential — so it mounts without the gate,
+/// mirroring the reference's raw (Operation-less) route.
+fn image_proxy_router(state: &Arc<AppState>) -> axum::Router {
+    axum::Router::new()
         .route(
             "/admin/v1/file/image",
             axum::routing::get(crate::services::image_proxy),
         )
-        .with_state(Arc::clone(&state));
-    app = app.merge(image_proxy);
+        .with_state(Arc::clone(state))
+}
 
-    // The audit-write layer:
-    // post-handler persistence into the audit tables, outermost so it
-    // sees final status codes.
-    app.layer(axum::middleware::from_fn_with_state(
-        Arc::clone(&state),
-        crate::audit::layer,
-    ))
+/// The uniform service mount: every service follows the same
+/// router-threading, service-construction, and wrap handshake. The
+/// state is an explicit parameter — a module-level macro cannot
+/// capture the function's local by name.
+macro_rules! mount_service {
+    ($state:expr, $mount:ident, $service:ident) => {{
+        let state = std::sync::Arc::clone($state);
+        // The wrap parameter is annotated so the closure is
+        // higher-ranked over the reference lifetime — an unannotated
+        // closure specializes to one lifetime and fails the
+        // MountItem's for<'a> bound.
+        Box::new(
+            move |router_pub: axum::Router,
+                  router_gate: axum::Router,
+                  wrap: &super::edge::Wrap|
+                  -> (axum::Router, axum::Router) {
+                proto::gen::mounts::$mount(
+                    router_pub,
+                    router_gate,
+                    std::sync::Arc::new($service {
+                        state: std::sync::Arc::clone(&state),
+                    }),
+                    wrap,
+                )
+            },
+        ) as super::edge::MountItem
+    }};
+}
+
+/// The full mounted surface. The generator's auth-free table
+/// classifies each of its route bindings.
+fn mount_items(state: &Arc<AppState>) -> Vec<super::edge::MountItem> {
+    vec![
+        mount_service!(state, mount_access_key_service, AccessKeyService),
+        mount_service!(state, mount_ai_agent_service, AiAgentService),
+        mount_service!(state, mount_ai_chat_service, AiChatService),
+        mount_service!(state, mount_ai_content_service, AiContentService),
+        mount_service!(
+            state,
+            mount_ai_knowledge_base_service,
+            AiKnowledgeBaseService
+        ),
+        mount_service!(state, mount_ai_query_service, AiQueryService),
+        mount_service!(state, mount_ai_conversation_service, AiConversationService),
+        mount_service!(state, mount_ai_message_service, AiMessageService),
+        mount_service!(state, mount_ai_provider_service, AiProviderService),
+        mount_service!(state, mount_ai_usage_log_service, AiUsageLogService),
+        mount_service!(state, mount_admin_portal_service, AdminPortalService),
+        mount_service!(state, mount_api_audit_log_service, ApiAuditLogService),
+        mount_service!(state, mount_api_service, ApiService),
+        mount_service!(state, mount_authentication_service, AuthenticationService),
+        mount_service!(state, mount_bi_dashboard_service, BiDashboardService),
+        mount_service!(state, mount_config_service, ConfigService),
+        mount_service!(state, mount_dashboard_service, DashboardService),
+        mount_service!(
+            state,
+            mount_data_access_audit_log_service,
+            DataAccessAuditLogService
+        ),
+        mount_service!(state, mount_dict_entry_service, DictEntryService),
+        mount_service!(state, mount_dict_type_service, DictTypeService),
+        mount_service!(state, mount_file_service, FileService),
+        mount_service!(state, mount_file_transfer_service, FileTransferService),
+        mount_service!(
+            state,
+            mount_internal_message_category_service,
+            InternalMessageCategoryService
+        ),
+        mount_service!(
+            state,
+            mount_internal_message_recipient_service,
+            InternalMessageRecipientService
+        ),
+        mount_service!(
+            state,
+            mount_internal_message_service,
+            InternalMessageService
+        ),
+        mount_service!(state, mount_language_service, LanguageService),
+        mount_service!(state, mount_login_audit_log_service, LoginAuditLogService),
+        mount_service!(state, mount_login_policy_service, LoginPolicyService),
+        mount_service!(state, mount_menu_service, MenuService),
+        mount_service!(state, mount_mfa_service, MfaService),
+        mount_service!(
+            state,
+            mount_notification_channel_service,
+            NotificationChannelService
+        ),
+        mount_service!(
+            state,
+            mount_notification_service,
+            NotificationDeliveryService
+        ),
+        mount_service!(
+            state,
+            mount_notification_preference_service,
+            NotificationPreferenceService
+        ),
+        mount_service!(
+            state,
+            mount_notification_rule_service,
+            NotificationRuleService
+        ),
+        mount_service!(
+            state,
+            mount_notification_template_service,
+            NotificationTemplateService
+        ),
+        mount_service!(state, mount_online_session_service, OnlineSessionService),
+        mount_service!(
+            state,
+            mount_operation_audit_log_service,
+            OperationAuditLogService
+        ),
+        mount_service!(state, mount_org_unit_service, OrgUnitService),
+        mount_service!(
+            state,
+            mount_permission_audit_log_service,
+            PermissionAuditLogService
+        ),
+        mount_service!(
+            state,
+            mount_permission_group_service,
+            PermissionGroupService
+        ),
+        mount_service!(state, mount_permission_service, PermissionService),
+        mount_service!(state, mount_plan_module_service, PlanModuleService),
+        mount_service!(state, mount_plan_quota_service, PlanQuotaService),
+        mount_service!(state, mount_plan_service, PlanService),
+        mount_service!(
+            state,
+            mount_policy_evaluation_log_service,
+            PolicyEvaluationLogService
+        ),
+        mount_service!(state, mount_position_service, PositionService),
+        mount_service!(state, mount_print_template_service, PrintTemplateService),
+        mount_service!(
+            state,
+            mount_redis_cache_monitor_service,
+            RedisCacheMonitorService
+        ),
+        mount_service!(state, mount_monitor_alert_service, MonitorAlertService),
+        mount_service!(state, mount_my_tenant_usage_service, MyTenantUsageService),
+        mount_service!(state, mount_role_service, RoleService),
+        mount_service!(state, mount_script_log_service, ScriptLogService),
+        mount_service!(state, mount_script_service, ScriptService),
+        mount_service!(state, mount_server_monitor_service, ServerMonitorService),
+        mount_service!(state, mount_task_monitor_service, TaskMonitorService),
+        mount_service!(state, mount_task_service, TaskService),
+        mount_service!(state, mount_tenant_service, TenantService),
+        mount_service!(state, mount_user_profile_service, UserProfileService),
+        mount_service!(state, mount_user_service, UserService),
+    ]
 }

@@ -18,7 +18,10 @@
 
 /// The uniform repository shell: connection state, the table predicate,
 /// and the two listing envelopes. Repo-specific methods live in the
-/// file's own `impl` block beside the invocation.
+/// file's own `impl` block beside the invocation. Exported for the
+/// business modules: a downstream module crate derives its repos from
+/// the same shell (see `business/module-template` for the consumer
+/// face).
 ///
 /// * `tenant` arm — the tenancy predicate from the viewer (tenant
 ///   viewers constrained, platform/system wide);
@@ -32,47 +35,54 @@
 /// viewer predicate, and those stay hand-written beside the
 /// invocation.
 ///
-/// Paths resolve at the expansion site — tenant-arm repo files keep
-/// importing `Condition`, `ColumnTrait`, `DatabaseConnection`,
-/// `EntityTrait`, `QueryFilter`, `Viewer`, `db_err` and `StatusError`;
-/// global-arm files need the same set minus `ColumnTrait` and `Viewer`
-/// (plus `not_found` on the noun arm).
+/// The expansion is self-contained: every shared name resolves through
+/// `$crate` (the admin-api library) or `sea_orm` — the expanding crate
+/// keeps `sea_orm` as an extern dependency (the workspace pins one
+/// version), and imports nothing else beside the macro.
+#[macro_export]
 macro_rules! repo_shell {
     (tenant $name:ident, $entity:ident) => {
         pub struct $name<'a> {
-            pub db: &'a DatabaseConnection,
-            pub viewer: Viewer,
+            pub db: &'a sea_orm::DatabaseConnection,
+            pub viewer: $crate::data::Viewer,
         }
 
         impl<'a> $name<'a> {
-            pub fn new(db: &'a DatabaseConnection, viewer: Viewer) -> Self {
+            pub fn new(
+                db: &'a sea_orm::DatabaseConnection,
+                viewer: $crate::data::Viewer,
+            ) -> Self {
                 Self { db, viewer }
             }
 
             /// The tenancy predicate: tenant viewers are constrained,
             /// platform/system viewers see all rows.
-            fn condition(&self) -> Condition {
+            fn condition(&self) -> sea_orm::Condition {
                 match self.viewer.tenant_scope() {
-                    Some(tid) => Condition::all().add($entity::Column::TenantId.eq(tid)),
-                    None => Condition::all(),
+                    Some(tid) => {
+                        sea_orm::Condition::all().add($entity::Column::TenantId.eq(tid))
+                    }
+                    None => sea_orm::Condition::all(),
                 }
             }
 
             /// Unpaged listing.
-            pub async fn list(&self) -> Result<Vec<$entity::Model>, StatusError> {
+            pub async fn list(
+                &self,
+            ) -> Result<Vec<$entity::Model>, $crate::state::StatusError> {
                 $entity::Entity::find()
                     .filter(self.condition())
                     .all(self.db)
                     .await
-                    .map_err(db_err)
+                    .map_err($crate::state::db_err)
             }
 
             /// Paged listing over the PagingRequest contract: returns (rows, total).
             pub async fn paged_list(
                 &self,
-                req: &proto::proto::pagination::PagingRequest,
-            ) -> Result<(Vec<$entity::Model>, u64), StatusError> {
-                crate::paging::fetch_paged(
+                req: &$crate::proto::proto::pagination::PagingRequest,
+            ) -> Result<(Vec<$entity::Model>, u64), $crate::state::StatusError> {
+                $crate::paging::fetch_paged(
                     self.db,
                     $entity::Entity::find().filter(self.condition()),
                     req,
@@ -83,34 +93,36 @@ macro_rules! repo_shell {
     };
     (global $name:ident, $entity:ident) => {
         pub struct $name<'a> {
-            pub db: &'a DatabaseConnection,
+            pub db: &'a sea_orm::DatabaseConnection,
         }
 
         impl<'a> $name<'a> {
-            pub fn new(db: &'a DatabaseConnection) -> Self {
+            pub fn new(db: &'a sea_orm::DatabaseConnection) -> Self {
                 Self { db }
             }
 
             // Platform-global table: no tenant predicate applies.
-            fn condition(&self) -> Condition {
-                Condition::all()
+            fn condition(&self) -> sea_orm::Condition {
+                sea_orm::Condition::all()
             }
 
             /// Unpaged listing.
-            pub async fn list(&self) -> Result<Vec<$entity::Model>, StatusError> {
+            pub async fn list(
+                &self,
+            ) -> Result<Vec<$entity::Model>, $crate::state::StatusError> {
                 $entity::Entity::find()
                     .filter(self.condition())
                     .all(self.db)
                     .await
-                    .map_err(db_err)
+                    .map_err($crate::state::db_err)
             }
 
             /// Paged listing over the PagingRequest contract: returns (rows, total).
             pub async fn paged_list(
                 &self,
-                req: &proto::proto::pagination::PagingRequest,
-            ) -> Result<(Vec<$entity::Model>, u64), StatusError> {
-                crate::paging::fetch_paged(
+                req: &$crate::proto::proto::pagination::PagingRequest,
+            ) -> Result<(Vec<$entity::Model>, u64), $crate::state::StatusError> {
+                $crate::paging::fetch_paged(
                     self.db,
                     $entity::Entity::find().filter(self.condition()),
                     req,
@@ -122,24 +134,30 @@ macro_rules! repo_shell {
     // The noun arm reuses the plain global shell and appends the two
     // id-addressed methods every platform-global table shares.
     (global $name:ident, $entity:ident, $noun:literal) => {
-        repo_shell!(global $name, $entity);
+        $crate::repo_shell!(global $name, $entity);
 
         impl<'a> $name<'a> {
             /// The row by id: 404 when absent.
-            pub async fn get_by_id(&self, id: i64) -> Result<$entity::Model, StatusError> {
+            pub async fn get_by_id(
+                &self,
+                id: i64,
+            ) -> Result<$entity::Model, $crate::state::StatusError> {
                 $entity::Entity::find_by_id(id as i64)
                     .one(self.db)
                     .await
-                    .map_err(db_err)?
-                    .ok_or_else(|| not_found($noun))
+                    .map_err($crate::state::db_err)?
+                    .ok_or_else(|| $crate::state::not_found($noun))
             }
 
             /// Delete by id; callers decide whether absence is an error.
-            pub async fn delete_by_id(&self, id: i64) -> Result<(), StatusError> {
+            pub async fn delete_by_id(
+                &self,
+                id: i64,
+            ) -> Result<(), $crate::state::StatusError> {
                 $entity::Entity::delete_by_id(id as i64)
                     .exec(self.db)
                     .await
-                    .map_err(db_err)?;
+                    .map_err($crate::state::db_err)?;
                 Ok(())
             }
         }

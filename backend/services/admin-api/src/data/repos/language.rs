@@ -1,11 +1,10 @@
 //! LanguageRepo — platform-global rows with
 //! all predicates owned here (never ad-hoc in services).
 
-use sea_orm::sea_query::Condition;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 
 use crate::data::sys_languages as entity;
-use crate::state::{db_err, not_found, StatusError};
+use crate::state::{db_err, StatusError};
 
 repo_shell!(global LanguageRepo, entity, "language");
 

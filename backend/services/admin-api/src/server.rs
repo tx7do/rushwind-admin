@@ -4,6 +4,7 @@
 
 pub mod apalis;
 pub mod docs;
+pub mod edge;
 pub mod rest;
 pub mod sse;
 
