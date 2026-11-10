@@ -142,10 +142,20 @@ impl crate::gen::services::NoticeServiceHandlers for NoticeService {
 
     async fn delete(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
+        ctx: rushwind_http_binding::ctx::RequestContext,
         req: crate::proto::notice::service::v1::DeleteNoticeRequest,
     ) -> Result<pbjson_types::Empty, StatusError> {
-        notices::Entity::delete_by_id(req.id as i64)
+        // Tenant-scoped fetch, then the hard delete: the viewer
+        // predicate rides the repo fetch (the shell deliberately
+        // leaves tenant-scoped get/delete hand-written), mirroring the
+        // update path above — a cross-tenant id answers 404, not a
+        // foreign-row delete.
+        let repo = NoticeRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let row = repo
+            .get(req.id as i64)
+            .await?
+            .ok_or_else(|| not_found("notice"))?;
+        notices::Entity::delete_by_id(row.id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
