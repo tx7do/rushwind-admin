@@ -20,6 +20,8 @@ pub mod seed;
 pub mod server;
 pub mod services;
 pub mod state;
+#[cfg(test)]
+pub(crate) mod testsupport;
 pub mod token;
 
 /// The admin contract crate, re-exported so the exported macros

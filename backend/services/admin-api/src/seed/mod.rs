@@ -61,11 +61,16 @@ pub async fn run(state: &Arc<AppState>) -> Result<(), String> {
 
 /// 序列对齐：把表的 id serial 序列推到当前 max(id)（无行时归 1）。
 /// 表不存在时静默跳过（旧库形兼容——迁移链未触达的表不拦启动）。
+/// Postgres 专属（pg_get_serial_sequence/setval）：sqlite 测试面的
+/// 显式 id 播种后无 serial 序列可推，直接跳过。
 pub(crate) async fn realign_sequence(
     db: &sea_orm::DatabaseConnection,
     table: &str,
 ) -> Result<(), String> {
     use sea_orm::ConnectionTrait as _;
+    if db.get_database_backend() != sea_orm::DatabaseBackend::Postgres {
+        return Ok(());
+    }
     let exists = db
         .query_one_raw(sea_orm::Statement::from_string(
             db.get_database_backend(),
@@ -522,4 +527,68 @@ async fn seed_admin_user(state: &Arc<AppState>) -> Result<(), String> {
         }
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::test_state;
+
+    /// 全量播种在 sqlite 测试面跑通，且跑两遍幂等：第二次被各表的
+    /// count 守卫与 sync_apis 的 (path, method) MERGE 语义吸收，行数不变。
+    #[tokio::test]
+    async fn seed_runs_twice_with_stable_counts() {
+        let state = test_state().await;
+
+        run(&state).await.expect("first seed run");
+
+        macro_rules! rows_of {
+            ($entity:ident) => {{
+                use sea_orm::EntityTrait as _;
+                crate::data::$entity::Entity::find()
+                    .all(&state.db)
+                    .await
+                    .expect("query after seed")
+                    .len() as u64
+            }};
+        }
+
+        let languages = rows_of!(sys_languages);
+        let configs = rows_of!(sys_configs);
+        let roles = rows_of!(sys_roles);
+        let permissions = rows_of!(sys_permissions);
+        let menus = rows_of!(sys_menus);
+        let users = rows_of!(sys_users);
+        let apis = rows_of!(sys_apis);
+
+        assert_eq!(languages, 7, "the language catalog seeds in full");
+        assert_eq!(configs, 3, "the three password config keys");
+        assert!(roles >= 1 && permissions >= 1 && menus >= 1);
+        assert_eq!(users, 1, "exactly the platform admin");
+        assert!(apis > 0, "the contract route table syncs into sys_apis");
+
+        // 管理员凭据（PASSWORD_HASH 形态）与其平台角色绑定在场。
+        use crate::data::sys_user_credentials as credentials;
+        let creds = credentials::Entity::find()
+            .all(&state.db)
+            .await
+            .expect("credentials after seed");
+        assert!(creds
+            .iter()
+            .any(|c| c.identifier == "admin" && c.credential_type == Some("PASSWORD_HASH".into())));
+
+        // 第二遍：幂等。
+        run(&state).await.expect("second seed run");
+        assert_eq!(rows_of!(sys_languages), languages);
+        assert_eq!(rows_of!(sys_configs), configs);
+        assert_eq!(rows_of!(sys_roles), roles);
+        assert_eq!(rows_of!(sys_permissions), permissions);
+        assert_eq!(rows_of!(sys_menus), menus);
+        assert_eq!(rows_of!(sys_users), users);
+        assert_eq!(
+            rows_of!(sys_apis),
+            apis,
+            "sync_apis MERGE adds no duplicates"
+        );
+    }
 }
