@@ -79,3 +79,26 @@ pub async fn reset(redis: &ConnectionManager, ip: &str, username: &str) {
         let _: Result<i64, _> = conn.del(&keys).await;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fail_keys_cover_both_dimensions_and_skip_blanks() {
+        assert_eq!(
+            fail_keys("1.2.3.4", "admin"),
+            vec![
+                "admin:login:fail:ip:1.2.3.4".to_string(),
+                "admin:login:fail:user:admin".to_string()
+            ]
+        );
+        // A blank dimension contributes no key (rather than a match-all).
+        assert_eq!(fail_keys("", "admin"), vec!["admin:login:fail:user:admin"]);
+        assert_eq!(
+            fail_keys("1.2.3.4", ""),
+            vec!["admin:login:fail:ip:1.2.3.4"]
+        );
+        assert!(fail_keys("", "").is_empty());
+    }
+}

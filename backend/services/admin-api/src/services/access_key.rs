@@ -293,3 +293,34 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
     }
     diff == 0
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn constant_time_eq_matches_only_identical_slices() {
+        assert!(constant_time_eq(b"secret", b"secret"));
+        assert!(constant_time_eq(b"", b""));
+        assert!(!constant_time_eq(b"secret", b"secreT"));
+        // Same length, first byte differs — every position must still fold in.
+        assert!(!constant_time_eq(b"xecret", b"secret"));
+        assert!(!constant_time_eq(b"secret", b"secretx"));
+        assert!(!constant_time_eq(b"secretx", b"secret"));
+    }
+
+    #[test]
+    fn key_shapes_prefix_and_length() {
+        let key = new_access_key();
+        assert!(key.starts_with("ak-"));
+        assert_eq!(key.len(), "ak-".len() + 16); // 8 random bytes, hex
+        assert!(key[3..].bytes().all(|b| b.is_ascii_hexdigit()));
+
+        let secret = new_secret();
+        assert!(secret.starts_with("sk-"));
+        assert_eq!(secret.len(), "sk-".len() + 64); // 32 random bytes, hex
+
+        // Randomness: two draws differ (16-byte collision odds are nil).
+        assert_ne!(new_access_key(), new_access_key());
+    }
+}
