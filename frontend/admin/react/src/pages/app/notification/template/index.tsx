@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import {
   ModalForm,
@@ -23,8 +23,8 @@ import type {
   notificationservicev1_RenderNotificationTemplateRequest,
   notificationservicev1_UpdateNotificationTemplateRequest,
 } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
 import {
   fetchListNotificationTemplates,
   useCreateNotificationTemplate,
@@ -32,7 +32,7 @@ import {
   useRenderNotificationTemplate,
   useUpdateNotificationTemplate,
 } from '@/api/hooks/notification-template';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { searchOptionRender } from '@/components/common/searchSubmitter';

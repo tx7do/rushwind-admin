@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
-import TableExportButton from '@/components/common/TableExportButton';
+import { ListTable } from '@go-wind/admin-react';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import {
   DrawerForm,
@@ -14,15 +14,15 @@ import { EditOutlined, DeleteOutlined, PlusOutlined, ApartmentOutlined, HistoryO
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { aiservicev1_AiAgentApp as AiAgentApp } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
 import {
   fetchListAiAgentApps,
   useDeleteAiAgentApp,
   useCreateAiAgentApp,
   useUpdateAiAgentApp,
 } from '@/api/hooks/ai-agent';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import AgentCanvas from './agent-canvas';
 import AgentRunsDrawer from './agent-runs-drawer';

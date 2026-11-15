@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import { App, Tag, Tooltip } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
@@ -12,9 +12,9 @@ import {
   fetchListOnlineSessions,
   useForceLogoutSession,
 } from '@/api/hooks/online-session';
-import TableExportButton from '@/components/common/TableExportButton';
-import { TABLE } from '@/config/constants';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { TableExportButton } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { searchOptionRender } from '@/components/common/searchSubmitter';
 import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';

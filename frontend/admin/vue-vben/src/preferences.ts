@@ -13,4 +13,8 @@ export const overridesPreferences = defineOverridesPreferences({
     // 三端统一默认头像（橘猫，react/ele 同图；覆盖 vben 框架默认的 default-avatar.webp）
     defaultAvatar: '/default-avatar.png',
   },
+  copyright: {
+    companyName: 'RushWind',
+    companySiteLink: 'https://github.com/tx7do/rushwind',
+  },
 });

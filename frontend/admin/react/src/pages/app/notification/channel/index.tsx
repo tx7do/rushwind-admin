@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import {
   ModalForm,
   DrawerForm,
@@ -24,8 +24,8 @@ import type {
   notification_channelservicev1_CreateNotificationChannelRequest,
   notification_channelservicev1_UpdateNotificationChannelRequest,
 } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
 import {
   fetchListNotificationChannels,
   useDeleteNotificationChannel,
@@ -34,7 +34,7 @@ import {
   useCreateNotificationChannel,
 } from '@/api/hooks/notification-channel';
 import { useListChannelSchemas, type ChannelSchema } from '@/api/hooks/notification-channel-schema';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';

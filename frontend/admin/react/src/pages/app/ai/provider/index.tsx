@@ -1,18 +1,18 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
-import TableExportButton from '@/components/common/TableExportButton';
+import { ListTable } from '@go-wind/admin-react';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import { Button, Tag, Tooltip, App } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, CloudOutlined, LaptopOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { aiservicev1_AiProvider as AiProvider } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
+import { PaginationQuery } from '@go-wind/admin-react';
 import { fetchListAiProviders, useDeleteAiProvider } from '@/api/hooks/ai-provider';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
-import { TABLE } from '@/config/constants';
+import { TABLE } from '@go-wind/admin-react';
 import AiProviderDrawer from './components/AiProviderDrawer';
 import { searchOptionRender } from '@/components/common/searchSubmitter';
 

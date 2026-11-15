@@ -1,18 +1,18 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
-import TableExportButton from '@/components/common/TableExportButton';
+import { ListTable } from '@go-wind/admin-react';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import { Button, Tag, App } from 'antd';
 import { DeleteOutlined, EditOutlined, FileTextOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { aiservicev1_AiKnowledgeBase as AiKnowledgeBase } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
+import { PaginationQuery } from '@go-wind/admin-react';
 import { fetchListAiKnowledgeBases, useDeleteAiKnowledgeBase } from '@/api/hooks/ai-knowledge';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
-import { TABLE } from '@/config/constants';
+import { TABLE } from '@go-wind/admin-react';
 import KnowledgeDrawer from './components/KnowledgeDrawer';
 import DocsDrawer from './components/DocsDrawer';
 
