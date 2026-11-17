@@ -419,15 +419,20 @@ impl AuthenticationService {
                 .map_err(|e| internal_error(format!("db: {e}")))?;
             match tenant {
                 Some(t) if t.status.as_deref() == Some("ON") => tenant_id = t.id as u64 as i64,
-                _ => return Err(status_error("BAD_REQUEST", "invalid tenant")),
+                // Own reason (issue #1): the login screen folds wrong-tenant
+                // into the unified credential message via the i18n table —
+                // a shared BAD_REQUEST would render as 参数错误.
+                _ => return Err(status_error("INVALID_TENANT", "invalid tenant")),
             }
         }
         let username = self.resolve_identifier(tenant_id, &username).await?;
 
-        // Gate 1: the rate limiter pre-check.
+        // Gate 1: the rate limiter pre-check. Own reason: the login screen
+        // maps reasons to copy — a shared BAD_REQUEST would render as the
+        // generic 参数错误 instead of the lockout message (issue #1).
         if crate::ratelimit::is_locked(&self.state.redis, &client_ip, &username).await {
             return Err(status_error(
-                "BAD_REQUEST",
+                "TOO_MANY_ATTEMPTS",
                 "too many login failures, please try again later",
             ));
         }
@@ -443,7 +448,12 @@ impl AuthenticationService {
             crate::captcha::verify(&self.state.redis, &id, &value).await
         };
         if !captcha_ok {
-            return Err(status_error("BAD_REQUEST", "invalid or missing captcha"));
+            // Own reason (issue #1): captcha failures previously rode
+            // BAD_REQUEST and surfaced as 请求参数错误 on the login screen.
+            return Err(status_error(
+                "CAPTCHA_INVALID",
+                "invalid or missing captcha",
+            ));
         }
 
         // Login-policy gate (global pass, user pass after credential).
