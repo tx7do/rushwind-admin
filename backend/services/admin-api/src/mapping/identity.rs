@@ -35,8 +35,12 @@ enum_map!(position_type_of {
     "OTHER" => 5,
 });
 
+// 与 tenant.proto Status 对齐（OFF=0/ON=1/EXPIRED=2/FREEZE=3）——旧表
+// 漏 ON 且把 OFF 钉在 1，双向全反转：在营读成禁用、禁用读成在营（#6 族
+// 缺口，随回收站测试暴露）。
 enum_map!(tenant_status_of + tenant_status_str {
-    "OFF" => 1,
+    "OFF" => 0,
+    "ON" => 1,
     "EXPIRED" => 2,
     "FREEZE" => 3,
 });

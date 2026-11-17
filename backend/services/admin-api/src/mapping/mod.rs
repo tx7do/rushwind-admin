@@ -119,8 +119,10 @@ mod tests {
                 ],
             ),
             (
+                // 对齐 tenant.proto Status（OFF=0/ON=1/EXPIRED=2/FREEZE=3）；
+                // 旧钉子钉的是漏 ON 反转的错表（#6 族缺口，回收站测试暴露）。
                 "tenant_status",
-                vec![("OFF", 1), ("EXPIRED", 2), ("FREEZE", 3)],
+                vec![("OFF", 0), ("ON", 1), ("EXPIRED", 2), ("FREEZE", 3)],
             ),
             (
                 "tenant_type",

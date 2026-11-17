@@ -222,6 +222,9 @@ fn parse_target_and_action(operation: &str) -> Option<(String, String)> {
         "Delete" | "BatchDelete" => "DELETE",
         "Assign" => "ASSIGN",
         "Unassign" => "UNASSIGN",
+        // 回收站两动词（issue #3）：restore/purge 不落 OTHER。
+        "RestoreTenant" => "RESTORE",
+        "PurgeTenant" => "PURGE",
         _ => "OTHER",
     };
     Some((target, action.to_string()))
@@ -438,6 +441,9 @@ pub async fn run(
                     "Import" => "IMPORT",
                     "Assign" => "ASSIGN",
                     "Unassign" => "UNASSIGN",
+                    // 回收站两动词（issue #3）。
+                    "RestoreTenant" => "RESTORE",
+                    "PurgeTenant" => "PURGE",
                     _ => "OTHER",
                 };
                 let row = crate::data::sys_operation_audit_logs::ActiveModel {

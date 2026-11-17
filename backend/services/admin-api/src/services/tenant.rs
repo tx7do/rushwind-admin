@@ -25,7 +25,7 @@ use proto::proto::pagination::PagingRequest;
 
 /// Unknown rows read as ON.
 fn status_to_proto(s: &str) -> i32 {
-    mapping::tenant_status_of(s).unwrap_or(0)
+    mapping::tenant_status_of(s).unwrap_or(1)
 }
 
 fn status_to_str(v: i32) -> String {
@@ -288,6 +288,22 @@ impl TenantService {
         wipe!(sys_tasks);
         wipe!(sys_login_policies);
         wipe!(sys_access_keys);
+        // The per-tenant rows of the ai/bi/print faces were missing from the
+        // wipe list — their tenant_id dangled after a delete (issue #3 purge
+        // must not leave cross-face residue either).
+        wipe!(sys_ai_providers);
+        wipe!(sys_ai_agent_apps);
+        wipe!(sys_ai_agent_runs);
+        wipe!(sys_ai_conversations);
+        wipe!(sys_ai_messages);
+        wipe!(sys_ai_knowledge_bases);
+        wipe!(sys_ai_docs);
+        wipe!(sys_ai_chunks);
+        wipe!(sys_ai_usage_logs);
+        wipe!(sys_ai_agent_revisions);
+        wipe!(bi_dashboards);
+        wipe!(bi_dashboard_revisions);
+        wipe!(print_templates);
         wipe!(internal_message_recipients);
         wipe!(internal_messages);
         wipe!(internal_message_categories);
@@ -447,7 +463,6 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: DeleteTenantRequest,
     ) -> Result<Empty, StatusError> {
-        let _ = operator_of(&ctx)?;
         let id = crate::query_by_id!(
             req.query_by,
             proto::proto::identity::service::v1::delete_tenant_request::QueryBy
@@ -458,12 +473,95 @@ impl proto::gen::services::TenantServiceHandlers for TenantService {
             .await?
             .ok_or_else(|| not_found("tenant"))?;
         // Cleanup semantics ride along: the tenants themselves are parked,
-        // not deleted (module Delete → cleanup + OFF).
+        // not deleted (module Delete → cleanup + OFF). deleted_by stamps the
+        // operator so the recycle-bin face can show who parked it (issue #3).
+        let payload = operator_of(&ctx)?;
         self.cleanup_rows(row.id).await?;
         let mut a: crate::data::sys_tenants::ActiveModel = row.into();
         a.status = Set(Some("OFF".into()));
+        a.deleted_by = Set(Some(payload.user_id));
         a.deleted_at = Set(Some(crate::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
+        Ok(Empty {})
+    }
+
+    /// 回收站列表：停车行（deleted_at 非空），删除时间降序（issue #3）。
+    /// 与 list 同口径的平台专属读口。
+    async fn list_deleted_tenants(
+        &self,
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        req: PagingRequest,
+    ) -> Result<ListTenantResponse, StatusError> {
+        self.require_platform_admin(&ctx, "tenant trash list")
+            .await?;
+        let repo = crate::data::repos::TenantRepo::new(&self.state.db);
+        let (rows, total) = repo.paged_deleted(&req).await?;
+        Ok(ListTenantResponse {
+            items: rows.into_iter().map(tenant_proto).collect(),
+            total,
+        })
+    }
+
+    /// 回收站恢复：清删除标记并置回在营态（issue #3）。停车租户恢复后是
+    /// 空壳（delete 时关联行已级联清理，admin_user_id 指向已删用户仅是
+    /// 历史痕迹）——平台管理员恢复后需另行补管理员（create_tenant_with_admin
+    /// 面向新租户，不适用）；恢复前查重 alive 域的 code/name，防止停车期间
+    /// 被新建租户占用。
+    async fn restore_tenant(
+        &self,
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        req: proto::proto::identity::service::v1::RestoreTenantRequest,
+    ) -> Result<Empty, StatusError> {
+        self.require_platform_admin(&ctx, "tenant restore").await?;
+        let payload = operator_of(&ctx)?;
+        let repo = crate::data::repos::TenantRepo::new(&self.state.db);
+        let row = repo
+            .find_by_id_unfiltered(req.id as i64)
+            .await?
+            .ok_or_else(|| not_found("tenant"))?;
+        if row.deleted_at.is_none() {
+            return Err(status_error("BAD_REQUEST", "tenant is not parked"));
+        }
+        // alive 域查重：code/name 被在营租户占用即拒绝（与 create 同文案）。
+        if !row.code.is_empty() && repo.find_by_code(&row.code).await?.is_some() {
+            return Err(status_error("BAD_REQUEST", "tenant already exists"));
+        }
+        if !row.name.is_empty() && repo.find_by_name(&row.name).await?.is_some() {
+            return Err(status_error("BAD_REQUEST", "tenant already exists"));
+        }
+        let mut a: crate::data::sys_tenants::ActiveModel = row.into();
+        a.status = Set(Some("ON".into()));
+        a.deleted_at = Set(None);
+        a.deleted_by = Set(None);
+        crate::stamp_update!(a, payload.user_id);
+        a.update(&self.state.db).await.map_err(db_err)?;
+        Ok(Empty {})
+    }
+
+    /// 回收站彻底删除：级联清残余关联行后硬删租户行，不可逆（issue #3）。
+    /// 只对停车行生效——在营租户请走 delete（停车）而非直接抹除。
+    async fn purge_tenant(
+        &self,
+        ctx: rushwind_http_binding::ctx::RequestContext,
+        req: proto::proto::identity::service::v1::PurgeTenantRequest,
+    ) -> Result<Empty, StatusError> {
+        self.require_platform_admin(&ctx, "tenant purge").await?;
+        let repo = crate::data::repos::TenantRepo::new(&self.state.db);
+        let row = repo
+            .find_by_id_unfiltered(req.id as i64)
+            .await?
+            .ok_or_else(|| not_found("tenant"))?;
+        if row.deleted_at.is_none() {
+            return Err(status_error(
+                "BAD_REQUEST",
+                "tenant is not parked; delete it first",
+            ));
+        }
+        self.cleanup_rows(row.id).await?;
+        crate::data::sys_tenants::Entity::delete_by_id(row.id)
+            .exec(&self.state.db)
+            .await
+            .map_err(db_err)?;
         Ok(Empty {})
     }
 
@@ -711,5 +809,172 @@ mod tests {
         )
         .await
         .expect("parked code/name is reusable");
+    }
+
+    /// 回收站三操作全链（issue #3）：删除停车 → trash 列表可见 → code 被
+    /// 在营租户占用时 restore 拒绝 → purge 硬删（unfiltered 也不再可见，
+    /// 关联行随级联清空）→ 在营行直接 purge 被拒。
+    #[tokio::test]
+    async fn recycle_bin_chain() {
+        let state = test_state().await;
+        let svc = TenantService {
+            state: state.clone(),
+        };
+        let me = admin_ctx();
+
+        svc.create(
+            me.clone(),
+            CreateTenantRequest {
+                data: Some(tenant("acme", Some(2))),
+            },
+        )
+        .await
+        .unwrap();
+        let listed = svc
+            .list(me.clone(), PagingRequest::default())
+            .await
+            .unwrap();
+        let acme_id = listed.items[0].id.unwrap() as i64;
+
+        // 停车。
+        svc.delete(
+            me.clone(),
+            DeleteTenantRequest {
+                query_by: Some(DeleteQueryBy::Id(acme_id as u64)),
+            },
+        )
+        .await
+        .unwrap();
+
+        // trash 列表可见。
+        let trash = svc
+            .list_deleted_tenants(me.clone(), PagingRequest::default())
+            .await
+            .unwrap();
+        assert_eq!(trash.total, 1, "parked tenant shows in trash");
+        assert_eq!(trash.items[0].id, Some(acme_id as u64));
+        assert!(trash.items[0].deleted_by.is_some(), "deleted_by stamped");
+
+        // 在营对照：占用者与 acme 同 code/name（停车腾出唯一性后才建得成
+        // ——这正是 #6b 的 exists 闸语义，也构成 restore 的冲突场景）。
+        svc.create(
+            me.clone(),
+            CreateTenantRequest {
+                data: Some(tenant("acme", Some(1))),
+            },
+        )
+        .await
+        .expect("parked code/name is reusable");
+        let alive = svc
+            .list(me.clone(), PagingRequest::default())
+            .await
+            .unwrap();
+        let occupant_id = alive.items[0].id.unwrap() as i64;
+
+        // 在营行直接 purge 被拒。
+        let err = svc
+            .purge_tenant(
+                me.clone(),
+                proto::proto::identity::service::v1::PurgeTenantRequest {
+                    id: occupant_id as u64,
+                },
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(
+            err.reason, "BAD_REQUEST",
+            "purging a live tenant is rejected"
+        );
+
+        // code 被在营租户占用时 restore 拒绝。
+        let err = svc
+            .restore_tenant(
+                me.clone(),
+                proto::proto::identity::service::v1::RestoreTenantRequest { id: acme_id as u64 },
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(err.reason, "BAD_REQUEST", "occupied code blocks restore");
+
+        // purge 掉占用者后再 restore 成功。
+        svc.delete(
+            me.clone(),
+            DeleteTenantRequest {
+                query_by: Some(DeleteQueryBy::Id(occupant_id as u64)),
+            },
+        )
+        .await
+        .unwrap();
+        svc.purge_tenant(
+            me.clone(),
+            proto::proto::identity::service::v1::PurgeTenantRequest {
+                id: occupant_id as u64,
+            },
+        )
+        .await
+        .unwrap();
+        let raw = crate::data::repos::TenantRepo::new(&state.db)
+            .find_by_id_unfiltered(occupant_id)
+            .await
+            .unwrap();
+        assert!(raw.is_none(), "purged row is gone even unfiltered");
+        svc.restore_tenant(
+            me.clone(),
+            proto::proto::identity::service::v1::RestoreTenantRequest { id: acme_id as u64 },
+        )
+        .await
+        .unwrap();
+        let restored = svc
+            .list(me.clone(), PagingRequest::default())
+            .await
+            .unwrap();
+        assert_eq!(
+            restored.total, 1,
+            "acme back on the alive face, occupant purged"
+        );
+        assert_eq!(
+            restored.items[0].deleted_by, None,
+            "restore clears the deletion stamp"
+        );
+        assert_eq!(
+            restored.items[0].status,
+            Some(1),
+            "restored tenant reads ON"
+        );
+        // 空壳语义：停车时关联行已被级联清理。
+        let repo = crate::data::repos::TenantRepo::new(&state.db);
+        assert_eq!(repo.user_count(acme_id).await, 0, "restore is a shell");
+    }
+
+    /// 回收站三操作全部平台闸：非平台管理员 403（对齐 list/get 的 P2 闸）。
+    #[tokio::test]
+    async fn recycle_bin_is_platform_gated() {
+        let state = test_state().await;
+        let svc = TenantService {
+            state: state.clone(),
+        };
+        let me = ctx(7, 1); // 非 ipa
+        for err in [
+            svc.list_deleted_tenants(me.clone(), PagingRequest::default())
+                .await
+                .unwrap_err()
+                .reason,
+            svc.restore_tenant(
+                me.clone(),
+                proto::proto::identity::service::v1::RestoreTenantRequest { id: 1 },
+            )
+            .await
+            .unwrap_err()
+            .reason,
+            svc.purge_tenant(
+                me.clone(),
+                proto::proto::identity::service::v1::PurgeTenantRequest { id: 1 },
+            )
+            .await
+            .unwrap_err()
+            .reason,
+        ] {
+            assert_eq!(err, "FORBIDDEN");
+        }
     }
 }
