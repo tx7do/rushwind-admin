@@ -41,7 +41,7 @@ a85d43a3ef6c5331a15b249e0d9c183759a425639f6acbff1906f4f2995017e6  public/logo.pn
 00782d5123a0ff01f47b4726df3d2937fbacf59cd49349d84fa67857f51c4b57  scripts/deploy/nginx.conf
 2c1680da7fce193341b51c64daf4d401559a4bfce7ac474cff1206c5e36a9338  src/api/README.md
 7d8e4adec7f4fe5e3cf49bf9f9709e525765aff8e4426ca9758e0c5716203542  src/api/client.ts
-e804e213e0c02a7875fc51e210f8fe688296bcfc5031519f47c587812784bb40  src/api/generated/admin/service/v1/index.ts
+87cda2783278921b55e96f05128fa11cb52b55b81e4c61641cadd0844058102d  src/api/generated/admin/service/v1/index.ts
 f832ed7456204dd45f924fc67d9974572f62bc905134b84a5e6ea69756357402  src/api/hooks/access-key.ts
 ac754b27be8f44a84e59275f7af61cd068daf2072b4b675d8af7e13b88ba4fda  src/api/hooks/admin-portal.ts
 4b162e6ca28d84c6b486dd9d8b7f865046bdd68907c0cc338660b9cd643f88bb  src/api/hooks/ai-agent-run.ts
@@ -100,7 +100,7 @@ dcb4231d2be24c08525e6f5efe81a8845dfdfd0b2c47eab5bb91cc79dd30893a  src/api/hooks/
 1779aa7c0d5a0465227be4d613581c041a6eb567d2f85b02de0f9d4ab088a5c6  src/api/hooks/user.ts
 4b01858bf146c98b78786350c14cd7f1e7941f3528ebd8a10fca732be75ae786  src/api/index.ts
 0f6e40d1487076ec72ded81638a7b2e69f8bdb7e59ccd44d3110a73a25598b7f  src/app.tsx
-4e0deacbcdc28d5bbc2c677ce94a3db57f036325230f9dbc7d0db9c18b14f76d  src/bootstrap.ts
+ca55d656be7c99b2c6d2869aa873f3348c3911b6623d644468361a5b4af26e0d  src/bootstrap.ts
 4b45242d90a98b505e78c4af07bf4e289e317789ef3605df07df5a9abe8c7d92  src/components/bussiness/AuthLayout/icons/SloganIcon.tsx
 48570b66e1ac7defd6b179ef2d8b3a8518aac9bf15aa040d93923da868c87429  src/components/bussiness/AuthLayout/index.tsx
 ffa912525864e1aa50cd6b3f8f4b5d6e7744c521dac26cfc08679561342ba87e  src/components/common/AiGenerateButton/index.tsx
@@ -187,7 +187,7 @@ de983c65f1c470e5da5515719a6bd1f56e0210aa365736685e996da39a0bb8e9  src/locales/en
 ce543262405fee1c02281a3bf986ddb32dd8c3beaec19fb9947d02ca432ad668  src/locales/en-US/_modules/language.json
 72411de92356ad1de1a94b5a567529553f37d1ea64e740b0c2e1d5f9cc0b70eb  src/locales/en-US/_modules/login-audit-log.json
 5b615eb7c5116537f67fe62df3e15470ae7f41620f145a1a47cbb74a5d365395  src/locales/en-US/_modules/login-policy.json
-ff9b4294b415a2a149664c42acfc15fbbdb6ebb79da85e6fd5a373b0e82c20d3  src/locales/en-US/_modules/login.json
+9ec05ed98f61aec46f5ab98fa7386f115bdb0ec2c37c1403d440a144af8f39d8  src/locales/en-US/_modules/login.json
 580ddd59655b2d793c2303982915bbdd9754e946167ef382475a05c39f5fe835  src/locales/en-US/_modules/menu.json
 6f42adb07ab64785dbfa60ec9a6a90261fa7accb7d45aa2440adcf83cdeadcc4  src/locales/en-US/_modules/message-category.json
 389b66688caef2d4024e75c2c3f4765b28c160e52ddd3e8c2a94707744692166  src/locales/en-US/_modules/monitor-alert.json
@@ -252,7 +252,7 @@ dbe229215f46642f7808750c67b02aa185ed2d31306940096f0ad1b523e94e06  src/locales/zh
 36ca2f43dec4fecc9f098e1eeac6ed7dfc2a293b0f136d0c779af88feb6c2e96  src/locales/zh-CN/_modules/language.json
 69907d2ee3cc1ac05142aaf366f5528d61c5487313b1fb2d2f392085854cbd91  src/locales/zh-CN/_modules/login-audit-log.json
 242dee1209e37a804c5422de7f966df2e05b80ee622c0e7e56d63dd62d426177  src/locales/zh-CN/_modules/login-policy.json
-23b870b7aad93e441820538a85809df52619bfdd6b6321777c172be08f2783af  src/locales/zh-CN/_modules/login.json
+3d8c7d33a6a5d8dd81cb81358c2263ea757c88286af1e1ceb7ed54781286a156  src/locales/zh-CN/_modules/login.json
 83566e2b5e644232565e76f16ec96803f36f8cb14c5ad719a6e245fd2acf3904  src/locales/zh-CN/_modules/menu.json
 88254d0a2ea5d262aad2a3737c05cf21d34d9d21afb88c4db42352ad231499af  src/locales/zh-CN/_modules/message-category.json
 55658e898225141fc647e935d0ea83363c3173123fc86b8d1181b67e8575f217  src/locales/zh-CN/_modules/monitor-alert.json
@@ -429,7 +429,7 @@ f59474d18f2ea240cede13bac80ad5f78b081931ec2d8752d390a74b3c38a9d9  src/pages/app/
 95f19d83b10cce4d435592367d5a08a4d658bdce0419ca415880a0e7d1db6a17  src/pages/app/tenant/tenant/constants.ts
 0c852c8f54fcd2bf60a89032cef93500d59ed2d1a242c308a86bbe665565e60c  src/pages/app/tenant/tenant/index.tsx
 bfa8ca25bd80f910b184fbca742edbea20e3dac7c2fdce3651d518e4456af66b  src/pages/core/auth/forgot-password/index.tsx
-9675bed3cb0f97246bcb3edaddffea47a0c35452ebb94afeefd00be2c523a482  src/pages/core/auth/login/index.tsx
+420f1e2e838bbb3578356846ec96f0d149167123eaaaceb231368bdac1f40585  src/pages/core/auth/login/index.tsx
 05ee09dee7aac69ea8de8b07d7c6e1f9340bd6e7f17c249c5d75b710441198fc  src/pages/core/auth/mfa-challenge/index.tsx
 36fc0bc6bc1e294664a66e6f794e81981ab97626a903edf343ed3b5dd1a4d327  src/pages/core/auth/sso-callback/index.tsx
 38ca8044108c9419add0cc17b091161d2d0ae4785e899140d1602047f1c331c2  src/pages/core/error/401.tsx
