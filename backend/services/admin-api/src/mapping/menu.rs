@@ -5,6 +5,7 @@
 
 enum_map!(menu_type_of + menu_type_str {
     "CATALOG" => 0,
+    "MENU" => 1,
     "BUTTON" => 2,
     "EMBEDDED" => 3,
     "LINK" => 4,
