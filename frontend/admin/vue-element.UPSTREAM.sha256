@@ -81,10 +81,10 @@ af3ab106136a19da378d9bc17f0f965091372d3fb5e10e6fff651d3b932ceda4  src/api/compos
 dc80823079ddf39b5b9bc61300fd356e00bb63715a75bb344168ca3f01c08531  src/api/composables/shared.ts
 a961f192189d2151ae74544bfb0754e55ca1f9c1295c2af8bbc4a32ea293299e  src/api/composables/task-monitor.ts
 8269633d22eb506463194e9cf5e0c68288a0710615a0fca1a16caf88a2cd0a4e  src/api/composables/task.ts
-8867662b3f52873dd825c69922d5ca00caf0cdf4dbf762ec8d48cbddaf91cb29  src/api/composables/tenant.ts
+ce090e297e51728f3d6569406c7f9482fb14eb29f095ff5c2498861f3d65eecd  src/api/composables/tenant.ts
 a2acfe0bcacc276b0515ece77b7e37b520e579579f048c5cbbc6d46c1482a116  src/api/composables/user-profile.ts
 1262eb3680610052590151383febe309443029642833aa97d53f78be63ab34b5  src/api/composables/user.ts
-93d14e4a1115f77c100846efa940035d2ae3164b6b19ee6142e45bc7c8b213cf  src/api/generated/admin/service/v1/index.ts
+e804e213e0c02a7875fc51e210f8fe688296bcfc5031519f47c587812784bb40  src/api/generated/admin/service/v1/index.ts
 b10dd63999e9a44392eeb0a2f45b0afb8e25b4901117dc9abe1909db539e631c  src/api/index.ts
 c74e894465a858bad75046514161a44bc5201cc70a0b283907e8af8944fc834e  src/assets/icons/api.svg
 a94ce747c209fb8aec935c935630823035a4d66bdf707f335607b809620a1462  src/assets/icons/backtop.svg
@@ -280,7 +280,7 @@ e57621144c0c6233ef31febe7eb4e069f3ce2a7ccc37e1981afd75ecc49b6e8b  src/locales/en
 783b1cf1da72eef144adf6af03267495aefab187194669e026afed5761c19a96  src/locales/en-US/pages/server_monitor.json
 68a9ca8b5e6df9da1fe9d3022234f2ee6436d594443a1358fefe75e7d2ada800  src/locales/en-US/pages/settings.json
 b5899d824f4a579c3ac48cc097bceb4480a22ee9d93efa3371cd76344e776c94  src/locales/en-US/pages/task.json
-dbad66e77e2101884129c0ce637909c96f089f0366e2e899ed3451051d74f331  src/locales/en-US/pages/tenant.json
+2a310256b3bba3b5ed72886d444c3396973be6f4633a489c37a0af3c36a1f569  src/locales/en-US/pages/tenant.json
 59bb9315de93193b20de69902676a03a91817d31b0b9fa1e98e942f72d6dc3b9  src/locales/en-US/pages/user.json
 bfdf4e81ec60d709484f340bd70eeefb02bda2a3a2eed74f3a222e3c42b3bcdb  src/locales/en-US/preferences.json
 827b12e86d94f26fc52052d62a25eb3941f2a39ed991be6ca2a515ca223eca8b  src/locales/en-US/routes/ai.json
@@ -344,7 +344,7 @@ c03bcd40c7be0576ebb5b52634cba90d9308d6cd94b98209212b8dfb81e89673  src/locales/zh
 ddc6e660443ac97317b7f2422c8c97ac7e9d303185edd421ba908d571c7e7d6a  src/locales/zh-CN/pages/server_monitor.json
 657eed70057e0b07bcaad0723ae98090bd9632501fe7ef9f9b551395007c39db  src/locales/zh-CN/pages/settings.json
 6da59616912ef4c438f7299b3d90e488ce475ebb53ee9213e77eaa9168a257eb  src/locales/zh-CN/pages/task.json
-b953135825bd9643f6a60319ca18ba36184859b8acf4b77fdaac45d3e5d4e62c  src/locales/zh-CN/pages/tenant.json
+aaceb227f184ae108f55262e32265a57ac73f0c3cce4e1cd7421102d67c3da92  src/locales/zh-CN/pages/tenant.json
 03e1baacf6809d16235dc7da89bdbe4364a0190552d1f3dc9283e41752e0635d  src/locales/zh-CN/pages/user.json
 d663635f594487b86cb4fdbdf2807560854322a5f3fbfd76585e59ca66e86818  src/locales/zh-CN/preferences.json
 2904f8d827deaa43b1eb5cbd7d21eac2928ce6448fb32fa0d2bf0fcdcb8c50ec  src/locales/zh-CN/routes/ai.json
@@ -484,7 +484,7 @@ fb9cf655d837e944546025409875b10cbadd82db9ccece9dfdf0ba121a36b7d4  src/pages/app/
 a995b96feada524d157076d40d2f9788bed8ded5ceb69fca6b275907e337d3c2  src/pages/app/tenant/plan/plan-quota-drawer.vue
 49d1c83a7e830dbfffc58c63a52b480974f960852c382749bd559e0b5b40963e  src/pages/app/tenant/plan/plan-quota-list.vue
 4331007f7aa6d5eb51ce13c0177081224b14159988cab79dbdd3117fc13fb8d7  src/pages/app/tenant/plan/plan-view.state.ts
-8497f6daa66b1b7457ec0917c5362f7a7de92dc037d6b232e5f7914a45cdb30a  src/pages/app/tenant/tenant/index.vue
+7e3558530c92ea01932bb78fa8eccbb76406513e810e53c18536433f8890c52c  src/pages/app/tenant/tenant/index.vue
 f939861810b0c379a60e41af3c5f8773567c0f25237f30b858287bd61078e042  src/pages/app/tenant/tenant/tenant-drawer.vue
 80cc2d67dc2adfd55a038ee92c5df828d870d9e2770fe64636c445ff7de407f2  src/pages/core/error/403.vue
 b2d5aadf6eb1d99c4c9a1c4241aff98de6baf443cb46927e94bed95630f9ee64  src/pages/core/error/404.vue

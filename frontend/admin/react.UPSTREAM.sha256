@@ -41,7 +41,7 @@ a85d43a3ef6c5331a15b249e0d9c183759a425639f6acbff1906f4f2995017e6  public/logo.pn
 00782d5123a0ff01f47b4726df3d2937fbacf59cd49349d84fa67857f51c4b57  scripts/deploy/nginx.conf
 2c1680da7fce193341b51c64daf4d401559a4bfce7ac474cff1206c5e36a9338  src/api/README.md
 7d8e4adec7f4fe5e3cf49bf9f9709e525765aff8e4426ca9758e0c5716203542  src/api/client.ts
-93d14e4a1115f77c100846efa940035d2ae3164b6b19ee6142e45bc7c8b213cf  src/api/generated/admin/service/v1/index.ts
+e804e213e0c02a7875fc51e210f8fe688296bcfc5031519f47c587812784bb40  src/api/generated/admin/service/v1/index.ts
 f832ed7456204dd45f924fc67d9974572f62bc905134b84a5e6ea69756357402  src/api/hooks/access-key.ts
 ac754b27be8f44a84e59275f7af61cd068daf2072b4b675d8af7e13b88ba4fda  src/api/hooks/admin-portal.ts
 4b162e6ca28d84c6b486dd9d8b7f865046bdd68907c0cc338660b9cd643f88bb  src/api/hooks/ai-agent-run.ts
@@ -95,7 +95,7 @@ ae32e1d7ad63695d5c24074cb5306c25f1284eb75cc8486ede15bbf3c41dce0e  src/api/hooks/
 7c5b088e245e945f318580e22c282bfaebfb63fc4654cfcf14d40c70eec5b1bd  src/api/hooks/task-monitor.ts
 e7a2ed6e749b1fe64e714861b3aa03e3b5d228d766d372880781bdf8d8bb6a55  src/api/hooks/task.ts
 5fe6e3219f879f252b94dbd9f1f7bbc731ee1592f70088af36b3e5e72cec31fa  src/api/hooks/tenant-branding.ts
-1efc731c62e07cdcdad2dd22cb4fb60d62b46757fba18a290df9e25df2e305dc  src/api/hooks/tenant.ts
+d6d9a3a11868a4552d35de18705a488d83eeea0e21b3c12ad09ba4c6dfe362a9  src/api/hooks/tenant.ts
 dcb4231d2be24c08525e6f5efe81a8845dfdfd0b2c47eab5bb91cc79dd30893a  src/api/hooks/user-profile.ts
 1779aa7c0d5a0465227be4d613581c041a6eb567d2f85b02de0f9d4ab088a5c6  src/api/hooks/user.ts
 4b01858bf146c98b78786350c14cd7f1e7941f3528ebd8a10fca732be75ae786  src/api/index.ts
@@ -211,7 +211,7 @@ e07631a34be2c34e7c40dc9e0c5e8fe1ff02b53aa9632bd469937538514ce1b5  src/locales/en
 9ca3146fc0ebe413a416653f0d6b336acc197c2f06de6f10f59d363af88ed1c9  src/locales/en-US/_modules/script.json
 9c7c97e288ed9bc708e6d315a00d99825195bda0debbc1b75506d2291a56b863  src/locales/en-US/_modules/server-monitor.json
 d76c1fbf76037ff5314cdd1964197b4b135160c0970304859b3f89d46cf43318  src/locales/en-US/_modules/task.json
-12ad95ae77543b7e22fd70e28daf7918d07832fa9b4b7971c3784dc7665abd7d  src/locales/en-US/_modules/tenant.json
+04e51bed987435b71a0639e44e1f54aa72e2244421b0cada37a35bafa11c2d42  src/locales/en-US/_modules/tenant.json
 6048a0a4cd657ed34f8a03ccc78a21413504b04509a976ad1915882316930b60  src/locales/en-US/_modules/user-detail.json
 37a6595147134c531f76023598fdc8d47c90c543015b1b3d3349d6589ac80a4a  src/locales/en-US/_modules/user.json
 97833552f846deb407d263d1e3e666433727a9d1a6c9a63fdefb8fe89009c7ae  src/locales/en-US/index.ts
@@ -276,7 +276,7 @@ dcaa26178b5d62073f9675eb18f473cb900bde3a06b286cbb6da97690de5e22c  src/locales/zh
 0ca8e7c0ebe01257e47371297de278e2d2dcc57fc8c20aa1c7ddaea90c75bc62  src/locales/zh-CN/_modules/script.json
 eebc4432105b834d32cb646459c079c20ff202fb41ba52a8704c21f58d7c4229  src/locales/zh-CN/_modules/server-monitor.json
 2d4b7fd6e42b984ce98d379af00b38bb4da7133844a588912d76a276f84e97e9  src/locales/zh-CN/_modules/task.json
-58ffcc1481efb196f74d8c4a31f9d901bf569c2d39eda1803d16bbe26ca64206  src/locales/zh-CN/_modules/tenant.json
+5a1d7a4acfeb3fac765f8c577fd691f0ca90893b7c642b8e63823b4d0dbf386f  src/locales/zh-CN/_modules/tenant.json
 27c1071c652e62455e9163f0a5935a7125edee01b1b17117b88e21a5b7172cca  src/locales/zh-CN/_modules/user-detail.json
 a6d36708ba0d86e379fb0db4b747b75cd796e330d690887b486cec1e4c13404d  src/locales/zh-CN/_modules/user.json
 9aa478361c99b8722fe67e12eb33f71b44e4cd2db770ea01593e31cf4f8c6b1f  src/locales/zh-CN/index.ts
@@ -427,7 +427,7 @@ f935429fc9c9c336a341a9117340592880c2ca973676f051e3fbcf2b6d876936  src/pages/app/
 5e44cb059ecdd2fd7bd3e3fe577f8c68ae6ca16b83d2f0d2f813e0682bfc3d9d  src/pages/app/tenant/plan/index.tsx
 f59474d18f2ea240cede13bac80ad5f78b081931ec2d8752d390a74b3c38a9d9  src/pages/app/tenant/tenant/components/TenantDrawer.tsx
 95f19d83b10cce4d435592367d5a08a4d658bdce0419ca415880a0e7d1db6a17  src/pages/app/tenant/tenant/constants.ts
-52b9370fca57089cabbda123d005d8982cc90eb1788cafbf1016fc2d47c5b015  src/pages/app/tenant/tenant/index.tsx
+0c852c8f54fcd2bf60a89032cef93500d59ed2d1a242c308a86bbe665565e60c  src/pages/app/tenant/tenant/index.tsx
 bfa8ca25bd80f910b184fbca742edbea20e3dac7c2fdce3651d518e4456af66b  src/pages/core/auth/forgot-password/index.tsx
 9675bed3cb0f97246bcb3edaddffea47a0c35452ebb94afeefd00be2c523a482  src/pages/core/auth/login/index.tsx
 05ee09dee7aac69ea8de8b07d7c6e1f9340bd6e7f17c249c5d75b710441198fc  src/pages/core/auth/mfa-challenge/index.tsx

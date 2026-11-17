@@ -293,10 +293,10 @@ c4051bcabb7f1fd175dd7fb9feede3838ba8e9e05c60f962c6b988f05aaecc6b  src/api/compos
 45aa850a272e9c9e7131940c5017228d14fdd399454323210af4cf4f633175d4  src/api/composables/task-monitor.ts
 1fb6ba4bb315b95ac680903d761a279227b87afa2223cbb7010b6b2b1777699b  src/api/composables/task.ts
 2d3b743fc2b2b095e40ae4b047c644718928fc55d67d9d893dc090d2807c1d59  src/api/composables/tenant-branding.ts
-a512238fa9cd4b65a475d8f74c6cdc19c7c99e1c2f99ddfc12f6645e94945552  src/api/composables/tenant.ts
+c4acc1ab50f369fe619f97e5fca8c5fb22f61f8fd3ad396bfb2f0db0c003c3fc  src/api/composables/tenant.ts
 da390912628b32249efa259f6ea8a08171e6d5333b9b84fe81299f04b0d18c5b  src/api/composables/user-profile.ts
 42b7daebd981286b3403a6322e75167b5991b7984ef2c8e9a5b52d5fd4aa59ea  src/api/composables/user.ts
-93d14e4a1115f77c100846efa940035d2ae3164b6b19ee6142e45bc7c8b213cf  src/api/generated/admin/service/v1/index.ts
+e804e213e0c02a7875fc51e210f8fe688296bcfc5031519f47c587812784bb40  src/api/generated/admin/service/v1/index.ts
 280bb554f1098eb4374e044f354cca6fd3b56d656ec743f1e42b68beb7407100  src/api/index.ts
 e331caecac188a944e93eae2fa1edf63e222f5b12eaa292fa27a77680a29a941  src/app.vue
 0f7a8b0aa9bb2f29abb858d9605bb3d04994281185b6ff84c3370837c0a23544  src/bootstrap.ts
@@ -370,7 +370,7 @@ c7e6de1d7be5b2c86116ec702fc007268090755484cdae93a87167d7b7737f80  src/locales/la
 3779865713b2077e297d60047e75496d98ec8ac9c97470ffbf72dbbe6a9a75f2  src/locales/langs/en-US/page/serverMonitor.json
 81726c27cdb08a0e9e700e98f50dd8db0287571616fefc6f3088216ca8c2d8ae  src/locales/langs/en-US/page/sso.json
 e2f8c1a6222be177d823efec06ee39faa19cd342dc68dd328c18c30d177da449  src/locales/langs/en-US/page/task.json
-d5809770735a352f4c0b232e2402fa727dcbb6bcef6729d15bb696b36f27d7da  src/locales/langs/en-US/page/tenant.json
+373d65b2d3667458ca2b60218dfb7a124563ea572c5d82211e96b5e813019b2f  src/locales/langs/en-US/page/tenant.json
 69a6bfe78e6a2cb712da59f44671883c37a20eb621902c9c1d71296f53cb9bdd  src/locales/langs/en-US/page/user.json
 8ce0c6cb07705c9d15ef4b7c090c8193ebaa24e94c378d6dd129c2a918438c62  src/locales/langs/en-US/page/workspace.json
 037e88236c42135068702e52cd4541e7a9fe2f54c2119bb54c98a6060d8a1697  src/locales/langs/en-US/ui.json
@@ -432,7 +432,7 @@ a902344a4e3f51442b8f5a0039ec2ebc437b27d4acbf98616b4cfc69774949e7  src/locales/la
 f498cff144167e66ac729c848862d8b6ef8a30fcede8168754f46d83f05b7acf  src/locales/langs/zh-CN/page/serverMonitor.json
 99481334b7d1ad36d9b83f2525236f3add054da75a92f4a2e381826f1f5bfc7a  src/locales/langs/zh-CN/page/sso.json
 27b165cbb14b4087d65e1b00ff1d67e34a9f91fdb325bc3e4d767dc63e5ebce0  src/locales/langs/zh-CN/page/task.json
-796fe2e73fdc4a8c94f7db7e96df8619d0b9a8999624ab6da27b858795a821bb  src/locales/langs/zh-CN/page/tenant.json
+6d5fd83a32f5120ffe4fb1eeb98ecf991f0ce3f9903399cdce3e3460046945da  src/locales/langs/zh-CN/page/tenant.json
 bafc0fc7869c413b3cbe949675a43b1bdd7bd546639647fb1d6cd1a3e2d5066d  src/locales/langs/zh-CN/page/user.json
 bfc3b03300ecd63557466a56bdc4f0faee38bc93fdbac71d4e0b49f1a345d9a2  src/locales/langs/zh-CN/page/workspace.json
 50e289b488321f0df786766a2e3c1fb98d14099f2824bc6c3f321d3766464752  src/locales/langs/zh-CN/ui.json
@@ -588,7 +588,7 @@ c39b0ba239d74cd8c82ac9ad68b8b1afdd5562e17f4dc6627afa824d8b6f9b9d  src/views/app/
 415133c0a2c96aec6d74d83340c0e7692ea67d7a0c7ba5362848e4789e8e3bb4  src/views/app/tenant/plan/plan-quota-drawer.vue
 311d72e175c01ee00be152c91e2b2657b04f4c4d491762613f9763b46663a7f4  src/views/app/tenant/plan/plan-quota-list.vue
 c9e9eb6344693037e433fb8fa0f88e642bdc11a16df5d7473a39c4d47ce34ac2  src/views/app/tenant/plan/plan-view.state.ts
-08d70b8fbab7c8ba4fb1a787a118ad8af36da3658c87788d548b4c623ecdb692  src/views/app/tenant/tenant/index.vue
+d22500814585764c500b9082dc1f8dad1bb5cf0779c9af9073c5328c6e4fe423  src/views/app/tenant/tenant/index.vue
 77559bc33536df8f3870dc39e0dfde86ad6de1867c4b2111c56d7de9cd81b348  src/views/app/tenant/tenant/tenant-drawer.vue
 58d16b75f7a29bb0d57134f125d6cd431ef00ae1cd508701c1e9b42d9095d772  src/views/dashboard/analytics/analytics-ai-insights.vue
 d692b0e04210d45419426830041c2845494bc9c7b9c55c06229a8c89a295401d  src/views/dashboard/analytics/analytics-trends.vue
