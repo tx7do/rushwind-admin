@@ -437,23 +437,42 @@ impl AuthenticationService {
             ));
         }
 
-        // Gate 2: the mandatory captcha (headers X-Captcha-Id/X-Captcha-Value).
-        let captcha_ok = {
+        // Gate 2: the progressive captcha (issue #1 建议). Captcha is NOT
+        // required up front — once this (client_ip, username) pair has
+        // failed `captcha_required_failures` logins, attempts must present
+        // one: missing headers → CAPTCHA_REQUIRED (the signal that lights
+        // the box on the login screen), wrong/aged captcha → CAPTCHA_INVALID.
+        // Under the threshold the whole gate is skipped (the fast path).
+        let captcha_threshold = self.state.cfg.captcha_required_failures;
+        let captcha_gate_active = crate::ratelimit::captcha_required(
+            &self.state.redis,
+            &client_ip,
+            &username,
+            captcha_threshold,
+        )
+        .await;
+        if captcha_gate_active {
             let id = ctx.headers.get("x-captcha-id").cloned().unwrap_or_default();
             let value = ctx
                 .headers
                 .get("x-captcha-value")
                 .cloned()
                 .unwrap_or_default();
-            crate::captcha::verify(&self.state.redis, &id, &value).await
-        };
-        if !captcha_ok {
-            // Own reason (issue #1): captcha failures previously rode
-            // BAD_REQUEST and surfaced as 请求参数错误 on the login screen.
-            return Err(status_error(
-                "CAPTCHA_INVALID",
-                "invalid or missing captcha",
-            ));
+            let captcha_ok = crate::captcha::verify(&self.state.redis, &id, &value).await;
+            if !captcha_ok {
+                if id.is_empty() && value.is_empty() {
+                    return Err(status_error(
+                        "CAPTCHA_REQUIRED",
+                        "captcha required after repeated login failures",
+                    ));
+                }
+                // Own reason (issue #1): captcha failures previously rode
+                // BAD_REQUEST and surfaced as 请求参数错误 on the login screen.
+                return Err(status_error(
+                    "CAPTCHA_INVALID",
+                    "invalid or missing captcha",
+                ));
+            }
         }
 
         // Login-policy gate (global pass, user pass after credential).
@@ -484,6 +503,15 @@ impl AuthenticationService {
             Ok(id) => id,
             Err(err) => {
                 crate::ratelimit::check_and_incr(&self.state.redis, &client_ip, &username).await;
+                // 渐进验证码计数（issue #1）：只在真实凭证失败上累计——
+                // captcha/policy 分支不计，不给验证码的请求推不满阈值。
+                crate::ratelimit::incr_captcha_fail(
+                    &self.state.redis,
+                    &client_ip,
+                    &username,
+                    15 * 60,
+                )
+                .await;
                 let reason = err.reason;
                 if matches!(
                     reason,
@@ -579,6 +607,7 @@ impl AuthenticationService {
             let _ = active.update(&self.state.db).await;
         }
         crate::ratelimit::reset(&self.state.redis, &client_ip, &username).await;
+        crate::ratelimit::reset_captcha_fail(&self.state.redis, &client_ip, &username).await;
 
         let secure = ctx
             .headers
@@ -595,5 +624,235 @@ impl AuthenticationService {
             id_token: None,
             mfa_operation_id: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod progressive_captcha_tests {
+    use super::*;
+    use crate::crypto::{decrypt_transfer_password, hash_password, DEFAULT_AES_KEY};
+    use crate::data::{sys_user_credentials as creds, sys_users};
+    use crate::testsupport::{ctx, test_state};
+    use sea_orm::{ActiveModelTrait as _, Set};
+
+    /// 登录请求构造（legacy AES 通道，密文用 DEFAULT_AES_KEY 封装）。
+    fn password_req(username: &str, plain: &str) -> LoginRequest {
+        use aes::cipher::{block_padding::Pkcs7, BlockEncryptMut, KeyIvInit};
+        type Aes128CbcEnc = cbc::Encryptor<aes::Aes128>;
+        let plaintext = plain.as_bytes();
+        let mut buf = [0u8; 64];
+        let ciphertext = Aes128CbcEnc::new(DEFAULT_AES_KEY.into(), DEFAULT_AES_KEY.into())
+            .encrypt_padded_b2b_mut::<Pkcs7>(plaintext, &mut buf)
+            .unwrap()
+            .to_vec();
+        use base64::Engine as _;
+        let encoded = base64::engine::general_purpose::STANDARD.encode(ciphertext);
+        LoginRequest {
+            grant_type: GrantType::Password as i32,
+            identifier: Some(login_request::Identifier::Username(username.into())),
+            password: Some(encoded),
+            ..Default::default()
+        }
+    }
+
+    async fn plant_user(state: &std::sync::Arc<AppState>, username: &str) {
+        // 登录的租户取自 tenant_code（缺省=平台 0），不是 ctx claim——
+        // 用户种在平台租户，与 HTTP 冒烟同口径。
+        let user = sys_users::ActiveModel {
+            tenant_id: Set(Some(0)),
+            username: Set(username.into()),
+            realname: Set(Some(username.into())),
+            status: Set(Some("NORMAL".into())),
+            ..Default::default()
+        }
+        .insert(&state.db)
+        .await
+        .unwrap();
+        creds::ActiveModel {
+            tenant_id: Set(Some(0)),
+            user_id: Set(Some(user.id)),
+            identity_type: Set(Some("USERNAME".into())),
+            identifier: Set(username.into()),
+            credential_type: Set(Some("PASSWORD_HASH".into())),
+            credential: Set(hash_password("Right@1234").unwrap()),
+            is_primary: Set(Some(true)),
+            status: Set(Some("ENABLED".into())),
+            ..Default::default()
+        }
+        .insert(&state.db)
+        .await
+        .unwrap();
+
+        // 登录后权威闸要求 sys:access_backend——种 角色/授权/绑定 三件套。
+        let role = crate::data::sys_roles::ActiveModel {
+            tenant_id: Set(Some(0)),
+            name: Set(format!("{username}-role")),
+            code: Set(format!("captcha-test:{username}")),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(&state.db)
+        .await
+        .unwrap();
+        let perm = crate::data::sys_permissions::ActiveModel {
+            name: Set("访问后台".into()),
+            code: Set("sys:access_backend".into()),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(&state.db)
+        .await
+        .unwrap();
+        crate::data::sys_role_permissions::ActiveModel {
+            tenant_id: Set(Some(0)),
+            role_id: Set(Some(role.id)),
+            permission_id: Set(Some(perm.id)),
+            effect: Set(Some("ALLOW".into())),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(&state.db)
+        .await
+        .unwrap();
+        crate::data::sys_user_roles::ActiveModel {
+            tenant_id: Set(Some(0)),
+            user_id: Set(Some(user.id)),
+            role_id: Set(Some(role.id)),
+            is_primary: Set(Some(true)),
+            status: Set(Some("ACTIVE".into())),
+            ..Default::default()
+        }
+        .insert(&state.db)
+        .await
+        .unwrap();
+    }
+
+    fn me() -> rushwind_http_binding::ctx::RequestContext {
+        // ip 留空 → 计数只落 user 维键（断言口径单一）。
+        ctx(7, 1)
+    }
+
+    /// 渐进验证码三段式（issue #1）：阈值内失败不拦正确密码；越过阈值
+    /// 后无头即 CAPTCHA_REQUIRED；带验证码通过且计数清零。中间穿插
+    /// 「失败 2 次后第 3 次用正确密码仍成功」的快路径断言。
+    #[tokio::test]
+    async fn captcha_lights_only_after_threshold() {
+        let state = test_state().await;
+        let svc = AuthenticationService {
+            state: state.clone(),
+        };
+        plant_user(&state, "capuser").await;
+        let threshold = state.cfg.captcha_required_failures; // 3
+        assert_eq!(threshold, 3);
+
+        // —— 快路径：失败 2 次（< 阈值）后，正确密码无头照样成功，且清零。
+        for _ in 0..2 {
+            let err = svc
+                .login(me(), password_req("capuser", "Wrong@999"))
+                .await
+                .unwrap_err();
+            assert_eq!(err.reason, "INVALID_PASSWORD");
+        }
+        {
+            let req = password_req("capuser", "Right@1234");
+            let plain =
+                crate::crypto::decrypt_transfer_password(req.password.as_deref().unwrap()).unwrap();
+            let row = crate::data::sys_user_credentials::Entity::find()
+                .filter(crate::data::sys_user_credentials::Column::Identifier.eq("capuser"))
+                .one(&state.db)
+                .await
+                .unwrap()
+                .expect("cred row");
+            let verdict = crate::crypto::verify_password(&plain, &row.credential);
+            eprintln!(
+                "DBG plain={plain:?} cred_len={} verdict={verdict} status={:?} uid={:?}",
+                row.credential.len(),
+                row.status,
+                row.user_id
+            );
+        }
+        svc.login(me(), password_req("capuser", "Right@1234"))
+            .await
+            .expect("under threshold, no captcha demanded");
+        assert!(
+            !crate::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
+            "success resets the captcha counter"
+        );
+
+        // —— 越过阈值：失败 3 次。
+        for _ in 0..threshold {
+            let err = svc
+                .login(me(), password_req("capuser", "Wrong@999"))
+                .await
+                .unwrap_err();
+            assert_eq!(err.reason, "INVALID_PASSWORD");
+        }
+        assert!(
+            crate::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
+            "counter crossed the threshold"
+        );
+
+        // 正确密码但无验证码头 → CAPTCHA_REQUIRED（点亮信号）。
+        let err = svc
+            .login(me(), password_req("capuser", "Right@1234"))
+            .await
+            .unwrap_err();
+        assert_eq!(err.reason, "CAPTCHA_REQUIRED");
+        assert_eq!(err.status, 400);
+
+        // 带验证码（generate 真图）→ 通过且计数清零。
+        let (id, _img, value) = crate::captcha::generate(&state.redis).await.unwrap();
+        let mut with_captcha = me();
+        with_captcha
+            .headers
+            .insert("x-captcha-id".into(), id.clone());
+        with_captcha.headers.insert("x-captcha-value".into(), value);
+        svc.login(with_captcha, password_req("capuser", "Right@1234"))
+            .await
+            .expect("captcha presented, credential accepted");
+        assert!(
+            !crate::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
+            "success clears the captcha counter"
+        );
+    }
+
+    /// 错误验证码在要求态下是 CAPTCHA_INVALID（与缺失的 REQUIRED 分辨）。
+    #[tokio::test]
+    async fn wrong_captcha_when_required_is_invalid() {
+        let state = test_state().await;
+        let svc = AuthenticationService {
+            state: state.clone(),
+        };
+        plant_user(&state, "capuser2").await;
+        let threshold = state.cfg.captcha_required_failures;
+        for _ in 0..threshold {
+            svc.login(me(), password_req("capuser2", "Wrong@999"))
+                .await
+                .unwrap_err();
+        }
+        let mut with_bad = me();
+        let (id, _img, _value) = crate::captcha::generate(&state.redis).await.unwrap();
+        with_bad.headers.insert("x-captcha-id".into(), id);
+        with_bad
+            .headers
+            .insert("x-captcha-value".into(), "NONSENSE".into());
+        let err = svc
+            .login(with_bad, password_req("capuser2", "Right@1234"))
+            .await
+            .unwrap_err();
+        assert_eq!(err.reason, "CAPTCHA_INVALID");
+        // 校验失败不计数：阈值不再上推（第 2 题定案）。
+        assert!(
+            crate::ratelimit::captcha_required(&state.redis, "", "capuser2", threshold).await,
+            "still required — captcha-gate failures don't increment"
+        );
+    }
+
+    /// 解密通道健全性（测试密文与 verify_credential 的 legacy 通道对齐）。
+    #[test]
+    fn test_ciphertext_decrypts_to_the_plain_password() {
+        let req = password_req("x", "Right@1234");
+        let plain = decrypt_transfer_password(req.password.as_deref().unwrap()).unwrap();
+        assert_eq!(plain, "Right@1234");
     }
 }
