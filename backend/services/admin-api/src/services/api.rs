@@ -131,11 +131,13 @@ impl ApiService {
         }
 
         let mut spec_keys = std::collections::HashSet::with_capacity(rows.len());
-        for (path, method, operation, module, _) in &rows {
-            let key = (path.clone(), method.clone());
+        for row in rows {
+            let key = (row.path.clone(), row.method.clone());
             if !spec_keys.insert(key) {
                 continue; // spec 内重复键防御性跳过
             }
+            let (path, method, operation, module) =
+                (&row.path, &row.method, &row.operation, &row.module);
             let business = tag_to_module_by_operation(operation);
             match existing_by_key.get(&(path.clone(), method.clone())) {
                 Some(&exist_id) => {
@@ -144,6 +146,8 @@ impl ApiService {
                     if exist.operation.as_deref() == Some(operation.as_str())
                         && exist.module.as_deref() == Some(module.as_str())
                         && exist.business_module == next_business
+                        && exist.description == row.description
+                        && exist.module_description == row.module_description
                     {
                         continue; // 元数据一致零操作
                     }
@@ -151,6 +155,8 @@ impl ApiService {
                     a.operation = Set(Some(operation.clone()));
                     a.module = Set(Some(module.clone()));
                     a.business_module = Set(next_business);
+                    a.description = Set(row.description.clone());
+                    a.module_description = Set(row.module_description.clone());
                     crate::stamp_update!(a, operator_id);
                     a.update(txn).await.map_err(db_err)?;
                 }
@@ -161,6 +167,8 @@ impl ApiService {
                         operation: Set(Some(operation.clone())),
                         module: Set(Some(module.clone())),
                         business_module: Set(Some(business.to_string())),
+                        description: Set(row.description.clone()),
+                        module_description: Set(row.module_description.clone()),
                         scope: Set(Some("ADMIN".into())),
                         status: Set(Some("ON".into())),
                         created_by: Set(Some(operator_id)),
@@ -431,15 +439,38 @@ fn tag_to_module_by_operation(operation: &str) -> &'static str {
     tag_to_module(service)
 }
 
-/// 派生端点行：(path, method, operation, module, 预留)。
-pub(crate) type DerivedApiRow = (String, String, String, String, Option<u32>);
+/// 派生端点行：(path, method) 即身份，operation/module 是归类面，
+/// description/module_description 取自 OpenAPI 的 operation 与 tag 描述
+/// （issue #8：列表页「描述/模块描述」不再留空）。
+#[derive(Debug, Clone)]
+pub(crate) struct DerivedApiRow {
+    pub path: String,
+    pub method: String,
+    pub operation: String,
+    pub module: String,
+    pub description: Option<String>,
+    pub module_description: Option<String>,
+}
 
 /// 派生端点清单：解析打进二进制的 OpenAPI 文档（不含 id）——(path, method)
 /// 即身份。启动期同步与 SyncApis RPC 共用。
 pub(crate) fn derived_api_rows() -> Result<Vec<DerivedApiRow>, String> {
     let doc: serde_yaml::Value = serde_yaml::from_str(crate::assets::OPENAPI_DATA)
         .map_err(|e| format!("openapi parse: {e}"))?;
-    let mut rows: Vec<(String, String, String, String, Option<u32>)> = Vec::new();
+    // 服务级描述：顶层 tags 段的 name → description（gnostic 从 proto 的
+    // service 注解生成），归并成 module_description。
+    let mut tag_desc: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
+    if let Some(tags) = doc.get("tags").and_then(|t| t.as_sequence()) {
+        for tag in tags {
+            if let (Some(name), Some(desc)) = (
+                tag.get("name").and_then(|v| v.as_str()),
+                tag.get("description").and_then(|v| v.as_str()),
+            ) {
+                tag_desc.insert(name, desc.to_string());
+            }
+        }
+    }
+    let mut rows: Vec<DerivedApiRow> = Vec::new();
     let paths = doc
         .get("paths")
         .and_then(|p| p.as_mapping())
@@ -471,10 +502,23 @@ pub(crate) fn derived_api_rows() -> Result<Vec<DerivedApiRow>, String> {
                 .unwrap_or("")
                 .to_string();
             let module = tag_to_module(&tag).to_string();
-            rows.push((path.to_string(), method, operation, module, None));
+            let description = op
+                .get(serde_yaml::Value::from("description"))
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+                .filter(|s| !s.is_empty());
+            let module_description = tag_desc.get(tag.as_str()).cloned();
+            rows.push(DerivedApiRow {
+                path: path.to_string(),
+                method,
+                operation,
+                module,
+                description,
+                module_description,
+            });
         }
     }
-    rows.sort_by_key(|a| (a.0.clone(), a.1.clone()));
+    rows.sort_by_key(|a| (a.path.clone(), a.method.clone()));
     Ok(rows)
 }
 
@@ -553,5 +597,84 @@ mod tests {
         }
         // 未登记 tag 落 SYSTEM 兜底（租户白名单最宽域，不误拒）
         assert_eq!(tag_to_module("UnknownService"), "SYSTEM");
+    }
+}
+
+#[cfg(test)]
+mod description_tests {
+    use super::*;
+    use crate::testsupport::test_state;
+    use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait as _};
+
+    /// 派生行携带 OpenAPI 的 operation 与 tag 描述（issue #8）：291 个
+    /// 端点的中文描述不再丢在 YAML 里，模块描述来自 tag 段。
+    #[test]
+    fn derived_rows_carry_descriptions() {
+        let rows = derived_api_rows().expect("openapi parse");
+        assert!(rows.len() > 200, "endpoint count sanity: {}", rows.len());
+        let listed = rows
+            .iter()
+            .find(|r| r.path == "/admin/v1/access-keys" && r.method == "GET")
+            .expect("access-key list endpoint present");
+        assert_eq!(
+            listed.description.as_deref(),
+            Some("分页查询访问凭证列表"),
+            "operation description extracted"
+        );
+        assert_eq!(
+            listed.module_description.as_deref(),
+            Some("OpenAPI 访问凭证（AK/SK）管理 — BFF"),
+            "tag description becomes module_description"
+        );
+        assert!(rows.iter().filter(|r| r.description.is_some()).count() > 200);
+    }
+
+    /// 同步落库：insert 分支写入描述列，二次同步（元数据一致）零操作，
+    /// 描述被外部清掉后重跑同步自愈。
+    #[tokio::test]
+    async fn sync_writes_and_repairs_descriptions() {
+        let state = test_state().await;
+        let svc = ApiService {
+            state: state.clone(),
+        };
+        let rows = derived_api_rows().expect("openapi parse");
+        let txn = state.db.begin().await.unwrap();
+        svc.sync_merge_in_txn(&txn, rows.clone(), 0).await.unwrap();
+        txn.commit().await.unwrap();
+
+        let row = crate::data::sys_apis::Entity::find()
+            .filter(crate::data::sys_apis::Column::Path.eq("/admin/v1/access-keys"))
+            .filter(crate::data::sys_apis::Column::Method.eq("GET"))
+            .one(&state.db)
+            .await
+            .unwrap()
+            .expect("endpoint synced");
+        assert_eq!(row.description.as_deref(), Some("分页查询访问凭证列表"));
+        assert_eq!(
+            row.module_description.as_deref(),
+            Some("OpenAPI 访问凭证（AK/SK）管理 — BFF")
+        );
+
+        // 描述被外部清空（历史脏数据形态）→ 重跑同步自愈。
+        let wiped = crate::data::sys_apis::ActiveModel {
+            description: Set(None),
+            module_description: Set(None),
+            ..row.into()
+        };
+        wiped.update(&state.db).await.unwrap();
+        let txn = state.db.begin().await.unwrap();
+        svc.sync_merge_in_txn(&txn, rows, 0).await.unwrap();
+        txn.commit().await.unwrap();
+        let repaired = crate::data::sys_apis::Entity::find()
+            .filter(crate::data::sys_apis::Column::Path.eq("/admin/v1/access-keys"))
+            .filter(crate::data::sys_apis::Column::Method.eq("GET"))
+            .one(&state.db)
+            .await
+            .unwrap()
+            .expect("endpoint survives");
+        assert_eq!(
+            repaired.description.as_deref(),
+            Some("分页查询访问凭证列表")
+        );
     }
 }
