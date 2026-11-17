@@ -144,6 +144,10 @@ pub mod sys_permission_groups {
         pub id: i64,
         pub parent_id: Option<i64>,
         pub name: String,
+        /// 自然键（同步 MERGE 的对齐锚）：派生组 = 菜单全路径段（如
+        /// "system"、"dashboard"），种子组 = 语义码，存量行迁移回填
+        /// 'g'||id。NULL/空 = 手工组——同步不触碰。
+        pub code: Option<String>,
         pub module: Option<String>,
         pub path: Option<String>,
         pub description: Option<String>,

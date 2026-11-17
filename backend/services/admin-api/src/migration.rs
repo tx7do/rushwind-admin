@@ -181,6 +181,7 @@ impl MigratorTrait for Migrator {
             Box::new(ApiEndpointIdentity),
             Box::new(PermissionMenuFullPath),
             Box::new(IdWidenU64),
+            Box::new(PermissionGroupCode),
         ]
     }
 }
@@ -601,6 +602,37 @@ impl MigrationTrait for AiAgentRevisionIndexes {
             .execute_unprepared(
                 "CREATE INDEX IF NOT EXISTS idx_ai_agent_revisions_app_created \
                  ON sys_ai_agent_revisions (app_id, created_at)",
+            )
+            .await
+            .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// 权限分组自然键迁移（issue #9）：`code` 列承载同步 MERGE 的对齐锚。
+/// 存量行统一回填 'g'||id 作升级标记——同步后「未被引用的 g 码行」即旧
+/// 派生组（英文键名时代）与手工空组，收敛删除；种子组被 sys:* 权限引用，
+/// 岿然不动。NULL/空码 = 手工组（同步永不触碰）。
+struct PermissionGroupCode;
+
+impl MigrationName for PermissionGroupCode {
+    fn name(&self) -> &str {
+        "m20251117_000001_permission_group_code"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for PermissionGroupCode {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE sys_permission_groups \
+                 ADD COLUMN IF NOT EXISTS code varchar; \
+                 UPDATE sys_permission_groups SET code = 'g' || id WHERE code IS NULL",
             )
             .await
             .map(|_| ())
