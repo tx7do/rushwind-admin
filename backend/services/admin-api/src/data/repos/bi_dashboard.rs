@@ -24,7 +24,7 @@ impl<'a> BiDashboardRepo<'a> {
     /// The scoped row lookup — tenant viewers see own-tenant rows only,
     /// platform/system viewers any named row.
     pub async fn find_scoped(&self, id: i64) -> Result<Option<entity::Model>, StatusError> {
-        let mut query = entity::Entity::find_by_id(id);
+        let mut query = entity::Entity::find_by_id(id).filter(entity::Column::DeletedAt.is_null());
         if let Some(tid) = self.viewer.tenant_scope() {
             query = query.filter(entity::Column::TenantId.eq(tid));
         }
@@ -33,7 +33,9 @@ impl<'a> BiDashboardRepo<'a> {
 
     /// Code uniqueness within the tenant (business-side lookup anchor).
     pub async fn find_by_code(&self, code: &str) -> Result<Option<entity::Model>, StatusError> {
-        let mut query = entity::Entity::find().filter(entity::Column::Code.eq(code));
+        let mut query = entity::Entity::find()
+            .filter(entity::Column::DeletedAt.is_null())
+            .filter(entity::Column::Code.eq(code));
         if let Some(tid) = self.viewer.tenant_scope() {
             query = query.filter(entity::Column::TenantId.eq(tid));
         }

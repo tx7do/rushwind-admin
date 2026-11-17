@@ -48,6 +48,12 @@ enum_map!(tenant_type_of + tenant_type_str {
     "CUSTOM" => 4,
 });
 
+enum_map!(tenant_audit_status_of + tenant_audit_status_str {
+    "PENDING" => 1,
+    "APPROVED" => 2,
+    "REJECTED" => 3,
+});
+
 enum_map!(plan_version_of + plan_version_str {
     "STANDARD" => 1,
     "ENTERPRISE" => 2,

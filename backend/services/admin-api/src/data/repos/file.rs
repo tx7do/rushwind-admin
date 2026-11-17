@@ -10,9 +10,11 @@ repo_shell!(tenant FileRepo, entity);
 
 impl<'a> FileRepo<'a> {
     pub async fn get_by_id(&self, id: i64) -> Result<entity::Model, StatusError> {
-        let mut query = entity::Entity::find_by_id(id);
+        let mut query = entity::Entity::find_by_id(id).filter(entity::Column::DeletedAt.is_null());
         if let Some(tid) = self.viewer.tenant_scope() {
-            query = entity::Entity::find_by_id(id).filter(entity::Column::TenantId.eq(tid));
+            query = entity::Entity::find_by_id(id)
+                .filter(entity::Column::TenantId.eq(tid))
+                .filter(entity::Column::DeletedAt.is_null());
         }
         query
             .one(self.db)

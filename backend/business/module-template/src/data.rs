@@ -3,7 +3,7 @@
 //! tenancy predicate, the listings, and the module's own predicates
 //! beside the invocation.
 
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{EntityTrait, QueryFilter};
 
 /// The notice table (`biz_notices` — business tables carry the module
 /// prefix so the admin schema and business schemas never collide).

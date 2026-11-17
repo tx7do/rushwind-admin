@@ -56,13 +56,18 @@ macro_rules! repo_shell {
             }
 
             /// The tenancy predicate: tenant viewers are constrained,
-            /// platform/system viewers see all rows.
+            /// platform/system viewers see all rows. Soft-deleted rows are
+            /// invisible on every listing face (every shell-covered table
+            /// carries `deleted_at`; restoring one is a future, explicit
+            /// recycle-bin face — see issue #3).
             fn condition(&self) -> sea_orm::Condition {
+                use sea_orm::ColumnTrait as _;
                 match self.viewer.tenant_scope() {
-                    Some(tid) => {
-                        sea_orm::Condition::all().add($entity::Column::TenantId.eq(tid))
-                    }
-                    None => sea_orm::Condition::all(),
+                    Some(tid) => sea_orm::Condition::all()
+                        .add($entity::Column::TenantId.eq(tid))
+                        .add($entity::Column::DeletedAt.is_null()),
+                    None => sea_orm::Condition::all()
+                        .add($entity::Column::DeletedAt.is_null()),
                 }
             }
 
@@ -102,8 +107,11 @@ macro_rules! repo_shell {
             }
 
             // Platform-global table: no tenant predicate applies.
+            // Soft-deleted rows are invisible here too (same doctrine as
+            // the tenant arm).
             fn condition(&self) -> sea_orm::Condition {
-                sea_orm::Condition::all()
+                use sea_orm::ColumnTrait as _;
+                sea_orm::Condition::all().add($entity::Column::DeletedAt.is_null())
             }
 
             /// Unpaged listing.
@@ -137,12 +145,14 @@ macro_rules! repo_shell {
         $crate::repo_shell!(global $name, $entity);
 
         impl<'a> $name<'a> {
-            /// The row by id: 404 when absent.
+            /// The row by id: 404 when absent or soft-deleted.
             pub async fn get_by_id(
                 &self,
                 id: i64,
             ) -> Result<$entity::Model, $crate::state::StatusError> {
+                use sea_orm::ColumnTrait as _;
                 $entity::Entity::find_by_id(id as i64)
+                    .filter($entity::Column::DeletedAt.is_null())
                     .one(self.db)
                     .await
                     .map_err($crate::state::db_err)?
