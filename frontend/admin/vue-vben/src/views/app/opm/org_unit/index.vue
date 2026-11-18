@@ -3,7 +3,7 @@ import type { VxeGridProps } from '#/adapter/vxe-table';
 
 import { h, ref } from 'vue';
 
-import { ColPage, Page, useVbenDrawer, type VbenFormProps } from '@vben/common-ui';
+import { Page, useVbenDrawer, type VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
 
 import { notification } from 'ant-design-vue';
@@ -22,6 +22,7 @@ import {
   useDeleteOrgUnit,
 } from '#/api';
 import { $t } from '#/locales';
+import SplitPane from '#/components/SplitPane.vue';
 import TableActions from '#/components/TableActions.vue';
 import type { TableAction } from '#/components/TableActions.vue';
 import TableAddButton from '#/components/TableAddButton.vue';
@@ -131,16 +132,19 @@ const gridOptions: VxeGridProps<OrgUnit> = {
   },
 
   columns: [
-    { title: $t('page.orgUnit.name'), field: 'name', treeNode: true },
-    { title: $t('page.orgUnit.code'), field: 'code' },
+    // 弹性列一律给 minWidth：左树右表布局下右栏窄（1280 视口仅 ~730px），裸弹性列
+    // 会被 fit 模式钳到 40px 下限且总宽溢出被裁剪——表头折行、固定列前露画布黑带、
+    // 滚动机制失灵（scrollW 仍报容器宽）。给 minWidth 后 vxe 走"真溢出→横向滚动"路径。
+    { title: $t('page.orgUnit.name'), field: 'name', treeNode: true, minWidth: 140 },
+    { title: $t('page.orgUnit.code'), field: 'code', minWidth: 100 },
     {
       title: $t('page.orgUnit.type'),
       field: 'type',
       slots: { default: 'orgUnitType' },
       width: 95,
     },
-    { title: $t('page.orgUnit.description'), field: 'description' },
-    { title: $t('page.orgUnit.leaderName'), field: 'leaderName' },
+    { title: $t('page.orgUnit.description'), field: 'description', minWidth: 120 },
+    { title: $t('page.orgUnit.leaderName'), field: 'leaderName', minWidth: 95 },
     {
       title: $t('ui.table.status'),
       field: 'status',
@@ -154,7 +158,7 @@ const gridOptions: VxeGridProps<OrgUnit> = {
       formatter: 'formatDateTime',
       width: 140,
     },
-    { title: $t('ui.table.remark'), field: 'remark' },
+    { title: $t('ui.table.remark'), field: 'remark', minWidth: 100 },
     {
       title: $t('ui.table.action'),
       field: 'action',
@@ -256,7 +260,7 @@ function buildRowActions(): TableAction[] {
 
 <template>
   <Page auto-content-height>
-    <ColPage
+    <SplitPane
       auto-content-height
       :left-collapsed-width="0"
       :left-collapsible="false"
@@ -301,7 +305,7 @@ function buildRowActions(): TableAction[] {
           </template>
         </Grid>
       </div>
-    </ColPage>
+    </SplitPane>
     <Drawer />
   </Page>
 </template>
