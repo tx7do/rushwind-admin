@@ -46,55 +46,100 @@ fn rule_proto(r: crate::data::sys_monitor_alert_rules::Model) -> MonitorAlertRul
     }
 }
 
-fn upsert_fields(
+/// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+/// if-let-Some 全量提交语义不变）。name/target 是 NOT NULL 列走 req 形态
+/// （None 永不写）；cooldown/target 的取值域校验保留原位（闭包无法短路
+/// 返回 Err，走 touches + if-let）；其余可空列走 opt 形态——掩码选中 +
+/// 载荷 None = 显式清列，无掩码 None 不动列。
+fn apply_fields(
     a: &mut crate::data::sys_monitor_alert_rules::ActiveModel,
     data: &MonitorAlertRule,
+    mask: &crate::fieldmask::FieldMask,
 ) -> Result<(), StatusError> {
-    if let Some(v) = &data.name {
-        a.name = Set(v.clone());
-    }
-    if let Some(v) = data.metric {
-        let s = mapping::monitor_metric_str(v)
-            .ok_or_else(|| status_error("BAD_REQUEST", "unknown metric"))?;
-        a.metric = Set(Some(s.into()));
-    }
-    if let Some(v) = data.op {
-        let s = mapping::monitor_alert_op_str(v)
-            .ok_or_else(|| status_error("BAD_REQUEST", "unknown op"))?;
-        a.op = Set(Some(s.into()));
-    }
-    if let Some(v) = data.threshold {
-        a.threshold = Set(Some(v));
-    }
-    if let Some(v) = data.cooldown_minutes {
-        if v > 1440 {
-            return Err(status_error(
-                "BAD_REQUEST",
-                "cooldown_minutes must be within 0..1440",
-            ));
+    crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+    // metric/op/cooldown/channel 的取值域校验保留原位（闭包无法短路返回
+    // Err）；None 分支与 set_masked!(opt) 精确同形——掩码选中 + 载荷 None
+    // = 显式清列，无掩码 None 不动列。
+    if mask.touches("metric") {
+        match data.metric {
+            Some(v) => {
+                let s = mapping::monitor_metric_str(v)
+                    .ok_or_else(|| status_error("BAD_REQUEST", "unknown metric"))?;
+                a.metric = Set(Some(s.into()));
+            }
+            None => {
+                if !mask.unrestricted() {
+                    a.metric = Set(None);
+                }
+            }
         }
-        a.cooldown_minutes = Set(Some(v));
     }
-    if let Some(v) = data.channel {
-        let s = mapping::notification_channel_kind_str(v)
-            .ok_or_else(|| status_error("BAD_REQUEST", "unknown channel"))?;
-        a.channel = Set(Some(s.into()));
-    }
-    if let Some(v) = &data.target {
-        if v.len() < 3 || v.len() > 500 {
-            return Err(status_error(
-                "BAD_REQUEST",
-                "target must be within 3..500 chars",
-            ));
+    if mask.touches("op") {
+        match data.op {
+            Some(v) => {
+                let s = mapping::monitor_alert_op_str(v)
+                    .ok_or_else(|| status_error("BAD_REQUEST", "unknown op"))?;
+                a.op = Set(Some(s.into()));
+            }
+            None => {
+                if !mask.unrestricted() {
+                    a.op = Set(None);
+                }
+            }
         }
-        a.target = Set(v.clone());
     }
-    if let Some(v) = data.is_enabled {
-        a.is_enabled = Set(Some(v));
+    crate::set_masked!(opt mask, a, threshold, data.threshold, |v: &f64| Some(
+        *v
+    ));
+    if mask.touches("cooldown_minutes") {
+        match data.cooldown_minutes {
+            Some(v) => {
+                if v > 1440 {
+                    return Err(status_error(
+                        "BAD_REQUEST",
+                        "cooldown_minutes must be within 0..1440",
+                    ));
+                }
+                a.cooldown_minutes = Set(Some(v));
+            }
+            None => {
+                if !mask.unrestricted() {
+                    a.cooldown_minutes = Set(None);
+                }
+            }
+        }
     }
-    if let Some(v) = &data.remark {
-        a.remark = Set(Some(v.clone()));
+    if mask.touches("channel") {
+        match data.channel {
+            Some(v) => {
+                let s = mapping::notification_channel_kind_str(v)
+                    .ok_or_else(|| status_error("BAD_REQUEST", "unknown channel"))?;
+                a.channel = Set(Some(s.into()));
+            }
+            None => {
+                if !mask.unrestricted() {
+                    a.channel = Set(None);
+                }
+            }
+        }
     }
+    if mask.touches("target") {
+        if let Some(v) = &data.target {
+            if v.len() < 3 || v.len() > 500 {
+                return Err(status_error(
+                    "BAD_REQUEST",
+                    "target must be within 3..500 chars",
+                ));
+            }
+            a.target = Set(v.clone());
+        }
+    }
+    crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(
+        *v
+    ));
+    crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(
+        v.clone()
+    ));
     Ok(())
 }
 
@@ -273,7 +318,7 @@ impl proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertService {
             updated_at: Set(Some(crate::data::now())),
             ..Default::default()
         };
-        upsert_fields(&mut a, &data)?;
+        apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked())?;
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
         Ok(rule_proto(inserted))
     }
@@ -289,7 +334,11 @@ impl proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertService {
         let repo = crate::data::repos::MonitorAlertRepo::new(&self.state.db);
         let row = repo.get_by_id(req.id as i64).await?;
         let mut a: crate::data::sys_monitor_alert_rules::ActiveModel = row.into();
-        upsert_fields(&mut a, &data)?;
+        // 字段写入统一过 update_mask 白名单门（无掩码即存量全量提交语义）；
+        // validate_alert_rule 的载荷级校验保留原位（要求 target/op/threshold
+        // 在载荷在场——门只管"载荷字段→列"的写面）。
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+        apply_fields(&mut a, &data, &mask)?;
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
         Ok(Empty {})
@@ -389,6 +438,159 @@ impl proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::sys_monitor_alert_rules as alert_rules;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::MonitorAlertServiceHandlers as _;
+    use sea_orm::{EntityTrait, Set};
+
+    async fn plant(db: &sea_orm::DatabaseConnection, name: &str) -> alert_rules::Model {
+        alert_rules::ActiveModel {
+            name: Set(name.into()),
+            metric: Set(Some("REDIS_DB_SIZE".into())),
+            op: Set(Some("GE".into())),
+            threshold: Set(Some(100.0)),
+            target: Set("ops@example.com".into()),
+            is_enabled: Set(Some(true)),
+            remark: Set(Some("原始备注".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> alert_rules::Model {
+        alert_rules::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(
+        id: u64,
+        data: MonitorAlertRule,
+        paths: &[&str],
+    ) -> UpdateMonitorAlertRuleRequest {
+        UpdateMonitorAlertRuleRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 remark 时，载荷里
+    /// 即便带了 threshold/is_enabled 也不许动。validate_alert_rule 的载荷
+    /// 级校验要求 target 在场——校验面与写面分离，载荷带上即可、列不受
+    /// 未选中的载荷字段影响。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = MonitorAlertService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "redis 容量").await;
+
+        svc.update_monitor_alert_rule(
+            ctx(0, 9),
+            update_req(
+                row.id as u64,
+                MonitorAlertRule {
+                    remark: Some("新备注".into()),
+                    threshold: Some(9999.0),
+                    is_enabled: Some(false),
+                    // 载荷级校验要求 target/op/threshold 在场（校验面保留
+                    // 原位）；门未选中这些字段，列一律不动。
+                    target: Some("ops@example.com".into()),
+                    op: Some(1),
+                    ..Default::default()
+                },
+                &["remark"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("新备注"),
+            "masked remark lands"
+        );
+        assert_eq!(
+            fresh.threshold,
+            Some(100.0),
+            "unmasked threshold is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.is_enabled,
+            Some(true),
+            "unmasked is_enabled untouched"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = MonitorAlertService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "redis 容量").await;
+
+        // 无掩码：None 不动列。
+        svc.update_monitor_alert_rule(
+            ctx(0, 9),
+            UpdateMonitorAlertRuleRequest {
+                id: row.id as u64,
+                data: Some(MonitorAlertRule {
+                    remark: Some("改备注".into()),
+                    // 载荷级校验要求 target/op/threshold 在场。
+                    target: Some("ops@example.com".into()),
+                    op: Some(1),
+                    threshold: Some(100.0),
+                    ..Default::default()
+                }),
+                update_mask: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.op.as_deref(),
+            Some("GE"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update_monitor_alert_rule(
+            ctx(0, 9),
+            update_req(
+                row.id as u64,
+                MonitorAlertRule {
+                    // 载荷级校验：布尔指标 DB_PING_FAIL 豁免 op/threshold，
+                    // target 在场即可；门只选中 op，op 载荷缺 = 显式清列。
+                    metric: Some(4),
+                    target: Some("ops@example.com".into()),
+                    ..Default::default()
+                },
+                &["op"],
+            ),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.op.is_none(),
+            "masked None explicitly clears the column"
+        );
+    }
 
     #[test]
     fn boolean_metric_bypasses_threshold_compare() {

@@ -404,18 +404,20 @@ impl proto::gen::services::AiKnowledgeBaseServiceHandlers for AiKnowledgeBaseSer
         let data = require_data(req.data)?;
         let row = self.base_scoped(&ctx, req.id as i64).await?;
         let mut a: crate::data::sys_ai_knowledge_bases::ActiveModel = row.into();
-        if let Some(v) = &data.name {
-            a.name = Set(v.clone());
-        }
-        if let Some(v) = &data.description {
-            a.description = Set(Some(v.clone()));
-        }
-        if let Some(v) = data.provider_id {
-            a.provider_id = Set(Some(v as i64));
-        }
-        if let Some(v) = &data.embedding_model {
-            a.embedding_model = Set(Some(v.clone()));
-        }
+        // 字段级更新：写入统一过 update_mask 白名单门（无掩码即存量
+        // 全量提交语义）。换 provider/模型不自动重建已入库向量（嵌入索引
+        // 随文档入库时生成）——存量语义原样保留。
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+        crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+        crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, provider_id, data.provider_id, |v: &u64| Some(
+            *v as i64
+        ));
+        crate::set_masked!(opt mask, a, embedding_model, data.embedding_model, |v: &String| Some(
+            v.clone()
+        ));
         a.updated_at = Set(Some(crate::data::now()));
         let _ = payload;
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -596,6 +598,138 @@ mod tests {
     fn vec_literal_formats_pgvector_spelling() {
         assert_eq!(vec_literal(&[0.1, 0.25]), "[0.1,0.25]");
         assert_eq!(vec_literal(&[]), "[]");
+    }
+
+    // ---- update_mask 门控（sqlite 内存库走真 handler） ----
+
+    use crate::data::sys_ai_knowledge_bases as bases;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::AiKnowledgeBaseServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection) -> bases::Model {
+        bases::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set("客服知识库".into()),
+            description: Set(Some("旧描述".into())),
+            provider_id: Set(Some(7)),
+            embedding_model: Set(Some("text-embedding-3-small".into())),
+            user_id: Set(1),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> bases::Model {
+        bases::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: AiKnowledgeBase, paths: &[&str]) -> UpdateAiKnowledgeBaseRequest {
+        UpdateAiKnowledgeBaseRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 带的 embedding_model/provider_id 都不许动——嵌入配置不被部分更新
+    /// 的表单顺带改掉。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = AiKnowledgeBaseService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db).await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                AiKnowledgeBase {
+                    name: Some("新名".into()),
+                    embedding_model: Some("other-model".into()),
+                    provider_id: Some(99),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "新名", "masked field lands");
+        assert_eq!(
+            fresh.embedding_model.as_deref(),
+            Some("text-embedding-3-small"),
+            "unmasked embedding_model is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.provider_id,
+            Some(7),
+            "unmasked provider_id is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = AiKnowledgeBaseService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db).await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateAiKnowledgeBaseRequest {
+                id: row.id as u64,
+                data: Some(AiKnowledgeBase {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("旧描述"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            update_req(row.id as u64, AiKnowledgeBase::default(), &["description"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.description.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }
 

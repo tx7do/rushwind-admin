@@ -147,19 +147,18 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         let mut active: crate::data::sys_access_keys::ActiveModel =
             repo.get_by_id(req.id as i64).await?.into();
         if let Some(data) = &req.data {
-            if let Some(name) = &data.name {
-                active.name = Set(name.clone());
-            }
-            if let Some(expires_at) = &data.expires_at {
-                active.expires_at = Set(crate::state::ts_to_naive(expires_at));
-            }
-            if let Some(status) = data.status {
-                active.status = Set(Some(if status == 0 {
-                    "OFF".into()
-                } else {
-                    "ON".into()
-                }));
-            }
+            // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+            // 存量 if-let-Some 全量提交语义不变）。name 是 NOT NULL 列走
+            // req 形态（None 永不写、无可清语义）；掩码选中 + 载荷 None =
+            // 显式清可空列；无掩码 None 不动列。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(req mask, active, name, data.name, |v: &String| v.clone());
+            crate::set_masked!(opt mask, active, expires_at, data.expires_at, |v: &pbjson_types::Timestamp| {
+                crate::state::ts_to_naive(v)
+            });
+            crate::set_masked!(opt mask, active, status, data.status, |v: &i32| Some(
+                if *v == 0 { "OFF".into() } else { "ON".into() }
+            ));
         }
         crate::stamp_update!(active, payload.user_id);
         active
@@ -297,6 +296,136 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::sys_access_keys as keys;
+    use crate::testsupport::{ctx, test_state};
+    use sea_orm::{EntityTrait, Set};
+
+    async fn plant(db: &sea_orm::DatabaseConnection, tenant: i64, name: &str) -> keys::Model {
+        keys::ActiveModel {
+            tenant_id: Set(Some(tenant)),
+            name: Set(name.into()),
+            access_key: Set(format!("ak-{name}")),
+            secret_hash: Set(crate::crypto::sha256_hex(b"sk-seed")),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> keys::Model {
+        keys::Entity::find_by_id(id).one(db).await.unwrap().unwrap()
+    }
+
+    fn update_req(id: u64, data: AccessKey, paths: &[&str]) -> UpdateAccessKeyRequest {
+        UpdateAccessKeyRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 即便带了 status/expires_at 也不许动——部分提交不再误写未选中列。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = AccessKeyService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, 1, "旧凭证").await;
+
+        svc.update(
+            ctx(1, 9),
+            update_req(
+                row.id as u64,
+                AccessKey {
+                    name: Some("新凭证".into()),
+                    status: Some(0),
+                    expires_at: Some(pbjson_types::Timestamp {
+                        seconds: 1,
+                        nanos: 0,
+                    }),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "新凭证", "masked name lands");
+        assert_eq!(
+            fresh.status.as_deref(),
+            Some("ON"),
+            "unmasked status is not writable through the gate"
+        );
+        assert!(
+            fresh.expires_at.is_none(),
+            "unmasked expires_at untouched (seed row carried none)"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = AccessKeyService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, 1, "凭证").await;
+        // 预置过期时间，清值才有对象。
+        keys::ActiveModel {
+            id: Set(row.id),
+            expires_at: Set(Some(crate::data::now())),
+            ..Default::default()
+        }
+        .update(db)
+        .await
+        .unwrap();
+
+        // 无掩码：None 不动列。
+        svc.update(
+            ctx(1, 9),
+            UpdateAccessKeyRequest {
+                id: row.id as u64,
+                data: Some(AccessKey {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.expires_at.is_some(),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            ctx(1, 9),
+            update_req(row.id as u64, AccessKey::default(), &["expires_at"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.expires_at.is_none(),
+            "masked None explicitly clears the column"
+        );
+    }
 
     #[test]
     fn constant_time_eq_matches_only_identical_slices() {

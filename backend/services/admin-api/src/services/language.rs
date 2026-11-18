@@ -34,6 +34,25 @@ pub struct LanguageService {
     pub state: Arc<AppState>,
 }
 
+impl LanguageService {
+    /// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+    /// 存量全量提交语义）。language_code 是标准代码锚，更新面不开放。
+    fn apply_fields(
+        a: &mut crate::data::sys_languages::ActiveModel,
+        data: &Language,
+        mask: &crate::fieldmask::FieldMask,
+    ) {
+        crate::set_masked!(req mask, a, language_name, data.language_name, |v: &String| v
+            .clone());
+        crate::set_masked!(opt mask, a, native_name, data.native_name, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, is_default, data.is_default, |v: &bool| Some(*v));
+        crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(*v));
+        crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(*v));
+    }
+}
+
 #[async_trait::async_trait]
 impl proto::gen::services::LanguageServiceHandlers for LanguageService {
     async fn list(
@@ -125,21 +144,8 @@ impl proto::gen::services::LanguageServiceHandlers for LanguageService {
         let mut a: crate::data::sys_languages::ActiveModel =
             repo.get_by_id(req.id as i64).await?.into();
         if let Some(data) = &req.data {
-            if let Some(v) = data.language_name.clone() {
-                a.language_name = Set(v);
-            }
-            if let Some(v) = data.native_name.clone() {
-                a.native_name = Set(Some(v));
-            }
-            if let Some(v) = data.is_default {
-                a.is_default = Set(Some(v));
-            }
-            if let Some(v) = data.is_enabled {
-                a.is_enabled = Set(Some(v));
-            }
-            if let Some(v) = data.sort_order {
-                a.sort_order = Set(Some(v));
-            }
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            Self::apply_fields(&mut a, data, &mask);
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -169,6 +175,7 @@ mod tests {
     use proto::gen::services::LanguageServiceHandlers as _;
     use proto::proto::dict::service::v1::get_language_request::QueryBy;
     use proto::proto::dict::service::v1::GetLanguageRequest;
+    use sea_orm::EntityTrait;
 
     fn data(code: &str, name: &str) -> Language {
         Language {
@@ -275,5 +282,156 @@ mod tests {
             .unwrap_err();
         assert_eq!(err.reason, "BAD_REQUEST");
         assert_eq!(err.message, "query_by required");
+    }
+
+    /// update_mask 白名单门：掩码只选 language_name 时，载荷多带的
+    /// native_name/is_enabled 不许动——按契约送部分字段不再误写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = LanguageService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        svc.create(
+            ctx(0, 1),
+            CreateLanguageRequest {
+                data: Some(Language {
+                    language_code: Some("zh-CN".into()),
+                    language_name: Some("简体中文".into()),
+                    native_name: Some("简体中文".into()),
+                    is_enabled: Some(true),
+                    sort_order: Some(2),
+                    ..Default::default()
+                }),
+            },
+        )
+        .await
+        .unwrap();
+        let row = crate::data::sys_languages::Entity::find()
+            .one(db)
+            .await
+            .unwrap()
+            .expect("created row");
+
+        svc.update(
+            ctx(0, 1),
+            UpdateLanguageRequest {
+                id: row.id as u64,
+                data: Some(Language {
+                    language_name: Some("中文（简体）".into()),
+                    native_name: Some(" evil ".into()),
+                    is_enabled: Some(false),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["language_name".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = crate::data::sys_languages::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(fresh.language_name, "中文（简体）", "masked field lands");
+        assert_eq!(
+            fresh.native_name.as_deref(),
+            Some("简体中文"),
+            "unmasked native_name is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.is_enabled,
+            Some(true),
+            "unmasked is_enabled is not writable through the gate"
+        );
+        assert_eq!(fresh.sort_order, Some(2), "unmasked sort_order stays put");
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = LanguageService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        svc.create(
+            ctx(0, 1),
+            CreateLanguageRequest {
+                data: Some(Language {
+                    language_code: Some("en-US".into()),
+                    language_name: Some("English".into()),
+                    native_name: Some("English".into()),
+                    ..Default::default()
+                }),
+            },
+        )
+        .await
+        .unwrap();
+        let row = crate::data::sys_languages::Entity::find()
+            .one(db)
+            .await
+            .unwrap()
+            .expect("created row");
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateLanguageRequest {
+                id: row.id as u64,
+                data: Some(Language {
+                    language_name: Some("English".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = crate::data::sys_languages::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            fresh.native_name.as_deref(),
+            Some("English"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            ctx(0, 1),
+            UpdateLanguageRequest {
+                id: row.id as u64,
+                data: Some(Language::default()),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["native_name".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = crate::data::sys_languages::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            fresh.native_name.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(
+            fresh.language_name, "English",
+            "req column (language_name None) never cleared by the mask"
+        );
     }
 }

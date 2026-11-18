@@ -134,63 +134,68 @@ impl UserService {
         Ok(())
     }
 
-    fn apply_user_fields(a: &mut crate::data::sys_users::ActiveModel, data: &User) {
-        if let Some(v) = &data.username {
-            a.username = Set(v.clone());
-        }
-        if let Some(v) = &data.nickname {
-            a.nickname = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.realname {
-            a.realname = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.email {
-            a.email = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.mobile {
-            a.mobile = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.telephone {
-            a.telephone = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.avatar {
-            a.avatar = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.address {
-            a.address = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.region {
-            a.region = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.locale {
-            a.locale = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.description {
-            a.description = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.remark {
-            a.remark = Set(Some(v.clone()));
-        }
-        if let Some(v) = data.gender {
-            a.gender = Set(Some(match v {
+    /// 字段写入统一过 update_mask 白名单门（字段级更新语义）：create 等
+    /// 非掩码入口传 [`crate::fieldmask::FieldMask::unmasked`]，即存量全量
+    /// 提交语义；update 传请求掩码，只有选中字段可动。
+    fn apply_user_fields(
+        a: &mut crate::data::sys_users::ActiveModel,
+        data: &User,
+        mask: &crate::fieldmask::FieldMask,
+    ) {
+        crate::set_masked!(req mask, a, username, data.username, |v: &String| v.clone());
+        crate::set_masked!(opt mask, a, nickname, data.nickname, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, realname, data.realname, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, email, data.email, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, mobile, data.mobile, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, telephone, data.telephone, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, avatar, data.avatar, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, address, data.address, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, region, data.region, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, locale, data.locale, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, gender, data.gender, |v: &i32| Some(
+            match v {
                 1 => "MALE".to_string(),
                 2 => "FEMALE".to_string(),
                 _ => "SECRET".to_string(),
-            }));
-        }
-        if let Some(v) = data.status {
-            a.status = Set(Some(match v {
+            }
+        ));
+        crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(
+            match v {
                 1 => "NORMAL".to_string(),
                 2 => "PENDING".to_string(),
                 3 => "LOCKED".to_string(),
                 4 => "EXPIRED".to_string(),
                 9 => "CLOSED".to_string(),
                 _ => "DISABLED".to_string(),
-            }));
-        }
-        if let Some(v) = &data.locked_until {
-            a.locked_until = Set(crate::state::ts_to_naive(v));
-        }
+            }
+        ));
+        crate::set_masked!(opt mask, a, locked_until, data.locked_until, |v: &pbjson_types::Timestamp| {
+            crate::state::ts_to_naive(v)
+        });
     }
 }
 
@@ -261,7 +266,7 @@ impl proto::gen::services::UserServiceHandlers for UserService {
             updated_at: Set(Some(crate::data::now())),
             ..Default::default()
         };
-        Self::apply_user_fields(&mut a, &data);
+        Self::apply_user_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         if a.status.clone().unwrap().is_none() {
             a.status = Set(Some("NORMAL".into()));
         }
@@ -293,7 +298,11 @@ impl proto::gen::services::UserServiceHandlers for UserService {
         let mut a: crate::data::sys_users::ActiveModel = row.into();
         let username_before = a.username.clone().unwrap().clone();
         if let Some(data) = &req.data {
-            Self::apply_user_fields(&mut a, data);
+            // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
+            // 提交语义；有掩码只有选中字段可动。角色绑定与密码凭据是
+            // 子资源写，保留原有触发条件不进门。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            Self::apply_user_fields(&mut a, data, &mask);
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
             if !data.role_ids.is_empty() {
@@ -504,5 +513,145 @@ pub(crate) fn user_to_proto(user: crate::data::sys_users::Model, role_codes: Vec
         roles: role_codes,
         role_names: Vec::new(),
         remark: user.remark,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::sys_users as users;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::UserServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, username: &str) -> users::Model {
+        users::ActiveModel {
+            tenant_id: Set(Some(1)),
+            username: Set(username.into()),
+            nickname: Set(Some("旧昵称".into())),
+            mobile: Set(Some("13800000000".into())),
+            status: Set(Some("NORMAL".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> users::Model {
+        users::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: User, paths: &[&str]) -> UpdateUserRequest {
+        UpdateUserRequest {
+            id,
+            data: Some(data),
+            password: None,
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门：掩码只选 email 时，载荷里多带的 mobile 与
+    /// nickname 不许落列。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let me = ctx(1, 9);
+        let db = &state.db;
+        let row = plant(db, "alice").await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                User {
+                    email: Some("alice@corp.dev".into()),
+                    mobile: Some("19999999999".into()),
+                    nickname: Some("越权昵称".into()),
+                    ..Default::default()
+                },
+                &["email"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.email.as_deref(),
+            Some("alice@corp.dev"),
+            "masked field lands"
+        );
+        assert_eq!(
+            fresh.mobile.as_deref(),
+            Some("13800000000"),
+            "unmasked mobile is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.nickname.as_deref(),
+            Some("旧昵称"),
+            "unmasked nickname is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（可空列清值通道）；NOT NULL 列
+    /// （username）同样选中时跳过不清；无掩码 None 仍是"不动"。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "bob").await;
+
+        // 无掩码：None 不动列（全量提交语义不回退）。
+        svc.update(
+            ctx(1, 9),
+            UpdateUserRequest {
+                id: row.id as u64,
+                data: Some(User {
+                    nickname: Some("新昵称".into()),
+                    ..Default::default()
+                }),
+                password: None,
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.nickname.as_deref(), Some("新昵称"));
+        assert_eq!(
+            fresh.mobile.as_deref(),
+            Some("13800000000"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中 username + mobile、载荷全 None：可空 mobile 清列，
+        // NOT NULL username 原样保留。
+        svc.update(
+            ctx(1, 9),
+            update_req(row.id as u64, User::default(), &["username", "mobile"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.mobile.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(fresh.username, "bob", "NOT NULL column never clears");
     }
 }

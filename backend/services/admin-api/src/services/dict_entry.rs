@@ -38,6 +38,25 @@ pub struct DictEntryService {
     pub state: Arc<AppState>,
 }
 
+impl DictEntryService {
+    /// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+    /// 存量全量提交语义）。type_id 在更新面不开放（归属关系建后不改）。
+    fn apply_fields(
+        a: &mut crate::data::sys_dict_entries::ActiveModel,
+        data: &DictEntry,
+        mask: &crate::fieldmask::FieldMask,
+    ) {
+        crate::set_masked!(opt mask, a, entry_value, data.entry_value, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, numeric_value, data.numeric_value, |v: &i32| Some(
+            *v
+        ));
+        crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(*v));
+        crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(*v));
+    }
+}
+
 #[async_trait::async_trait]
 impl proto::gen::services::DictEntryServiceHandlers for DictEntryService {
     async fn list(
@@ -96,18 +115,8 @@ impl proto::gen::services::DictEntryServiceHandlers for DictEntryService {
             .ok_or_else(|| not_found("dict entry"))?;
         let mut a: crate::data::sys_dict_entries::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = data.entry_value.clone() {
-                a.entry_value = Set(Some(v));
-            }
-            if let Some(v) = data.numeric_value {
-                a.numeric_value = Set(Some(v));
-            }
-            if let Some(v) = data.is_enabled {
-                a.is_enabled = Set(Some(v));
-            }
-            if let Some(v) = data.sort_order {
-                a.sort_order = Set(Some(v));
-            }
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            Self::apply_fields(&mut a, data, &mask);
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -165,5 +174,167 @@ impl proto::gen::services::DictEntryServiceHandlers for DictEntryService {
         Ok(ListDictEntryByTypeCodeResponse {
             items: rows.into_iter().map(dict_entry_proto).collect(),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::{ctx, test_state};
+    // handler 方法挂在 trait 上——测试模块里显式引入。
+    use proto::gen::services::DictEntryServiceHandlers as _;
+
+    async fn row_by_value(
+        db: &sea_orm::DatabaseConnection,
+        value: &str,
+    ) -> crate::data::sys_dict_entries::Model {
+        crate::data::sys_dict_entries::Entity::find()
+            .filter(crate::data::sys_dict_entries::Column::EntryValue.eq(value))
+            .one(db)
+            .await
+            .unwrap()
+            .expect("entry row")
+    }
+
+    /// update_mask 白名单门：掩码只选 entry_value 时，载荷多带的
+    /// numeric_value/sort_order 不许动——按契约送部分字段不再误写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = DictEntryService {
+            state: state.clone(),
+        };
+        let me = ctx(7, 1);
+        let db = &state.db;
+        svc.create(
+            me.clone(),
+            CreateDictEntryRequest {
+                data: Some(DictEntry {
+                    entry_value: Some("MALE".into()),
+                    numeric_value: Some(1),
+                    is_enabled: Some(true),
+                    sort_order: Some(3),
+                    ..Default::default()
+                }),
+            },
+        )
+        .await
+        .unwrap();
+        let row = row_by_value(db, "MALE").await;
+
+        svc.update(
+            me,
+            UpdateDictEntryRequest {
+                id: row.id as u64,
+                data: Some(DictEntry {
+                    entry_value: Some("FEMALE".into()),
+                    numeric_value: Some(999),
+                    sort_order: Some(88),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["entry_value".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_value(db, "FEMALE").await;
+        assert_eq!(
+            fresh.entry_value.as_deref(),
+            Some("FEMALE"),
+            "masked field lands"
+        );
+        assert_eq!(
+            fresh.numeric_value,
+            Some(1),
+            "unmasked numeric_value is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.sort_order,
+            Some(3),
+            "unmasked sort_order is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.is_enabled,
+            Some(true),
+            "unmasked is_enabled is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = DictEntryService {
+            state: state.clone(),
+        };
+        let me = ctx(7, 1);
+        let db = &state.db;
+        svc.create(
+            me.clone(),
+            CreateDictEntryRequest {
+                data: Some(DictEntry {
+                    entry_value: Some("PENDING".into()),
+                    numeric_value: Some(7),
+                    is_enabled: Some(true),
+                    sort_order: Some(2),
+                    ..Default::default()
+                }),
+            },
+        )
+        .await
+        .unwrap();
+        let row = row_by_value(db, "PENDING").await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(7, 1),
+            UpdateDictEntryRequest {
+                id: row.id as u64,
+                data: Some(DictEntry {
+                    entry_value: Some("PENDING".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_value(db, "PENDING").await;
+        assert_eq!(
+            fresh.numeric_value,
+            Some(7),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            UpdateDictEntryRequest {
+                id: row.id as u64,
+                data: Some(DictEntry::default()),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["numeric_value".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_value(db, "PENDING").await;
+        assert!(
+            fresh.numeric_value.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(
+            fresh.sort_order,
+            Some(2),
+            "unmasked sort_order stays put while clearing"
+        );
     }
 }

@@ -10,6 +10,7 @@ pub mod captcha;
 pub mod config;
 pub mod crypto;
 pub mod data;
+pub(crate) mod fieldmask;
 pub(crate) mod macros;
 pub(crate) mod mapping;
 pub mod migration;

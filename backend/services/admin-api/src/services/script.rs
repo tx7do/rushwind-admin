@@ -67,6 +67,31 @@ pub struct ScriptService {
     pub state: Arc<AppState>,
 }
 
+impl ScriptService {
+    /// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+    /// 存量全量提交语义）。language 在更新面不开放（建后不改）。
+    fn apply_fields(
+        a: &mut crate::data::sys_scripts::ActiveModel,
+        data: &Script,
+        mask: &crate::fieldmask::FieldMask,
+    ) {
+        crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+        crate::set_masked!(opt mask, a, source, data.source, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, priority, data.priority, |v: &i32| Some(*v));
+        crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(
+            *v
+        ));
+        crate::set_masked!(opt mask, a, hook_point, data.hook_point, |v: &String| Some(
+            v.clone()
+        ));
+    }
+}
+
 #[async_trait::async_trait]
 impl proto::gen::services::ScriptServiceHandlers for ScriptService {
     async fn list(
@@ -154,25 +179,11 @@ impl proto::gen::services::ScriptServiceHandlers for ScriptService {
         let mut a: crate::data::sys_scripts::ActiveModel = row.into();
         let mut version_bump = false;
         if let Some(data) = &req.data {
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = &data.source {
-                a.source = Set(Some(v.clone()));
-                version_bump = true;
-            }
-            if let Some(v) = &data.description {
-                a.description = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.priority {
-                a.priority = Set(Some(v));
-            }
-            if let Some(v) = data.is_enabled {
-                a.is_enabled = Set(Some(v));
-            }
-            if let Some(v) = &data.hook_point {
-                a.hook_point = Set(Some(v.clone()));
-            }
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            Self::apply_fields(&mut a, data, &mask);
+            // 版本随源码变更递增：只在掩码选中 source 且载荷有值时触发
+            // （掩码外携带或载荷缺席都不 bump——门只放行选中的写面）。
+            version_bump = mask.touches("source") && data.source.is_some();
         }
         crate::stamp_update!(a, payload.user_id);
         if version_bump {
@@ -286,5 +297,175 @@ impl proto::gen::services::ScriptLogServiceHandlers for ScriptLogService {
         Ok(PurgeScriptLogsResponse {
             deleted: result.rows_affected,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::{ctx, test_state};
+    // handler 方法挂在 trait 上——测试模块里显式引入。
+    use proto::gen::services::ScriptServiceHandlers as _;
+
+    async fn first_row(db: &sea_orm::DatabaseConnection) -> crate::data::sys_scripts::Model {
+        crate::data::sys_scripts::Entity::find()
+            .one(db)
+            .await
+            .unwrap()
+            .expect("script row")
+    }
+
+    /// update_mask 白名单门：掩码只选 name 时，载荷多带的 source/priority
+    /// 不许动，版本也不随被挡下的 source 递增。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = ScriptService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        svc.create(
+            me.clone(),
+            CreateScriptRequest {
+                data: Some(Script {
+                    name: Some("审计钩子".into()),
+                    source: Some("return 1".into()),
+                    priority: Some(0),
+                    is_enabled: Some(true),
+                    ..Default::default()
+                }),
+            },
+        )
+        .await
+        .unwrap();
+        let row = first_row(db).await;
+        assert_eq!(row.version, Some(1), "create starts at version 1");
+
+        svc.update(
+            me,
+            UpdateScriptRequest {
+                id: row.id as u64,
+                data: Some(Script {
+                    name: Some("审计钩子改".into()),
+                    source: Some("return 2".into()),
+                    priority: Some(99),
+                    is_enabled: Some(false),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["name".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = first_row(db).await;
+        assert_eq!(fresh.name, "审计钩子改", "masked field lands");
+        assert_eq!(
+            fresh.source.as_deref(),
+            Some("return 1"),
+            "unmasked source is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.priority,
+            Some(0),
+            "unmasked priority is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.is_enabled,
+            Some(true),
+            "unmasked is_enabled is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.version,
+            Some(1),
+            "version does not bump when source is masked out"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = ScriptService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        svc.create(
+            me.clone(),
+            CreateScriptRequest {
+                data: Some(Script {
+                    name: Some("清理钩子".into()),
+                    source: Some("return 0".into()),
+                    description: Some("说明".into()),
+                    hook_point: Some("user.before_create".into()),
+                    ..Default::default()
+                }),
+            },
+        )
+        .await
+        .unwrap();
+        let row = first_row(db).await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateScriptRequest {
+                id: row.id as u64,
+                data: Some(Script {
+                    name: Some("清理钩子".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = first_row(db).await;
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("说明"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列（source 清列不触发版本递增）。
+        svc.update(
+            me,
+            UpdateScriptRequest {
+                id: row.id as u64,
+                data: Some(Script::default()),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["description".into(), "source".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = first_row(db).await;
+        assert!(
+            fresh.description.is_none(),
+            "masked None explicitly clears description"
+        );
+        assert!(
+            fresh.source.is_none(),
+            "masked None explicitly clears source"
+        );
+        assert_eq!(
+            fresh.hook_point.as_deref(),
+            Some("user.before_create"),
+            "unmasked hook_point stays put while clearing"
+        );
+        assert_eq!(
+            fresh.version,
+            Some(1),
+            "clearing source does not bump the version"
+        );
     }
 }

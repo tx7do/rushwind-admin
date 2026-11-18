@@ -25,3 +25,45 @@ macro_rules! stamp_update {
         $model.updated_at = sea_orm::Set(Some($crate::data::now()));
     };
 }
+
+/// update_mask 白名单门下的字段写入（`fieldmask::FieldMask` 搭档，字段级
+/// 更新语义的统一实现面）：
+///
+/// - `opt` 形态给可空列：掩码选中且载荷 Some → `Set(map(v))`；掩码选中且
+///   载荷 None → 显式 `Set(None)` 清列（清值通道）；无掩码时 None 不动列
+///   （存量全量提交语义不变）。
+/// - `req` 形态给 NOT NULL 列：掩码选中且载荷 Some → `Set(map(v))`；
+///   None 永不写（无可清语义）。
+///
+/// `$map` 把 proto 值换成列值（恒等 `v.clone()`、枚举映射、类型转换都行）；
+/// 字段名默认取 `stringify!($field)`，列名与 wire 名不一致（如
+/// `type_column` ← proto `type`）时用 `opt_named`/`req_named` 显式给名；
+/// 掩码侧 snake/camel 归一对表。
+#[macro_export]
+macro_rules! set_masked {
+    (opt $mask:expr, $model:expr, $field:ident, $value:expr, $map:expr) => {
+        $crate::set_masked!(opt_named $mask, $model, $field, stringify!($field), $value, $map)
+    };
+    (opt_named $mask:expr, $model:expr, $field:ident, $name:expr, $value:expr, $map:expr) => {
+        if $mask.touches($name) {
+            match &$value {
+                Some(v) => $model.$field = sea_orm::Set($map(v)),
+                None => {
+                    if !$mask.unrestricted() {
+                        $model.$field = sea_orm::Set(None);
+                    }
+                }
+            }
+        }
+    };
+    (req $mask:expr, $model:expr, $field:ident, $value:expr, $map:expr) => {
+        $crate::set_masked!(req_named $mask, $model, $field, stringify!($field), $value, $map)
+    };
+    (req_named $mask:expr, $model:expr, $field:ident, $name:expr, $value:expr, $map:expr) => {
+        if $mask.touches($name) {
+            if let Some(v) = &$value {
+                $model.$field = sea_orm::Set($map(v));
+            }
+        }
+    };
+}

@@ -139,21 +139,26 @@ impl proto::gen::services::LoginPolicyServiceHandlers for LoginPolicyService {
             .ok_or_else(|| not_found("login policy"))?;
         let mut a: crate::data::sys_login_policies::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = data.target_id {
-                a.target_id = Set(Some(v.to_string()));
-            }
-            if let Some(v) = &data.value {
-                a.value = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.reason {
-                a.reason = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.r#type {
-                a.type_column = Set(Some(type_to_str(v)));
-            }
-            if let Some(v) = data.method {
-                a.method = Set(Some(method_to_str(v)));
-            }
+            // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+            // 存量 if-let-Some 全量提交语义不变）。type 的列名是 type_column
+            // （wire 名 ≠ 列名）走 opt_named；掩码选中 + 载荷 None = 显式清
+            // 可空列；无掩码 None 不动列。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(opt mask, a, target_id, data.target_id, |v: &u64| Some(
+                v.to_string()
+            ));
+            crate::set_masked!(opt mask, a, value, data.value, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, reason, data.reason, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt_named mask, a, type_column, "type", data.r#type, |v: &i32| Some(
+                type_to_str(*v)
+            ));
+            crate::set_masked!(opt mask, a, method, data.method, |v: &i32| Some(
+                method_to_str(*v)
+            ));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -174,5 +179,147 @@ impl proto::gen::services::LoginPolicyServiceHandlers for LoginPolicyService {
             .await
             .map_err(db_err)?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::sys_login_policies as policies;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::LoginPolicyServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, tenant: i64, value: &str) -> policies::Model {
+        policies::ActiveModel {
+            tenant_id: Set(Some(tenant)),
+            target_id: Set(Some("42".into())),
+            value: Set(Some(value.into())),
+            reason: Set(Some("原始原因".into())),
+            type_column: Set(Some("BLACKLIST".into())),
+            method: Set(Some("IP".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> policies::Model {
+        policies::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: LoginPolicy, paths: &[&str]) -> UpdateLoginPolicyRequest {
+        UpdateLoginPolicyRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 reason 时，载荷里
+    /// 即便带了 value/method 也不许动；type 的列名是 type_column，照样
+    /// 按 wire 名 "type" 过门。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = LoginPolicyService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, 1, "1.2.3.4").await;
+
+        svc.update(
+            ctx(1, 9),
+            update_req(
+                row.id as u64,
+                LoginPolicy {
+                    reason: Some("新原因".into()),
+                    value: Some("5.6.7.8".into()),
+                    method: Some(2),
+                    r#type: Some(2),
+                    ..Default::default()
+                },
+                &["reason"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.reason.as_deref(),
+            Some("新原因"),
+            "masked reason lands"
+        );
+        assert_eq!(
+            fresh.value.as_deref(),
+            Some("1.2.3.4"),
+            "unmasked value is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.method.as_deref(),
+            Some("IP"),
+            "unmasked method untouched"
+        );
+        assert_eq!(
+            fresh.type_column.as_deref(),
+            Some("BLACKLIST"),
+            "unmasked type (type_column) untouched"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = LoginPolicyService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, 1, "10.0.0.1").await;
+
+        // 无掩码：None 不动列。
+        svc.update(
+            ctx(1, 9),
+            UpdateLoginPolicyRequest {
+                id: row.id as u64,
+                data: Some(LoginPolicy {
+                    value: Some("10.0.0.2".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.reason.as_deref(),
+            Some("原始原因"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            ctx(1, 9),
+            update_req(row.id as u64, LoginPolicy::default(), &["reason"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.reason.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }

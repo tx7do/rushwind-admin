@@ -74,36 +74,52 @@ impl MenuService {
         Ok(crate::data::collect_subtree_ids(&rows, node as i64).contains(&(parent as i64)))
     }
 
-    fn apply_fields(a: &mut crate::data::sys_menus::ActiveModel, data: &Menu) {
-        if let Some(v) = &data.path {
-            a.path = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.redirect {
-            a.redirect = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.alias {
-            a.alias = Set(Some(v.clone()));
-        }
-        if let Some(v) = &data.name {
-            a.name = Set(v.clone());
-        }
-        if let Some(v) = &data.component {
-            a.component = Set(Some(v.clone()));
-        }
-        if let Some(v) = data.r#type {
-            a.type_column = Set(Some(type_to_str(v)));
-        }
-        if let Some(v) = data.status {
-            a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
-        }
-        if let Some(v) = data.module {
-            a.module = Set(Some(module_to_str(v)));
-        }
-        if let Some(v) = data.parent_id {
-            a.parent_id = Set(if v == 0 { None } else { Some(v as i64) });
-        }
-        if let Some(meta) = &data.meta {
-            a.meta = Set(Some(menu_meta_to_json(meta)));
+    /// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+    /// 存量全量提交语义）。meta 整列写是"顶层 meta 掩码/无掩码"形态；
+    /// 点路径合并（update 里）以基线 jsonb 在其后覆写。
+    fn apply_fields(
+        a: &mut crate::data::sys_menus::ActiveModel,
+        data: &Menu,
+        mask: &crate::fieldmask::FieldMask,
+    ) {
+        crate::set_masked!(opt mask, a, path, data.path, |v: &String| Some(v.clone()));
+        crate::set_masked!(opt mask, a, redirect, data.redirect, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, alias, data.alias, |v: &String| Some(v.clone()));
+        crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+        crate::set_masked!(opt mask, a, component, data.component, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt_named mask, a, type_column, "type", data.r#type, |v: &i32| Some(
+            type_to_str(*v)
+        ));
+        crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(if *v == 0 {
+            "OFF".into()
+        } else {
+            "ON".into()
+        }));
+        crate::set_masked!(opt mask, a, module, data.module, |v: &i32| Some(
+            module_to_str(*v)
+        ));
+        crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &u64| if *v == 0 {
+            None
+        } else {
+            Some(*v as i64)
+        });
+        // meta 不走 opt 清列形态：掩码只选中点路径子段（meta.title）时
+        // touches("meta") 为真但 selects_whole 为假——载荷缺 meta 是
+        // "未携带"（列原样，合并域接管），只有整域选中/无掩码的 None
+        // 才显式清列。
+        if mask.touches("meta") {
+            match &data.meta {
+                Some(m) => a.meta = Set(Some(menu_meta_to_json(m))),
+                None => {
+                    if mask.selects_whole("meta") {
+                        a.meta = Set(None);
+                    }
+                }
+            }
         }
     }
 }
@@ -154,7 +170,7 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
             updated_at: Set(Some(crate::data::now())),
             ..Default::default()
         };
-        Self::apply_fields(&mut a, &data);
+        Self::apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         if a.status.clone().unwrap().is_none() {
             a.status = Set(Some("ON".into()));
         }
@@ -188,7 +204,8 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
                     ));
                 }
             }
-            Self::apply_fields(&mut a, data);
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            Self::apply_fields(&mut a, data, &mask);
             // 上游 dcaa4fa9d 同语义：update_mask 的 meta.* 点路径不再整列
             // 替换——选中子字段合并进存量 jsonb（未选中键保留、选中但为空
             // 的键显式写 null 清残值），NULL 列由 {} 兜底。顶层 meta（或无
@@ -383,7 +400,7 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
                         .map_err(db_err)?
                         .ok_or_else(|| not_found("menu"))?;
                     let mut a: crate::data::sys_menus::ActiveModel = row.into();
-                    Self::apply_fields(&mut a, data);
+                    Self::apply_fields(&mut a, data, &crate::fieldmask::FieldMask::unmasked());
                     crate::stamp_update!(a, payload.user_id);
                     a.update(&txn).await.map_err(db_err)?;
                 }
@@ -395,7 +412,7 @@ impl proto::gen::services::MenuServiceHandlers for MenuService {
                         updated_at: Set(Some(crate::data::now())),
                         ..Default::default()
                     };
-                    Self::apply_fields(&mut a, data);
+                    Self::apply_fields(&mut a, data, &crate::fieldmask::FieldMask::unmasked());
                     // 结构由推送树定义：parent 从键链解析（前序保证父已就位）。
                     a.parent_id = Set(parent_id);
                     if data.status.is_none() {
@@ -1141,6 +1158,95 @@ mod tests {
                 .unwrap()
                 .is_empty(),
             "stale bindings do not survive a rebuild"
+        );
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 即便带了 path 也不许动——开放 API 按契约送部分字段不再误写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "dashboard", "/dashboard", None).await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Menu {
+                    name: Some("工作台".into()),
+                    path: Some("/evil".into()),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "工作台", "masked field lands");
+        assert_eq!(
+            fresh.path.as_deref(),
+            Some("/dashboard"),
+            "unmasked path is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "dashboard", "/dashboard", None).await;
+        menus::ActiveModel {
+            id: Set(row.id),
+            alias: Set(Some("/dash".into())),
+            ..Default::default()
+        }
+        .update(db)
+        .await
+        .unwrap();
+
+        // 无掩码：None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateMenuRequest {
+                id: row.id as u64,
+                data: Some(Menu {
+                    name: Some("dashboard".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.alias.as_deref(),
+            Some("/dash"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(me, update_req(row.id as u64, Menu::default(), &["alias"]))
+            .await
+            .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.alias.is_none(),
+            "masked None explicitly clears the column"
         );
     }
 }

@@ -2,6 +2,8 @@
 //! schema 存 payload 列（JSON 原文），服务端不解析只透传——与打印模板同口径。
 //! Update 带乐观锁：data.version 回传读到的版本，CAS 命中才写入且版本 +1；
 //! 未带 version 的轻量更新照常写、版本照样 +1（与上游 repo 同语义）。
+//! 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+//! 全量提交语义）——乐观锁与版本快照的特殊逻辑原位保留。
 
 use std::sync::Arc;
 
@@ -75,43 +77,37 @@ fn rev_proto(r: crate::data::bi_dashboard_revisions::Model) -> BiDashboardRevisi
     }
 }
 
-fn upsert_fields(a: &mut crate::data::bi_dashboards::ActiveModel, data: &BiDashboard) {
-    if let Some(v) = &data.name {
-        a.name = Set(v.clone());
-    }
-    if let Some(v) = &data.code {
-        a.code = Set(v.clone());
-    }
-    if let Some(v) = data.kind {
-        a.kind = Set(Some(kind_str(v).into()));
-    }
-    if let Some(v) = &data.remark {
-        a.remark = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.payload {
-        a.payload = Set(Some(v.clone()));
-    }
-    if let Some(v) = data.chart_count {
-        a.chart_count = Set(Some(v));
-    }
-    if let Some(v) = &data.theme_key {
-        a.theme_key = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.thumbnail {
-        a.thumbnail = Set(Some(v.clone()));
-    }
-    if let Some(v) = data.is_built_in {
-        a.is_built_in = Set(Some(v));
-    }
-    if let Some(v) = data.is_public {
-        a.is_public = Set(Some(v));
-    }
-    if let Some(v) = data.is_enabled {
-        a.is_enabled = Set(Some(v));
-    }
-    if let Some(v) = data.sort_order {
-        a.sort_order = Set(Some(v));
-    }
+/// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+/// if-let-Some 全量提交语义：None 不动列）。payload 是设计器产出的 JSON
+/// 原文——服务端不解析只透传，layout 部分更新无从谈起，保持整列写；
+/// version 是乐观锁，永不进本函数（CAS 与 +1 是 handler 的职责）。
+fn apply_fields(
+    a: &mut crate::data::bi_dashboards::ActiveModel,
+    data: &BiDashboard,
+    mask: &crate::fieldmask::FieldMask,
+) {
+    crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+    crate::set_masked!(req mask, a, code, data.code, |v: &String| v.clone());
+    crate::set_masked!(opt mask, a, kind, data.kind, |v: &i32| Some(
+        kind_str(*v).to_string()
+    ));
+    crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(v.clone()));
+    crate::set_masked!(opt mask, a, payload, data.payload, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, chart_count, data.chart_count, |v: &u32| Some(*v));
+    crate::set_masked!(opt mask, a, theme_key, data.theme_key, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, thumbnail, data.thumbnail, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, is_built_in, data.is_built_in, |v: &bool| Some(
+        *v
+    ));
+    crate::set_masked!(opt mask, a, is_public, data.is_public, |v: &bool| Some(*v));
+    crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(*v));
+    crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(*v));
 }
 
 pub struct BiDashboardService {
@@ -173,7 +169,7 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
             updated_at: Set(Some(crate::data::now())),
             ..Default::default()
         };
-        upsert_fields(&mut a, &data);
+        apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         if a.is_built_in.clone().unwrap().is_none() {
             a.is_built_in = Set(Some(false));
         }
@@ -227,7 +223,10 @@ impl proto::gen::services::BiDashboardServiceHandlers for BiDashboardService {
             row.payload.clone(),
         );
         let mut a: crate::data::bi_dashboards::ActiveModel = row.into();
-        upsert_fields(&mut a, &data);
+        // 字段级更新：掩码白名单外字段不动（无掩码 = 全量提交语义不变）；
+        // 乐观锁 CAS 与版本 +1 是本 handler 的职责，不受掩码影响。
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+        apply_fields(&mut a, &data, &mask);
         crate::stamp_update!(a, payload.user_id);
         a.version = Set(Some(a.version.clone().unwrap().unwrap_or(0) + 1));
         a.updated_at = Set(Some(crate::data::now()));
@@ -450,9 +449,10 @@ mod tests {
     }
 
     #[test]
-    fn upsert_fields_only_touches_payload_fields() {
-        // version 与 operator/时间戳列永不进 upsert_fields（乐观锁与盖章
+    fn apply_fields_only_touches_payload_fields() {
+        // version 与 operator/时间戳列永不进 apply_fields（乐观锁与盖章
         // 是 handler 的职责，payload 字段单独走）——钉住这条边界。
+        // 无掩码（unmasked）= 存量全量提交语义，逐字段行为与旧 if-let 一致。
         let data = BiDashboard {
             id: None,
             name: Some("n".into()),
@@ -465,7 +465,7 @@ mod tests {
             thumbnail: None,
             is_built_in: None,
             is_public: Some(true),
-            version: Some(7), // 不得出现在 upsert_fields 里
+            version: Some(7), // 不得出现在 apply_fields 里
             is_enabled: None,
             sort_order: Some(2),
             created_by: None,
@@ -479,7 +479,7 @@ mod tests {
             version: Set(Some(1)),
             ..Default::default()
         };
-        upsert_fields(&mut a, &data);
+        apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::from(None));
         assert_eq!(a.name.clone().unwrap(), "n");
         assert_eq!(a.kind.clone().unwrap(), Some("SCREEN".to_string()));
         assert_eq!(a.chart_count.clone().unwrap(), Some(3));
@@ -537,5 +537,148 @@ mod tests {
         assert_eq!(proto.version, 0);
         assert!(proto.name.is_none());
         assert!(proto.created_at.is_none());
+    }
+}
+
+#[cfg(test)]
+mod update_mask_tests {
+    use super::*;
+    use crate::data::bi_dashboards as dashboards;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::BiDashboardServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, name: &str, code: &str) -> dashboards::Model {
+        dashboards::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set(name.into()),
+            code: Set(code.into()),
+            kind: Set(Some("DASHBOARD".into())),
+            remark: Set(Some("旧备注".into())),
+            payload: Set(Some(r#"{"charts":[]}"#.into())),
+            theme_key: Set(Some("dark".into())),
+            version: Set(Some(1)),
+            is_built_in: Set(Some(false)),
+            is_enabled: Set(Some(true)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> dashboards::Model {
+        dashboards::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: BiDashboard, paths: &[&str]) -> UpdateBiDashboardRequest {
+        UpdateBiDashboardRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 带的 remark/payload 都不许动——设计器产出的 schema 原文不被部分
+    /// 更新的表单抹掉；版本号照常 +1（乐观锁不受掩码影响）。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = BiDashboardService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "运营大盘", "dash-1").await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                BiDashboard {
+                    name: Some("新名".into()),
+                    remark: Some("劫持".into()),
+                    payload: Some(r#"{"evil":true}"#.into()),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "新名", "masked field lands");
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("旧备注"),
+            "unmasked remark is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.payload.as_deref(),
+            Some(r#"{"charts":[]}"#),
+            "unmasked payload (schema json) is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.version,
+            Some(2),
+            "version still bumps +1 (optimistic lock is mask-agnostic)"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = BiDashboardService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "运营大盘", "dash-1").await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateBiDashboardRequest {
+                id: row.id as u64,
+                data: Some(BiDashboard {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("旧备注"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            update_req(row.id as u64, BiDashboard::default(), &["remark"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.remark.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }

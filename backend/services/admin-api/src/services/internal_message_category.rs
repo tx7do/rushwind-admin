@@ -110,18 +110,21 @@ impl proto::gen::services::InternalMessageCategoryServiceHandlers
             .ok_or_else(|| not_found("message category"))?;
         let mut a: crate::data::internal_message_categories::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = &data.icon_url {
-                a.icon_url = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.is_enabled {
-                a.is_enabled = Set(Some(v));
-            }
-            if let Some(v) = data.sort_order {
-                a.sort_order = Set(Some(v));
-            }
+            // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+            // 存量 if-let-Some 全量提交语义不变）。name 是 NOT NULL 列走
+            // req 形态（None 永不写、无可清语义）；掩码选中 + 载荷 None =
+            // 显式清可空列；code 是发送/引用锚，更新面不开放（存量如此）。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+            crate::set_masked!(opt mask, a, icon_url, data.icon_url, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(
+                *v
+            ));
+            crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(
+                *v
+            ));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -138,5 +141,140 @@ impl proto::gen::services::InternalMessageCategoryServiceHandlers
         let repo = crate::data::repos::InternalMessageCategoryRepo::new(&self.state.db);
         repo.delete_scoped(id as i64, scope).await?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::internal_message_categories as categories;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::InternalMessageCategoryServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, tenant: i64, name: &str) -> categories::Model {
+        categories::ActiveModel {
+            tenant_id: Set(Some(tenant)),
+            name: Set(name.into()),
+            code: Set("demo".into()),
+            icon_url: Set(Some("lucide:inbox".into())),
+            is_enabled: Set(Some(true)),
+            sort_order: Set(Some(7)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> categories::Model {
+        categories::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(
+        id: u64,
+        data: InternalMessageCategory,
+        paths: &[&str],
+    ) -> proto::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
+        proto::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 即便带了 icon_url/sort_order 也不许动——部分提交不再误写未选中列。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = InternalMessageCategoryService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, 1, "旧分类").await;
+
+        svc.update(
+            ctx(1, 9),
+            update_req(
+                row.id as u64,
+                InternalMessageCategory {
+                    name: Some("新分类".into()),
+                    icon_url: Some("lucide:evil".into()),
+                    sort_order: Some(99),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "新分类", "masked name lands");
+        assert_eq!(
+            fresh.icon_url.as_deref(),
+            Some("lucide:inbox"),
+            "unmasked icon_url is not writable through the gate"
+        );
+        assert_eq!(fresh.sort_order, Some(7), "unmasked sort_order untouched");
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = InternalMessageCategoryService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, 1, "分类").await;
+
+        // 无掩码：None 不动列。
+        svc.update(
+            ctx(1, 9),
+            proto::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
+                id: row.id as u64,
+                data: Some(InternalMessageCategory {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.icon_url.as_deref(),
+            Some("lucide:inbox"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            ctx(1, 9),
+            update_req(
+                row.id as u64,
+                InternalMessageCategory::default(),
+                &["icon_url"],
+            ),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.icon_url.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }

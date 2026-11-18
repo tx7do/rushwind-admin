@@ -40,28 +40,32 @@ fn template_proto(r: crate::data::sys_notification_templates::Model) -> Notifica
     }
 }
 
-fn upsert_fields(
+/// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+/// if-let-Some 全量提交语义不变）。全部可空列走 opt 形态：掩码选中 +
+/// 载荷 None = 显式清列；无掩码 None 不动列。
+fn apply_fields(
     a: &mut crate::data::sys_notification_templates::ActiveModel,
     data: &NotificationTemplate,
+    mask: &crate::fieldmask::FieldMask,
 ) {
-    if let Some(v) = &data.name {
-        a.name = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.code {
-        a.code = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.title_template {
-        a.title_template = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.content_template {
-        a.content_template = Set(Some(v.clone()));
-    }
-    if let Some(v) = data.is_enabled {
-        a.is_enabled = Set(Some(v));
-    }
-    if let Some(v) = &data.remark {
-        a.remark = Set(Some(v.clone()));
-    }
+    crate::set_masked!(opt mask, a, name, data.name, |v: &String| Some(v.clone()));
+    crate::set_masked!(opt mask, a, code, data.code, |v: &String| Some(v.clone()));
+    crate::set_masked!(opt mask, a, title_template, data.title_template, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(
+        opt mask,
+        a,
+        content_template,
+        data.content_template,
+        |v: &String| Some(v.clone())
+    );
+    crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(
+        *v
+    ));
+    crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(
+        v.clone()
+    ));
 }
 
 pub struct NotificationTemplateService {
@@ -129,7 +133,7 @@ impl proto::gen::services::NotificationTemplateServiceHandlers for NotificationT
             updated_at: Set(Some(crate::data::now())),
             ..Default::default()
         };
-        upsert_fields(&mut a, &data);
+        apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         if let sea_orm::ActiveValue::Set(v) = &a.is_enabled {
             if v.is_none() {
                 a.is_enabled = Set(Some(true));
@@ -141,8 +145,10 @@ impl proto::gen::services::NotificationTemplateServiceHandlers for NotificationT
         Ok(template_proto(inserted))
     }
 
-    /// 更新模板（请求体 {data:{...}}；update_mask 面向后端字段级更新，
-    /// 本仓沿用 if-let-Some 全量提交语义）。
+    /// 更新模板（请求体 {data:{...}, updateMask?}）：字段写入统一过
+    /// update_mask 白名单门——有掩码只有选中字段允许动（Some 写值、None
+    /// 显式清列），无掩码即存量全量提交语义。code 唯一性冲突校验保留
+    /// 原位（门只管"载荷字段→列"的写面）。
     async fn update_notification_template(
         &self,
         ctx: rushwind_http_binding::ctx::RequestContext,
@@ -160,7 +166,8 @@ impl proto::gen::services::NotificationTemplateServiceHandlers for NotificationT
             }
         }
         let mut a: crate::data::sys_notification_templates::ActiveModel = row.into();
-        upsert_fields(&mut a, &data);
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+        apply_fields(&mut a, &data, &mask);
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
         Ok(Empty {})
@@ -249,12 +256,140 @@ pub fn render_template(template: &str, vars: &BTreeMap<String, String>) -> Resul
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::sys_notification_templates as templates;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::NotificationTemplateServiceHandlers as _;
+    use sea_orm::{EntityTrait, Set};
 
     fn vars(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         pairs
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+
+    async fn plant(db: &sea_orm::DatabaseConnection, name: &str, code: &str) -> templates::Model {
+        templates::ActiveModel {
+            name: Set(Some(name.into())),
+            code: Set(Some(code.into())),
+            title_template: Set(Some("[RushWind] {{title}}".into())),
+            content_template: Set(Some("正文 {{code}}".into())),
+            is_enabled: Set(Some(true)),
+            remark: Set(Some("原始备注".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> templates::Model {
+        templates::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(
+        id: u64,
+        data: NotificationTemplate,
+        paths: &[&str],
+    ) -> UpdateNotificationTemplateRequest {
+        UpdateNotificationTemplateRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 即便带了 remark/is_enabled 也不许动——部分提交不再误写未选中列。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = NotificationTemplateService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "旧模板", "tpl_old").await;
+
+        svc.update_notification_template(
+            ctx(0, 9),
+            update_req(
+                row.id as u64,
+                NotificationTemplate {
+                    name: Some("新模板".into()),
+                    remark: Some("越权备注".into()),
+                    is_enabled: Some(false),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name.as_deref(), Some("新模板"), "masked name lands");
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("原始备注"),
+            "unmasked remark is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.is_enabled,
+            Some(true),
+            "unmasked is_enabled untouched"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = NotificationTemplateService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "模板", "tpl_demo").await;
+
+        // 无掩码：None 不动列。
+        svc.update_notification_template(
+            ctx(0, 9),
+            UpdateNotificationTemplateRequest {
+                id: row.id as u64,
+                data: Some(NotificationTemplate {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("原始备注"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update_notification_template(
+            ctx(0, 9),
+            update_req(row.id as u64, NotificationTemplate::default(), &["remark"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.remark.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 
     #[test]

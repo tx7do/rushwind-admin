@@ -39,6 +39,20 @@ pub struct DictTypeService {
     pub state: Arc<AppState>,
 }
 
+impl DictTypeService {
+    /// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+    /// 存量全量提交语义）。type_code 是业务引用锚，更新面不开放。
+    fn apply_fields(
+        a: &mut crate::data::sys_dict_types::ActiveModel,
+        data: &DictType,
+        mask: &crate::fieldmask::FieldMask,
+    ) {
+        crate::set_masked!(req mask, a, type_name, data.type_name, |v: &String| v.clone());
+        crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(*v));
+        crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(*v));
+    }
+}
+
 #[async_trait::async_trait]
 impl proto::gen::services::DictTypeServiceHandlers for DictTypeService {
     async fn list(
@@ -126,15 +140,8 @@ impl proto::gen::services::DictTypeServiceHandlers for DictTypeService {
             .ok_or_else(|| not_found("dict type"))?;
         let mut a: crate::data::sys_dict_types::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.type_name {
-                a.type_name = Set(v.clone());
-            }
-            if let Some(v) = data.is_enabled {
-                a.is_enabled = Set(Some(v));
-            }
-            if let Some(v) = data.sort_order {
-                a.sort_order = Set(Some(v));
-            }
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            Self::apply_fields(&mut a, data, &mask);
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -327,5 +334,158 @@ mod tests {
             .await
             .unwrap_err();
         assert_eq!(err.reason, "BAD_REQUEST");
+    }
+
+    /// update_mask 白名单门：掩码只选 type_name 时，载荷多带的
+    /// is_enabled/sort_order 不许动——按契约送部分字段不再误写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = DictTypeService {
+            state: state.clone(),
+        };
+        let me = ctx(7, 1);
+        let db = &state.db;
+        svc.create(
+            me.clone(),
+            CreateDictTypeRequest {
+                data: Some(DictType {
+                    type_code: Some("app_type".into()),
+                    type_name: Some("应用类型".into()),
+                    is_enabled: Some(true),
+                    sort_order: Some(3),
+                    ..Default::default()
+                }),
+            },
+        )
+        .await
+        .unwrap();
+        let row = crate::data::sys_dict_types::Entity::find()
+            .one(db)
+            .await
+            .unwrap()
+            .expect("created row");
+
+        svc.update(
+            me,
+            UpdateDictTypeRequest {
+                id: row.id as u64,
+                data: Some(DictType {
+                    type_name: Some("应用类型改".into()),
+                    is_enabled: Some(false),
+                    sort_order: Some(99),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["type_name".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = crate::data::sys_dict_types::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(fresh.type_name, "应用类型改", "masked field lands");
+        assert_eq!(
+            fresh.is_enabled,
+            Some(true),
+            "unmasked is_enabled is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.sort_order,
+            Some(3),
+            "unmasked sort_order is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = DictTypeService {
+            state: state.clone(),
+        };
+        let me = ctx(7, 1);
+        let db = &state.db;
+        svc.create(
+            me.clone(),
+            CreateDictTypeRequest {
+                data: Some(DictType {
+                    type_code: Some("risk_type".into()),
+                    type_name: Some("风险类型".into()),
+                    is_enabled: Some(false),
+                    sort_order: Some(5),
+                    ..Default::default()
+                }),
+            },
+        )
+        .await
+        .unwrap();
+        let row = crate::data::sys_dict_types::Entity::find()
+            .one(db)
+            .await
+            .unwrap()
+            .expect("created row");
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(7, 1),
+            UpdateDictTypeRequest {
+                id: row.id as u64,
+                data: Some(DictType {
+                    type_name: Some("风险类型".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = crate::data::sys_dict_types::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            fresh.is_enabled,
+            Some(false),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            UpdateDictTypeRequest {
+                id: row.id as u64,
+                data: Some(DictType::default()),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["is_enabled".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = crate::data::sys_dict_types::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(
+            fresh.is_enabled.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(
+            fresh.sort_order,
+            Some(5),
+            "req column (type_name None) never cleared by the mask"
+        );
     }
 }

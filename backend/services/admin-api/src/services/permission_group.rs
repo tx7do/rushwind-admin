@@ -107,27 +107,30 @@ impl proto::gen::services::PermissionGroupServiceHandlers for PermissionGroupSer
             .ok_or_else(|| not_found("permission group"))?;
         let mut a: crate::data::sys_permission_groups::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = &data.module {
-                a.module = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.path {
-                a.path = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.parent_id {
-                a.parent_id = Set(Some(v as i64));
-            }
-            if let Some(v) = &data.description {
-                a.description = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.sort_order {
-                a.sort_order = Set(Some(v));
-            }
-            if let Some(v) = data.status {
-                a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
-            }
+            // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+            // 存量 if-let-Some 全量提交语义不变）。name 是 NOT NULL 列走
+            // req 形态（None 永不写、无可清语义）；掩码选中 + 载荷 None =
+            // 显式清可空列；无掩码 None 不动列。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+            crate::set_masked!(opt mask, a, module, data.module, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, path, data.path, |v: &String| Some(v.clone()));
+            crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &u64| Some(
+                *v as i64
+            ));
+            crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(
+                *v
+            ));
+            crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(if *v == 0 {
+                "OFF".into()
+            } else {
+                "ON".into()
+            }));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -146,5 +149,136 @@ impl proto::gen::services::PermissionGroupServiceHandlers for PermissionGroupSer
         let repo = crate::data::repos::PermissionGroupRepo::new(&self.state.db);
         repo.delete_by_id(id as i64).await?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::sys_permission_groups as groups;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::PermissionGroupServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, name: &str, module: &str) -> groups::Model {
+        groups::ActiveModel {
+            name: Set(name.into()),
+            module: Set(Some(module.into())),
+            description: Set(Some("原始描述".into())),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> groups::Model {
+        groups::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: PermissionGroup, paths: &[&str]) -> UpdatePermissionGroupRequest {
+        UpdatePermissionGroupRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 即便带了 module 与 description 也不许动——NOT NULL 列同样受门管辖。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = PermissionGroupService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "系统管理", "PERMISSION").await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                PermissionGroup {
+                    name: Some("权限新组".into()),
+                    module: Some("OPM".into()),
+                    description: Some("不该落的描述".into()),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "权限新组", "masked field lands");
+        assert_eq!(
+            fresh.module.as_deref(),
+            Some("PERMISSION"),
+            "unmasked module is not writable"
+        );
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("原始描述"),
+            "unmasked description is not writable"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清可空列；无掩码时 None 仍是"不动"
+    /// （全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = PermissionGroupService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "系统管理", "PERMISSION").await;
+
+        // 无掩码：None 不动列（只改 name，description 原样）。
+        svc.update(
+            ctx(0, 1),
+            UpdatePermissionGroupRequest {
+                id: row.id as u64,
+                data: Some(PermissionGroup {
+                    name: Some("权限新组".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("原始描述"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            ctx(0, 1),
+            update_req(row.id as u64, PermissionGroup::default(), &["description"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.description.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(fresh.name, "权限新组", "req column untouched by None");
     }
 }

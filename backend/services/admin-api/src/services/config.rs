@@ -116,6 +116,7 @@ impl proto::gen::services::ConfigServiceHandlers for ConfigService {
         let payload = operator_of(&ctx)?;
         let data = crate::state::require_data(req.data)?;
         let key = data.key.clone().unwrap_or_default();
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
 
         // allow_missing upsert (upsert semantics).
         let existing = if req.allow_missing == Some(true) && !key.is_empty() {
@@ -133,6 +134,8 @@ impl proto::gen::services::ConfigServiceHandlers for ConfigService {
         let value_type = data.value_type.and_then(value_type_to_str);
         match existing {
             None if req.allow_missing == Some(true) => {
+                // upsert-insert 分支按契约忽略 update_mask（proto 注释同款），
+                // 全量落列——门只管存量行的载荷写面。
                 crate::data::sys_configs::ActiveModel {
                     name: Set(data.name.unwrap_or_else(|| key.clone())),
                     key: Set(key),
@@ -150,15 +153,17 @@ impl proto::gen::services::ConfigServiceHandlers for ConfigService {
             }
             Some(row) => {
                 let mut a: crate::data::sys_configs::ActiveModel = row.into();
-                if let Some(v) = &data.name {
-                    a.name = Set(v.clone());
-                }
-                if let Some(v) = data.value.clone() {
-                    a.value = Set(Some(v));
-                }
-                if let Some(v) = value_type {
-                    a.value_type = Set(Some(v));
-                }
+                // 字段写入过 update_mask 白名单门（字段级更新语义，无掩码即
+                // 存量全量提交语义）。key 是读取锚、is_built_in 是内置标记，
+                // 更新面都不开放；value_type 的 INVALID(0) 映射 None 不写列
+                // （存量跳过语义），掩码显式选中时才随 None 清列。
+                crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+                crate::set_masked!(opt mask, a, value, data.value, |v: &String| Some(
+                    v.clone()
+                ));
+                crate::set_masked!(opt mask, a, value_type, value_type, |v: &String| Some(
+                    v.clone()
+                ));
                 crate::stamp_update!(a, payload.user_id);
                 a.update(&self.state.db).await.map_err(db_err)?;
             }
@@ -196,5 +201,151 @@ impl proto::gen::services::ConfigServiceHandlers for ConfigService {
             .await
             .map_err(db_err)?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::{ctx, test_state};
+    // handler 方法挂在 trait 上——测试模块里显式引入。
+    use proto::gen::services::ConfigServiceHandlers as _;
+
+    fn data(name: &str, key: &str, value: Option<String>) -> Config {
+        Config {
+            name: Some(name.into()),
+            key: Some(key.into()),
+            value,
+            value_type: Some(1),
+            is_built_in: Some(false),
+            ..Default::default()
+        }
+    }
+
+    async fn first_row(db: &sea_orm::DatabaseConnection) -> crate::data::sys_configs::Model {
+        crate::data::sys_configs::Entity::find()
+            .one(db)
+            .await
+            .unwrap()
+            .expect("config row")
+    }
+
+    /// update_mask 白名单门：掩码只选 value 时，载荷多带的
+    /// name/value_type 不许动——按契约送部分字段不再误写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = ConfigService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        svc.create(
+            me.clone(),
+            CreateConfigRequest {
+                data: Some(data("站点名", "site.name", Some("admin".into()))),
+            },
+        )
+        .await
+        .unwrap();
+        let row = first_row(db).await;
+
+        svc.update(
+            me,
+            UpdateConfigRequest {
+                id: row.id as u64,
+                data: Some(Config {
+                    name: Some("越权改名".into()),
+                    value: Some("新值".into()),
+                    value_type: Some(3),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["value".into()],
+                }),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = first_row(db).await;
+        assert_eq!(fresh.value.as_deref(), Some("新值"), "masked field lands");
+        assert_eq!(
+            fresh.name, "站点名",
+            "unmasked name is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.value_type.as_deref(),
+            Some("STRING"),
+            "unmasked value_type is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = ConfigService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        svc.create(
+            me.clone(),
+            CreateConfigRequest {
+                data: Some(data("站点名", "site.name", Some("旧值".into()))),
+            },
+        )
+        .await
+        .unwrap();
+        let row = first_row(db).await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateConfigRequest {
+                id: row.id as u64,
+                data: Some(data("站点名", "site.name", None)),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = first_row(db).await;
+        assert_eq!(
+            fresh.value.as_deref(),
+            Some("旧值"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            UpdateConfigRequest {
+                id: row.id as u64,
+                data: Some(Config {
+                    name: Some("站点名".into()),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["value".into()],
+                }),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = first_row(db).await;
+        assert!(
+            fresh.value.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(
+            fresh.name, "站点名",
+            "req column (name None) never cleared by the mask"
+        );
     }
 }

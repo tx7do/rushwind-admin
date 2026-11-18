@@ -42,34 +42,35 @@ fn tpl_proto(r: crate::data::print_templates::Model) -> PrintTemplate {
     }
 }
 
-fn upsert_fields(a: &mut crate::data::print_templates::ActiveModel, data: &PrintTemplate) {
-    if let Some(v) = &data.name {
-        a.name = Set(v.clone());
-    }
-    if let Some(v) = &data.code {
-        a.code = Set(v.clone());
-    }
-    if let Some(v) = &data.resource_key {
-        a.resource_key = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.payload {
-        a.payload = Set(Some(v.clone()));
-    }
-    if let Some(v) = data.is_built_in {
-        a.is_built_in = Set(Some(v));
-    }
-    if let Some(v) = &data.paper_size {
-        a.paper_size = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.orientation {
-        a.orientation = Set(Some(v.clone()));
-    }
-    if let Some(v) = data.is_enabled {
-        a.is_enabled = Set(Some(v));
-    }
-    if let Some(v) = data.sort_order {
-        a.sort_order = Set(Some(v));
-    }
+/// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+/// 全量提交语义）：create/upsert-insert 走 [`FieldMask::unmasked`]，
+/// update 传请求掩码。name/code 是 NOT NULL 列——None 永不写。
+fn apply_fields(
+    a: &mut crate::data::print_templates::ActiveModel,
+    data: &PrintTemplate,
+    mask: &crate::fieldmask::FieldMask,
+) {
+    crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+    crate::set_masked!(req mask, a, code, data.code, |v: &String| v.clone());
+    crate::set_masked!(opt mask, a, resource_key, data.resource_key, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, payload, data.payload, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, is_built_in, data.is_built_in, |v: &bool| Some(
+        *v
+    ));
+    crate::set_masked!(opt mask, a, paper_size, data.paper_size, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, orientation, data.orientation, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(
+        *v
+    ));
+    crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(*v));
 }
 
 pub struct PrintTemplateService {
@@ -132,7 +133,7 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
             updated_at: Set(Some(crate::data::now())),
             ..Default::default()
         };
-        upsert_fields(&mut a, &data);
+        apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         if a.is_built_in.clone().unwrap().is_none() {
             a.is_built_in = Set(Some(false));
         }
@@ -164,7 +165,10 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
             }
         }
         let mut a: crate::data::print_templates::ActiveModel = row.into();
-        upsert_fields(&mut a, &data);
+        // 编码唯一性检查保持在门之外（特殊逻辑原位保留）；字段写入过
+        // update_mask 白名单门（字段级更新语义，无掩码即全量提交语义）。
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+        apply_fields(&mut a, &data, &mask);
         crate::stamp_update!(a, payload.user_id);
         a.updated_at = Set(Some(crate::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -326,5 +330,160 @@ impl proto::gen::services::PrintTemplateServiceHandlers for PrintTemplateService
             fields,
             total_tokens,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::{ctx, test_state};
+    // handler 方法挂在 trait 上——测试模块里显式引入。
+    use proto::gen::services::PrintTemplateServiceHandlers as _;
+
+    /// 直插一行租户模板（绕过 create 的缺省兜底面，只测 update 写入门）。
+    async fn plant(
+        db: &sea_orm::DatabaseConnection,
+        name: &str,
+        code: &str,
+    ) -> crate::data::print_templates::Model {
+        crate::data::print_templates::ActiveModel {
+            tenant_id: Set(Some(7)),
+            name: Set(name.into()),
+            code: Set(code.into()),
+            payload: Set(Some("{\"v\":1}".into())),
+            resource_key: Set(Some("builtin/pick".into())),
+            paper_size: Set(Some("A4".into())),
+            is_built_in: Set(Some(false)),
+            is_enabled: Set(Some(true)),
+            sort_order: Set(Some(4)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    /// update_mask 白名单门：掩码只选 name 时，载荷多带的 payload/sort_order
+    /// 不许动——按契约送部分字段不再误写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = PrintTemplateService {
+            state: state.clone(),
+        };
+        let me = ctx(7, 1);
+        let db = &state.db;
+        let row = plant(db, "出库单", "pick").await;
+
+        svc.update(
+            me,
+            UpdatePrintTemplateRequest {
+                id: row.id as u64,
+                data: Some(PrintTemplate {
+                    name: Some("出库单改".into()),
+                    payload: Some("{\"v\":2}".into()),
+                    sort_order: Some(99),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["name".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = crate::data::print_templates::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .expect("row survives");
+        assert_eq!(fresh.name, "出库单改", "masked field lands");
+        assert_eq!(
+            fresh.payload.as_deref(),
+            Some("{\"v\":1}"),
+            "unmasked payload is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.sort_order,
+            Some(4),
+            "unmasked sort_order is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = PrintTemplateService {
+            state: state.clone(),
+        };
+        let me = ctx(7, 1);
+        let db = &state.db;
+        let row = plant(db, "对账单", "statement").await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(7, 1),
+            UpdatePrintTemplateRequest {
+                id: row.id as u64,
+                data: Some(PrintTemplate {
+                    name: Some("对账单".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = crate::data::print_templates::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .expect("row survives");
+        assert_eq!(
+            fresh.payload.as_deref(),
+            Some("{\"v\":1}"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            UpdatePrintTemplateRequest {
+                id: row.id as u64,
+                data: Some(PrintTemplate {
+                    name: Some("对账单".into()),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["payload".into()],
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = crate::data::print_templates::Entity::find_by_id(row.id)
+            .one(db)
+            .await
+            .unwrap()
+            .expect("row survives");
+        assert!(
+            fresh.payload.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(
+            fresh.resource_key.as_deref(),
+            Some("builtin/pick"),
+            "unmasked resource_key stays put while clearing"
+        );
+        assert_eq!(
+            fresh.name, "对账单",
+            "req column (name None) never cleared by the mask"
+        );
     }
 }
