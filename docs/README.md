@@ -43,6 +43,7 @@
 |---|---|---|
 | [binding-spec.md](./binding-spec.md) | **线上字节契约基准**：路由模型、请求绑定、响应序列化、错误信封、CORS、SSE 通道的对齐规格，差分测试以它为验收面 | 改绑定 / 序列化 / 错误信封 / CORS / SSE 前后 |
 | [operator-matrix.md](./operator-matrix.md) | **列表查询协议算子矩阵**：前端别名 × 过滤语法的映射、丢弃与拒绝三集，服务层 `query` 参数处理的输入契约 | 写列表查询、动过滤算子、定差分豁免前 |
+| [architecture-decisions.md](./architecture-decisions.md) | **架构决策与演进路线**：单应用形态的定稿依据与已否决替代、契约双区制与 BFF 投影层（i_* 规则）、业务域按需打包的分级路线（部署级 feature 门 / 分发级三 crate）与触发条件、b8f496f 事故档案与流程红线 | 动仓库布局前、评估"业务域要不要拆独立 lib"前、全量上游同步前 |
 | [development-plan.md](./development-plan.md) | 开发评估与分阶段计划：硬约束、能力映射、差距决策、里程碑与风险登记册、各会话回填 | 了解项目路线与既有决策前 |
 | [backend/testbed/README.md](../backend/testbed/README.md) | 差分回归台架：组件、语料与判定契约、运行步骤、探针方法学陷阱 | 跑台架、登记豁免、动契约面前 |
 | [frontend/README.md](../frontend/README.md) | 前端目录说明（React 版随仓，Vue 两版上游维护） | 动前端前 |
