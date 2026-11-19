@@ -117,6 +117,7 @@ impl MigratorTrait for Migrator {
             Box::new(monitor_alert),
             Box::new(RoleParentColumn),
             Box::new(UserLocaleColumn),
+            Box::new(RoleHomePathColumn),
             Box::new(bi_dashboard),
             Box::new(print_template),
             Box::new(ai),
@@ -246,6 +247,34 @@ impl MigrationTrait for RoleParentColumn {
             .execute_unprepared(
                 "ALTER TABLE sys_roles \
                  ADD COLUMN IF NOT EXISTS parent_id integer",
+            )
+            .await
+            .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// 按角色设定默认首页（issue #12）给 sys_roles 补的路由列（NULL = 系统
+/// 默认首页；多角色用户由 /me 链按 sort_order 取第一个非空者）。
+struct RoleHomePathColumn;
+
+impl MigrationName for RoleHomePathColumn {
+    fn name(&self) -> &str {
+        "m20251119_000001_role_home_path"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for RoleHomePathColumn {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        manager
+            .get_connection()
+            .execute_unprepared(
+                "ALTER TABLE sys_roles \
+                 ADD COLUMN IF NOT EXISTS home_path varchar",
             )
             .await
             .map(|_| ())

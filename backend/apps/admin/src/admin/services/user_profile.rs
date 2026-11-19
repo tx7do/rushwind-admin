@@ -131,7 +131,36 @@ impl UserProfileServiceHandlers for UserProfileService {
     ) -> Result<User, crate::admin::state::StatusError> {
         let payload = crate::admin::state::operator_of(&ctx)?;
         let (user, codes) = load_user(&self.state, payload.user_id).await?;
-        Ok(user_to_proto(user, codes))
+        let mut proto_user = user_to_proto(user, codes);
+
+        // 默认首页（issue #12 按角色设定默认菜单能力）：用户多角色都可能配了
+        // home_path，按角色的 sort_order（同序按 id）升序取第一个非空者——
+        // sort_order 即角色在管理界面的优先级。全未配置不回填字段，前端回落
+        // 系统默认首页（三端已预埋 `userInfo?.homePath || 默认` 的消费点）。
+        let bindings = crate::admin::data::sys_user_roles::Entity::find()
+            .filter(crate::admin::data::sys_user_roles::Column::UserId.eq(payload.user_id))
+            .all(&self.state.db)
+            .await
+            .map_err(|e| internal_error(format!("db: {e}")))?;
+        let role_ids: Vec<i64> = bindings.iter().filter_map(|r| r.role_id).collect();
+        if !role_ids.is_empty() {
+            let mut roles = crate::admin::data::sys_roles::Entity::find()
+                .filter(crate::admin::data::sys_roles::Column::Id.is_in(role_ids))
+                .all(&self.state.db)
+                .await
+                .map_err(|e| internal_error(format!("db: {e}")))?;
+            roles.sort_by_key(|r| (r.sort_order.unwrap_or(0), r.id));
+            for r in roles {
+                if let Some(hp) = r.home_path {
+                    if !hp.is_empty() {
+                        proto_user.home_path = Some(hp);
+                        break;
+                    }
+                }
+            }
+        }
+
+        Ok(proto_user)
     }
 
     async fn update_user(

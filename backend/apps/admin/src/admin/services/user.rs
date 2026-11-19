@@ -493,6 +493,7 @@ pub(crate) fn user_to_proto(
     role_codes: Vec<String>,
 ) -> User {
     User {
+        home_path: None,
         id: Some(user.id as u64),
         tenant_id: user.tenant_id.map(|v| v as u64),
         username: Some(user.username),

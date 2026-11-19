@@ -162,6 +162,7 @@ impl TenantService {
             is_protected: Set(Some(true)),
             type_column: Set(Some("TENANT".into())),
             data_scope: Set(template.data_scope.clone()),
+            home_path: Set(template.home_path.clone()),
             status: Set(Some("ON".into())),
             sort_order: Set(template.sort_order),
             created_by: Set(Some(operator_id)),

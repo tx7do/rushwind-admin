@@ -211,7 +211,7 @@ ee2001426f4b498d51bce29f870c7ccd3b162cf8e6f61b4a0d2752e3ade249ea  src/locales/en
 5cf71c93096cf7df91281be3acdccd871a1a7ef80b029f2a0d24282c89a05a6d  src/locales/en-US/_modules/printTemplate.json
 e07631a34be2c34e7c40dc9e0c5e8fe1ff02b53aa9632bd469937538514ce1b5  src/locales/en-US/_modules/profile.json
 14f3a09e44e5daa4c3791f504dd7c8b0a9847a1b7dc2d04de12e5cfd2cb2fd31  src/locales/en-US/_modules/redis-cache-monitor.json
-31cb78d1ce67ac6fc231023107a43475cc3b8d493ac34d1b6f55589273db8c27  src/locales/en-US/_modules/role.json
+aa1baf65d0e80a4546d79c420a89b0c4b07762c2a7f63eeed2af72d8d113cbda  src/locales/en-US/_modules/role.json
 9ca3146fc0ebe413a416653f0d6b336acc197c2f06de6f10f59d363af88ed1c9  src/locales/en-US/_modules/script.json
 9c7c97e288ed9bc708e6d315a00d99825195bda0debbc1b75506d2291a56b863  src/locales/en-US/_modules/server-monitor.json
 d76c1fbf76037ff5314cdd1964197b4b135160c0970304859b3f89d46cf43318  src/locales/en-US/_modules/task.json
@@ -276,7 +276,7 @@ a9172ec6f10f934ef4f0c2be73fe503bc7fab6fcec1a2b63e6b5f35794e45056  src/locales/zh
 55119e3d14f49db079ed59088247f81bd374e06f3b9776c75ffa76c0653cf04e  src/locales/zh-CN/_modules/printTemplate.json
 05620e6e5ddba6142cfb07c270fb89b79299d82114c90e08eaa3b097ecdca65a  src/locales/zh-CN/_modules/profile.json
 dcaa26178b5d62073f9675eb18f473cb900bde3a06b286cbb6da97690de5e22c  src/locales/zh-CN/_modules/redis-cache-monitor.json
-7b743cf3ef106e29d0f581cbbf3d205c22c3fd7e948a2b9ef1fc2be12e7d67d2  src/locales/zh-CN/_modules/role.json
+5b5d6aa10dafbff3bc145f6944d4c1f33b522737b4823fbbe6e327dbf514723c  src/locales/zh-CN/_modules/role.json
 0ca8e7c0ebe01257e47371297de278e2d2dcc57fc8c20aa1c7ddaea90c75bc62  src/locales/zh-CN/_modules/script.json
 eebc4432105b834d32cb646459c079c20ff202fb41ba52a8704c21f58d7c4229  src/locales/zh-CN/_modules/server-monitor.json
 2d4b7fd6e42b984ce98d379af00b38bb4da7133844a588912d76a276f84e97e9  src/locales/zh-CN/_modules/task.json
@@ -382,7 +382,7 @@ ae92d518872cc4d2cf97c76d06a8827a38a14c3e8731f53d57076489e49f4ea1  src/pages/app/
 a47fec279f5fb58c128c770b105300e82b778be65892c2b8dd7fc4381fd6da9f  src/pages/app/permission/permission/PermissionList.tsx
 1b7fc7e2b4fcf67d896e9d7acee58018280369b95c22ebeea9990b36a1ab7b14  src/pages/app/permission/permission/constants.ts
 6191d50861f3155bc5219abe4d316ae4be0ec3c640aaaaa0928b9b7acae4f6a5  src/pages/app/permission/permission/index.tsx
-cb0fb50e15350d797c0c07bd82d91a7d24f140c72854b3ed799179137b0490dd  src/pages/app/permission/role/components/RoleDrawer.tsx
+326636fc329575271c609fc6b23c3e45b997e34df37122db097722211ecae381  src/pages/app/permission/role/components/RoleDrawer.tsx
 992a877ee8ffad95ab8afff0d859cce23751c0683bbdf0af5c0a24e88e459cfb  src/pages/app/permission/role/constants.ts
 721ac0cd420b988af57f66aa74cf29d24e73094c7a0024a03355ffc61d0d16e1  src/pages/app/permission/role/index.tsx
 52cff631c85760ab5294f9f61939786ffe1116ccf1370b57619e2eb87d8501f6  src/pages/app/system/access-key/components/AccessKeyDrawer.tsx

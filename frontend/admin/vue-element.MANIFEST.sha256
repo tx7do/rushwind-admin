@@ -278,7 +278,7 @@ b2fb892a1bcb2c43d200ed1b3f8451a3d4939fd06837adc1f600751ab4d46e4f  src/locales/en
 3bafb8cbaa2486a0a1269c4c64f507492e32b26140835b019dd01c6f558ae0bb  src/locales/en-US/pages/position.json
 34c41b146b1f22328fc4613b27e1b8d02c8d06974e1edaf9988fdc704bbf6eff  src/locales/en-US/pages/printTemplate.json
 3033661e848a416cedad45879f8b367125881032a1aea1f48135430b3fc27d24  src/locales/en-US/pages/redis_cache_monitor.json
-a0de711244d52976684ebdb557494aadbd8e4d529185e9ef91b1bc7ff02b23a1  src/locales/en-US/pages/role.json
+0c5f8b9e271aa9e95e9e272f208de56c9cffc4fd28197898767ed23d10df2ff9  src/locales/en-US/pages/role.json
 e57621144c0c6233ef31febe7eb4e069f3ce2a7ccc37e1981afd75ecc49b6e8b  src/locales/en-US/pages/script.json
 783b1cf1da72eef144adf6af03267495aefab187194669e026afed5761c19a96  src/locales/en-US/pages/server_monitor.json
 68a9ca8b5e6df9da1fe9d3022234f2ee6436d594443a1358fefe75e7d2ada800  src/locales/en-US/pages/settings.json
@@ -343,7 +343,7 @@ f653d17a5fc4ca252e84d0f7d5c2f19736dc5d03e85128171c074f3a47a7e399  src/locales/zh
 9dfc40a9ee8ef7854e2c1944149257bf7cba26e430e76cdaf116542bf7d6e2a9  src/locales/zh-CN/pages/position.json
 7c59144c2263e541c8e0a17b02aade9d27938a569212e2d22df9374306a88f03  src/locales/zh-CN/pages/printTemplate.json
 9bf444756984ac01ee9968fec9318ab22b950176e0705452bfdc9f7924776074  src/locales/zh-CN/pages/redis_cache_monitor.json
-1c38c6f25f7ee6601f637d11e23d5497b96bb509703b0ae47b01af38e4c97716  src/locales/zh-CN/pages/role.json
+330f925dd14ac66afb2d28348f2cf4431470b2bec4aedae30293202f7f053cc3  src/locales/zh-CN/pages/role.json
 c03bcd40c7be0576ebb5b52634cba90d9308d6cd94b98209212b8dfb81e89673  src/locales/zh-CN/pages/script.json
 ddc6e660443ac97317b7f2422c8c97ac7e9d303185edd421ba908d571c7e7d6a  src/locales/zh-CN/pages/server_monitor.json
 657eed70057e0b07bcaad0723ae98090bd9632501fe7ef9f9b551395007c39db  src/locales/zh-CN/pages/settings.json
@@ -451,7 +451,7 @@ d72b1a5e5171b9380dba43e5d034e7f9d4c73ccd016bf16d83b766f0be8ba08f  src/pages/app/
 8f1f9cc019e5e514a5aed1c7087f361b68362522ab6e0ebeb2cf399eb74c6431  src/pages/app/permission/permission/permission-list.vue
 7e7c234c1f207379c7a1d59d6db24ad708d332b132ba264a823df5f4408e1e0c  src/pages/app/permission/permission/permission-view.state.ts
 96281cc3c944004e31646fee2948b5328531de9e94aad4dfb0425b0fbce95848  src/pages/app/permission/role/index.vue
-4c744ab12999e866c064e85c760695a69e5ce20430f138e2d66ffd398fb2cb6b  src/pages/app/permission/role/role-drawer.vue
+c073104fd479a13040aef414325033c068e99a15bf5ee7f9a4452b79ce076780  src/pages/app/permission/role/role-drawer.vue
 d0080874b23a9de95be27ad78db695280ba45538ceca4b3a9e972d90a0f91cd1  src/pages/app/system/access_key/access-key-drawer.vue
 fb1af7781cc9f00803a459bd8c2fbeae40858b0a8ea83cf6605818d0f84e7c4d  src/pages/app/system/access_key/index.vue
 ee11040450569705f48a222fcea8a2e320fb227eec63b56acfc7e3892053fe88  src/pages/app/system/config/config-drawer.vue

@@ -15,6 +15,9 @@ pub mod sys_roles {
         /// 父角色（权限继承：子角色权限集必须 ⊆ 父角色已绑定权限集）；
         /// NULL = 根角色。
         pub parent_id: Option<i64>,
+        /// 默认首页路由：该角色用户的登录落地页；NULL = 系统默认首页。
+        /// 多角色用户由 /me 链按 sort_order（同序按 id）取第一个非空者。
+        pub home_path: Option<String>,
         #[sea_orm(default_value = false)]
         pub is_protected: Option<bool>,
         /// enum(SYSTEM,TEMPLATE,TENANT) default TENANT.

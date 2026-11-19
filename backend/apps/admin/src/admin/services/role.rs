@@ -90,6 +90,7 @@ async fn role_proto(state: &AppState, r: crate::admin::data::sys_roles::Model) -
         code: Some(r.code),
         parent_id: r.parent_id.map(|v| v as u64),
         parent_name,
+        home_path: r.home_path.clone(),
         sort_order: r.sort_order,
         status: r
             .status
@@ -127,6 +128,9 @@ impl RoleService {
         }
         if let Some(v) = data.parent_id {
             a.parent_id = Set(Some(v as i64));
+        }
+        if let Some(v) = &data.home_path {
+            a.home_path = Set(if v.is_empty() { None } else { Some(v.clone()) });
         }
         if let Some(v) = &data.description {
             a.description = Set(Some(v.clone()));
