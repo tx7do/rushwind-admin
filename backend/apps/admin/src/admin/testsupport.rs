@@ -69,6 +69,7 @@ pub(crate) async fn test_state() -> Arc<AppState> {
         jwt_public_key: None,
         access_token_expires_secs: 3600,
         refresh_token_expires_secs: 86_400,
+        captcha_required_failures: 3,
         oss: None,
     };
     Arc::new(AppState {
@@ -76,7 +77,11 @@ pub(crate) async fn test_state() -> Arc<AppState> {
         db,
         redis: redis.clone(),
         authenticator: Arc::new(FakeAuthenticator),
-        jwt: rushwind_authn_jwt::JwtAuthenticator::new(rushwind_authn_jwt::JwtOptions::default()),
+        // HS256 测试钥：默认无钥面铸造必败——渐进验证码等登录链路测试
+        // 要走通 token 铸造（既有测试从不铸造，不受影响）。
+        jwt: rushwind_authn_jwt::JwtAuthenticator::new(
+            rushwind_authn_jwt::JwtOptions::default().with_key(b"admin-api-test-secret"),
+        ),
         tokens: crate::token::TokenStore::new(redis, 3600, 86_400),
         hub: crate::server::sse::Hub::default(),
         oss: None,

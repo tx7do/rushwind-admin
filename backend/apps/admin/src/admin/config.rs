@@ -27,6 +27,10 @@ pub struct Config {
     pub jwt_public_key: Option<String>,
     pub access_token_expires_secs: i64,
     pub refresh_token_expires_secs: i64,
+    /// 渐进式验证码阈值（issue #1）：同一 (client_ip, username) 登录失败
+    /// 达此次数后，后续登录要求验证码（缺失/错误即 CAPTCHA_REQUIRED /
+    /// CAPTCHA_INVALID）。默认 3，锁定阈值（5）之下。
+    pub captcha_required_failures: i64,
     #[allow(dead_code)]
     pub oss: Option<OssConfig>,
 }
@@ -157,6 +161,8 @@ impl Config {
                 .map(|d| d.0.as_secs() as i64),
             900,
         );
+        let captcha_required_failures =
+            env_int("RUSHWIND_CAPTCHA_REQUIRED_FAILURES", None, 3).clamp(1, 4);
         let refresh_token_expires_secs = env_int(
             "RUSHWIND_REFRESH_TOKEN_EXPIRES_SECS",
             jwt.refresh_token_expires
@@ -185,6 +191,7 @@ impl Config {
                 non_empty(jwt.public_key.clone()),
             ),
             access_token_expires_secs,
+            captcha_required_failures,
             refresh_token_expires_secs,
             oss: (!minio.endpoint.is_empty()).then_some(OssConfig {
                 endpoint: minio.endpoint,

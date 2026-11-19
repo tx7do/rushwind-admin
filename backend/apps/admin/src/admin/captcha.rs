@@ -31,8 +31,14 @@ pub async fn generate(redis: &ConnectionManager) -> Result<(String, String, Stri
     let mut conn = redis.clone();
     let id = uuid::Uuid::now_v7().simple().to_string();
     let (b64, chars) = render_png_base64()?;
-    let _: redis::RedisResult<()> = conn
-        .set_ex(captcha_key(&id), chars.clone(), CAPTCHA_TTL_SECS)
+    // SET+EX 语句形（非 SETEX 命令）——mini-redis 测试面不认 SETEX，
+    // 答案落不了库会让 verify 永假（渐进验证码链路测试的前置修复）。
+    let _: redis::RedisResult<()> = redis::cmd("SET")
+        .arg(captcha_key(&id))
+        .arg(chars.clone())
+        .arg("EX")
+        .arg(CAPTCHA_TTL_SECS)
+        .query_async(&mut conn)
         .await;
     drop(conn);
     Ok((id, format!("data:image/png;base64,{b64}"), chars))

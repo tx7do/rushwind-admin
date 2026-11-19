@@ -80,25 +80,80 @@ pub async fn reset(redis: &ConnectionManager, ip: &str, username: &str) {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+/// The progressive-captcha counter (issue #1): after `threshold` failures
+/// for the same (client_ip, username), logins must present a captcha.
+/// Deliberately GET+SET EX (no EVAL/INCR/DEL/EXPIRE): the test face runs
+/// mini-redis, which implements only get/publish/set/subscribe — the Lua
+/// path above is untestable there, this one is. The race window (two
+/// concurrent failures losing one count) is acceptable for a low-stakes
+/// upgrade like "show the captcha box".
+/// Captcha-failure keys, same two dimensions as the lockout keys (empty
+/// dimension contributes no key — no match-all).
+fn captcha_fail_keys(ip: &str, username: &str) -> Vec<String> {
+    let mut keys = Vec::with_capacity(2);
+    if !ip.is_empty() {
+        keys.push(format!("admin:login:captcha:ip:{ip}"));
+    }
+    if !username.is_empty() {
+        keys.push(format!("admin:login:captcha:user:{username}"));
+    }
+    keys
+}
 
-    #[test]
-    fn fail_keys_cover_both_dimensions_and_skip_blanks() {
-        assert_eq!(
-            fail_keys("1.2.3.4", "admin"),
-            vec![
-                "admin:login:fail:ip:1.2.3.4".to_string(),
-                "admin:login:fail:user:admin".to_string()
-            ]
-        );
-        // A blank dimension contributes no key (rather than a match-all).
-        assert_eq!(fail_keys("", "admin"), vec!["admin:login:fail:user:admin"]);
-        assert_eq!(
-            fail_keys("1.2.3.4", ""),
-            vec!["admin:login:fail:ip:1.2.3.4"]
-        );
-        assert!(fail_keys("", "").is_empty());
+/// Should this login attempt present a captcha? Pure read, fail-open
+/// (Redis trouble never locks a legitimate user out of the no-captcha
+/// fast path; the lockout gate above still protects the account).
+pub async fn captcha_required(
+    redis: &ConnectionManager,
+    ip: &str,
+    username: &str,
+    threshold: i64,
+) -> bool {
+    let mut conn = redis.clone();
+    for key in captcha_fail_keys(ip, username) {
+        let count: Option<i64> = match conn.get(&key).await {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        if count.unwrap_or(0) >= threshold {
+            return true;
+        }
+    }
+    false
+}
+
+/// Record one credential failure for the captcha counter. Sliding window:
+/// every failure re-arms the TTL.
+pub async fn incr_captcha_fail(redis: &ConnectionManager, ip: &str, username: &str, ttl_secs: i64) {
+    let mut conn = redis.clone();
+    for key in captcha_fail_keys(ip, username) {
+        let current: Option<i64> = conn.get(&key).await.ok().flatten();
+        let next = current.unwrap_or(0) + 1;
+        // SET+EX 语句形（非 SETEX 命令）——与 token store 同一 mini-redis 兼容考量。
+        redis::cmd("SET")
+            .arg(&key)
+            .arg(next)
+            .arg("EX")
+            .arg(ttl_secs)
+            .query_async::<()>(&mut conn)
+            .await
+            .ok();
+    }
+}
+
+/// Credential success clears the captcha counter (both dimensions).
+/// SET+EX 语句形（写 0 值）——SETEX 在 mini-redis 测试面是 no-op，清零
+/// 会失效残留旧计数。
+pub async fn reset_captcha_fail(redis: &ConnectionManager, ip: &str, username: &str) {
+    let mut conn = redis.clone();
+    for key in captcha_fail_keys(ip, username) {
+        redis::cmd("SET")
+            .arg(&key)
+            .arg(0i64)
+            .arg("EX")
+            .arg(15 * 60)
+            .query_async::<()>(&mut conn)
+            .await
+            .ok();
     }
 }

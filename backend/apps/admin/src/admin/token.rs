@@ -209,17 +209,20 @@ impl TokenStore {
         refresh_token: &str,
     ) -> Result<(), String> {
         let mut conn = self.redis.clone();
+        // SET ... EX 语句形（非 SETEX 命令）：mini-redis 测试面只认
+        // get/publish/set/subscribe，SETEX 是 unknown command——语义等价
+        // 的 SET+EX 两端通吃（真实 redis 行为不变）。
         redis::pipe()
-            .set_ex(
-                at_key(CLIENT_TYPE_ADMIN, uid, jti),
-                access_token,
-                self.access_expires_secs as u64,
-            )
-            .set_ex(
-                rt_key(CLIENT_TYPE_ADMIN, uid, jti),
-                refresh_token,
-                self.refresh_expires_secs as u64,
-            )
+            .cmd("SET")
+            .arg(at_key(CLIENT_TYPE_ADMIN, uid, jti))
+            .arg(access_token)
+            .arg("EX")
+            .arg(self.access_expires_secs)
+            .cmd("SET")
+            .arg(rt_key(CLIENT_TYPE_ADMIN, uid, jti))
+            .arg(refresh_token)
+            .arg("EX")
+            .arg(self.refresh_expires_secs)
             .query_async::<()>(&mut conn)
             .await
             .map_err(|e| format!("redis add token pair: {e}"))?;
@@ -234,13 +237,14 @@ impl TokenStore {
         access_token: &str,
     ) -> Result<(), String> {
         let mut conn = self.redis.clone();
-        conn.set_ex(
-            at_key(CLIENT_TYPE_ADMIN, uid, jti),
-            access_token,
-            self.access_expires_secs as u64,
-        )
-        .await
-        .map_err(|e| format!("redis add access token: {e}"))
+        redis::cmd("SET")
+            .arg(at_key(CLIENT_TYPE_ADMIN, uid, jti))
+            .arg(access_token)
+            .arg("EX")
+            .arg(self.access_expires_secs)
+            .query_async::<()>(&mut conn)
+            .await
+            .map_err(|e| format!("redis add access token: {e}"))
     }
 
     /// IsValidAccessToken — exact stored-token compare.
@@ -315,13 +319,14 @@ impl TokenStore {
     ) -> Result<(), String> {
         let mut conn = self.redis.clone();
         let body = serde_json::to_string(meta).map_err(|e| e.to_string())?;
-        conn.set_ex(
-            us_key(CLIENT_TYPE_ADMIN, uid, jti),
-            body,
-            self.refresh_expires_secs as u64,
-        )
-        .await
-        .map_err(|e| format!("redis set session meta: {e}"))
+        redis::cmd("SET")
+            .arg(us_key(CLIENT_TYPE_ADMIN, uid, jti))
+            .arg(body)
+            .arg("EX")
+            .arg(self.refresh_expires_secs)
+            .query_async::<()>(&mut conn)
+            .await
+            .map_err(|e| format!("redis set session meta: {e}"))
     }
 
     /// Wired with the online-session service (storage phase).
