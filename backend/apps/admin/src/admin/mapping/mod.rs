@@ -103,8 +103,8 @@ pub use identity::{
     org_unit_type_of, org_unit_type_str, plan_expiry_policy_of, plan_expiry_policy_str,
     plan_quota_type_of, plan_quota_type_str, plan_version_of, plan_version_str, position_type_of,
     position_type_str, role_scope_of, role_scope_str, role_type_of, role_type_str,
-    tenant_status_of, tenant_status_str, tenant_type_of, tenant_type_str, user_gender_of,
-    user_status_of,
+    tenant_audit_status_of, tenant_audit_status_str, tenant_status_of, tenant_status_str,
+    tenant_type_of, tenant_type_str, user_gender_of, user_status_of,
 };
 pub use menu::{menu_module_of, menu_module_str, menu_type_of, menu_type_str};
 pub use message::{

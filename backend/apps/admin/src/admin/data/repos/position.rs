@@ -10,9 +10,11 @@ repo_shell!(tenant PositionRepo, entity);
 
 impl<'a> PositionRepo<'a> {
     pub async fn get_by_id(&self, id: i64) -> Result<entity::Model, StatusError> {
-        let mut query = entity::Entity::find_by_id(id);
+        let mut query = entity::Entity::find_by_id(id).filter(entity::Column::DeletedAt.is_null());
         if let Some(tid) = self.viewer.tenant_scope() {
-            query = entity::Entity::find_by_id(id).filter(entity::Column::TenantId.eq(tid));
+            query = entity::Entity::find_by_id(id)
+                .filter(entity::Column::TenantId.eq(tid))
+                .filter(entity::Column::DeletedAt.is_null());
         }
         query
             .one(self.db)
@@ -188,5 +190,36 @@ mod tests {
         seed_rows(&db).await;
         let repo = PositionRepo::new(&db, system());
         assert_eq!(repo.list().await.unwrap().len(), 3);
+    }
+
+    /// 软删（deleted_at 非空）行对宏的两臂读面统一不可见：list、
+    /// paged_list、get_by_id 都不再返回（回收站读面是未来的独立特性）。
+    #[tokio::test]
+    async fn soft_deleted_rows_are_invisible() {
+        let db = mem_db().await;
+        schema(&db).await;
+        seed_rows(&db).await;
+        entity::ActiveModel {
+            id: Set(1),
+            deleted_at: Set(Some(crate::data::now())),
+            ..Default::default()
+        }
+        .update(&db)
+        .await
+        .expect("park row 1");
+
+        let repo = PositionRepo::new(&db, viewer(7));
+        assert_eq!(
+            repo.list().await.unwrap().len(),
+            1,
+            "parked row hidden from the tenant list"
+        );
+        let err = repo.get_by_id(1).await.unwrap_err();
+        assert_eq!(err.reason, "NOT_FOUND");
+
+        let wide = PositionRepo::new(&db, system());
+        let (rows, total) = wide.paged_list(&PagingRequest::default()).await.unwrap();
+        assert_eq!(total, 2, "parked row hidden from the wide paging face");
+        assert!(rows.iter().all(|r| r.id != 1));
     }
 }

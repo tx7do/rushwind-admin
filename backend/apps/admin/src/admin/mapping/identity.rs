@@ -14,6 +14,8 @@ enum_map!(position_type_of + position_type_str => "identity.service.v1.Position.
 
 enum_map!(tenant_status_of + tenant_status_str => "identity.service.v1.Tenant.Status");
 
+enum_map!(tenant_audit_status_of + tenant_audit_status_str => "identity.service.v1.Tenant.AuditStatus");
+
 enum_map!(tenant_type_of + tenant_type_str => "identity.service.v1.Tenant.Type");
 
 enum_map!(plan_version_of + plan_version_str => "identity.service.v1.Plan.Version");

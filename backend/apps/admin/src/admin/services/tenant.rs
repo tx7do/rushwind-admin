@@ -41,6 +41,17 @@ fn type_to_str(v: i32) -> String {
     mapping::tenant_type_str(v).unwrap_or("PAID").into()
 }
 
+/// Unknown rows read as PENDING (the column default).
+fn audit_status_to_proto(s: &str) -> i32 {
+    mapping::tenant_audit_status_of(s).unwrap_or(1)
+}
+
+fn audit_status_to_str(v: i32) -> String {
+    mapping::tenant_audit_status_str(v)
+        .unwrap_or("PENDING")
+        .into()
+}
+
 fn tenant_proto(r: crate::admin::data::sys_tenants::Model) -> Tenant {
     Tenant {
         id: Some(r.id as u64),
@@ -60,11 +71,7 @@ fn tenant_proto(r: crate::admin::data::sys_tenants::Model) -> Tenant {
         plan_id: r.plan_id.map(|v| v as u64),
         member_count: None,
         status: r.status.as_deref().map(status_to_proto),
-        audit_status: r.audit_status.as_deref().map(|s| match s {
-            "APPROVED" => 1,
-            "REJECTED" => 2,
-            _ => 0,
-        }),
+        audit_status: r.audit_status.as_deref().map(audit_status_to_proto),
         created_by: r.created_by.map(|v| v as u64),
         updated_by: r.updated_by.map(|v| v as u64),
         deleted_by: r.deleted_by.map(|v| v as u64),
@@ -364,7 +371,14 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
                     .unwrap_or_else(|| "PAID".into()),
             )),
             status: Set(Some("ON".into())),
-            audit_status: Set(Some("APPROVED".into())),
+            // The drawer's selection wins; API callers omitting the field keep
+            // the historical admin-created default (APPROVED).
+            audit_status: Set(Some(
+                data.audit_status
+                    .filter(|v| *v != 0)
+                    .map(audit_status_to_str)
+                    .unwrap_or_else(|| "APPROVED".into()),
+            )),
             remark: Set(data.remark.clone()),
             expired_at: Set(data
                 .expired_at
@@ -415,6 +429,10 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
             }
             if let Some(v) = data.status {
                 a.status = Set(Some(status_to_str(v)));
+            }
+            // UNSPECIFIED (0) carries no opinion on a partial update.
+            if let Some(v) = data.audit_status.filter(|v| *v != 0) {
+                a.audit_status = Set(Some(audit_status_to_str(v)));
             }
             if let Some(v) = data.plan_id {
                 a.plan_id = Set(Some(v as i64));
@@ -561,4 +579,141 @@ pub(crate) async fn usage_for(
         plan_name,
         quotas: Vec::new(),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::{ctx, test_state};
+    use crate::proto::gen::services::TenantServiceHandlers as _;
+    use crate::proto::identity::service::v1::delete_tenant_request::QueryBy as DeleteQueryBy;
+
+    /// 平台管理员 ctx（tid=0 + ipa=true）：租户名录/详情是平台专属读口。
+    fn admin_ctx() -> rushwind_http_binding::ctx::RequestContext {
+        let mut c = ctx(0, 1);
+        if let Some(claims) = c.claims.as_mut() {
+            claims.insert("ipa".into(), serde_json::json!(true));
+        }
+        c
+    }
+
+    fn tenant(name: &str, audit: Option<i32>) -> Tenant {
+        Tenant {
+            name: Some(name.into()),
+            code: Some(name.into()),
+            audit_status: audit,
+            ..Default::default()
+        }
+    }
+
+    /// 审核状态全链往返（issue #6a）：create 尊重入参、读面按 proto 枚举
+    /// 原样返回（1=PENDING/2=APPROVED/3=REJECTED）、update 可改——保存的
+    /// 是「已通过」就不再显示「待审核」。删除是停车不是消失：列表不再
+    /// 出现（issue #6b）。
+    #[tokio::test]
+    async fn audit_status_round_trip_and_parked_invisibility() {
+        let state = test_state().await;
+        let svc = TenantService {
+            state: state.clone(),
+        };
+        let me = admin_ctx();
+
+        svc.create(
+            me.clone(),
+            CreateTenantRequest {
+                data: Some(tenant("acme", Some(2))),
+            },
+        )
+        .await
+        .unwrap();
+        svc.create(
+            me.clone(),
+            CreateTenantRequest {
+                data: Some(tenant("globex", Some(1))),
+            },
+        )
+        .await
+        .unwrap();
+
+        let listed = svc
+            .list(me.clone(), PagingRequest::default())
+            .await
+            .unwrap();
+        let acme = listed
+            .items
+            .iter()
+            .find(|t| t.code.as_deref() == Some("acme"))
+            .expect("acme listed");
+        assert_eq!(
+            acme.audit_status,
+            Some(2),
+            "created APPROVED reads APPROVED"
+        );
+        let globex = listed
+            .items
+            .iter()
+            .find(|t| t.code.as_deref() == Some("globex"))
+            .expect("globex listed");
+        assert_eq!(
+            globex.audit_status,
+            Some(1),
+            "created PENDING reads PENDING"
+        );
+        let acme_id = acme.id.unwrap() as i64;
+
+        // The drawer's change sticks: APPROVED -> REJECTED.
+        svc.update(
+            me.clone(),
+            UpdateTenantRequest {
+                id: acme_id as u64,
+                data: Some(Tenant {
+                    audit_status: Some(3),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let reread = svc
+            .get(
+                me.clone(),
+                GetTenantRequest {
+                    query_by: Some(
+                        proto::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                            acme_id as u64,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(reread.audit_status, Some(3), "update audit_status persists");
+
+        // Delete parks the row: list and the exists gate both forget it.
+        svc.delete(
+            me.clone(),
+            DeleteTenantRequest {
+                query_by: Some(DeleteQueryBy::Id(acme_id as u64)),
+            },
+        )
+        .await
+        .unwrap();
+        let after = svc
+            .list(me.clone(), PagingRequest::default())
+            .await
+            .unwrap();
+        assert_eq!(after.total, 1, "parked tenant leaves the list");
+        assert!(after.items.iter().all(|t| t.id != Some(acme_id as u64)));
+        // Recreating the parked tenant's code passes the exists gate.
+        svc.create(
+            me.clone(),
+            CreateTenantRequest {
+                data: Some(tenant("acme", Some(2))),
+            },
+        )
+        .await
+        .expect("parked code/name is reusable");
+    }
 }
