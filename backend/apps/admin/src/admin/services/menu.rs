@@ -277,9 +277,16 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
         // 不动 status）。两模式均在单个事务内执行。
         let txn = self.state.db.begin().await.map_err(db_err)?;
         if req.mode == Some(1) {
+            collapse_duplicate_menu_paths(&txn).await?;
             let existing = build_full_path_index(&txn).await?;
             sync_merge_tree(&txn, &req.items, None, "", &existing, payload.user_id).await?;
         } else {
+            // REPLACE 全量重建：角色-菜单授权随菜单一并清空（绑定与菜单
+            // 同生命周期，不留悬挂引用——基座 replaceMenuTree 同语义）。
+            crate::admin::data::sys_permission_menus::Entity::delete_many()
+                .exec(&txn)
+                .await
+                .map_err(db_err)?;
             crate::admin::data::sys_menus::Entity::delete_many()
                 .exec(&txn)
                 .await
@@ -349,6 +356,76 @@ where
         }
     }
     Ok(by_path)
+}
+
+/// MERGE 前置收敛：历史按 id upsert 留下的重复行（同全路径同链）收敛到
+/// 最小 id——子级重指到保留行，指向重复行的权限绑定直接删除（随下次
+/// 权限同步重建），重复行删除。孤儿（父缺失）按自身绝对路径独立成键；
+/// 空路径行不参与成键（它继承父键，撞父行会被误删）。
+async fn collapse_duplicate_menu_paths<C>(db: &C) -> Result<(), StatusError>
+where
+    C: sea_orm::ConnectionTrait,
+{
+    use crate::admin::data::sys_menus as menus;
+    use crate::admin::data::sys_permission_menus as permission_menus;
+    let rows = menus::Entity::find().all(db).await.map_err(db_err)?;
+    // 单趟按 id 序解析全路径键（seed/同步都保证先父后子的插入序，单趟够）。
+    let mut key_by_id: HashMap<i64, String> = HashMap::new();
+    for row in &rows {
+        let Some(path) = row.path.as_deref().map(str::trim).filter(|p| !p.is_empty()) else {
+            continue;
+        };
+        let key = match row.parent_id.and_then(|pid| key_by_id.get(&pid)) {
+            Some(pk) => join_menu_full_path(pk, path),
+            None => join_menu_full_path("", path),
+        };
+        key_by_id.insert(row.id, key);
+    }
+    let mut grouped: HashMap<&str, Vec<i64>> = HashMap::new();
+    for (id, key) in &key_by_id {
+        grouped.entry(key.as_str()).or_default().push(*id);
+    }
+    let mut repoint: HashMap<i64, i64> = HashMap::new();
+    let mut dup_ids: Vec<i64> = Vec::new();
+    for (_key, mut ids) in grouped {
+        if ids.len() < 2 {
+            continue;
+        }
+        ids.sort_unstable();
+        let (kept, dups) = ids.split_first().expect("len >= 2");
+        for dup in dups {
+            repoint.insert(*dup, *kept);
+            dup_ids.push(*dup);
+        }
+    }
+    if dup_ids.is_empty() {
+        return Ok(());
+    }
+    // 重复行的子级重指到保留行（映射重指无法在一条 UPDATE 里表达，逐行即可）。
+    for dup in &dup_ids {
+        if let Some(kept) = repoint.get(dup) {
+            menus::Entity::update_many()
+                .col_expr(
+                    menus::Column::ParentId,
+                    sea_orm::sea_query::Expr::value(*kept),
+                )
+                .filter(menus::Column::ParentId.eq(*dup))
+                .exec(db)
+                .await
+                .map_err(db_err)?;
+        }
+    }
+    permission_menus::Entity::delete_many()
+        .filter(permission_menus::Column::MenuId.is_in(dup_ids.clone()))
+        .exec(db)
+        .await
+        .map_err(db_err)?;
+    menus::Entity::delete_many()
+        .filter(menus::Column::Id.is_in(dup_ids))
+        .exec(db)
+        .await
+        .map_err(db_err)?;
+    Ok(())
 }
 
 /// REPLACE 模式的树插入：先插父节点拿 ID，再递归子节点。
@@ -575,4 +652,241 @@ pub(crate) fn menu_meta_to_json(
     put_i32(&mut obj, "order", meta.order);
     put_str(&mut obj, "title", &meta.title);
     serde_json::Value::Object(obj)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::admin::data::sys_menus as menus;
+    use crate::proto::gen::services::MenuServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
+    use sea_orm::{EntityTrait, PaginatorTrait};
+
+    fn menu(name: &str, path: &str, catalog: bool, children: Vec<Menu>) -> Menu {
+        Menu {
+            name: Some(name.into()),
+            path: Some(path.into()),
+            r#type: Some(mapping::menu_type_of(if catalog { "CATALOG" } else { "MENU" }).unwrap()),
+            children,
+            ..Default::default()
+        }
+    }
+
+    async fn row_by_path(db: &sea_orm::DatabaseConnection, path: &str) -> Option<menus::Model> {
+        menus::Entity::find()
+            .filter(menus::Column::Path.eq(path))
+            .one(db)
+            .await
+            .unwrap()
+    }
+
+    async fn total(db: &sea_orm::DatabaseConnection) -> u64 {
+        menus::Entity::find().count(db).await.unwrap()
+    }
+
+    async fn plant(
+        db: &sea_orm::DatabaseConnection,
+        name: &str,
+        path: &str,
+        parent: Option<i64>,
+    ) -> menus::Model {
+        menus::ActiveModel {
+            name: Set(name.into()),
+            path: Set(Some(path.into())),
+            type_column: Set(Some(if path.split('/').count() > 2 {
+                "MENU".into()
+            } else {
+                "CATALOG".into()
+            })),
+            parent_id: Set(parent),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    /// MERGE 按全路径匹配（issue #7）：不带 id 的推送树命中库存行原位
+    /// 更新保 id，不再旁生重复行；子级递归落位；二次同步幂等。
+    #[tokio::test]
+    async fn merge_matches_by_full_path_and_stays_idempotent() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let seed_row = plant(db, "dashboard", "/dashboard", None).await;
+
+        let request = SyncMenusRequest {
+            items: vec![Menu {
+                meta: Some(crate::proto::permission::service::v1::MenuMeta {
+                    title: Some("仪表盘".into()),
+                    ..Default::default()
+                }),
+                ..menu(
+                    "Dashboard",
+                    "/dashboard",
+                    true,
+                    vec![menu("Console", "/dashboard/console", false, vec![])],
+                )
+            }],
+            mode: Some(
+                crate::proto::permission::service::v1::sync_menus_request::Mode::Merge as i32,
+            ),
+        };
+        svc.sync_menus(me.clone(), request.clone()).await.unwrap();
+
+        assert_eq!(
+            total(db).await,
+            2,
+            "matched row updated in place, child inserted"
+        );
+        let kept = row_by_path(db, "/dashboard").await.expect("row survives");
+        assert_eq!(kept.id, seed_row.id, "the seed row keeps its id");
+        assert_eq!(
+            kept.name, "Dashboard",
+            "in-place update applies the pushed name"
+        );
+        assert_eq!(
+            kept.meta
+                .as_ref()
+                .and_then(|m| m.get("title"))
+                .and_then(|t| t.as_str()),
+            Some("仪表盘"),
+            "meta refreshed from the pushed tree"
+        );
+        let child = row_by_path(db, "/dashboard/console")
+            .await
+            .expect("child inserted");
+        assert_eq!(
+            child.parent_id,
+            Some(seed_row.id),
+            "child rides the matched parent"
+        );
+
+        // 二次同步：命中既有行 + 子级已存在——零新增。
+        svc.sync_menus(me, request).await.unwrap();
+        assert_eq!(total(db).await, 2, "second sync inserts nothing");
+    }
+
+    /// 存量重复行收敛：历史同步留下的同路径多行收敛到最小 id，子级与
+    /// 权限绑定重指，重复行删除（不再与 seed 行成对出现）。
+    #[tokio::test]
+    async fn merge_converges_preexisting_duplicates() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let seed_row = plant(db, "dashboard", "/dashboard", None).await;
+        let dup = plant(db, "Dashboard", "/dashboard", None).await;
+        let orphan_child = plant(db, "console", "console", Some(dup.id)).await;
+        crate::admin::data::sys_permission_menus::ActiveModel {
+            menu_id: Set(Some(dup.id)),
+            permission_id: Set(Some(9)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        svc.sync_menus(
+            me,
+            SyncMenusRequest {
+                items: vec![menu("Dashboard", "/dashboard", true, vec![])],
+                mode: Some(
+                    crate::proto::permission::service::v1::sync_menus_request::Mode::Merge as i32,
+                ),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            total(db).await,
+            2,
+            "dup row removed, child repointed survives"
+        );
+        assert!(row_by_path(db, "/dashboard").await.unwrap().id == seed_row.id);
+        let child = menus::Entity::find_by_id(orphan_child.id)
+            .one(db)
+            .await
+            .unwrap()
+            .expect("child survives");
+        assert_eq!(
+            child.parent_id,
+            Some(seed_row.id),
+            "child repointed to the kept row"
+        );
+        let bindings = crate::admin::data::sys_permission_menus::Entity::find()
+            .filter(crate::admin::data::sys_permission_menus::Column::MenuId.eq(dup.id))
+            .all(db)
+            .await
+            .unwrap();
+        assert!(
+            bindings.is_empty(),
+            "dup-row bindings dropped (rebuilt by permission sync)"
+        );
+    }
+
+    /// REPLACE 全量重建：菜单与绑定清空、按推送树重插、父链由键解析。
+    #[tokio::test]
+    async fn replace_rebuilds_the_tree() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let old = plant(db, "legacy", "/legacy", None).await;
+        crate::admin::data::sys_permission_menus::ActiveModel {
+            menu_id: Set(Some(old.id)),
+            permission_id: Set(Some(3)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        svc.sync_menus(
+            me,
+            SyncMenusRequest {
+                items: vec![menu(
+                    "Dashboard",
+                    "/dashboard",
+                    true,
+                    vec![menu("Console", "/dashboard/console", false, vec![])],
+                )],
+                mode: Some(
+                    crate::proto::permission::service::v1::sync_menus_request::Mode::Replace
+                        as i32,
+                ),
+            },
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(
+            total(db).await,
+            2,
+            "legacy rows and bindings wiped, tree rebuilt"
+        );
+        let root = row_by_path(db, "/dashboard").await.expect("root rebuilt");
+        let child = row_by_path(db, "/dashboard/console")
+            .await
+            .expect("child rebuilt");
+        assert_eq!(child.parent_id, Some(root.id));
+        assert!(
+            crate::admin::data::sys_permission_menus::Entity::find()
+                .filter(crate::admin::data::sys_permission_menus::Column::MenuId.eq(old.id))
+                .all(db)
+                .await
+                .unwrap()
+                .is_empty(),
+            "stale bindings do not survive a rebuild"
+        );
+    }
 }
