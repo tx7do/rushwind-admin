@@ -516,8 +516,8 @@ where
     Ok(())
 }
 
-/// MERGE 模式的增量合并：按全路径匹配——已存在则原位更新（保 ID、不动
-/// status；字段缺省不覆盖），缺失才新增。
+/// MERGE 模式的增量合并：按全路径匹配——已存在则原位更新（保 ID；
+/// 无掩码全量提交语义，字段缺省不覆盖），缺失才新增。
 #[allow(clippy::too_many_arguments)]
 async fn sync_merge_tree<C>(
     db: &C,
@@ -537,26 +537,14 @@ where
         }
         let row_id = match existing.get(&full_path) {
             Some(row) => {
+                // 命中：原位更新保 id（无掩码 apply_fields 全写——payload 缺
+                // 省的字段不动列）；结构（parent/module）以推送树为准覆写。
                 let mut a: crate::admin::data::sys_menus::ActiveModel = row.clone().into();
-                if let Some(v) = data.r#type {
-                    a.type_column = Set(Some(type_to_str(v)));
-                }
-                if let Some(v) = &data.path {
-                    a.path = Set(Some(v.clone()));
-                }
-                if let Some(v) = &data.redirect {
-                    a.redirect = Set(Some(v.clone()));
-                }
-                if let Some(v) = &data.component {
-                    a.component = Set(Some(v.clone()));
-                }
+                MenuService::apply_fields(&mut a, data, &crate::fieldmask::FieldMask::unmasked());
                 a.parent_id = Set(parent_id);
                 a.module = Set(module_for_component(
                     data.component.as_deref().unwrap_or(""),
                 ));
-                if let Some(meta) = &data.meta {
-                    a.meta = Set(Some(menu_meta_to_json(meta)));
-                }
                 crate::stamp_update!(a, operator_id);
                 a.update(db).await.map_err(db_err)?;
                 row.id

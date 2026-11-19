@@ -550,15 +550,15 @@ mod tests {
     fn resolves_against_the_admin_face_route_table() {
         let face = AuditFace::admin();
         assert_eq!(
-            resolve_operation(&Method::GET, "/admin/v1/access-keys", face),
+            resolve_operation(&Method::GET, "/admin/v1/access-keys", &face),
             "/admin.service.v1.AccessKeyService/List"
         );
         assert_eq!(
-            resolve_operation(&Method::GET, "/admin/v1/access-keys/42", face),
+            resolve_operation(&Method::GET, "/admin/v1/access-keys/42", &face),
             "/admin.service.v1.AccessKeyService/Get"
         );
         assert_eq!(
-            resolve_operation(&Method::POST, "/admin/v1/access-keys", face),
+            resolve_operation(&Method::POST, "/admin/v1/access-keys", &face),
             "/admin.service.v1.AccessKeyService/Create"
         );
     }
@@ -567,12 +567,12 @@ mod tests {
     fn resolve_unknown_route_and_method_miss() {
         let face = AuditFace::admin();
         assert_eq!(
-            resolve_operation(&Method::GET, "/admin/v1/no-such-thing", face),
+            resolve_operation(&Method::GET, "/admin/v1/no-such-thing", &face),
             ""
         );
         // The template only matches its own method.
         assert_eq!(
-            resolve_operation(&Method::PATCH, "/admin/v1/access-keys/42", face),
+            resolve_operation(&Method::PATCH, "/admin/v1/access-keys/42", &face),
             ""
         );
     }

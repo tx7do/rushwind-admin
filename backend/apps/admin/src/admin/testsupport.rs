@@ -82,7 +82,7 @@ pub(crate) async fn test_state() -> Arc<AppState> {
         jwt: rushwind_authn_jwt::JwtAuthenticator::new(
             rushwind_authn_jwt::JwtOptions::default().with_key(b"admin-api-test-secret"),
         ),
-        tokens: crate::token::TokenStore::new(redis, 3600, 86_400),
+        tokens: crate::admin::token::TokenStore::new(redis, 3600, 86_400),
         hub: crate::server::sse::Hub::default(),
         oss: None,
     })

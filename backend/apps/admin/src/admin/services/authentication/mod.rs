@@ -475,6 +475,7 @@ impl AuthenticationService {
                     "invalid or missing captcha",
                 ));
             }
+        }
 
         // Login-policy gate (global pass, user pass after credential).
         if self
@@ -778,7 +779,7 @@ mod progressive_captcha_tests {
             .await
             .expect("under threshold, no captcha demanded");
         assert!(
-            !crate::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
+            !crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
             "success resets the captcha counter"
         );
 
@@ -791,7 +792,7 @@ mod progressive_captcha_tests {
             assert_eq!(err.reason, "INVALID_PASSWORD");
         }
         assert!(
-            crate::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
+            crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
             "counter crossed the threshold"
         );
 
@@ -804,7 +805,7 @@ mod progressive_captcha_tests {
         assert_eq!(err.status, 400);
 
         // 带验证码（generate 真图）→ 通过且计数清零。
-        let (id, _img, value) = crate::captcha::generate(&state.redis).await.unwrap();
+        let (id, _img, value) = crate::admin::captcha::generate(&state.redis).await.unwrap();
         let mut with_captcha = me();
         with_captcha
             .headers
@@ -814,7 +815,7 @@ mod progressive_captcha_tests {
             .await
             .expect("captcha presented, credential accepted");
         assert!(
-            !crate::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
+            !crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
             "success clears the captcha counter"
         );
     }
@@ -834,7 +835,7 @@ mod progressive_captcha_tests {
                 .unwrap_err();
         }
         let mut with_bad = me();
-        let (id, _img, _value) = crate::captcha::generate(&state.redis).await.unwrap();
+        let (id, _img, _value) = crate::admin::captcha::generate(&state.redis).await.unwrap();
         with_bad.headers.insert("x-captcha-id".into(), id);
         with_bad
             .headers
@@ -846,7 +847,7 @@ mod progressive_captcha_tests {
         assert_eq!(err.reason, "CAPTCHA_INVALID");
         // 校验失败不计数：阈值不再上推（第 2 题定案）。
         assert!(
-            crate::ratelimit::captcha_required(&state.redis, "", "capuser2", threshold).await,
+            crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser2", threshold).await,
             "still required — captcha-gate failures don't increment"
         );
     }
