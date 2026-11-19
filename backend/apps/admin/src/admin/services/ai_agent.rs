@@ -613,8 +613,8 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
 mod tests {
     use super::*;
     use crate::data::sys_ai_agent_apps as apps;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::AiAgentServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(

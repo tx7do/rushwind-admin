@@ -556,8 +556,8 @@ pub(crate) fn user_to_proto(
 mod tests {
     use super::*;
     use crate::data::sys_users as users;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::UserServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, username: &str) -> users::Model {

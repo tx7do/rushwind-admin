@@ -186,8 +186,8 @@ impl crate::proto::gen::services::LoginPolicyServiceHandlers for LoginPolicyServ
 mod tests {
     use super::*;
     use crate::data::sys_login_policies as policies;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::LoginPolicyServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, tenant: i64, value: &str) -> policies::Model {

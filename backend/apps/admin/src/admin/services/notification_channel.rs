@@ -567,8 +567,8 @@ impl NotificationChannelService {
 mod tests {
     use super::*;
     use crate::data::sys_notification_channels as channels;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::NotificationChannelServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::{EntityTrait, Set};
 
     async fn plant(db: &sea_orm::DatabaseConnection, name: &str) -> channels::Model {

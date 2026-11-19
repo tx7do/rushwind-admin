@@ -150,8 +150,8 @@ impl crate::proto::gen::services::InternalMessageCategoryServiceHandlers
 mod tests {
     use super::*;
     use crate::data::internal_message_categories as categories;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::InternalMessageCategoryServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, tenant: i64, name: &str) -> categories::Model {

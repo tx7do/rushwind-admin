@@ -134,8 +134,8 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
 mod tests {
     use super::*;
     use crate::data::sys_ai_conversations as convs;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::AiConversationServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, title: &str) -> convs::Model {

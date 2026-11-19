@@ -1237,8 +1237,7 @@ mod tests {
                     vec![menu("Console", "/dashboard/console", false, vec![])],
                 )],
                 mode: Some(
-                    crate::proto::permission::service::v1::sync_menus_request::Mode::Replace
-                        as i32,
+                    crate::proto::permission::service::v1::sync_menus_request::Mode::Replace as i32,
                 ),
             },
         )

@@ -689,9 +689,9 @@ pub(crate) async fn usage_for(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::TenantServiceHandlers as _;
     use crate::proto::identity::service::v1::delete_tenant_request::QueryBy as DeleteQueryBy;
+    use crate::testsupport::{ctx, test_state};
 
     /// 平台管理员 ctx（tid=0 + ipa=true）：租户名录/详情是平台专属读口。
     fn admin_ctx() -> rushwind_http_binding::ctx::RequestContext {

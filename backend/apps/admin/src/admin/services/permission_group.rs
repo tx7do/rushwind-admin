@@ -159,8 +159,8 @@ impl crate::proto::gen::services::PermissionGroupServiceHandlers for PermissionG
 mod tests {
     use super::*;
     use crate::data::sys_permission_groups as groups;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::PermissionGroupServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, name: &str, module: &str) -> groups::Model {

@@ -414,10 +414,10 @@ impl crate::proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService 
 mod tests {
     use super::*;
     use crate::data::{sys_plan_modules, sys_plan_quotas, sys_plans};
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::{
         PlanModuleServiceHandlers as _, PlanQuotaServiceHandlers as _, PlanServiceHandlers as _,
     };
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant_plan(

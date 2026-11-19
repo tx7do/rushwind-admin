@@ -318,8 +318,8 @@ mod tests {
     // ---- update_mask 门控（sqlite 内存库走真 handler） ----
 
     use crate::data::sys_ai_providers as providers;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::AiProviderServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection) -> providers::Model {

@@ -171,10 +171,10 @@ impl crate::proto::gen::services::LanguageServiceHandlers for LanguageService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::testsupport::{ctx, test_state};
-    use crate::proto::gen::services::LanguageServiceHandlers as _;
     use crate::proto::dict::service::v1::get_language_request::QueryBy;
     use crate::proto::dict::service::v1::GetLanguageRequest;
+    use crate::proto::gen::services::LanguageServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     fn data(code: &str, name: &str) -> Language {

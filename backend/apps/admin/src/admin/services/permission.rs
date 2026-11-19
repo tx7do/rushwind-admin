@@ -9,13 +9,13 @@ use std::sync::Arc;
 
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, QueryOrder, Set};
 
-use crate::state::{db_err, not_found, operator_of, AppState, StatusError};
-use pbjson_types::Empty;
 use crate::proto::pagination::PagingRequest;
 use crate::proto::permission::service::v1::{
     CreatePermissionRequest, DeletePermissionRequest, GetPermissionRequest, ListPermissionResponse,
     Permission, UpdatePermissionRequest,
 };
+use crate::state::{db_err, not_found, operator_of, AppState, StatusError};
+use pbjson_types::Empty;
 
 /// 行集 → proto 集合，三张绑定/名称面各一次 IN 查询（issue #9d：旧实现
 /// 每行 3 条顺序 SQL × 不分页全量 ≈ 每刷一次权限页上千条查询，抽屉 10 秒+
@@ -1405,8 +1405,8 @@ mod sync_tests {
 mod update_mask_tests {
     use super::*;
     use crate::data::sys_permissions as perms;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::PermissionServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
 
     async fn plant(
         db: &sea_orm::DatabaseConnection,

@@ -693,8 +693,8 @@ mod description_tests {
 mod update_mask_tests {
     use super::*;
     use crate::data::sys_apis as apis;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::ApiServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
 
     async fn plant(db: &sea_orm::DatabaseConnection, path: &str, method: &str) -> apis::Model {
         apis::ActiveModel {

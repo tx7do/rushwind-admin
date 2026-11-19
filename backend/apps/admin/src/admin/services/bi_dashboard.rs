@@ -554,8 +554,8 @@ mod tests {
 mod update_mask_tests {
     use super::*;
     use crate::data::bi_dashboards as dashboards;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::BiDashboardServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, name: &str, code: &str) -> dashboards::Model {

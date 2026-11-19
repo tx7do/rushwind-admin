@@ -610,8 +610,7 @@ impl AuthenticationService {
             let _ = active.update(&self.state.db).await;
         }
         crate::admin::ratelimit::reset(&self.state.redis, &client_ip, &username).await;
-        crate::admin::ratelimit::reset_captcha_fail(&self.state.redis, &client_ip, &username)
-            .await;
+        crate::admin::ratelimit::reset_captcha_fail(&self.state.redis, &client_ip, &username).await;
 
         let secure = ctx
             .headers
@@ -779,7 +778,8 @@ mod progressive_captcha_tests {
             .await
             .expect("under threshold, no captcha demanded");
         assert!(
-            !crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
+            !crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser", threshold)
+                .await,
             "success resets the captcha counter"
         );
 
@@ -815,7 +815,8 @@ mod progressive_captcha_tests {
             .await
             .expect("captcha presented, credential accepted");
         assert!(
-            !crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser", threshold).await,
+            !crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser", threshold)
+                .await,
             "success clears the captcha counter"
         );
     }
@@ -847,7 +848,8 @@ mod progressive_captcha_tests {
         assert_eq!(err.reason, "CAPTCHA_INVALID");
         // 校验失败不计数：阈值不再上推（第 2 题定案）。
         assert!(
-            crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser2", threshold).await,
+            crate::admin::ratelimit::captcha_required(&state.redis, "", "capuser2", threshold)
+                .await,
             "still required — captcha-gate failures don't increment"
         );
     }

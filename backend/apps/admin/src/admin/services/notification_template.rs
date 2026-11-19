@@ -261,8 +261,8 @@ pub fn render_template(template: &str, vars: &BTreeMap<String, String>) -> Resul
 mod tests {
     use super::*;
     use crate::data::sys_notification_templates as templates;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::NotificationTemplateServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::{EntityTrait, Set};
 
     fn vars(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {

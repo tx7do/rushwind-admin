@@ -438,8 +438,8 @@ impl crate::proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
 mod tests {
     use super::*;
     use crate::data::sys_org_units as orgs;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::OrgUnitServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(

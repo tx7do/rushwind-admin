@@ -281,8 +281,8 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
 mod tests {
     use super::*;
     use crate::data::internal_messages as messages;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::InternalMessageServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(

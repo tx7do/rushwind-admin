@@ -440,8 +440,8 @@ impl crate::proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertSe
 mod tests {
     use super::*;
     use crate::data::sys_monitor_alert_rules as alert_rules;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::MonitorAlertServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::{EntityTrait, Set};
 
     async fn plant(db: &sea_orm::DatabaseConnection, name: &str) -> alert_rules::Model {

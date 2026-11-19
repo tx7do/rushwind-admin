@@ -605,8 +605,8 @@ mod tests {
     // ---- update_mask 门控（sqlite 内存库走真 handler） ----
 
     use crate::data::sys_ai_knowledge_bases as bases;
-    use crate::testsupport::{ctx, test_state};
     use crate::proto::gen::services::AiKnowledgeBaseServiceHandlers as _;
+    use crate::testsupport::{ctx, test_state};
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection) -> bases::Model {
