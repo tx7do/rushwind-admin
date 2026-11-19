@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use sea_orm::sea_query::Condition;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, TransactionTrait};
 
 use crate::admin::data::repos::UserRepo;
 use crate::admin::data::Viewer;
@@ -48,18 +48,28 @@ impl UserService {
     }
 
     /// The credential row create/update used by create + password edits.
-    async fn upsert_credential(
-        &self,
+    /// 传输形态统一入口（rsa-v1 信封优先，legacy AES 兼容），**明文兜底**：
+    /// 参照基座的 prepareCredential 接受明文直传（创建用户表单的历史形态），
+    /// 解密失败时原串按明文处理——两种前端形态都落到同一个 bcrypt 哈希。
+    async fn upsert_credential<C>(
+        db: &C,
         tenant_id: i64,
         user_id: i64,
         username: &str,
         encrypted_password: Option<&str>,
-    ) -> Result<(), StatusError> {
+    ) -> Result<(), StatusError>
+    where
+        C: sea_orm::ConnectionTrait,
+    {
         let Some(encrypted) = encrypted_password.filter(|v| !v.is_empty()) else {
             return Ok(());
         };
-        let plain = crate::admin::crypto::decrypt_transfer_password(encrypted)
-            .map_err(|_| status_error("BAD_REQUEST", "invalid credential format"))?;
+        let plain = match crate::admin::crypto::decrypt_transfer_password(encrypted) {
+            Ok(plain) => plain,
+            // 明文兜底：合法传输密文只有两种拼写，其余一律按明文收下
+            //（基座同语义：创建路径不解密，直接对传入串做策略校验+哈希）。
+            Err(_) => encrypted.to_string(),
+        };
         let hash = crate::admin::crypto::hash_password(&plain).map_err(internal_error)?;
         let existing = crate::admin::data::sys_user_credentials::Entity::find()
             .filter(
@@ -71,7 +81,7 @@ impl UserService {
                     )
                     .add(crate::admin::data::sys_user_credentials::Column::Identifier.eq(username)),
             )
-            .one(&self.state.db)
+            .one(db)
             .await
             .map_err(db_err)?;
         match existing {
@@ -79,7 +89,7 @@ impl UserService {
                 let mut a: crate::admin::data::sys_user_credentials::ActiveModel = row.into();
                 a.credential = Set(hash);
                 a.updated_at = Set(Some(crate::admin::data::now()));
-                a.update(&self.state.db).await.map_err(db_err)?;
+                a.update(db).await.map_err(db_err)?;
             }
             None => {
                 crate::admin::data::sys_user_credentials::ActiveModel {
@@ -95,7 +105,7 @@ impl UserService {
                     updated_at: Set(Some(crate::admin::data::now())),
                     ..Default::default()
                 }
-                .insert(&self.state.db)
+                .insert(db)
                 .await
                 .map_err(db_err)?;
             }
@@ -104,19 +114,22 @@ impl UserService {
     }
 
     /// The role binding for create/update (role_ids on the payload).
-    async fn sync_roles(
-        &self,
+    async fn sync_roles<C>(
+        db: &C,
         tenant_id: i64,
         user_id: i64,
         role_ids: &[u64],
-    ) -> Result<(), StatusError> {
+    ) -> Result<(), StatusError>
+    where
+        C: sea_orm::ConnectionTrait,
+    {
         crate::admin::data::sys_user_roles::Entity::delete_many()
             .filter(
                 Condition::all()
                     .add(crate::admin::data::sys_user_roles::Column::TenantId.eq(tenant_id))
                     .add(crate::admin::data::sys_user_roles::Column::UserId.eq(user_id)),
             )
-            .exec(&self.state.db)
+            .exec(db)
             .await
             .map_err(db_err)?;
         for role_id in role_ids {
@@ -130,7 +143,7 @@ impl UserService {
                 updated_at: Set(Some(crate::admin::data::now())),
                 ..Default::default()
             }
-            .insert(&self.state.db)
+            .insert(db)
             .await
             .map_err(db_err)?;
         }
@@ -268,16 +281,20 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         if a.status.clone().unwrap().is_none() {
             a.status = Set(Some("NORMAL".into()));
         }
-        let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
-        self.upsert_credential(
+        // 单事务：用户行 + 凭证 + 角色绑定原子落库——凭证/角色任一步失败
+        // 即整体回滚，不再留下"提示错误但用户已创建"的半创建行。
+        let txn = self.state.db.begin().await.map_err(db_err)?;
+        let inserted = a.insert(&txn).await.map_err(db_err)?;
+        Self::upsert_credential(
+            &txn,
             payload.tenant_id,
             inserted.id,
             &username,
             req.password.as_deref(),
         )
         .await?;
-        self.sync_roles(payload.tenant_id, inserted.id, &data.role_ids)
-            .await?;
+        Self::sync_roles(&txn, payload.tenant_id, inserted.id, &data.role_ids).await?;
+        txn.commit().await.map_err(db_err)?;
         Ok(Empty {})
     }
 
@@ -300,12 +317,18 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
             if !data.role_ids.is_empty() {
-                self.sync_roles(payload.tenant_id, req.id as i64, &data.role_ids)
-                    .await?;
+                Self::sync_roles(
+                    &self.state.db,
+                    payload.tenant_id,
+                    req.id as i64,
+                    &data.role_ids,
+                )
+                .await?;
             }
         }
         if req.password.as_deref().is_some_and(|v| !v.is_empty()) {
-            self.upsert_credential(
+            Self::upsert_credential(
+                &self.state.db,
                 payload.tenant_id,
                 req.id as i64,
                 &username_before,

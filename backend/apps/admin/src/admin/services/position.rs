@@ -110,14 +110,11 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             level: Set(data.level),
             headcount: Set(data.headcount.or(Some(0))),
             is_key_position: Set(data.is_key_position.or(Some(false))),
-            type_column: Set(Some(match data.r#type.unwrap_or(0) {
-                1 => "MANAGER".to_string(),
-                2 => "LEAD".to_string(),
-                3 => "INTERN".to_string(),
-                4 => "CONTRACT".to_string(),
-                5 => "OTHER".to_string(),
-                _ => "REGULAR".to_string(),
-            })),
+            type_column: Set(Some(
+                mapping::position_type_str(data.r#type.unwrap_or(0))
+                    .unwrap_or("REGULAR")
+                    .to_string(),
+            )),
             status: Set(Some("ON".into())),
             sort_order: Set(data.sort_order.or(Some(0))),
             remark: Set(data.remark),

@@ -31,9 +31,10 @@ const RESOLVE_CACHE_CAP: usize = 1024;
 /// status off `ON` → `tenant is not active`; expired under a
 /// `READONLY` plan → writes denied (`tenant is read-only due to
 /// expiry`); the route unregistered in `sys_apis` → fail-closed
-/// `access denied`; unclassified business module or a tenant without a
-/// plan or a module outside the plan whitelist → `module not allowed`
-/// / `no subscription plan`.
+/// `access denied`; unclassified business module → `module not
+/// allowed`; a tenant without a plan → `no subscription plan`; a plan
+/// with no whitelisted module → `tenant plan has no whitelisted
+/// modules`; a module outside the whitelist → `module not allowed`.
 pub struct TenantAccessChecker(pub Arc<AppState>);
 
 #[async_trait::async_trait]
@@ -91,9 +92,20 @@ impl auth::TenantAccessChecker for TenantAccessChecker {
             return Err("module not allowed".to_string());
         }
 
-        // 4. The plan module whitelist.
+        // 4. The plan module whitelist. A plan with NO whitelisted module
+        // answers its own message — "module not allowed" would send the
+        // tenant admin chasing a module name that no configuration can
+        // ever satisfy (the plan simply has nothing enabled).
         if plan_id == 0 {
             return Err("no subscription plan".to_string());
+        }
+        let whitelisted = sys_plan_modules::Entity::find()
+            .filter(sys_plan_modules::Column::PlanId.eq(plan_id))
+            .one(db)
+            .await
+            .map_err(|_| denied())?;
+        if whitelisted.is_none() {
+            return Err("tenant plan has no whitelisted modules".to_string());
         }
         let allowed = sys_plan_modules::Entity::find()
             .filter(

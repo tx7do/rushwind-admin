@@ -1,9 +1,12 @@
 //! MenuService — service layer:
-//! menu CRUD over `sys_menus` plus SyncMenus (upsert the posted list).
+//! menu CRUD over `sys_menus` plus SyncMenus — the posted route tree merges
+//! in REPLACE mode (wipe + rebuild) or MERGE mode (full-path identity
+//! merge that keeps ids and role bindings), both inside one transaction.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, TransactionTrait};
 
 use crate::admin::mapping;
 use crate::admin::state::{db_err, not_found, operator_of, status_error, AppState, StatusError};
@@ -31,6 +34,38 @@ fn module_to_proto(s: &str) -> i32 {
 /// Unknown rows read as SYSTEM.
 fn module_to_str(v: i32) -> String {
     mapping::menu_module_str(v).unwrap_or("SYSTEM").into()
+}
+
+/// 组件路径 → 业务模块派生（基座 ComponentToModule 同口径）：连字符归一为
+/// 下划线（react 端页面目录用连字符，种子与另两端用下划线），前缀表匹配；
+/// `BasicLayout`/空串/未登记前缀落 None——module 列保持 NULL（套餐白名单
+/// 对 NULL 放行，不会误过滤）。
+fn module_for_component(component: &str) -> Option<String> {
+    let c = component.replace('-', "_");
+    if c.is_empty() || c == "BasicLayout" {
+        return None;
+    }
+    // PRINT 前缀必须排在 SYSTEM 之前（更长前缀优先，基座同序）。
+    const PREFIXES: &[(&str, i32)] = &[
+        ("dashboard/", 1),
+        ("app/opm/", 2),
+        ("app/system/print_template/", 12),
+        ("app/system/", 3),
+        ("app/dict/", 4),
+        ("app/tenant/", 5),
+        ("app/permission/", 6),
+        ("app/log/", 7),
+        ("app/internal_message/", 8),
+        ("app/file/", 9),
+        ("app/task/", 10),
+        ("app/ai/", 11),
+    ];
+    for (prefix, module) in PREFIXES {
+        if c.starts_with(prefix) {
+            return Some(module_to_str(*module));
+        }
+    }
+    None
 }
 
 fn menu_proto(r: crate::admin::data::sys_menus::Model) -> Menu {
@@ -237,41 +272,211 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
         req: SyncMenusRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        // Upsert mode: rows with ids update; rows without ids insert.
-        for data in &req.items {
-            match data.id {
-                Some(id) if id > 0 => {
-                    if let Some(row) = crate::admin::data::sys_menus::Entity::find_by_id(id as i64)
-                        .one(&self.state.db)
-                        .await
-                        .map_err(db_err)?
-                    {
-                        let mut a: crate::admin::data::sys_menus::ActiveModel = row.into();
-                        Self::apply_fields(&mut a, data);
-                        crate::stamp_update!(a, payload.user_id);
-                        a.update(&self.state.db).await.map_err(db_err)?;
-                    }
-                }
-                _ => {
-                    let mut a = crate::admin::data::sys_menus::ActiveModel {
-                        name: Set(data.name.clone().unwrap_or_default()),
-                        created_by: Set(Some(payload.user_id)),
-                        created_at: Set(Some(crate::admin::data::now())),
-                        updated_at: Set(Some(crate::admin::data::now())),
-                        ..Default::default()
-                    };
-                    Self::apply_fields(&mut a, data);
-                    if data.status.is_none() {
-                        a.status = Set(Some("ON".into()));
-                    }
-                    a.insert(&self.state.db).await.map_err(db_err)?;
-                }
-            }
+        // 两模式契约（基座同语义）：REPLACE（缺省）= 清空重建（菜单 ID 全变，
+        // 角色授权依赖 full_path 快照存活）；MERGE = 按全路径增量合并（保 ID、
+        // 不动 status）。两模式均在单个事务内执行。
+        let txn = self.state.db.begin().await.map_err(db_err)?;
+        if req.mode == Some(1) {
+            let existing = build_full_path_index(&txn).await?;
+            sync_merge_tree(&txn, &req.items, None, "", &existing, payload.user_id).await?;
+        } else {
+            crate::admin::data::sys_menus::Entity::delete_many()
+                .exec(&txn)
+                .await
+                .map_err(db_err)?;
+            sync_insert_tree(&txn, &req.items, None, payload.user_id).await?;
         }
+        txn.commit().await.map_err(db_err)?;
         // 显式 id 插入后序列可能落后——对齐一次，防首个 API 插入撞 pkey
         let _ = crate::admin::seed::realign_sequence(&self.state.db, "sys_menus").await;
         Ok(Empty {})
     }
+}
+
+/// 菜单全路径身份键：子节点相对路径拼在父全路径后，绝对路径子节点按绝对
+/// 处理，空路径继承父全路径（基座 joinMenuFullPath 同口径）。
+fn join_menu_full_path(parent_full_path: &str, path: &str) -> String {
+    let path = path.trim();
+    if path.is_empty() {
+        return parent_full_path.to_string();
+    }
+    if path.starts_with('/') {
+        return path.to_string();
+    }
+    if parent_full_path.is_empty() || parent_full_path == "/" {
+        return format!("/{path}");
+    }
+    format!("{}/{}", parent_full_path.trim_end_matches('/'), path)
+}
+
+/// 全路径 → 现有菜单行。加载全部菜单按 parent 链树遍历（visited 防环——
+/// 脏环数据下收敛，不打转挂死），全路径按 [`join_menu_full_path`] 派生。
+async fn build_full_path_index<C>(
+    db: &C,
+) -> Result<HashMap<String, crate::admin::data::sys_menus::Model>, StatusError>
+where
+    C: sea_orm::ConnectionTrait,
+{
+    use crate::admin::data::sys_menus as menus;
+    let rows = menus::Entity::find().all(db).await.map_err(db_err)?;
+    let mut children_of: HashMap<i64, Vec<menus::Model>> = HashMap::new();
+    let mut roots: Vec<menus::Model> = Vec::new();
+    for row in rows {
+        match row.parent_id {
+            Some(pid) if pid > 0 => children_of.entry(pid).or_default().push(row),
+            _ => roots.push(row),
+        }
+    }
+    let mut by_path = HashMap::new();
+    // (node, full_path) 栈式 DFS；visited 防环。
+    let mut visited: Vec<i64> = Vec::new();
+    let mut stack: Vec<(menus::Model, String)> = roots
+        .into_iter()
+        .map(|r| {
+            let fp = join_menu_full_path("", r.path.as_deref().unwrap_or(""));
+            (r, fp)
+        })
+        .collect();
+    while let Some((row, full_path)) = stack.pop() {
+        if visited.contains(&row.id) {
+            continue;
+        }
+        visited.push(row.id);
+        by_path.insert(full_path.clone(), row.clone());
+        for child in children_of.remove(&row.id).unwrap_or_default() {
+            let fp = join_menu_full_path(&full_path, child.path.as_deref().unwrap_or(""));
+            stack.push((child, fp));
+        }
+    }
+    Ok(by_path)
+}
+
+/// REPLACE 模式的树插入：先插父节点拿 ID，再递归子节点。
+async fn sync_insert_tree<C>(
+    db: &C,
+    items: &[Menu],
+    parent_id: Option<i64>,
+    operator_id: i64,
+) -> Result<(), StatusError>
+where
+    C: sea_orm::ConnectionTrait,
+{
+    for data in items {
+        let mut a = crate::admin::data::sys_menus::ActiveModel {
+            name: Set(data.name.clone().unwrap_or_default()),
+            parent_id: Set(parent_id),
+            module: Set(module_for_component(
+                data.component.as_deref().unwrap_or(""),
+            )),
+            created_by: Set(Some(operator_id)),
+            created_at: Set(Some(crate::admin::data::now())),
+            updated_at: Set(Some(crate::admin::data::now())),
+            ..Default::default()
+        };
+        MenuService::apply_fields(&mut a, data);
+        a.parent_id = Set(parent_id); // apply_fields 只在 Some 时写；树形 parent 以递归链为准
+        a.module = Set(module_for_component(
+            data.component.as_deref().unwrap_or(""),
+        ));
+        if data.status.is_none() {
+            a.status = Set(Some("ON".into()));
+        }
+        let inserted = a.insert(db).await.map_err(db_err)?;
+        if !data.children.is_empty() {
+            Box::pin(sync_insert_tree(
+                db,
+                &data.children,
+                Some(inserted.id),
+                operator_id,
+            ))
+            .await?;
+        }
+    }
+    Ok(())
+}
+
+/// MERGE 模式的增量合并：按全路径匹配——已存在则原位更新（保 ID、不动
+/// status；字段缺省不覆盖），缺失才新增。
+#[allow(clippy::too_many_arguments)]
+async fn sync_merge_tree<C>(
+    db: &C,
+    items: &[Menu],
+    parent_id: Option<i64>,
+    parent_full_path: &str,
+    existing: &HashMap<String, crate::admin::data::sys_menus::Model>,
+    operator_id: i64,
+) -> Result<(), StatusError>
+where
+    C: sea_orm::ConnectionTrait,
+{
+    for data in items {
+        let full_path = join_menu_full_path(parent_full_path, data.path.as_deref().unwrap_or(""));
+        if full_path.is_empty() {
+            continue;
+        }
+        let row_id = match existing.get(&full_path) {
+            Some(row) => {
+                let mut a: crate::admin::data::sys_menus::ActiveModel = row.clone().into();
+                if let Some(v) = data.r#type {
+                    a.type_column = Set(Some(type_to_str(v)));
+                }
+                if let Some(v) = &data.path {
+                    a.path = Set(Some(v.clone()));
+                }
+                if let Some(v) = &data.redirect {
+                    a.redirect = Set(Some(v.clone()));
+                }
+                if let Some(v) = &data.component {
+                    a.component = Set(Some(v.clone()));
+                }
+                a.parent_id = Set(parent_id);
+                a.module = Set(module_for_component(
+                    data.component.as_deref().unwrap_or(""),
+                ));
+                if let Some(meta) = &data.meta {
+                    a.meta = Set(Some(menu_meta_to_json(meta)));
+                }
+                crate::stamp_update!(a, operator_id);
+                a.update(db).await.map_err(db_err)?;
+                row.id
+            }
+            None => {
+                let mut a = crate::admin::data::sys_menus::ActiveModel {
+                    name: Set(data.name.clone().unwrap_or_default()),
+                    parent_id: Set(parent_id),
+                    module: Set(module_for_component(
+                        data.component.as_deref().unwrap_or(""),
+                    )),
+                    created_by: Set(Some(operator_id)),
+                    created_at: Set(Some(crate::admin::data::now())),
+                    updated_at: Set(Some(crate::admin::data::now())),
+                    ..Default::default()
+                };
+                MenuService::apply_fields(&mut a, data);
+                a.parent_id = Set(parent_id);
+                a.module = Set(module_for_component(
+                    data.component.as_deref().unwrap_or(""),
+                ));
+                if data.status.is_none() {
+                    a.status = Set(Some("ON".into()));
+                }
+                let inserted = a.insert(db).await.map_err(db_err)?;
+                inserted.id
+            }
+        };
+        if !data.children.is_empty() {
+            Box::pin(sync_merge_tree(
+                db,
+                &data.children,
+                Some(row_id),
+                &full_path,
+                existing,
+                operator_id,
+            ))
+            .await?;
+        }
+    }
+    Ok(())
 }
 
 /// entity jsonb (protojson keys) → MenuMeta proto.

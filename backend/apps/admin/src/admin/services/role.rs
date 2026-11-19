@@ -22,13 +22,7 @@ use crate::proto::permission::service::v1::{
 use pbjson_types::Empty;
 
 fn scope_to_str(v: i32) -> String {
-    match v {
-        1 => "SELF".into(),
-        2 => "UNIT_ONLY".into(),
-        3 => "UNIT_AND_CHILD".into(),
-        4 => "SELECTED_UNITS".into(),
-        _ => "ALL".into(),
-    }
+    mapping::role_scope_str(v).unwrap_or("ALL").into()
 }
 
 /// Unknown rows read as the zero variant.
@@ -36,9 +30,9 @@ fn scope_to_proto(s: &str) -> i32 {
     mapping::role_scope_of(s).unwrap_or(0)
 }
 
-/// Unknown rows read as 3 (CUSTOM).
+/// Unknown rows read as the zero variant (the enum has no CUSTOM arm).
 fn type_to_proto(s: &str) -> i32 {
-    mapping::role_type_of(s).unwrap_or(3)
+    mapping::role_type_of(s).unwrap_or(0)
 }
 
 async fn role_proto(state: &AppState, r: crate::admin::data::sys_roles::Model) -> Role {
@@ -152,11 +146,7 @@ impl RoleService {
     }
 
     fn type_to_str(v: i32) -> String {
-        match v {
-            1 => "SYSTEM".into(),
-            2 => "TEMPLATE".into(),
-            _ => "TENANT".into(),
-        }
+        mapping::role_type_str(v).unwrap_or("TENANT").into()
     }
 
     /// 角色码保留字（上游 IsReservedRoleCode 同口径）：platform: / template:
@@ -615,35 +605,33 @@ mod tests {
 
     #[test]
     fn scope_round_trip_with_default_all() {
-        // 四档显式值双向；未知值两侧都落 ALL/0
+        // 全部显式值双向（编号即 proto DataScope）；未知值两侧都落 ALL/0
         for (i, name) in [
-            (1, "SELF"),
-            (2, "UNIT_ONLY"),
-            (3, "UNIT_AND_CHILD"),
-            (4, "SELECTED_UNITS"),
+            (1, "ALL"),
+            (2, "SELF"),
+            (3, "UNIT_ONLY"),
+            (4, "UNIT_AND_CHILD"),
+            (5, "SELECTED_UNITS"),
         ] {
             assert_eq!(scope_to_str(i), name);
             assert_eq!(scope_to_proto(name), i);
         }
-        // 0/未知 → ALL；库中未知串 → 0
-        assert_eq!(scope_to_str(0), "ALL");
+        // 未知 → ALL；库中未知串 → 0
         assert_eq!(scope_to_str(99), "ALL");
-        assert_eq!(scope_to_proto("ALL"), 0);
         assert_eq!(scope_to_proto("GARBAGE"), 0);
     }
 
     #[test]
     fn type_mapping_defaults_to_tenant_on_unknown_rows() {
-        // 库中未知串读 CUSTOM(3)——历史行防御（与 fn 注释一致）
-        assert_eq!(type_to_proto("SYSTEM"), 1);
-        assert_eq!(type_to_proto("TEMPLATE"), 2);
-        assert_eq!(type_to_proto("TENANT"), 3);
-        assert_eq!(type_to_proto("GARBAGE"), 3);
-        // 反向：1/2/3 与其余
-        assert_eq!(super::RoleService::type_to_str(1), "SYSTEM");
-        assert_eq!(RoleService::type_to_str(2), "TEMPLATE");
-        assert_eq!(RoleService::type_to_str(3), "TENANT");
-        assert_eq!(RoleService::type_to_str(0), "TENANT");
+        // 编号即 proto Role.Type；库中未知串读 UNSPECIFIED(0)
+        assert_eq!(type_to_proto("SYSTEM"), 0);
+        assert_eq!(type_to_proto("TEMPLATE"), 1);
+        assert_eq!(type_to_proto("TENANT"), 2);
+        assert_eq!(type_to_proto("GARBAGE"), 0);
+        // 反向：0/1/2 显式，其余落 TENANT
+        assert_eq!(super::RoleService::type_to_str(0), "SYSTEM");
+        assert_eq!(RoleService::type_to_str(1), "TEMPLATE");
+        assert_eq!(RoleService::type_to_str(2), "TENANT");
         assert_eq!(RoleService::type_to_str(99), "TENANT");
     }
 }
