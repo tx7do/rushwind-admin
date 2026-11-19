@@ -277,3 +277,21 @@ fn human_size(bytes: u64) -> String {
     }
     format!("{size:.2}{}", units[unit])
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn human_size_stops_at_gb() {
+        assert_eq!(human_size(0), "0.00B");
+        assert_eq!(human_size(1), "1.00B");
+        assert_eq!(human_size(1023), "1023.00B");
+        assert_eq!(human_size(1024), "1.00KB");
+        assert_eq!(human_size(1536), "1.50KB");
+        assert_eq!(human_size(1024 * 1024), "1.00MB");
+        assert_eq!(human_size(1024 * 1024 * 1024), "1.00GB");
+        // Above GB the unit saturates instead of switching family.
+        assert_eq!(human_size(5 * 1024u64.pow(4)), "5120.00GB");
+    }
+}

@@ -491,3 +491,326 @@ pub async fn run(
 
     response
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::http::HeaderMap;
+
+    /// A URL-safe unpadded bearer JWT whose payload carries the given
+    /// claim JSON (signature unchecked — attribution only).
+    fn bearer_with_claims(json: &str) -> HeaderMap {
+        use base64::Engine as _;
+        let payload = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(json);
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::AUTHORIZATION,
+            format!("Bearer header.{payload}.signature")
+                .parse()
+                .unwrap(),
+        );
+        headers
+    }
+
+    // ---- path_matches ----
+
+    #[test]
+    fn path_exact_and_template_match() {
+        assert!(path_matches("/admin/v1/users", "/admin/v1/users"));
+        assert!(path_matches("/admin/v1/users/{id}", "/admin/v1/users/42"));
+        assert!(path_matches(
+            "/admin/v1/users/{id}/roles/{rid}",
+            "/admin/v1/users/42/roles/7"
+        ));
+        // Leading/trailing slashes are insignificant.
+        assert!(path_matches("/admin/v1/users", "/admin/v1/users/"));
+        assert!(path_matches("admin/v1/users", "/admin/v1/users"));
+    }
+
+    #[test]
+    fn path_template_mismatches() {
+        // A literal segment must match exactly.
+        assert!(!path_matches("/admin/v1/users", "/admin/v1/roles"));
+        // Segment count must match.
+        assert!(!path_matches("/admin/v1/users/{id}", "/admin/v1/users"));
+        assert!(!path_matches("/admin/v1/users", "/admin/v1/users/42"));
+        // A template segment is literal, not a wildcard.
+        assert!(!path_matches("/admin/v1/users/{id}", "/admin/v1/roles/42"));
+    }
+
+    // ---- resolve_operation ----
+
+    #[test]
+    fn resolves_against_the_admin_face_route_table() {
+        let face = AuditFace::admin();
+        assert_eq!(
+            resolve_operation(&Method::GET, "/admin/v1/access-keys", face),
+            "/admin.service.v1.AccessKeyService/List"
+        );
+        assert_eq!(
+            resolve_operation(&Method::GET, "/admin/v1/access-keys/42", face),
+            "/admin.service.v1.AccessKeyService/Get"
+        );
+        assert_eq!(
+            resolve_operation(&Method::POST, "/admin/v1/access-keys", face),
+            "/admin.service.v1.AccessKeyService/Create"
+        );
+    }
+
+    #[test]
+    fn resolve_unknown_route_and_method_miss() {
+        let face = AuditFace::admin();
+        assert_eq!(
+            resolve_operation(&Method::GET, "/admin/v1/no-such-thing", face),
+            ""
+        );
+        // The template only matches its own method.
+        assert_eq!(
+            resolve_operation(&Method::PATCH, "/admin/v1/access-keys/42", face),
+            ""
+        );
+    }
+
+    // ---- request_id ----
+
+    #[test]
+    fn request_id_priority_order() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-correlation-id", "corr".parse().unwrap());
+        headers.insert("x-request-id", "req".parse().unwrap());
+        assert_eq!(request_id(&headers), "req");
+
+        headers.remove("x-request-id");
+        assert_eq!(request_id(&headers), "corr");
+
+        headers.insert("x-fc-request-id", "fc".parse().unwrap());
+        headers.remove("x-correlation-id");
+        assert_eq!(request_id(&headers), "fc");
+    }
+
+    #[test]
+    fn request_id_skips_empty_values_and_falls_back_to_uuid() {
+        let mut headers = HeaderMap::new();
+        headers.insert("x-request-id", "".parse().unwrap());
+        let fallback = request_id(&headers);
+        // A v4 UUID keeps the version nibble and the hyphen layout.
+        assert_eq!(fallback.len(), 36);
+        assert_eq!(fallback.as_bytes()[14], b'4');
+    }
+
+    // ---- claims_from_token ----
+
+    #[test]
+    fn claims_decode_uid_tid_sub() {
+        let headers = bearer_with_claims(r#"{"uid":7,"tid":3,"sub":"admin"}"#);
+        assert_eq!(
+            claims_from_token(&headers),
+            Some((7, 3, "admin".to_string()))
+        );
+    }
+
+    #[test]
+    fn claims_default_missing_tid_and_sub() {
+        let headers = bearer_with_claims(r#"{"uid":9}"#);
+        assert_eq!(claims_from_token(&headers), Some((9, 0, String::new())));
+    }
+
+    #[test]
+    fn claims_none_without_bearer_or_payload() {
+        // No Authorization header at all.
+        assert_eq!(claims_from_token(&HeaderMap::new()), None);
+        // Another scheme rides.
+        let mut headers = HeaderMap::new();
+        headers.insert(header::AUTHORIZATION, "Basic abc".parse().unwrap());
+        assert_eq!(claims_from_token(&headers), None);
+        // Missing the payload segment.
+        let mut headers = HeaderMap::new();
+        headers.insert(header::AUTHORIZATION, "Bearer onlyheader".parse().unwrap());
+        assert_eq!(claims_from_token(&headers), None);
+        // Non-numeric uid.
+        let headers = bearer_with_claims(r#"{"uid":"seven"}"#);
+        assert_eq!(claims_from_token(&headers), None);
+    }
+
+    // ---- target_name_from_body ----
+
+    #[test]
+    fn target_name_priority_chain_inside_data() {
+        // `name` leads the chain, ahead of title/code.
+        assert_eq!(
+            target_name_from_body(&Some(r#"{"data":{"title":"t","name":"n"}}"#.into())),
+            Some("n".to_string())
+        );
+        assert_eq!(
+            target_name_from_body(&Some(r#"{"data":{"code":"c"}}"#.into())),
+            Some("c".to_string())
+        );
+    }
+
+    #[test]
+    fn target_name_falls_back_to_top_level_and_skips_empty() {
+        // No `data` envelope: the root object is probed.
+        assert_eq!(
+            target_name_from_body(&Some(r#"{"nickname":"nick"}"#.into())),
+            Some("nick".to_string())
+        );
+        // An empty name yields to the next key in the chain.
+        assert_eq!(
+            target_name_from_body(&Some(r#"{"data":{"name":"","realname":"real"}}"#.into())),
+            Some("real".to_string())
+        );
+    }
+
+    #[test]
+    fn target_name_none_shapes() {
+        assert_eq!(target_name_from_body(&None), None);
+        assert_eq!(target_name_from_body(&Some("not-json".into())), None);
+        assert_eq!(target_name_from_body(&Some(r#"{"data":{}}"#.into())), None);
+        // A non-string name field is not a target.
+        assert_eq!(
+            target_name_from_body(&Some(r#"{"data":{"name":42}}"#.into())),
+            None
+        );
+    }
+
+    // ---- login_username ----
+
+    #[test]
+    fn login_username_body_wins_over_header() {
+        assert_eq!(
+            login_username(&Some(r#"{"username":"body"}"#.into()), "header"),
+            "body"
+        );
+    }
+
+    #[test]
+    fn login_username_header_fallbacks() {
+        // Invalid JSON.
+        assert_eq!(login_username(&Some("not-json".into()), "header"), "header");
+        // No username key.
+        assert_eq!(
+            login_username(&Some(r#"{"user":"x"}"#.into()), "header"),
+            "header"
+        );
+        // No body at all.
+        assert_eq!(login_username(&None, "header"), "header");
+    }
+
+    // ---- parse_target_and_action ----
+
+    #[test]
+    fn parses_target_and_every_action() {
+        let cases = [
+            ("/admin.service.v1.RoleService/Create", ("role", "CREATE")),
+            (
+                "/admin.service.v1.RoleService/BatchCreate",
+                ("role", "CREATE"),
+            ),
+            ("/admin.service.v1.RoleService/Update", ("role", "UPDATE")),
+            ("/admin.service.v1.RoleService/Delete", ("role", "DELETE")),
+            (
+                "/admin.service.v1.RoleService/BatchDelete",
+                ("role", "DELETE"),
+            ),
+            ("/admin.service.v1.RoleService/Assign", ("role", "ASSIGN")),
+            (
+                "/admin.service.v1.RoleService/Unassign",
+                ("role", "UNASSIGN"),
+            ),
+            ("/admin.service.v1.RoleService/Export", ("role", "OTHER")),
+        ];
+        for (operation, (target, action)) in cases {
+            assert_eq!(
+                parse_target_and_action(operation),
+                Some((target.to_string(), action.to_string())),
+                "operation {operation}"
+            );
+        }
+    }
+
+    #[test]
+    fn parses_the_service_suffix_off_the_target() {
+        // Not "v1role": the version segment is dropped with the rest of
+        // the package path.
+        assert_eq!(
+            parse_target_and_action("/admin.service.v1.MfaService/Update"),
+            Some(("mfa".to_string(), "UPDATE".to_string()))
+        );
+    }
+
+    #[test]
+    fn parse_rejects_malformed_operations() {
+        // Trailing slash — no method part.
+        assert_eq!(
+            parse_target_and_action("/admin.service.v1.RoleService/"),
+            None
+        );
+        // No dot in the service part.
+        assert_eq!(parse_target_and_action("service/Create"), None);
+        // No slash at all.
+        assert_eq!(parse_target_and_action("noslash"), None);
+    }
+
+    // ---- last_numeric_segment ----
+
+    #[test]
+    fn last_numeric_segment_finds_the_resource_id() {
+        assert_eq!(
+            last_numeric_segment("/admin/v1/users/42"),
+            Some("42".into())
+        );
+        assert_eq!(
+            last_numeric_segment("/admin/v1/users/42/roles/7"),
+            Some("7".into())
+        );
+        // A trailing slash does not hide the id.
+        assert_eq!(
+            last_numeric_segment("/admin/v1/users/42/"),
+            Some("42".into())
+        );
+        // Scanning runs from the end: the trailing literal does not stop it.
+        assert_eq!(
+            last_numeric_segment("/admin/v1/tenants/7/members"),
+            Some("7".into())
+        );
+    }
+
+    #[test]
+    fn last_numeric_segment_none_shapes() {
+        // No numeric segment anywhere in the path.
+        assert_eq!(last_numeric_segment("/admin/v1/users"), None);
+        assert_eq!(last_numeric_segment("/admin/v1/users/me"), None);
+        assert_eq!(last_numeric_segment("/admin/v1/users/me/settings"), None);
+    }
+
+    // ---- AuditFace ----
+
+    #[test]
+    fn from_rows_face_has_empty_skip_lists() {
+        let face = AuditFace::from_rows(&[("GET", "/biz/v1/things", "/biz.service.v1.Thing/List")]);
+        assert!(!face.login_ops.contains(&"/biz.service.v1.Thing/List"));
+        assert!(!face.skip_api_audit.contains(&"/biz.service.v1.Thing/List"));
+        assert!(!face.session_only.contains(&"/biz.service.v1.Thing/List"));
+        assert_eq!(
+            resolve_operation(&Method::GET, "/biz/v1/things", &face),
+            "/biz.service.v1.Thing/List"
+        );
+    }
+
+    #[test]
+    fn admin_face_carries_the_login_family_skips() {
+        let face = AuditFace::admin();
+        let login = "/admin.service.v1.AuthenticationService/Login";
+        let refresh = "/admin.service.v1.AuthenticationService/RefreshToken";
+        assert!(face.login_ops.contains(&login));
+        assert!(face.skip_api_audit.contains(&login));
+        assert!(face.session_only.contains(&refresh));
+        // The login and MFA-challenge operations are exactly the api-audit skips.
+        for op in &face.skip_api_audit {
+            assert!(
+                face.login_ops.contains(op),
+                "skip {op} must be a login operation"
+            );
+        }
+    }
+}
