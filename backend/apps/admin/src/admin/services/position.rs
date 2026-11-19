@@ -188,7 +188,7 @@ mod tests {
     use super::*;
     use crate::data::sys_positions as positions;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::PositionServiceHandlers as _;
+    use crate::proto::gen::services::PositionServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, name: &str, remark: &str) -> positions::Model {

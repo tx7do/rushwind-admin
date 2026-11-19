@@ -439,7 +439,7 @@ mod tests {
     use super::*;
     use crate::data::sys_org_units as orgs;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::OrgUnitServiceHandlers as _;
+    use crate::proto::gen::services::OrgUnitServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(

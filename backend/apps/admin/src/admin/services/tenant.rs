@@ -521,7 +521,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
     async fn restore_tenant(
         &self,
         ctx: rushwind_http_binding::ctx::RequestContext,
-        req: proto::proto::identity::service::v1::RestoreTenantRequest,
+        req: crate::proto::identity::service::v1::RestoreTenantRequest,
     ) -> Result<Empty, StatusError> {
         self.require_platform_admin(&ctx, "tenant restore").await?;
         let payload = operator_of(&ctx)?;
@@ -554,7 +554,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
     async fn purge_tenant(
         &self,
         ctx: rushwind_http_binding::ctx::RequestContext,
-        req: proto::proto::identity::service::v1::PurgeTenantRequest,
+        req: crate::proto::identity::service::v1::PurgeTenantRequest,
     ) -> Result<Empty, StatusError> {
         self.require_platform_admin(&ctx, "tenant purge").await?;
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
@@ -785,7 +785,7 @@ mod tests {
                 me.clone(),
                 GetTenantRequest {
                     query_by: Some(
-                        proto::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                        crate::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
                             acme_id as u64,
                         ),
                     ),
@@ -886,7 +886,7 @@ mod tests {
         let err = svc
             .purge_tenant(
                 me.clone(),
-                proto::proto::identity::service::v1::PurgeTenantRequest {
+                crate::proto::identity::service::v1::PurgeTenantRequest {
                     id: occupant_id as u64,
                 },
             )
@@ -901,7 +901,7 @@ mod tests {
         let err = svc
             .restore_tenant(
                 me.clone(),
-                proto::proto::identity::service::v1::RestoreTenantRequest { id: acme_id as u64 },
+                crate::proto::identity::service::v1::RestoreTenantRequest { id: acme_id as u64 },
             )
             .await
             .unwrap_err();
@@ -918,7 +918,7 @@ mod tests {
         .unwrap();
         svc.purge_tenant(
             me.clone(),
-            proto::proto::identity::service::v1::PurgeTenantRequest {
+            crate::proto::identity::service::v1::PurgeTenantRequest {
                 id: occupant_id as u64,
             },
         )
@@ -931,7 +931,7 @@ mod tests {
         assert!(raw.is_none(), "purged row is gone even unfiltered");
         svc.restore_tenant(
             me.clone(),
-            proto::proto::identity::service::v1::RestoreTenantRequest { id: acme_id as u64 },
+            crate::proto::identity::service::v1::RestoreTenantRequest { id: acme_id as u64 },
         )
         .await
         .unwrap();
@@ -972,14 +972,14 @@ mod tests {
                 .reason,
             svc.restore_tenant(
                 me.clone(),
-                proto::proto::identity::service::v1::RestoreTenantRequest { id: 1 },
+                crate::proto::identity::service::v1::RestoreTenantRequest { id: 1 },
             )
             .await
             .unwrap_err()
             .reason,
             svc.purge_tenant(
                 me.clone(),
-                proto::proto::identity::service::v1::PurgeTenantRequest { id: 1 },
+                crate::proto::identity::service::v1::PurgeTenantRequest { id: 1 },
             )
             .await
             .unwrap_err()
@@ -1037,7 +1037,7 @@ mod tests {
                 me,
                 GetTenantRequest {
                     query_by: Some(
-                        proto::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                        crate::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
                             acme_id,
                         ),
                     ),
@@ -1106,7 +1106,7 @@ mod tests {
                 me.clone(),
                 GetTenantRequest {
                     query_by: Some(
-                        proto::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                        crate::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
                             globex_id,
                         ),
                     ),
@@ -1144,7 +1144,7 @@ mod tests {
                 me,
                 GetTenantRequest {
                     query_by: Some(
-                        proto::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                        crate::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
                             globex_id,
                         ),
                     ),

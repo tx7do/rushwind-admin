@@ -46,7 +46,7 @@ mod tests {
     use super::*;
     use crate::data::scope::ViewerKind;
     use crate::data::Viewer;
-    use crate::proto::proto::pagination::PagingRequest;
+    use crate::proto::pagination::PagingRequest;
     use crate::testsupport::{mem_db, schema};
     use sea_orm::{ActiveModelTrait, DatabaseBackend, Set};
 

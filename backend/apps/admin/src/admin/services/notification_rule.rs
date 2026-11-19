@@ -242,7 +242,7 @@ mod tests {
     use super::*;
     use crate::data::sys_notification_rules as rules;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::NotificationRuleServiceHandlers as _;
+    use crate::proto::gen::services::NotificationRuleServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, event_type: &str) -> rules::Model {

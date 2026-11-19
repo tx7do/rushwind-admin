@@ -658,7 +658,7 @@ mod update_mask_tests {
     use super::*;
     use crate::data::sys_roles as roles;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::RoleServiceHandlers as _;
+    use crate::proto::gen::services::RoleServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, name: &str, code: &str) -> roles::Model {

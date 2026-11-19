@@ -606,7 +606,7 @@ mod tests {
 
     use crate::data::sys_ai_knowledge_bases as bases;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::AiKnowledgeBaseServiceHandlers as _;
+    use crate::proto::gen::services::AiKnowledgeBaseServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection) -> bases::Model {

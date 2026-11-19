@@ -160,7 +160,7 @@ mod tests {
     use super::*;
     use crate::data::sys_permission_groups as groups;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::PermissionGroupServiceHandlers as _;
+    use crate::proto::gen::services::PermissionGroupServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, name: &str, module: &str) -> groups::Model {

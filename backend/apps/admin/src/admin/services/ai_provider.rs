@@ -319,7 +319,7 @@ mod tests {
 
     use crate::data::sys_ai_providers as providers;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::AiProviderServiceHandlers as _;
+    use crate::proto::gen::services::AiProviderServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection) -> providers::Model {

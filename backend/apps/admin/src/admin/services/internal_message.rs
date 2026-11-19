@@ -282,7 +282,7 @@ mod tests {
     use super::*;
     use crate::data::internal_messages as messages;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::InternalMessageServiceHandlers as _;
+    use crate::proto::gen::services::InternalMessageServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(

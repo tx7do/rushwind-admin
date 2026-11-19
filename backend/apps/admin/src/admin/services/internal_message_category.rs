@@ -151,7 +151,7 @@ mod tests {
     use super::*;
     use crate::data::internal_message_categories as categories;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::InternalMessageCategoryServiceHandlers as _;
+    use crate::proto::gen::services::InternalMessageCategoryServiceHandlers as _;
     use sea_orm::EntityTrait;
 
     async fn plant(db: &sea_orm::DatabaseConnection, tenant: i64, name: &str) -> categories::Model {
@@ -181,8 +181,8 @@ mod tests {
         id: u64,
         data: InternalMessageCategory,
         paths: &[&str],
-    ) -> proto::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
-        proto::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
+    ) -> crate::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
+        crate::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
             id,
             data: Some(data),
             update_mask: Some(pbjson_types::FieldMask {
@@ -243,7 +243,7 @@ mod tests {
         // 无掩码：None 不动列。
         svc.update(
             ctx(1, 9),
-            proto::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
+            crate::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
                 id: row.id as u64,
                 data: Some(InternalMessageCategory {
                     name: Some("改名".into()),

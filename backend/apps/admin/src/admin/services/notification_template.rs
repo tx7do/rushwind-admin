@@ -262,7 +262,7 @@ mod tests {
     use super::*;
     use crate::data::sys_notification_templates as templates;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::NotificationTemplateServiceHandlers as _;
+    use crate::proto::gen::services::NotificationTemplateServiceHandlers as _;
     use sea_orm::{EntityTrait, Set};
 
     fn vars(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {

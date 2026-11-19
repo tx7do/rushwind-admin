@@ -121,7 +121,7 @@ impl<'a> TenantRepo<'a> {
     /// 与 paged_list 的 alive 域互斥，同一行的两副面孔各走各的门。
     pub async fn paged_deleted(
         &self,
-        req: &proto::proto::pagination::PagingRequest,
+        req: &crate::proto::pagination::PagingRequest,
     ) -> Result<(Vec<tenants::Model>, u64), StatusError> {
         crate::paging::fetch_paged(
             self.db,

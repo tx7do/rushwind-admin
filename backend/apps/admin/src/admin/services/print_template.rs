@@ -349,7 +349,7 @@ mod tests {
     use super::*;
     use crate::testsupport::{ctx, test_state};
     // handler 方法挂在 trait 上——测试模块里显式引入。
-    use proto::gen::services::PrintTemplateServiceHandlers as _;
+    use crate::proto::gen::services::PrintTemplateServiceHandlers as _;
 
     /// 直插一行租户模板（绕过 create 的缺省兜底面，只测 update 写入门）。
     async fn plant(

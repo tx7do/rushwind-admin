@@ -740,7 +740,7 @@ fn meta_field_json_key(field: &str) -> Option<&'static str> {
 /// COALESCE(meta,'{}')。
 fn merge_meta_fields(
     base: serde_json::Value,
-    meta: &proto::proto::permission::service::v1::MenuMeta,
+    meta: &crate::proto::permission::service::v1::MenuMeta,
     leaves: &[&str],
 ) -> serde_json::Value {
     let mut obj = match base {
@@ -867,7 +867,7 @@ mod tests {
             update_req(
                 row.id as u64,
                 Menu {
-                    meta: Some(proto::proto::permission::service::v1::MenuMeta {
+                    meta: Some(crate::proto::permission::service::v1::MenuMeta {
                         icon: Some("lucide:layout-dashboard".into()),
                         ..Default::default()
                     }),
@@ -920,7 +920,7 @@ mod tests {
             update_req(
                 row.id as u64,
                 Menu {
-                    meta: Some(proto::proto::permission::service::v1::MenuMeta::default()),
+                    meta: Some(crate::proto::permission::service::v1::MenuMeta::default()),
                     ..Default::default()
                 },
                 &["meta.icon"],
@@ -960,7 +960,7 @@ mod tests {
             update_req(
                 row.id as u64,
                 Menu {
-                    meta: Some(proto::proto::permission::service::v1::MenuMeta {
+                    meta: Some(crate::proto::permission::service::v1::MenuMeta {
                         title: Some("新标题".into()),
                         ..Default::default()
                     }),
@@ -1002,7 +1002,7 @@ mod tests {
             update_req(
                 row.id as u64,
                 Menu {
-                    meta: Some(proto::proto::permission::service::v1::MenuMeta {
+                    meta: Some(crate::proto::permission::service::v1::MenuMeta {
                         title: Some("新".into()),
                         ..Default::default()
                     }),
@@ -1040,7 +1040,7 @@ mod tests {
                 row.id as u64,
                 Menu {
                     name: Some("工作台".into()),
-                    meta: Some(proto::proto::permission::service::v1::MenuMeta {
+                    meta: Some(crate::proto::permission::service::v1::MenuMeta {
                         title: Some("工作台标题".into()),
                         ..Default::default()
                     }),

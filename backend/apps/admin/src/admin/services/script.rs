@@ -306,7 +306,7 @@ mod tests {
     use super::*;
     use crate::testsupport::{ctx, test_state};
     // handler 方法挂在 trait 上——测试模块里显式引入。
-    use proto::gen::services::ScriptServiceHandlers as _;
+    use crate::proto::gen::services::ScriptServiceHandlers as _;
 
     async fn first_row(db: &sea_orm::DatabaseConnection) -> crate::data::sys_scripts::Model {
         crate::data::sys_scripts::Entity::find()

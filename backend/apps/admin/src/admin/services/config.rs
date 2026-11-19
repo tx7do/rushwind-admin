@@ -209,7 +209,7 @@ mod tests {
     use super::*;
     use crate::testsupport::{ctx, test_state};
     // handler 方法挂在 trait 上——测试模块里显式引入。
-    use proto::gen::services::ConfigServiceHandlers as _;
+    use crate::proto::gen::services::ConfigServiceHandlers as _;
 
     fn data(name: &str, key: &str, value: Option<String>) -> Config {
         Config {

@@ -850,7 +850,7 @@ impl PermissionService {
 }
 
 #[async_trait::async_trait]
-impl proto::gen::services::PermissionServiceHandlers for PermissionService {
+impl crate::proto::gen::services::PermissionServiceHandlers for PermissionService {
     async fn list(
         &self,
         _ctx: rushwind_http_binding::ctx::RequestContext,
@@ -1406,7 +1406,7 @@ mod update_mask_tests {
     use super::*;
     use crate::data::sys_permissions as perms;
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::PermissionServiceHandlers as _;
+    use crate::proto::gen::services::PermissionServiceHandlers as _;
 
     async fn plant(
         db: &sea_orm::DatabaseConnection,

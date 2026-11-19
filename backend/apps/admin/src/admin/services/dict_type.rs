@@ -174,9 +174,9 @@ mod tests {
     use super::*;
     use crate::testsupport::{ctx, test_state};
     // QueryBy 的 oneof 子模块（service 文件体里全限定引用的同一形状）。
-    use proto::proto::dict::service::v1::get_dict_type_request::QueryBy;
+    use crate::proto::dict::service::v1::get_dict_type_request::QueryBy;
     // handler 方法挂在 trait 上——测试模块里显式引入。
-    use proto::gen::services::DictTypeServiceHandlers as _;
+    use crate::proto::gen::services::DictTypeServiceHandlers as _;
 
     fn data(code: &str, name: &str) -> DictType {
         DictType {

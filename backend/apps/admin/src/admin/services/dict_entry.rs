@@ -185,7 +185,7 @@ mod tests {
     use super::*;
     use crate::testsupport::{ctx, test_state};
     // handler 方法挂在 trait 上——测试模块里显式引入。
-    use proto::gen::services::DictEntryServiceHandlers as _;
+    use crate::proto::gen::services::DictEntryServiceHandlers as _;
 
     async fn row_by_value(
         db: &sea_orm::DatabaseConnection,

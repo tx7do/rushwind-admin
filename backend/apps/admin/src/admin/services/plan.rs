@@ -415,7 +415,7 @@ mod tests {
     use super::*;
     use crate::data::{sys_plan_modules, sys_plan_quotas, sys_plans};
     use crate::testsupport::{ctx, test_state};
-    use proto::gen::services::{
+    use crate::proto::gen::services::{
         PlanModuleServiceHandlers as _, PlanQuotaServiceHandlers as _, PlanServiceHandlers as _,
     };
     use sea_orm::EntityTrait;
