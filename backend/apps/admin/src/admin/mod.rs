@@ -12,6 +12,7 @@ pub mod captcha;
 pub mod config;
 pub mod crypto;
 pub mod data;
+pub(crate) mod fieldmask;
 pub(crate) mod macros;
 pub(crate) mod mapping;
 pub mod migration;
@@ -22,4 +23,6 @@ pub mod seed;
 pub mod server;
 pub mod services;
 pub mod state;
+#[cfg(test)]
+pub(crate) mod testsupport;
 pub mod token;

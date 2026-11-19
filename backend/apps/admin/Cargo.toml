@@ -63,5 +63,11 @@ reqwest = { workspace = true }
 chromiumoxide = { version = "0.7", default-features = false, features = ["tokio-runtime"] }
 async-trait = { workspace = true }
 
+# 测试面：sqlite 内存库 + 进程内 Redis（CI 零服务依赖）。
+# dev-dependencies 的 feature 不向下游传播——prod 构建仍只有 sqlx-postgres。
+[dev-dependencies]
+sea-orm = { workspace = true, features = ["sqlx-sqlite"] }
+mini-redis = "0.4"
+
 [build-dependencies]
 biz-proto-build = { path = "../../crates/biz-proto-build" }

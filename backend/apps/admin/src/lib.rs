@@ -30,6 +30,13 @@ include!("auth_free.rs");
 // `crate::state`, `crate::paging`).
 pub use admin::{config, crypto, data, migration, paging, seed, server, state};
 
+// The field-level update gate and its test fixture, root-re-exported so
+// the (synced) handler and test bodies keep naming `crate::fieldmask`
+// and `crate::testsupport` verbatim.
+pub(crate) use admin::fieldmask;
+#[cfg(test)]
+pub(crate) use admin::testsupport;
+
 use std::sync::OnceLock;
 
 use prost_reflect::DescriptorPool;
