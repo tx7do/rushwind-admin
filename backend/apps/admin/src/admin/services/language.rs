@@ -161,3 +161,119 @@ impl crate::proto::gen::services::LanguageServiceHandlers for LanguageService {
         Ok(Empty {})
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::LanguageServiceHandlers as _;
+    use proto::proto::dict::service::v1::get_language_request::QueryBy;
+    use proto::proto::dict::service::v1::GetLanguageRequest;
+
+    fn data(code: &str, name: &str) -> Language {
+        Language {
+            language_code: Some(code.into()),
+            language_name: Some(name.into()),
+            ..Default::default()
+        }
+    }
+
+    /// 全局面 CRUD：create 不落租户（global 表）、按 code 寻路、
+    /// batch_create 批量进、update 改名。
+    #[tokio::test]
+    async fn global_crud_and_code_lookup() {
+        let state = test_state().await;
+        let svc = LanguageService {
+            state: state.clone(),
+        };
+
+        svc.create(
+            ctx(7, 1),
+            CreateLanguageRequest {
+                data: Some(data("zh-CN", "简体中文")),
+            },
+        )
+        .await
+        .unwrap();
+        svc.batch_create(
+            ctx(0, 1),
+            BatchCreateLanguagesRequest {
+                items: vec![data("en-US", "English"), data("ja-JP", "日本語")],
+            },
+        )
+        .await
+        .unwrap();
+
+        // 全局表：任意租户视角都见全部行。
+        let listed = svc.list(ctx(7, 1), PagingRequest::default()).await.unwrap();
+        assert_eq!(listed.total, 3);
+        let again = svc.list(ctx(9, 2), PagingRequest::default()).await.unwrap();
+        assert_eq!(again.total, 3);
+
+        let got = svc
+            .get(
+                ctx(0, 1),
+                GetLanguageRequest {
+                    query_by: Some(QueryBy::Code("ja-JP".into())),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(got.language_name, Some("日本語".into()));
+        let id = got.id.unwrap();
+
+        svc.update(
+            ctx(0, 1),
+            UpdateLanguageRequest {
+                id,
+                data: Some(Language {
+                    language_name: Some("日本語（改）".into()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let got = svc
+            .get(
+                ctx(0, 1),
+                GetLanguageRequest {
+                    query_by: Some(QueryBy::Id(id)),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(got.language_name, Some("日本語（改）".into()));
+        assert_eq!(got.updated_by, Some(1));
+    }
+
+    /// get 未知 code → NOT_FOUND 文案；无 query_by → BAD_REQUEST。
+    #[tokio::test]
+    async fn get_error_mappings() {
+        let state = test_state().await;
+        let svc = LanguageService { state };
+
+        let err = svc
+            .get(
+                ctx(0, 1),
+                GetLanguageRequest {
+                    query_by: Some(QueryBy::Code("xx-XX".into())),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(err.reason, "NOT_FOUND");
+        assert_eq!(err.message, "language not found");
+
+        let err = svc
+            .get(ctx(0, 1), GetLanguageRequest::default())
+            .await
+            .unwrap_err();
+        assert_eq!(err.reason, "BAD_REQUEST");
+        assert_eq!(err.message, "query_by required");
+    }
+}

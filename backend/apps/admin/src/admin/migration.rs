@@ -5,7 +5,8 @@
 //! is on.
 
 use rushwind_storage_seaorm_migration::{
-    EntityTables, MigrationName, MigrationTrait, MigratorTrait, SchemaManager,
+    EntityTables, EntityTablesMigration, MigrationName, MigrationTrait, MigratorTrait,
+    SchemaManager,
 };
 use sea_orm::{ConnectionTrait, DatabaseBackend};
 
@@ -13,9 +14,26 @@ use crate::admin::data;
 
 pub struct Migrator;
 
-impl MigratorTrait for Migrator {
-    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
-        let init = EntityTables::new("m20250915_000001_init", DatabaseBackend::Postgres)
+/// 九个实体派生迁移（表清单 = 实体目录），按依赖序参数化 backend。
+/// `Migrator` 把它们与手写 DDL 迁移按原序穿插跑在 Postgres 上；sqlite
+/// 测试面单独跑这份清单——实体表本就携带当前全量列，init 之后的裸
+/// SQL 列/索引迁移（postgres 专属 DDL：`ADD COLUMN IF NOT EXISTS` /
+/// `ALTER TYPE` / pgvector）在测试面没有对应物也不需要。
+struct EntityMigrations {
+    init: EntityTablesMigration,
+    notification: EntityTablesMigration,
+    notification_preference_template: EntityTablesMigration,
+    monitor_alert: EntityTablesMigration,
+    bi_dashboard: EntityTablesMigration,
+    print_template: EntityTablesMigration,
+    ai: EntityTablesMigration,
+    bi_revisions: EntityTablesMigration,
+    ai_agent_revisions: EntityTablesMigration,
+}
+
+impl EntityMigrations {
+    fn new(backend: DatabaseBackend) -> Self {
+        let init = EntityTables::new("m20250915_000001_init", backend)
             // audit
             .table::<data::sys_api_audit_logs::Entity>()
             .table::<data::sys_data_access_audit_logs::Entity>()
@@ -63,31 +81,25 @@ impl MigratorTrait for Migrator {
             .table::<data::sys_role_permissions::Entity>()
             .table::<data::sys_roles::Entity>()
             .build();
-        let notification =
-            EntityTables::new("m20250923_000001_notification", DatabaseBackend::Postgres)
-                .table::<data::sys_notification_deliveries::Entity>()
-                .table::<data::sys_notification_rules::Entity>()
+        let notification = EntityTables::new("m20250923_000001_notification", backend)
+            .table::<data::sys_notification_deliveries::Entity>()
+            .table::<data::sys_notification_rules::Entity>()
+            .build();
+        let notification_preference_template =
+            EntityTables::new("m20251105_000001_notification_preference_template", backend)
+                .table::<data::sys_notification_preferences::Entity>()
+                .table::<data::sys_notification_templates::Entity>()
                 .build();
-        let notification_preference_template = EntityTables::new(
-            "m20251105_000001_notification_preference_template",
-            DatabaseBackend::Postgres,
-        )
-        .table::<data::sys_notification_preferences::Entity>()
-        .table::<data::sys_notification_templates::Entity>()
-        .build();
-        let monitor_alert =
-            EntityTables::new("m20251105_000003_monitor_alert", DatabaseBackend::Postgres)
-                .table::<data::sys_monitor_alert_rules::Entity>()
-                .build();
-        let bi_dashboard =
-            EntityTables::new("m20251105_000006_bi_dashboard", DatabaseBackend::Postgres)
-                .table::<data::bi_dashboards::Entity>()
-                .build();
-        let print_template =
-            EntityTables::new("m20251105_000007_print_template", DatabaseBackend::Postgres)
-                .table::<data::print_templates::Entity>()
-                .build();
-        let ai = EntityTables::new("m20251105_000008_ai", DatabaseBackend::Postgres)
+        let monitor_alert = EntityTables::new("m20251105_000003_monitor_alert", backend)
+            .table::<data::sys_monitor_alert_rules::Entity>()
+            .build();
+        let bi_dashboard = EntityTables::new("m20251105_000006_bi_dashboard", backend)
+            .table::<data::bi_dashboards::Entity>()
+            .build();
+        let print_template = EntityTables::new("m20251105_000007_print_template", backend)
+            .table::<data::print_templates::Entity>()
+            .build();
+        let ai = EntityTables::new("m20251105_000008_ai", backend)
             .table::<data::sys_ai_providers::Entity>()
             .table::<data::sys_ai_agent_apps::Entity>()
             .table::<data::sys_ai_agent_runs::Entity>()
@@ -98,16 +110,56 @@ impl MigratorTrait for Migrator {
             .table::<data::sys_ai_chunks::Entity>()
             .table::<data::sys_ai_usage_logs::Entity>()
             .build();
-        let bi_revisions =
-            EntityTables::new("m20251105_000011_bi_revisions", DatabaseBackend::Postgres)
-                .table::<data::bi_dashboard_revisions::Entity>()
-                .build();
-        let ai_agent_revisions = EntityTables::new(
-            "m20251105_000015_ai_agent_revisions",
-            DatabaseBackend::Postgres,
-        )
-        .table::<data::sys_ai_agent_revisions::Entity>()
-        .build();
+        let bi_revisions = EntityTables::new("m20251105_000011_bi_revisions", backend)
+            .table::<data::bi_dashboard_revisions::Entity>()
+            .build();
+        let ai_agent_revisions = EntityTables::new("m20251105_000015_ai_agent_revisions", backend)
+            .table::<data::sys_ai_agent_revisions::Entity>()
+            .build();
+        Self {
+            init,
+            notification,
+            notification_preference_template,
+            monitor_alert,
+            bi_dashboard,
+            print_template,
+            ai,
+            bi_revisions,
+            ai_agent_revisions,
+        }
+    }
+
+    /// 清单扁平化（迁移序）。唯一消费方是 sqlite 测试面——
+    /// prod 的 Migrator 直接按字段取用。
+    #[cfg(test)]
+    fn into_vec(self) -> Vec<EntityTablesMigration> {
+        vec![
+            self.init,
+            self.notification,
+            self.notification_preference_template,
+            self.monitor_alert,
+            self.bi_dashboard,
+            self.print_template,
+            self.ai,
+            self.bi_revisions,
+            self.ai_agent_revisions,
+        ]
+    }
+}
+
+impl MigratorTrait for Migrator {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        let EntityMigrations {
+            init,
+            notification,
+            notification_preference_template,
+            monitor_alert,
+            bi_dashboard,
+            print_template,
+            ai,
+            bi_revisions,
+            ai_agent_revisions,
+        } = EntityMigrations::new(DatabaseBackend::Postgres);
         vec![
             Box::new(init),
             Box::new(notification),
@@ -131,6 +183,22 @@ impl MigratorTrait for Migrator {
             Box::new(PermissionMenuFullPath),
             Box::new(IdWidenU64),
         ]
+    }
+}
+
+/// sqlite 测试面：只跑实体派生清单（表列 = 当前实体全量），走
+/// sea-orm-migration 同一套追踪表 + up/幂等机制。
+#[cfg(test)]
+pub(crate) struct SqliteTestMigrator;
+
+#[cfg(test)]
+impl MigratorTrait for SqliteTestMigrator {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        EntityMigrations::new(DatabaseBackend::Sqlite)
+            .into_vec()
+            .into_iter()
+            .map(|m| Box::new(m) as Box<dyn MigrationTrait>)
+            .collect()
     }
 }
 
@@ -988,5 +1056,69 @@ impl MigrationTrait for IdWidenU64 {
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
         // 加宽不回退：u64 契约是前进方向。
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::mem_db;
+
+    /// sqlite 测试面：九个实体派生迁移依序 up 成功，且 keyset 表全部在场。
+    /// 实体表本就是当前全量列的来源——这一测同时验证 35 张表在 sqlite
+    /// 类型面自洽（Unsigned→signed、Enum→text、Json→text 的框架映射）。
+    #[tokio::test]
+    async fn sqlite_entity_migrations_up_in_order() {
+        let db = mem_db().await;
+        SqliteTestMigrator::up(&db, None)
+            .await
+            .expect("migrations up");
+
+        let applied = <SqliteTestMigrator as MigratorTrait>::get_applied_migrations(&db)
+            .await
+            .expect("applied list");
+        assert_eq!(applied.len(), 9);
+        assert_eq!(
+            applied[0].name(),
+            "m20250915_000001_init",
+            "the init migration carries the entity catalog"
+        );
+
+        // 每个迁移期的代表表（清单九段各抽一；表名以实体声明为准——
+        // notification/monitor/bi-revision 段不带 sys_ 前缀）。
+        for table in [
+            "sys_users",
+            "sys_notification_rules",
+            "notification_templates",
+            "monitor_alert_rules",
+            "bi_dashboards",
+            "print_templates",
+            "sys_ai_providers",
+            "sys_bi_dashboard_revisions",
+            "sys_ai_agent_revisions",
+        ] {
+            let hit = db
+                .query_one_raw(sea_orm::Statement::from_string(
+                    DatabaseBackend::Sqlite,
+                    format!("SELECT 1 FROM sqlite_master WHERE type='table' AND name='{table}'"),
+                ))
+                .await
+                .expect("sqlite_master probe");
+            assert!(hit.is_some(), "table {table} missing after up");
+        }
+    }
+
+    /// 重复 up 幂等：追踪表挡住重放，不重跑也不报错。
+    #[tokio::test]
+    async fn sqlite_entity_migrations_reup_is_noop() {
+        let db = mem_db().await;
+        SqliteTestMigrator::up(&db, None).await.expect("first up");
+        SqliteTestMigrator::up(&db, None)
+            .await
+            .expect("second up is a no-op");
+        let applied = <SqliteTestMigrator as MigratorTrait>::get_applied_migrations(&db)
+            .await
+            .expect("applied list");
+        assert_eq!(applied.len(), 9, "re-up must not duplicate tracker rows");
     }
 }
