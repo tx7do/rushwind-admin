@@ -110,3 +110,4 @@ let mut assembler = Bootstrap::from_yaml_str(SERVER_YAML)?
 - 边缘栈组合子（bind/门/审计的层序契约）：`apps/admin/src/admin/server/edge.rs` 模块文档
 - 生成引擎的管线细节（单工作区多 face）：[03 契约与生成链路](./03-codegen-chain.md)
 - 架构的定稿依据与演进路线（为什么单应用、业务域按需打包的两级路线、BFF 投影层规则）：[架构决策与演进路线](../architecture-decisions.md)
+- 域长出进程边界之后（多服务的触发信号、rushwind-cms 参考形态、迁移映射）：[服务演进路线](../services-evolution.md)

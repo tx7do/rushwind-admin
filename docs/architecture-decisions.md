@@ -24,7 +24,9 @@ backend/
 │   ├── src/modules/template/    # 下游自有面骨架（copy-rename 起步；i_notice BFF 随域走）
 │   ├── src/proto/               # 契约生成面（api/ 树 → 一个 buf 工作区 → 一池一类型）
 │   ├── api/
-│   │   ├── protos/              # 上游镜像区（MANIFEST.sha256 钉死；含 BFF 投影层，见 §2）
+│   │   ├── protos/              # 上游镜像区（含 BFF 投影层，见 §2；由 MANIFEST.sha256 钉死）
+│   │   ├── MANIFEST.sha256      # 镜像区 checksum 门（sync-protos.sh --check 的验收面）
+│   │   ├── buf.yaml / buf.lock  # buf 工作区（admin 树 + fork 树一池一类型）
 │   │   ├── fork/protos/         # fork 自有契约区（notice 三件套：notice/i_notice/notice_error）
 │   │   └── sync-protos.sh       # 同步/校验门（HERE 相对，随树迁移）
 │   └── main.rs                  # 装配：每模块四行（mod 声明、迁移链、种子、route pack）
@@ -36,10 +38,11 @@ backend/
 
 模块只允许经以下入口骑基座（签名与层序语义按稳定契约维护，改动须 PR 显式声明）：
 
-- `crate::admin::{state, audit, data}`（状态助手、审计 face、repo_shell 实体/种子实体）
-- `crate::repo_shell!` / `crate::stamp_update!` / `crate::query_by_id!` / `crate::set_masked!`
-- 路由边组合子：`EdgePack` / `edge_router` / `pack_with`（`server/edge.rs`，双桶挂载循环）
-- `migration` / `seed` / `apalis` / `config` / `crypto` / `paging` / `proto`（crate 根 re-export）
+- `crate::admin::{state, audit, data}`（状态助手、审计 face、repo_shell 实体/种子实体）与 `crate::admin::server::edge::Wrap`（模块 pack 的闭包签名）
+- 四个 `#[macro_export]` 宏：`crate::repo_shell!` / `crate::stamp_update!` / `crate::query_by_id!` / `crate::set_masked!`
+- 路由边组合子：`EdgePack` / `edge_router` / `pack_with`（`server/edge.rs`，双桶挂载循环）与 `crate::pool()`（描述符池句柄，装进 `EdgePack.pool`）
+- crate 根 re-export：`config` / `crypto` / `data` / `migration` / `paging` / `seed` / `server` / `state`（apalis 不在根清单——住 `admin::server::apalis`）+ 根模块 `proto`
+- 模块签名直接触及的框架面：`rushwind_bootstrap::{RouteInput, RouteSurface, BootstrapError}`、`rushwind_http_binding`（envelope/ctx）、`rushwind_storage_seaorm_migration`（EntityTables/MigratorTrait）、`sea_orm`
 
 **围栏现状**：这条线目前靠约定 + 模板守卫测试（编译失败即稳定面被破坏）维护，尚无"模块目录只许 import 白名单路径"的源码围栏测试。**建议补**（一个源码扫描测试），未落。
 
@@ -71,23 +74,24 @@ backend/
 
 一池一类型：两区同入一个 buf 工作区，`biz-proto-build` 编出唯一描述符池；admin face 取镜像区，域 face 取各自树（`Face.source_dir`）。`redact.v1` 注解与 `method_skip` 覆全池，不感知分区。
 
-### 2.2 BFF 投影层的定性（本次定稿）
+### 2.2 BFF 投影层的定性（2026-11-20 修订）
 
-`api/protos/admin/service/v1/i_*.proto`（**59 面**，i_access_key 至 i_user_profile，另有模块树的 i_notice）是**admin 契约的 BFF 投影层**：上游零个 i_* 文件，全部 fork 创作；但它们不是独立的 fork 业务——它们逐面镜像上游服务（redaction / method_skip / 嵌套信封），**必须与同步波次共同演进**（上游给某服务加 RPC，对应 i_* 面同步生长）。
+`api/protos/admin/service/v1/i_*.proto`（**59 面**，i_access_key 至 i_user_profile，另有模块树的 i_notice）是 **admin 契约的 BFF 投影层**：逐服务镜像领域面（redaction / method_skip / 嵌套信封），随同步波次演进。
 
-**因此它们留在镜像区**（方案 A，已定稿）：搬去 fork 区会拆散投影面与上游面的共演节奏，且引发路由注册表重划、审计 skip 派生改源、差分白名单重整——行为零收益的纯 churn。命名约定 `i_` 前缀升格为官方规则：**`i_` 前缀 = admin 契约的 BFF 投影面**。
+**上游镜像仓同样携带这 59 面**（2026-11-20 实测：57 面逐字节同文，i_tenant 仅空白行差，i_ai_content 上游领先一条 body 注解——正常 vintage 漂移）。因此定性由"fork 创作"修订为：**投影面属同步语料的一部分，变更入口在上游**（镜像区手改本就被 MANIFEST 门禁止）。`i_` 前缀升格为官方规则：**`i_` 前缀 = admin 契约的 BFF 投影面**。
 
-### 2.3 已识别的活雷与决议
+**它们留在镜像区**（定稿）：搬去 fork 区会拆散投影面与领域面的共演节奏，且引发路由注册表重划、审计 skip 派生改源、差分白名单重整——行为零收益的纯 churn；上游既已携带，镜像区是它们唯一合法的位置。
 
-**雷**：`sync-protos.sh` 的 sync 模式为 `rm -rf protos/` + 上游全量拷贝——**下一次全量同步会无声抹除全部 59 个 i_* 面**（守卫测试会炸响，不至于静默上线，但契约需回 git 考古）。它们幸存至今仅因创造后未跑过全量同步。
+### 2.3 同步安全性（2026-11-20 修订）
 
-**决议（方案 A，待落地）**：
-1. sync 模式在 `rm -rf` 前 stash 全部 `i_*.proto`，拷贝后恢复；
-2. **同名冲突上游胜出**——上游自建同名 face 即投影退役信号，以镜像为准；
-3. 投影面的**主动退役**（上游落地正式契约时）走同步 SOP：同一提交内删桥 + 差分回归 + 前端客户端再生成，而非依赖 `rm -rf` 无声抹除；
-4. 模块域的 BFF（i_notice 模式）跟域走，保持现状。
+曾评估 sync 模式的 `rm -rf protos/` + 上游全量拷贝会"无声抹除 59 个投影面"（依据当时"上游零 i_* 文件"的过时事实）。**上游既已整体携带投影层，全量同步会原样带回 59 面——该风险不复存在**，原定的 stash/restore 脚本补丁撤销。
 
-状态：**决议已定稿；脚本补丁与 CONTRIBUTING SOP 补段待落**（见 §5 决策日志）。
+需要正视的两点现状：
+
+1. **脚本默认上游路径已失效**：上游仓布局已迁至 `backend/api/protos`，`sync-protos.sh` 的默认 `SRC` 停在旧路径——全量同步前需以 `GOWIND_ADMIN_API_DIR` 指认现路径（脚本修正随下一轮同步工程一并落）；
+2. **退役政策不变**：上游对某投影面的删除/改名随同步波生效（与任何上游面同待遇），守卫网负责炸响——`template_gen_surface`（路由表/auth-free/错误表）、`whitelist`+`admin-diff semantic`（语料双向钉）、`golden` 的 method_skip；仓内不对镜像区做投机性修改。
+
+另：当前上游 `i_ai_content.proto` 领先本仓一条 body 注解——待随下次同步吸收的正常漂移。
 
 ---
 
@@ -129,7 +133,7 @@ apps/admin            二进制：features 选域，逐域四行装配
 3. **`#[macro_export]` 宏族搬进 admin-support**——`$crate` 跨 crate 展开回归，但有界（唯一支撑 crate）且被模板 copy-rename 演练守卫钉死。
 4. **buf 工作区仍是一棵树**（admin 镜像区 + fork 各域子树）；`extra_type_roots` / `Face.source_dir` 旋钮即为该形状而设。池级真按需 = 各域描述符集 + boot 时合并 FileDescriptorSet（包不相交、信封文件从域生成中排除由契约 crate 提供）——仅在 §3.1 的"死重不可接受"被实证后才启用。
 
-**迁移成本**：`crate::proto::` → `admin_contract::` 量级的 203 文件机械手术 + 宏搬迁 + 全部守卫适配（与 2026-11 大爆炸重构同量级）。
+**迁移成本**：`crate::proto::` → `admin_contract::` 量级的 86 文件机械手术（引用 `crate::proto` 的文件实测数）+ 宏搬迁 + 全部守卫适配（与 2026-11 大爆炸重构同量级）。
 
 **触发器**：出现第一个真实的跨仓二开消费者。在触发前，§3.1/§3.2 已覆盖全部现实需求。域进一步长出**进程边界**（独立伸缩/部署/团队/非 Rust 消费方）时，演进到多服务——四级阶梯与参考形态见 [服务演进路线](./services-evolution.md)（rushwind-cms 即第一级多服务的现成实现）。
 
@@ -151,8 +155,10 @@ apps/admin            二进制：features 选域，逐域四行装配
 | 2026-11（会话二十一） | 四桶布局坍缩为单应用 `apps/admin`；四条死缝以单池/单装配消除 | ✅ 定稿（c46015e） |
 | 2026-11-19 | 否决恢复 `business/` 四桶布局；单应用 + 围栏为终局形态（重开条件见 §1.3） | ✅ 定稿 |
 | 2026-11-19 | `i_` 前缀 = admin 契约的 BFF 投影面（官方命名规则）；投影面留镜像区 | ✅ 定稿 |
-| 2026-11-19 | sync-protos.sh 加 i_* stash/restore + 上游胜出退役政策 | ⏳ 决议已定，脚本补丁待落 |
+| 2026-11-19 | sync-protos.sh 加 i_* stash/restore + 上游胜出退役政策 | ❌ 2026-11-20 撤销（上游已携带投影层，全量同步原样带回 59 面；退役政策保留，见 §2.3） |
 | 2026-11-19 | 源码围栏测试（模块目录 import 白名单） | ⏳ 建议，待落 |
 | 2026-11-19 | 部署级按需（feature 门） | 📋 路线定稿，实施按需求 |
 | — | 分发级按需（三 crate 分层抽取） | 📋 路线定稿，等触发器（首个跨仓二开消费者） |
 | 2026-11-19 | 多服务演进路线独立成篇：L1 单体模块 → L2 feature 门 → L3 lib 三 crate → L4 多服务 → L5 规模化，rushwind-cms 为 L4 参考形态 | ✅ 定稿（见 [services-evolution.md](./services-evolution.md)） |
+| 2026-11-20 | 文档审计轮：15 文档 50+ 处事实回填（291/296、491、602/286、59、61、283 等全部实测重钉）+ binding-spec 增 §2.5 update_mask 应用语义 | ✅ 完成（3e7e85b） |
+| 2026-11-20 | 本文档第三路审计勘误：apalis 移出根 re-export 清单、§1.2 补 5 项模板实际消费的稳定入口、i_* 定性修订（上游已携带投影层，"fork 创作"表述作废）、迁移成本 203→86 文件 | ✅ 完成 |

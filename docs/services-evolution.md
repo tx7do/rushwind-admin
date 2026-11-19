@@ -6,7 +6,7 @@
 
 ---
 
-## 0. 演进阶梯：四级，逐级触发
+## 0. 演进阶梯：五级，逐级触发
 
 | 级 | 形态 | 参照物 | 触发信号 | 不触发的默认 |
 |---|---|---|---|---|
@@ -14,7 +14,7 @@
 | **L2** | 部署级 feature 门 | architecture-decisions §3.1 | 不同部署要不同的域组合 | — |
 | **L3** | lib 分发（三 crate 分层） | architecture-decisions §3.3 | 跨仓/跨团队的二开消费者 | — |
 | **L4** | **多服务**（域出进程边界） | **rushwind-cms** | 见 §1 触发信号 | — |
-| **L5** | 规模化多服务 | Go 栈侧同构参考实现（服务发现 / OTel 链路 / 分布式事务 / 策略引擎进场） | 多团队、多环境集群、严格合规 | — |
+| **L5** | 规模化多服务 | 成熟基础设施组件逐项进场（服务发现 etcd/Consul、OTel 链路、Saga 补偿、策略引擎 Casbin/OPA） | 多团队、多环境集群、严格合规 | — |
 
 L4 之前的一切复杂度都是预支的：L2/L3 不改变进程拓扑，L4 才第一次引入进程边界——**每一级只解决上一级解决不了的痛，不解决就不迈**。
 
@@ -81,7 +81,7 @@ backend/
 | 鉴权门（EdgePack 内 bind/门层序） | **上收到 BFF**——门是网关职责；core 只做服务间身份 |
 | `i_*` BFF 投影面 | **升维成整个 BFF 服务**——单体里 i_* 是 admin 面的投影；多服务里 BFF 本身就是投影（pass-through 生成即投影的机械化） |
 | 独占的 PostgreSQL/Redis 连接 | core-service 独占（单体里模块与 admin 共库；拆出后数据版图随域走） |
-| `repo_shell!` / 宏族 / state 助手 | `crates/store` + 契约 crate 的支撑面（architecture-decisions §3.3 的 admin-support 形状） |
+| `repo_shell!` / 宏族 / state 助手 | `crates/store` + 契约 crate 的支撑面（architecture-decisions §3.3 的 admin-support 形状——目标形状映射；cms 现状 store crate 为 {auth, bootstrap, crypto, entities, paging}，不含宏族） |
 
 **三 crate 分层是 L4 的直接前置**：architecture-decisions §3.3 抽出的 `admin-contract` 叶子，在 L4 就是域服务的契约依赖——L3 做得越实，L4 的迁移越接近"把 route pack 挂到新 main"。
 
@@ -89,7 +89,7 @@ backend/
 
 ## 4. 规模化（L5）的信号
 
-当多服务数量超过"一个人能口述全部拓扑"时，才进入 L5 的议题：服务注册与发现（etcd/Consul）、OTel 链路追踪、跨服务一致性（Saga/分布式事务）、策略引擎外置（Casbin/OPA）。这些在 Go 栈侧已有同构的成熟参考实现；Rust 侧按需引入，**同样是触发器驱动**——没有多团队与多环境集群，它们全是净增运维成本。
+当多服务数量超过"一个人能口述全部拓扑"时，才进入 L5 的议题：服务注册与发现（etcd/Consul）、OTel 链路追踪、跨服务一致性（Saga/分布式事务）、策略引擎外置（Casbin/OPA）。这些组件在 Go 生态均有成熟对应物，Rust 侧按需引入，**同样是触发器驱动**——没有多团队与多环境集群，它们全是净增运维成本。
 
 ---
 
