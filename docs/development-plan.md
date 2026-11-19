@@ -186,34 +186,31 @@ GeoIP（mmdb）与 UA 解析用于登录审计；`asynq` cron `30 3 * * *` 归�
 
 ```
 rushwind-admin/
-├── backend/                  # Cargo workspace 根（对位 go 仓 backend/）
-│   ├── Cargo.toml            # members: crates/* + app/admin/service + pkg/*
-│   ├── api/
-│   │   ├── protos/           # 从 go 仓同步（sync 脚本 + checksum 门）
-│   │   ├── buf.lock          # buf 依赖 commit 钉定：google/api、pagination、redact、validate、gnostic…
-│   │   │                     # （与上游 go-wind-admin 的 buf.lock 同源，再同步时比对 commit）
-│   │   └── sync-protos.sh    # 契约同步与校验
-│   ├── app/admin/service/    # 对位 go 仓 app/admin/service/（服务 crate）
-│   │   ├── cmd/server/main.rs        # 入口（JWT 引擎 + 生命周期；对位 cmd/server/main.go）
-│   │   ├── internal/server/rest_server.rs   # 装配（挂载 + 逐路由层组合 + HttpEdge；对位 internal/server/rest_server.go）
-│   │   └── configs/          # 运行时配置面（对位 configs/）
-│   ├── pkg/                  # 对位 go 仓 pkg/（共享包，独立 crate）
-│   │   └── middleware-auth/  # 鉴权门（对位 pkg/middleware/auth）
-│   ├── api/
-│   │   ├── protos|buf.lock|MANIFEST  # 契约树（sync-protos 同步 + checksum 门）+ 依赖钉定
-│   │   └── admin-api/        # 契约 crate（对位 go 仓 api/gen 生成绑定落点）：build.rs 一体产出
-│   │                         #   prost+pbjson 类型（well-known 外部化）+ protoc 注解闭包
-│   │                         #   descriptor/pool + rushwind-gen-http 生成面（路由表/绑定计划/
-│   │                         #   服务 trait/错误表/mount 双路由发射；AUTH_FREE 免鉴权表单源
-│   │                         #   src/auth_free.rs，lib 与 build.rs 共include）
-│   ├── app/admin/service/    # 服务实现（internal/service/*，null 桩逐个替换中）
-│   ├── pkg/middleware-auth/  # 鉴权门（对位 pkg/middleware/auth）
+├── backend/                  # Cargo workspace 根
+│   ├── Cargo.toml            # members: apps/admin + crates/* + testbed/admin-diff
+│   ├── apps/admin/           # ★ 唯一产品应用（一个 crate，一个二进制）
+│   │   ├── api/              # 契约工作区（一个 buf.yaml + 一个 buf.lock）
+│   │   │   ├── protos/       #   admin 契约树（sync-protos 同步 + MANIFEST 校验门）
+│   │   │   ├── fork/protos/  #   fork 模块契约树（自有，自由编辑，不做字节门）
+│   │   │   ├── sync-protos.sh #  契约同步与校验（--check 门与 CI 一致）
+│   │   │   └── MANIFEST.sha256 # 字节快照门
+│   │   ├── build.rs          # 构建期一体产出：buf 编译注解描述符池（自定义选项字节保全）
+│   │   │                     #   + prost/pbjson 类型 + rushwind-gen-http 生成面（路由表/绑定计划/
+│   │   │                     #   服务 trait/错误表/mount 双路由发射；AUTH_FREE 免鉴权表单源
+│   │   │                     #   src/auth_free.rs，lib 与 build.rs 共 include）
+│   │   ├── src/
+│   │   │   ├── admin/        #   上行同步机房：59 服务实现 + 数据层 + 路由边 + 审计 + 迁移种子
+│   │   │   ├── modules/      #   fork 自有业务模块（copy-rename template 起步）
+│   │   │   └── proto/        #   契约面（生成类型/池/gen 各 face + PagingInput 桥）
+│   │   └── tests/            #   线契约守卫（白名单/遮蔽/错误表/生成面）+ 等值守卫 + 金样
+│   ├── crates/
+│   │   ├── auth/             # 鉴权门（验签序/会话检查器/租户闸/授权评估 trait）
+│   │   └── biz-proto-build/  # 契约构建引擎（单池多 face 的 build.rs 共享件）
 │   └── testbed/
-│       ├── admin-diff/       # 差分回放器 crate（比较器/矩阵 runner/语料；与台架同址）
-│       └── corpus|exemptions|compose # 差分台架（豁免集 + 精选语料 + 报告）
-│   └── migrations/           # 黄金 DDL 切片 + 种子（后端启动应用）
-├── frontend/                 # 结构占位（前端零改动复用 go 仓三个前端，不复制代码）
-└── docs/                     # development-plan、binding-spec、operator-matrix …
+│       └── admin-diff/       # 差分回放器（归一比较器/sweep runner；corpus、exemptions、
+│                             #   docker-compose、reports 同址）
+├── frontend/                 # 三套前端同步快照（sync-frontend.sh + 双清单门 + 品牌覆写层）
+└── docs/                     # development-plan、binding-spec、operator-matrix、tutorial …
 ```
 
 框架仓（D:\RustProject\rushwind）新增通用机制（2026-09-14 起）：
@@ -222,16 +219,17 @@ rushwind-admin/
 `HttpEdge::with_cors_compat`（兼容层选择）、
 `CorsOptions::without_allow_methods/headers`（tower-http 未设置语义开关）。
 
-请求生命周期（对位 Go，2026-09-14 现状）：
+请求生命周期（对位 Go；2026-11 现状——服务/authorizer/token/audit/fieldmask 各环均已落地）：
 
 ```
 axum(生成路由, 逐路由层组合: bindgate 最外 + gate(仅门控路由) 内层)
   → bindgate(rushwind-http-binding): CT 解析→json/form body 绑定→query 绑定→BoundMessage 扩展
-  → gate(pkg/middleware-auth): JWT RS256 验签, 失败→401/UNAUTHORIZED 信封, 成功→claims 扩展
+  → gate(crates/auth auth_gate): JWT RS256 验签→Redis 会话吊销/黑名单检查→租户门→
+    authz 评估（noop 引擎 + 留痕）；失败走错误表信封（401/UNAUTHORIZED、403/FORBIDDEN），成功→claims 扩展
   → glue(rushwind-http-binding): 取 BoundMessage→路径变量绑定→静态转换→服务 trait 调用
-  → 服务实现(当前全部 null 桩: 500/Unknown)→EmitUnpopulated 序列化→响应
-  外层: HttpEdge(recovery→request-id→logging→cors_compat(gorilla 规则)→timeout)
-  [待接] authz-rbac(sys_apis 策略)/access-token checker(会话吊销)/TenantScope/审计/字段权限/真实服务
+  → 服务实现（59 个真实服务，零 null 桩）→EmitUnpopulated 序列化→redact 静态脱敏→响应
+  外层: rushwind-bootstrap 装配的 per-server edge(recovery→request-id→logging→
+    cors_compat(gorilla 规则)→timeout)；审计写入层最外（五张审计表 + 请求快照）
 ```
 
 ---
@@ -275,7 +273,7 @@ axum(生成路由, 逐路由层组合: bindgate 最外 + gate(仅门控路由) �
 | 批 | 模块（端点数） | 特殊点 |
 |---|---|---|
 | A 平台层 ~56 | language(6)、dict_type(5)、dict_entry(5, i18n map→子表)、config(5)、api(7, OpenAPI 自同步)、menu(6, tree)、permission(6)、permission_group(5, tree)、role(5, +role_metadata)、notification_channel(6) | api 模块的 sys_apis 同步改由生成路由表驱动（等价替换 kin-openapi 解析） |
-| B 身份 ~47 | user(7, redact+fieldperm 双启用)、user_profile(7, 含 me/*)、org_unit(5, tree+物化路径+数据范围)、position(5)、tenant(9)、plan(5)/plan_module(5)/plan_quota(4) | user 模块是字段权限/脱敏/掩码三者交织的最险处，矩阵最厚 |
+| B 身份 ~47 | user(7, redact+fieldperm 双启用)、user_profile(7, 含 me/*)、org_unit(5, tree+物化路径+数据范围)、position(5)、tenant(12)、plan(5)/plan_module(5)/plan_quota(4) | user 模块是字段权限/脱敏/掩码三者交织的最险处，矩阵最厚 |
 | C 审计只读 ~10 | api/login/operation/permission/data_access 审计列表(2×4+2)、policy_evaluation_log(2) | 只读 + 分页 + 字段映射 |
 | D 运维 ~34 | task(10, 含 start/stop/restart + apalis-redis 适配器 + 4 类系统任务 + payload AES-GCM)、script(8)+script_log(3)（脚本宿主：模块桥接/热重载/实体钩子/出站白名单/配额）、access_key(7, 含 AK/SK→JWT 签发 HMAC)、online_session(4, 若未在 P1 完成)、redis_cache_monitor(1)、server_monitor(1) | 任务与脚本是语义对齐高危区，逐 handler 差分 |
 | E 内容 ~23 | file(5)/file_transfer(3)（multipart、预签名、HMAC 图片代理、range/disposition/acceptMime）、internal_message(6+5+4, SSE 发布) | SSE 独立 7789 + 长连接 + 流一致性校验 |
@@ -693,16 +691,36 @@ P4 收尾/验收                                    █████  (2-3M)
 1. [x] 仓库骨架 + workspace（backend/ 结构就位）；CI 已建（.github/workflows/
        ci.yml：fmt/clippy/test + protoc 安装 + sync-protos --check 门，双 OS 矩阵）。
 2. [x] `backend/apps/admin/api/protos` 同步脚本 + MANIFEST checksum 门（BOM 归一，含源仓漂移
-       检测，已验证生效）；third_party vendor 脚本（六模块锁定版本，PROVENANCE.md
-       记录来源）。
+       检测，已验证生效）；依赖钉定已改为 buf.lock 锁定 BSR 依赖（六个注解模块按锁定 commit
+       解析，third_party vendor 树已移除；CI 按 buf.lock 哈希缓存模块缓存）。
 3. [x] `admin-proto` crate：protox→prost/pbjson 类型生成（全量数据包，构建绿灯）。
        序列化金样测试待补。
 4. [x] `admin-gen` 生成器：路由表 + 绑定计划 + 服务 trait + 错误表 + mount 胶水
        （含免鉴权 8/195 拆分与 null 桩，语料守卫测试钉死）——全量语料达成。
-       gnostic 免鉴权标注扩展、redact/PGV 规则表待后续增量。
-5. [ ] 差分台架：docker-compose 起 pg/redis/minio + go 后端（7788）+ rust 后端
-       （预留），回放器雏形 + 归一比较器。
+       gnostic 免鉴权标注扩展与 redact 规则表已落地（rushwind-redact 全链 +
+       golden 掩码/字节级金样钉死）；PGV 规则表仍未做。
+5. [x] 差分台架：已建成（backend/testbed——docker-compose 起 pg/redis/minio 与
+       go/rust 双后端，admin-diff 归一比较器 + URL sweep 回放器 + 豁免集
+       exemptions.json 与报告目录同址）。
 6. [x] 算子矩阵文档 v1：docs/operator-matrix.md（三向矩阵 + 别名层规范 +
        分歧登记 D1-D5；线上活性面实证 = {EQ, CONTAINS}）。
 
 > 本计划为活文档：每阶段收口后回填实际偏差与决策修订。
+> - **回填（2026-11-19，v0.2.0 train 修复落位）**：
+>   ① **update_mask 白名单门全量接入**——`fieldmask.rs` 白名单门 + `set_masked!`
+>   宏覆盖 34 个 update handler：无掩码=存量全量提交语义不变；掩码选中 + 载荷
+>   None=显式清列；present-but-empty=什么都不许动（AIP-134 严格读法）；menu meta
+>   点路径应用层合并；snake/camel 归一对表。
+>   ② **租户回收站三 RPC 落位**（i_tenant 增至 12 个 BFF RPC：
+>   ListDeletedTenants/RestoreTenant/PurgeTenant，平台门禁 trash 列表 + 冲突校验
+>   + 全域 purge 级联），软删谓词进 `repo_shell!`（tenant/global 两臂统一
+>   `DeletedAt.is_null()`，已删行从一切列表面隐身、回收站面单独可见）。
+>   ③ **渐进验证码**（登录免验证码，直到同 ip+username 失败达阈值，
+>   `RUSHWIND_CAPTCHA_REQUIRED_FAILURES` 默认 3，钳 1..4）+ **登录错误细分四码**
+>   （CAPTCHA_REQUIRED / CAPTCHA_INVALID / TOO_MANY_ATTEMPTS / INVALID_TENANT
+>   各自映射，凭据三合一口径防枚举）。
+>   ④ **权限分组 code 自然键**（`m20251117_000001_permission_group_code` 迁移加列
+>   + 存量回填 `g||id`，作为同步 MERGE 的对齐锚，issue #9）。
+>   ⑤ **D5 决策修正**：任务队列落地为 `rushwind-apalis-postgres`（PG 队列表，
+>   enqueue/worker 双侧 + cron 生产者），而非新建 redis 变体——§3 能力表与
+>   §4-D5 的「rushwind-apalis-redis 适配 crate」叙述作废，以本条为准。

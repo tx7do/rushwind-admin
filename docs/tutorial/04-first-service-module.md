@@ -8,41 +8,42 @@
 
 同步后 `backend/apps/admin/api/protos/<模块>/` 里出现该服务的 proto；`cargo build` 时生成链自动产出（见[第 3 章](./03-codegen-chain.md)）：
 
-- 类型：`proto::proto::dict::service::v1::{Language, ListLanguageResponse, ...}`
-- trait：`proto::gen::services::LanguageServiceHandlers`（556 个方法之一）
-- 挂载：`proto::gen::mounts::mount_language_service`
+- 类型：`crate::proto::dict::service::v1::{Language, ListLanguageResponse, ...}`
+- trait：`crate::proto::gen::services::LanguageServiceHandlers`（286 个方法之一）
+- 挂载：`crate::proto::gen::mounts::mount_language_service`
 
 此刻服务还不可用：trait 没有实现、挂载没有被调用。漏实现/漏挂载会在守卫测试与台架 sweep 里现形。
 
 ## 2. 数据层：实体 + 仓储
 
-**实体**——每张表一个 SeaORM 实体模块，按域分组在 `src/data/`（identity / rbac / audit / misc），形如 `src/data/rbac.rs` 里的 `sys_roles`：
+**实体**——每张表一个 SeaORM 实体模块，按域分组在 `apps/admin/src/admin/data/` 下的十二个域文件里（ai / audit / bi / dict / identity / message / monitor / notification / ops / platform / print / rbac），形如 `src/admin/data/dict.rs` 里的 `sys_languages`（节选）：
 
 ```rust
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
 #[sea_orm(table_name = "sys_languages")]
 pub struct Model {
     #[sea_orm(primary_key)]
-    pub id: u32,
+    pub id: i64,                        // 主键统一 i64
     pub language_code: String,
     pub language_name: String,
     pub native_name: Option<String>,
     pub is_default: Option<bool>,
     pub is_enabled: Option<bool>,
     pub sort_order: Option<u32>,
-    pub tenant_id: Option<u32>,        // 租户表必备；全局表没有
     pub deleted_at: Option<chrono::NaiveDateTime>,   // 软删列
     // ...
 }
 ```
 
-新表要同时注册进 `src/migration.rs` 的 `EntityTables` 链（启动迁移按它建表）。
+`sys_languages` 是平台全局表，没有 `tenant_id` 列；租户表（如 `sys_roles`）才带该列，由 Viewer 盖章（[第 6 章](./06-multi-tenant-isolation.md)）。
 
-**仓储**——一仓一文件（`src/data/repos/language.rs`），列表分页统一走 `paging::fetch_paged`（count 先行、错误传播），查询谓词由 [`Viewer`](./06-multi-tenant-isolation.md) 派生。仓储只做数据访问，不做业务判断。
+新表要同时注册进 `apps/admin/src/admin/migration.rs` 的 `EntityTables` 链（启动迁移按它建表）。
+
+**仓储**——一仓一文件（`apps/admin/src/admin/data/repos/language.rs`），列表分页统一走 `paging::fetch_paged`（count 先行、错误传播），查询谓词由 [`Viewer`](./06-multi-tenant-isolation.md) 派生。仓储只做数据访问，不做业务判断。
 
 ## 3. 服务层：实现生成的 trait
 
-`src/services/language.rs`（节选，这就是全部骨架）：
+`apps/admin/src/admin/services/language.rs`（节选，这就是全部骨架）：
 
 ```rust
 pub struct LanguageService {
@@ -56,7 +57,7 @@ impl proto::gen::services::LanguageServiceHandlers for LanguageService {
         _ctx: rushwind_http_binding::ctx::RequestContext,
         req: PagingRequest,
     ) -> Result<ListLanguageResponse, StatusError> {
-        let repo = crate::data::repos::LanguageRepo::new(&self.state.db);
+        let repo = crate::admin::data::repos::LanguageRepo::new(&self.state.db);
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListLanguageResponse {
             items: rows.into_iter().map(language_proto).collect(),
@@ -78,8 +79,8 @@ impl proto::gen::services::LanguageServiceHandlers for LanguageService {
 
 服务与路由的对接只有两处手写：
 
-1. `src/services.rs`：`mod language;` + re-export `LanguageService`；
-2. `src/server/rest.rs` 的 `mount_services!` 表：`(mount_language_service, LanguageService)` 一行。
+1. `apps/admin/src/admin/services.rs`：`mod language;` + re-export `LanguageService`；
+2. `apps/admin/src/admin/server/rest.rs` 的 `mount_service!` 表：`(mount_language_service, LanguageService)` 一行。
 
 挂载宏按生成器的 AUTH_FREE 分类表把每条路由放进公开子树或门控子树；绑定层永远在最外，鉴权门只包门控路由。
 
@@ -91,7 +92,7 @@ impl proto::gen::services::LanguageServiceHandlers for LanguageService {
 |---|---|---|
 | 接口/权限点 | `sys_apis`、`sys_permissions` + 绑定 | (path 模板, method) 注册进 Api 表——租户闸门按它判定模块白名单（[第 6 章](./06-multi-tenant-isolation.md)）；角色经权限点获得调用权（[第 5 章](./05-permission-model.md)） |
 | 菜单 | `sys_menus` | 目录/菜单/按钮三类节点；页面路由、组件路径、按钮权限标识 |
-| 业务种子 | 各表 | 初始数据（如默认语言）走 `src/seed/` 模块 |
+| 业务种子 | 各表 | 初始数据（如默认语言）走 `apps/admin/src/admin/seed/` 模块 |
 
 前端页面由菜单表驱动：快照前端的页面注册表按菜单里的组件路径渲染，所以"新模块前端页面" = 菜单行 + 前端快照里已有的页面模式，无需另写 API 层。
 

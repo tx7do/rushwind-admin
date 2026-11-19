@@ -3,15 +3,17 @@
 > 本文钉死 `query` 参数（Django 别名语法 JSON）在三个前端的别名拼写、go-crud 的
 > 枚举映射、gorm 层（postgres 方言）的 SQL 形态、以及 rushwind 契约面
 > （`rushwind-storage-proto/src/wire.rs` → `rushwind-storage-seaorm`）的对应路径，
-> 并给出待建「别名层」的映射规范与分歧登记。差分台架的回放语料与豁免集以本文为准。
+> 并登记别名面的实现现状与分歧。差分台架的回放语料与豁免集以本文为准。
 >
-> 锚点（本机路径）：react `frontend/admin/react/src/core/transport/rest/pagination.ts`
-> （vue-element、vue-vben 同款 twin，见 §4）；go-crud
+> 锚点：别名面实现位于 `rushwind/crates/rushwind-storage-seaorm-support/src/paging.rs`
+> （消费 `Params.query`，经 rust-utils `query_parser::parse_filter_json_string` 逐键
+> 解析后落 SQL 谓词；部署按 Cargo.lock 钉定的框架 rev 消费）；应用的 `PagingInput`
+> 桥在 `backend/apps/admin/src/proto/mod.rs`；protojson 面在
+> `rushwind/crates/rushwind-storage-proto/src/wire.rs`；go-crud
 > `pagination@v0.0.14/filter/{operator_converter,query_string_converter}.go`；
-> gorm 翻译层 `go-crud/gorm@v0.0.24/filter/filter_processor.go`；
-> rust `rushwind/crates/rushwind-storage-proto/src/wire.rs`、
-> `rushwind/crates/rushwind-storage-seaorm/src/lib.rs`。
+> gorm 翻译层 `go-crud/gorm@v0.0.24/filter/filter_processor.go`。
 > gorm 为 admin 后端活性 ORM 路径（`backend/app/admin/service/internal/data/gorm/*`）。
+> 前端发射点归属见 §4（react/element 传输层在抽包后的 npm 包内，vben 在应用仓）。
 
 ## 0. 管线位置
 
@@ -23,15 +25,16 @@
 gorm `Processor.Process` 的 switch（**缺席算子走 default=静默丢弃**；字段经
 `isValidFieldExpr` 白名单，不过 → `AddError` → 查询失败）。
 
-**Rust 侧现状（两段 + 一个缺口）**：
+**Rust 侧现状（三面均在位）**：
 ① protojson 面——`FilterExpr` 消息经 pbjson 反序列化为 storage-proto 的
 `Operator` 枚举，`wire.rs` 折叠为契约 `Op`（含包装）再由 seaorm 翻译；
 ② AIP 文本面——`filter` 参数经 `rushwind-storage/src/syntax/text.rs`。
-③ **Django 别名面不存在**：`rushwind-storage-axum` 的通用表查询面只认
-`q`/`token`/`offset`/`page`/`filter`(AIP)/`sort`/`fields`，不消费 `query` 参数；
-admin 的 List 请求经本仓生成绑定计划把 `page/pageSize/noPaging/orderBy/query/fieldMask`
-绑进类型化 proto 字段后，`query` 字符串在**服务层**需要一个尚不存在的别名→
-FilterExpr 转换组件（规范见 §2）。
+③ **Django 别名面已实现**：`rushwind-storage-seaorm-support/src/paging.rs`
+消费 `Params.query`，经 rust-utils `query_parser::parse_filter_json_string`
+逐键解析（字段/算子/值回调），`filter_condition` 落 SQL 谓词；应用的
+`PagingInput` 桥（`backend/apps/admin/src/proto/mod.rs`）把生成
+`PagingRequest` 原样交给管线，List 服务与 repo 调用点不改签名。与本文
+原登记「待建别名层」的偏差以 §2 实现现状为准。
 
 ## 1. 核心矩阵（按 go-crud 枚举逐行）
 
@@ -74,54 +77,67 @@ FilterExpr 转换组件（规范见 §2）。
 Rust 契约独有、无任何别名可达：`Op::NotBetween`（go 无 NOT_BETWEEN 枚举、
 无别名拼写 → 不可达冗余，登记不动）。
 `Operator::Unspecified`（未知别名的落点）：wire.rs 报错；Go 侧条件被附加后由
-gorm default **静默丢弃** → 别名层对未知别名必须静默丢弃（§2）。
+gorm default **静默丢弃** → 别名面对未知别名已按静默丢弃对位（§2 的 `_ =>`
+落空臂）。
 
-## 2. 待建别名层规范（admin 服务层组件）
+## 2. 实现现状（别名面：rushwind-storage-seaorm-support/src/paging.rs）
 
-- **位置**：admin 模块服务层，仓储调用之前；输入=List 请求 proto 的 `query`
-  字符串字段，输出=`rushwind_storage::FilterExpr`。不落进 rushwind-storage-axum
-  （那是通用 AIP/protojson 面，参数契约不同）。
-- **键分割必须按 go-crud `MakeFieldFilter` 语义自实现**：
-  - 1 段（无 `__`）→ EQ；键含 `.` → JSON 路径条件（EQ + 路径值）。
-  - 2 段 `f__op` → 算子=keys[1]；值为 JSON 数组 → `Values` 多值，否则单值字符串化。
-  - 3 段 `f__x__op2` → **算子=keys[2]**；x 为有效 datepart → 条件携带 DatePart
-    （活性路径惰性，见 §3）；否则按 JSON 字段路由；op2 非法 → **整条丢弃**
-    （`hasOperations` 门）。
-  - **不可复用 rust-utils `query_parser::parse_filter_field`**：它固定取 parts[1]
-    为算子，三段键语义与 go-crud（取末段）相悖。
-- **别名→Op 映射** = §1 的 direct+fold 两类合集，与 wire.rs 的 proto 枚举面
-  **完全同构**（`Exact→Eq`、`Icontains 族→Ilike+wrap` 等）→ 建议把 wire.rs 的
-  折叠逻辑提取为共享函数，两面共用一张表。
-- **丢弃集（静默，不报错）**：`like`、`not_like`、`notlike`、`json_contains`、
-  `array_contains`、`exists`、一切未知别名（UNSPECIFIED 语义）。
-- **拒绝集**：`regexp` `regex` `iregexp` `i_regexp` `iregex` `search`、
-  `iexact` `i_exact` —— Go 侧**执行**而 rust 契约面 unsupported；别名层按
-  §5 决策处理（默认：同样报错，差分豁免登记；如 D2 采纳折叠则改走 `Ilike`）。
-- **空值跳过**：比较/模式类算子遇空白单值 → 丢弃该条件；IN/NIN 无有效
-  values/数组 → 丢弃；IS_NULL 族忽略值（对位 gorm `requiresValue`/空值分支）。
-- **字段名**：`ToSnakeCase` 后交由 storage `validate`（列存在性/arity/类型）；
-  对位 gorm 的 `ToSnakeCase` + `isValidFieldExpr` 白名单（不过 → 两侧各自错误面，
-  差分台架钉状态码与包络）。
+别名面已落地，落点与原登记不同：不在 admin 服务层，而在框架 crate 的分页
+管线（`fetch_paged`/`apply`）。应用 List 服务把生成 `PagingRequest` 原样
+传给 `repo_shell!` 的 `paged_list`，`PagingInput` 桥（admin 的
+`src/proto/mod.rs`）解析出 `Params{query, orderBy, sorting, page, …}`，
+管线对 `Params.query` 走 rust-utils `query_parser::parse_filter_json_string`
+逐键解析后由 `filter_condition` 落 SQL 谓词。与 §1/原规范的偏差如实登记：
+
+- **iexact 实际执行**：`FILTER_IEXACT` 命中 `lower_like`（`LOWER(col) LIKE
+  LOWER(?)`，ci 等值）——原登记「unsupported 报错」（§5-D2 的 reject 面）
+  在别名面不成立；protojson 面（wire.rs，按钉定 rev）仍拒绝该四别名，§1
+  矩阵行保留。
+- **regexp/iregex/search 及未知别名静默丢弃**：`filter_condition` 对
+  `FILTER_REGEX | FILTER_IREGEX | FILTER_SEARCH` 与 `_ =>` 落空臂一律
+  `return None`（条件消失、查询继续）——原登记「报错」不成立；gorm 层对
+  absent case 同为静默丢弃，两侧对位（§5-D1/D3 在别名面随之消解）。
+- **三段键取末段的 go-crud 语义未实现**：实现复用 rust-utils
+  `query_parser::parse_filter_field`，其固定取 `parts[1]` 为算子——
+  `f__x__op2` 按「算子=第二段」解析，datepart/JSON 路由的第三段语义缺席。
+  活性面不受影响（前端追写的 `f__contains` 恰在 parts[1] 命中，见 §4 附注），
+  其余三段键为休眠分歧。
+- **丢弃集（静默）**：`like`/`not_like`/`notlike`/`json_contains`/
+  `array_contains`/`exists` 无专属 FILTER_* 常量，全部落 `_ =>` 臂静默丢弃，
+  与原规范的丢弃集一致。
+- **键分割**：1 段（无 `__`）→ EQ（空算子臂）；2 段 `f__op` → 算子段；
+  顶层数组=AND 组、值多值经 `split_query_values` 进 IN/NOT IN/RANGE。
+- **数值列守卫**：数值列遇非数值字面量（前端回显 "undefined"）丢条件而非
+  毒化查询；列类型读自实体 schema（number/bool/text），未知列按 text 绑定。
+- **过滤轴无列白名单前置拦截**（排序轴有 `known` 检查只按实体列排序）：
+  未知过滤列会带着 SQL 报错使查询失败——与 gorm `isValidFieldExpr`
+  白名单失败的「查询失败」结局对位，机制不同（前置 AddError vs SQL 错误）。
+- **分页/排序**：orderBy JSON 数组或逗号串、sorting 结构化列表、缺省
+  `id` 升序兜底；total 与行集共享同一谓词集（过滤计入 total）。
 
 ## 3. 结构特性矩阵
 
-| 特性 | Go（query_string_converter + gorm） | rust 现状/别名层要求 |
+| 特性 | Go（query_string_converter + gorm） | rust 现状/别名面行为 |
 |---|---|---|
-| 顶层数组 | = AND 组；子数组扁平化进当前 AND 组 | `FilterExpr::all`；扁平化同 |
-| `$and`/`$or` 键 | 互斥（同持两者→错误）；值须数组；递归成 ExprType_AND/OR 组 | `all`/`any`；互斥校验同 |
-| JSON 路径键（`a.b`） | EQ+JsonPath 条件；gorm 侧 `JsonbFieldExpr` 列表达式 + 白名单 | 无对应；别名层按"字段+路径"建 EQ 条件，交 storage validate（预计拒） |
-| 多值（值=JSON 数组） | → `Values`（IN/NIN/BETWEEN 消费） | `Op::In/NotIn/Between` 的 values |
-| 三段键 datepart | DatePart 载荷；**gorm Process 不消费（惰性，仅测试引用）** | 别名层携带但不消费；差分豁免登记 |
-| 空字段/空算子段 | 丢弃该键 | 同 |
-| 字段白名单不过 | gorm `AddError` → 查询失败 | storage `validate` → `StorageError`；错误面待差分 |
+| 顶层数组 | = AND 组；子数组扁平化进当前 AND 组 | `parse_filter_json_string` 顶层数组逐键回调（AND 语义）；别名面同 |
+| `$and`/`$or` 键 | 互斥（同持两者→错误）；值须数组；递归成 ExprType_AND/OR 组 | 无递归处理：该拼写按字面字段名进 `to_snake_case`（别名面不支持该结构；顶层 AND 组用数组表达） |
+| JSON 路径键（`a.b`） | EQ+JsonPath 条件；gorm 侧 `JsonbFieldExpr` 列表达式 + 白名单 | 无对应；键原样走 `to_snake_case`（无 JSON 路由语义），未知列落 SQL 错误（§2） |
+| 多值（值=JSON 数组） | → `Values`（IN/NIN/BETWEEN 消费） | `split_query_values` 多值进 IN/NOT IN/RANGE |
+| 三段键 datepart | DatePart 载荷；**gorm Process 不消费（惰性，仅测试引用）** | 别名面取 parts[1] 为算子（§2），datepart 第三段语义缺席；差分豁免登记 |
+| 空字段/空算子段 | 丢弃该键 | 同（`parse_filter_field` 空字段不回调） |
+| 字段白名单不过 | gorm `AddError` → 查询失败 | 过滤轴未知列带 SQL 错误失败查询（机制对位，见 §2）；排序轴 `known` 检查静默跳过 |
 | 值字符串化 | `AnyToString` | 同（数值/布尔保持原类型按 wire.rs `value_to_contract`） |
-| `orderBy` / `fieldMask` / `page`/`pageSize`/`noPaging` | 走 proto 字段绑定（本仓生成绑定计划），不属别名层 | 已覆盖（绑定计划） |
+| `orderBy` / `fieldMask` / `page`/`pageSize`/`noPaging` | 走 proto 字段绑定（本仓生成绑定计划），不属别名层 | 已覆盖（绑定计划 + 管线分页/排序） |
 
 ## 4. 线上活性面（三前端实测）
 
-三前端共用同款 transport（react `src/core/transport/rest/pagination.ts`；
-vue-element `src/core/transport/rest/pagination.ts`；vue-vben
-`apps/admin/src/transport/rest/pagination.ts`）。`makeQueryString` 实际发射：
+前端进入「抽包时代」后的发射点归属（2026-11 实测）：react 与 vue-element
+的传输层在随仓快照外置的 npm 包内——react 应用仓的 `src/api/client.ts` 从
+`@go-wind/admin-react` 引 `requestApi`（query 组装随之进包），vue-element
+同构、包为 `@go-wind/admin-core`；vue-vben 的发射点在本仓应用内
+`frontend/admin/vue-vben/src/utils/query.ts` 的 `makeQueryString`（仍对
+字符串值追写 `__contains`）。三端不是同一份代码，但 query 发射语义同源
+（同一 go-crud 约定的移植），`makeQueryString` 实际发射：
 
 - **裸键 EQ**：数值/布尔值；字符串但字段名命中 ID 豁免正则
   `/(_id$|Id$|ID$|^id$)/`；键已带算子后缀（`hasOperatorSuffix`，
@@ -158,5 +174,6 @@ vue-element `src/core/transport/rest/pagination.ts`；vue-vben
 ## 6. 与计划的联动
 
 - 本文档满足 Phase 0 清单第 6 项（算子矩阵 v1）。
-- §2 规范是 Phase 2/3 服务层实现 `query` 参数的输入契约。
-- §5 种子并入差分台架的豁免集（台架落地时引用本文节号）。
+- §2 实现现状即服务层 `query` 参数的落地契约（别名面在框架分页管线，应用侧零转换组件）。
+- §5 种子并入差分台架的豁免集（台架落地时引用本文节号）；D1/D3 的豁免面以
+  §2 偏差登记为准（别名面静默丢弃已对位，protojson 面仍按钉定 rev 拒绝）。

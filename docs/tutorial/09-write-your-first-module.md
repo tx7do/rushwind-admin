@@ -10,7 +10,7 @@
 
 后端只有一个应用（`backend/apps/admin`），你的代码和上游的代码同仓不同室——所有权一条线（见 [CONTRIBUTING](../../CONTRIBUTING.md)）：
 
-- **上游同步面**：`src/admin/`（41 个服务实现）+ `api/protos/`（契约快照，MANIFEST 门）——fork 只读；
+- **上游同步面**：`src/admin/`（59 个挂载服务面）+ `api/protos/`（契约快照，MANIFEST 门）——fork 只读；
 - **fork 自有面**：`src/modules/`（业务模块）+ `api/fork/protos/`（模块契约树）+ `main.rs` 的装配行——上行永不触碰。
 
 fork 的 git 形态是"双远端 + 合并"：
@@ -29,7 +29,7 @@ git merge upstream/main      # 两个房间互不重叠，理论零冲突
 cd backend && cargo check    # 编译错误就是升级清单：稳定面变了什么，这里全暴露
 ```
 
-merge 冲突面收敛到 `apps/admin/Cargo.toml` 的 rushwind rev 一行。
+merge 冲突面收敛到 rushwind git 依赖的统一 rev 钉版——workspace（`backend/Cargo.toml`）与 app（`apps/admin/Cargo.toml`）两处 Cargo.toml 的多行依赖写同一个 rev 值，上游出新版时两处同升。
 
 ## 模块长什么样：template 解剖
 
@@ -53,7 +53,7 @@ merge 冲突面收敛到 `apps/admin/Cargo.toml` 的 rushwind rev 一行。
 ```rust
 // ① 模块声明（顶部）
 mod 已有 module 声明…
-pub use modules::template;   // use admin::modules::template 的入口已在
+use admin::modules::template;   // 模块树的既有入口形态
 
 // ② 迁移：admin 链之后接模块链
 if state.cfg.database_migrate {
@@ -93,7 +93,7 @@ let mut assembler = Bootstrap::from_yaml_str(SERVER_YAML)?
 
 1. `git fetch upstream && git merge upstream/main`；
 2. 改 `apps/admin/Cargo.toml` 的 rushwind rev 到上游新钉的版本（如 merge 已带入则核对）；
-3. `cargo check`——编译错误即升级清单；所有权线里的稳定入口（`crate::admin::{state, audit, data}`、`crate::repo_shell!` 家族、边缘组合子签名）之外的破坏性变更，按编译器指引迁移；
+3. `cargo check`——编译错误即升级清单；所有权线里的稳定入口（`crate::admin::{state, audit, data}`、四个宏实名：`crate::repo_shell!`（tenant/global 两种仓壳臂，含 noun 臂的 get_by_id/delete_by_id）、`crate::query_by_id!`、`crate::stamp_update!`、`crate::set_masked!`（opt/req/opt_named/req_named 四形态，update_mask 白名单门下的字段写面）、边缘组合子签名）之外的破坏性变更，按编译器指引迁移；
 4. `cargo test --workspace`——应用的守卫测试（路由表、免鉴权白名单、线契约金样、模块守卫）会直接告诉你哪条契约变了；
 5. 契约基线若有变：`bash backend/apps/admin/api/sync-protos.sh --check` 应保持绿（你没碰冻结区）；
 6. 起库跑应用，回归登录 + 一个 admin 面 + 一个业务面探针。

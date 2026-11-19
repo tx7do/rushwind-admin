@@ -15,7 +15,7 @@
 
 两个结构性事实：
 
-- **公开面是白名单制**：只有 `apps/admin/src/auth_free.rs` 登记的 8 个端点免鉴权（登录、验证码、刷新、MFA 挑战、机器令牌交换、找回密码等），其余 203 条全部门控——新路由默认门控，豁免必须显式登记并有守卫测试双向钉住；
+- **公开面是白名单制**：只有 `apps/admin/src/auth_free.rs` 登记的 8 个端点免鉴权（登录、验证码、刷新、MFA 挑战、机器令牌交换、找回密码等），其余 283 条（291 条绑定减去白名单 8 条）全部门控——新路由默认门控，豁免必须显式登记并有守卫测试双向钉住；
 - **绑定先于鉴权**：绑定层在门之外，畸形请求先吃 400（线上契约，见 [binding-spec.md](../binding-spec.md)）。
 
 会话吊销是**服务端事实**：登出、管理端强制下线、改密后，Redis 白名单里的令牌即刻失效——客户端手里的 JWT 未过期也会 401。
@@ -38,7 +38,7 @@ access 令牌的 claims 就是权限模型的数据载体：
 
 ## 3. 授权评估（authz）
 
-引擎可插拔（`auth.yaml` 的 `authz.type`，当前 `noop`），装配在 `src/authorizer.rs`：
+引擎可插拔（`auth.yaml` 的 `authz.type`，当前 `noop`），装配在 `apps/admin/src/admin/authorizer.rs`：
 
 - **判定**：按角色逐个评估、首允即短；无角色直接 403；
 - **反查链**：`(path 模板, method)` → `sys_apis` → `sys_permission_apis` → `sys_roles(code)` → `sys_role_permissions`——策略存 DB，角色改权限即时生效，反查结果带 60s TTL 缓存；
@@ -57,10 +57,10 @@ access 令牌的 claims 就是权限模型的数据载体：
 
 | 防线 | 机制 | 位置 |
 |---|---|---|
-| 图形验证码 | 6 位码、Redis 存答案、`x-captcha-id/-value` 头校验 | `src/captcha.rs` |
-| 登录限流 | Redis Lua：IP + 用户名双维度，5 次失败 / 15 分钟窗 | `src/ratelimit.rs` |
-| 登录策略 | CIDR / 时间窗 / 设备维度限制，命中即拒 | `src/services/login_policy.rs` |
-| MFA（TOTP） | 绑定后登录出挑战，验证通过才发令牌；挑战限时、连败锁定；管理员可救援重置 | `src/services/mfa.rs` |
+| 图形验证码 | 渐进式：同一 ip+用户名失败达 `captcha_required_failures`（默认 3，`RUSHWIND_CAPTCHA_REQUIRED_FAILURES` 可调）才要求——缺头回 `CAPTCHA_REQUIRED`、错码回 `CAPTCHA_INVALID`；6 位码、Redis 存答案单次有效、`x-captcha-id/-value` 头校验 | `apps/admin/src/admin/captcha.rs` |
+| 登录限流 | Redis Lua：IP + 用户名双维度，5 次失败 / 15 分钟窗（锁定回 `TOO_MANY_ATTEMPTS`，1161） | `apps/admin/src/admin/ratelimit.rs` |
+| 登录策略 | CIDR / 时间窗 / 设备维度限制，命中即拒 | `apps/admin/src/admin/services/login_policy.rs` |
+| MFA（TOTP） | 绑定后登录出挑战，验证通过才发令牌；挑战限时、连败锁定；管理员可救援重置 | `apps/admin/src/admin/services/mfa.rs` |
 | 口令策略 | 复杂度四取三 / 历史复用 / 有效期，阈值走平台参数热调 | 鉴别三件套（[第 7 章](./07-audit-compliance.md)） |
 
 口令**永远不裸传**：前端按约定密钥做 AES 加密后传输，服务端解出后 bcrypt 哈希存储（含恒时假校验防用户枚举）。

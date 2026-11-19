@@ -46,20 +46,27 @@ r.<METHOD>("<path>", _<Svc>_<Method><N>_HTTP_Handler(srv))   // 逐条注册，�
 - `N`：同名方法去重编号（跨 service 累计计数，`methodSets`）。
 - `sd.Methods`（含 additional_bindings 展开）逐条注册；`sd.MethodSets`（同名去重、**后注册者覆盖**）生成接口与 operation 常量。
 
-### 1.2 路径模板形态（实测全量扫描，211 条）
+### 1.2 路径模板形态（实测全量扫描，296 条——admin 面 291 + fork 模块面 5，以生成头 `Corpus:` 行为准）
 
-- 字面段 + 普通变量段 `{name}`（80 条含变量）。
+- 字面段 + 普通变量段 `{name}`（126 条绑定含变量）。
 - **无** `{name:regex}`、**无** `*`/`**` 通配、**无**点路径变量。
-- 9 条冒号动词后缀（字面段含 `:`）：`sync:perms`、`tasks:{control,restart,start,stop,type-names}`、`tenants:{exists,with-admin}`、`users:exists`。
+- 16 条冒号动词后缀（段内含 `:` 字面量）：`permissions/sync:perms`、`tasks:{control,restart,start,stop,type-names}`、`tenants:{exists,with-admin}`、`users:exists`、`monitor-alert-rules:evaluate`、`print-templates:{render-pdf,generate}`、`system-tasks:inspect`、`ai/agents/revisions/{id}:restore`、`bi-dashboards/{id}:copy`、`bi-dashboards/revisions/{id}:restore`——其中 3 条为 `{var}:verb` 混合段（例外见本节末注）。
 - `:exists`/`:with-admin` 等是 mux 的**字面段**（mux 只把 `{}` 当变量语法）。
 
 axum 0.8 的路由语法（`{name}` 参数、`:` 字面量）与上述形态**一一对应**，无需变换。
 rushwind-transport-axum 使用 axum 0.8（`crates/rushwind-transport-axum/Cargo.toml:15`）。
 
+**混合段例外（唯一不对应形态）**：`{id}:copy` 类 `{var}:verb` 混合段（AIP-136
+verb-on-resource）——参照系 mux 按字符前缀匹配支持它，而 axum 0.8 的 matchit
+路由树拒绝这种混合段（"Only one parameter is allowed per path segment"）。
+gen-http 生成 `is_verb_on_resource` 守卫，mount 对该类绑定跳过 axum 树注册：
+RouteSpec、服务 trait 与实现完整保留，仅该 RPC 暂答 404（口径见
+tutorial/03 的豁免注记）。
+
 ### 1.3 gorilla/mux v1.8.1 匹配语义（Rust 端对齐基准）
 
 - `{name}` → 匹配 `[^/]+`，捕获为路径参数（与 axum `{name}` 等价）。
-- **匹配优先级：先注册者先匹配（mux.Match 按注册序线性扫描，返回首个命中）**。`{var}` 模式段匹配任意段——因此**更晚注册的字面路径若与更早注册的同方法 `{var}` 模式同形，则被该模式路由吸收、自身不可达**。axum/matchit 相反：**静态段恒优先**。对语料做 gorilla 遮蔽分析（生成器 `shadow_flags`）：恰好 1 条被遮蔽绑定（route 16，`GET /admin/v1/apis/walk-route`，被同文件更早注册的 `GET /admin/v1/apis/{id}` 吸收；集合由 admin 应用的守卫测试硬钉）。**对齐手段**：被遮蔽绑定不挂载——两侧请求都落在吸收它的 `{var}` 路由上；该路由的路径变量对字面段取值必然畸形，落入 §2.3 的路径绑定排序分歧（豁免类 `router-shadow`）。
+- **匹配优先级：先注册者先匹配（mux.Match 按注册序线性扫描，返回首个命中）**。`{var}` 模式段匹配任意段——因此**更晚注册的字面路径若与更早注册的同方法 `{var}` 模式同形，则被该模式路由吸收、自身不可达**。axum/matchit 相反：**静态段恒优先**。对语料做 gorilla 遮蔽分析（生成器 `shadow_flags`）：恰好 1 条被遮蔽绑定（route 54，`GET /admin/v1/apis/walk-route`，被同文件更早注册的 `GET /admin/v1/apis/{id}` 吸收；索引随语料增长三次移动——初版 16 → ce8ab49 vintage 验收时 52 → AI/BI/print/monitor-alert BFF 服务注册前移后 54——集合由 admin 应用的守卫测试硬钉，注释记录全部历史）。**对齐手段**：被遮蔽绑定不挂载——两侧请求都落在吸收它的 `{var}` 路由上；该路由的路径变量对字面段取值必然畸形，落入 §2.3 的路径绑定排序分歧（豁免类 `router-shadow`）。
 - 方法不匹配 → mux `MethodNotAllowedHandler`；未匹配 → `NotFoundHandler`（Go 后端均接 `http.DefaultServeMux` → 404）。axum 对应 405/404，行为近似。axum 的 `MethodFilter::GET` 同时接受 HEAD（已知分歧，豁免类 `head-on-get`）。
 - `StrictSlash(true)`：`/path/` ↔ `/path` 相互 301 重定向（server.go:189）。**已知分歧**：axum 无此行为（尾斜杠 404）。
 - mux 默认对请求路径做 `cleanPath`（`//`、`/../` 归一）并 301。**已知分歧**：axum 不做。
@@ -129,6 +136,18 @@ rushwind-transport-axum 使用 axum 0.8（`crates/rushwind-transport-axum/Cargo.
 - 类型转换错误 → `StatusError::new(400, "CODEC", message)`。
 - 业务层只接触静态类型；动态面（prost-reflect）只在「错误信封与响应序列化」需要 schema 时使用。
 
+### 2.5 update_mask 应用语义（写面白名单门；Rust 侧 `apps/admin/src/admin/fieldmask.rs` + `set_masked!` 宏）
+
+- **线上形态**：Update 类请求的 `update_mask` 字段（`google.protobuf.FieldMask`）。protojson 载荷送 snake 原名；前端 `makeUpdateMask` 可能送 camel 表单键——两侧按下划线剥离小写归一对表（与 §2.2 的 FieldMask query 绑定归一同口径），收敛到同一列。
+- **掩码三原语**（归一后路径集合上的判定）：
+  - **无掩码 = 全量提交语义**：存量 if-let-Some 逐字段写，载荷 None 不动列——与无掩码历史行为逐字节等价（`unrestricted` 守卫，差分回归面）；
+  - `touches(path)`：归一集合包含该字段（点路径 `meta.title` 使顶层段 `meta` 进门）；
+  - `selects_whole(field)`：只有字面写 `meta` 才算整域选中——jsonb 域借此区分「载荷缺 = 不动列」与「点路径合并域接管」；
+  - **present-but-empty**（掩码在场且空集）= 什么都不许动（AIP-134 的严格读法）。
+- **列写入门**（`set_masked!` 四形态）：`opt`——可空列：掩码选中 + 载荷 Some 写值、选中 + None **显式清列**（字段级清值通道）、无掩码 None 不动列；`req`——NOT NULL 列：None 永不写（无可清语义）；`opt_named`/`req_named`——列名 ≠ wire 名时显式给名（如 `type_column` ← `type`）。写面覆盖 33 个 update handler（`FieldMask::from` 调用点实测）；create/sync 等非 PATCH 入口传 `FieldMask::unmasked()` 复用同一写面，行为不变。
+- **jsonb 点路径合并**（menu meta 域，upstream dcaa4fa9d 语义）：`meta.*` 子段选中时不再整列替换——选中子字段合并进存量 jsonb（未选中键保留、选中但为空的键显式写 null 清残值），NULL 列以 `{}` 兜底；顶层 `meta` 选中或无掩码保持整列替换。
+- **特殊逻辑门控原则**：唯一性/code 冲突校验、树环检测、角色-权限绑定重建等校验类逻辑原位保留（门只管「载荷字段 → 列」的写面）；与「字段是否被写」耦合的副作用按掩码门控——org_unit 子树重算随 `parent_id` 掩码、ai_agent graph 校验与版本快照随 `graph` 掩码、script 版本递增随 `source` 掩码、bi_dashboard 乐观锁 CAS 在门外恒执行。
+
 ## 3. 响应序列化（`DefaultResponseEncoder`，codec.go:84-104）
 
 - `ctx.Result(200, v)`：状态恒 **200**（生成物写死）；`v == nil` → 无 body。
@@ -194,7 +213,7 @@ rushwind-transport-axum 使用 axum 0.8（`crates/rushwind-transport-axum/Cargo.
 | 非预检且 Origin 允许 | 请求透传到内层，响应附 ACAC/Vary/ACAO（同上） |
 | expose / max-age | **从不发射**（bootstrap 未接这两个选项） |
 
-Rust 侧：`rushwind-http::cors_compat`（1:1 移植，含 `canonical_header_key` 端口与 `Set` 的头覆盖语义），装配走 `HttpEdge::with_cors_compat`（rest_server.rs）。差分 `cors-preflight` 两例（允许/拒绝 origin）2026-09-14 对位通过。
+Rust 侧：`rushwind-http::cors_compat`（1:1 移植，含 `canonical_header_key` 端口与 `Set` 的头覆盖语义）；装配点已移入框架侧——`HttpEdge::with_cors_compat`（`rushwind-http::edge`）由 rushwind-bootstrap 的 per-server edge 块统一驱动（server.yaml 的 `edge.cors` 块），应用侧只剩 route pack（`apps/admin/src/admin/server/rest.rs` 与可复用的 `edge.rs` pack 壳），不再有手写 rest_server 装配。差分 `cors-preflight` 两例（允许/拒绝 origin）2026-09-14 对位通过。
 
 ## 7. SSE 通道（:7789，kratos-transport/transport/sse@v1.3.8 + bootstrap/transport/sse@v0.0.4）
 
@@ -208,7 +227,7 @@ SSE 是独立 transport server（`sse_server.go` → `sse.NewSseServer(cfg.Serve
 | 事件帧 | 固定顺序 `id:`（GUIDv4）→ `data:`（recipient protojson）→ `event: notification`，空行终止；无 retry 字段、无 keep-alive ping（空转静默） |
 | 订阅语义 | stream = userId：一用户多设备共享一条流，仅收本人 recipient 事件；`auto_stream: true` 下流随订阅自动建 |
 
-Rust 侧：`apps/admin/src/admin/server/sse.rs`——`events_preflight`（OPTIONS 静态应答）+ `sse_error`（401 纯文本形态，code 字段取 `error_status` 表值）+ 流响应头三枚插入（ACAO/ACAH/Connection 叠加在 axum `Sse` 自带的 content-type/cache-control 之上）+ `Event` builder 调用序 id→data→event（axum 按调用序拼帧，与上述顺序对位）+ Hub 广播按 uid 过滤（等价 per-stream 订阅）。路由路径接 `server.sse.path`（缺省回退 `/`）。2026-09-15 四路探针（预检 / 无 token / 成功路径头集 / stream 失配体）逐字节对位通过。
+Rust 侧（实现位置声明，2026-11 起的归属；线上行为描述不变）：wire 契约本体已迁入框架 `rushwind-transport-sse`——`events_preflight`（OPTIONS 静态应答）、`sse_error`（401 纯文本形态，code 字段取错误表值）、流响应头三枚插入（ACAO/ACAH/Connection 叠加在 axum `Sse` 自带的 content-type/cache-control 之上）与 `Event` builder 调用序 id→data→event（axum 按调用序拼帧，与上述顺序对位）+ Hub 广播按 uid 过滤（等价 per-stream 订阅）+ 路由路径接 `server.sse.path`（缺省回退 `/`）全部住在框架。应用侧 `apps/admin/src/admin/server/sse.rs` 只存四件：`AdminGate`（验签/在库会话/黑名单的鉴权序 Gate 适配器）、`sse_status_error`（reason→admin 错误表状态的构造器）、`factory`（地址与 path 的装配线）、`publish_recipient`（recipient protojson 载荷组装 + Hub 按 uid 发布）。2026-09-15 四路探针（预检 / 无 token / 成功路径头集 / stream 失配体）逐字节对位通过。
 
 已知分歧（差分台架未覆盖 SSE——:7789 不在 sweep 语料，本节为源码推导 + 探针验证的契约记录）：
 - **方法面**：参照 mux 对全部方法走同一 handler（POST 也能开流）；axum 侧 GET（含 HEAD）+ OPTIONS 之外返 405（无 CORS 头）——前端只用 GET，不可达。
@@ -219,11 +238,12 @@ Rust 侧：`apps/admin/src/admin/server/sse.rs`——`events_preflight`（OPTION
 
 | 类别 | 断言 |
 |---|---|
-| 路由 | 211 条 (method, pathTemplate) 全集对齐；任一请求路径两后端命中同一模板或同返 404/405 |
+| 路由 | 296 条 (method, pathTemplate) 全集对齐（admin 291 + fork 5）；任一请求路径两后端命中同一模板或同返 404/405 |
 | 绑定 | 每方法一组金样：query 全字段、嵌套点路径、map 双语法、`[]`、FieldMask 逗号、Timestamp、空值跳过、未知键忽略、类型错误 → 400/CODEC |
 | 响应 | 每响应消息类型一组 EmitUnpopulated 金样（含空消息 `{}`、null 消息字段、默认标量、枚举名字符串、64 位整数字符串化） |
 | 错误 | 每 reason 一条金样（status + envelope 字节）；未知 reason 场景 → 500/空 reason |
-| 头 | Content-Type 恒 `application/json`；CORS 三头（ACAO/ACAM/ACAC）按 §6 彄差 |
+| 写面 | update_mask 白名单门（§2.5）：无掩码等价性（unrestricted 守卫——与历史全量提交逐字节一致）、掩码门控（未选中列不可写）、显式清值（选中 + None 清可空列）、present-but-empty 严格读法、menu meta 点路径合并；各服务的 mask_gates/masked_none 回归套件钉住 |
+| 头 | Content-Type 恒 `application/json`；CORS 三头（ACAO/ACAM/ACAC）按 §6 对齐 |
 | 豁免集 | §1.3 三类路径形态分歧（尾斜杠/cleanPath/%2F）、`head-on-get`（axum GET 过滤器含 HEAD）、`path-bind-post-auth`（§2.3 路径变量绑定的排序分歧，含 `router-shadow`——遮蔽路径落点必然触发的实例） |
 
 > 维护约定：本规格与 Go 侧任何一方变更（升级 Kratos、改 protos）时，先改本文件、再动代码、后跑差分。

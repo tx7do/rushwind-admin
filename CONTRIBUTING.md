@@ -58,12 +58,12 @@ bash backend/apps/admin/api/sync-protos.sh --check  # 校验门（与 CI 一致�
 
 后端只有两个房间：**上游同步面**与**下游自有面**。
 
-- **上游同步面**——`backend/apps/admin/src/admin/`（41 个服务实现、数据层、路由边、审计、迁移种子）与 `backend/apps/admin/api/protos/`（契约快照）。上行同步波次只落这两个子树；fork **只读不写**。
+- **上游同步面**——`backend/apps/admin/src/admin/`（59 个服务实现、数据层、路由边、审计、迁移种子）与 `backend/apps/admin/api/protos/`（契约快照）。上行同步波次只落这两个子树；fork **只读不写**。
 - **下游自有面**——`backend/apps/admin/src/modules/`（业务模块，copy-rename `template` 起步）与 `backend/apps/admin/api/fork/protos/`（模块契约树）+ `main.rs` 里每个模块四行装配（`mod` 声明、迁移链、种子、route pack）。fork 的一切代码活在这里；上行**永不触碰**。
 
-跨线消费是稳定的：模块经 `crate::admin::{state, audit, data}` 与 `crate::repo_shell!` / `crate::stamp_update!` / `crate::query_by_id!` 骑 admin 的路由边（`EdgePack` / `edge_router` / `pack_with`）、状态助手与审计层。这些入口的签名与层序语义（bind 外、门内是 wire 契约）按稳定契约维护——改动须在 PR 中显式声明。
+跨线消费是稳定的：模块经 `crate::admin::{state, audit, data}` 与 `crate::repo_shell!` / `crate::stamp_update!` / `crate::query_by_id!` / `crate::set_masked!` 四个宏骑 admin 的路由边（`EdgePack` / `edge_router` / `pack_with`）、状态助手与审计层。这些入口的签名与层序语义（bind 外、门内是 wire 契约）按稳定契约维护——改动须在 PR 中显式声明。
 
-守卫面：`apps/admin/src/modules/template` 与 `apps/admin/tests/` 的守卫测试本身就是这条线的常态化检查——它们编译失败即稳定面被破坏。业务模块的写法见教程 [09 写下游](./docs/tutorial/09-write-your-first-module.md)。
+守卫面：`backend/apps/admin/src/modules/template` 与 `backend/apps/admin/tests/` 的守卫测试本身就是这条线的常态化检查——它们编译失败即稳定面被破坏。业务模块的写法见教程 [09 写下游](./docs/tutorial/09-write-your-first-module.md)。
 
 ### 代码规范
 

@@ -23,6 +23,8 @@
 | `RUSHWIND_REDIS_ADDR` / `RUSHWIND_REDIS_PASSWORD` | Redis |
 | `RUSHWIND_OSS_ENDPOINT` | MinIO endpoint |
 | `RUSHWIND_AUTH_JWT_PRIVATE_KEY` / `RUSHWIND_AUTH_JWT_PUBLIC_KEY` | RS256 双钥（PEM 全文注入，覆盖 auth.yaml） |
+| `RUSHWIND_PASSWORD_RSA_PRIVATE_KEY` | 口令传输信封的 RSA 私钥（PEM，单行 `\n` 转义可注入；**生产必须替换**——不注入则沿用随源码公开的开发私钥） |
+| `RUSHWIND_CAPTCHA_REQUIRED_FAILURES` | 渐进式验证码阈值：同一 ip+用户名登录失败达此次数后要求验证码（默认 3，限 1–4） |
 | `RUSHWIND_ACCESS_TOKEN_EXPIRES_SECS` / `RUSHWIND_REFRESH_TOKEN_EXPIRES_SECS` | 令牌有效期 |
 
 ## 2. server.yaml：装配文档
@@ -83,7 +85,7 @@ pnpm install && pnpm build    # 产物 dist/
 ## 6. 备份与归档
 
 - 数据库定时全量备份是**任务系统的一个任务类型**（`backup`）：在任务管理页配置 cron 即得定时 pg_dump 语义的备份作业，默认保留份数轮换由任务参数控制；
-- 审计超期数据走 `audit_log_archive` 系统作业（JSONL 归档，[第 7 章](./07-audit-compliance.md)）；
+- 审计侧的 `audit_log_archive` 系统作业（每日 03:30）当前只做投递占位：导出与清理尚未实现，JSONL 归档是规划项（[第 7 章](./07-audit-compliance.md)），库内留存策略是现阶段的唯一生效面；
 - 对象存储（MinIO）按桶前缀生命周期策略另行配置。
 
 ## 7. 上线检查单

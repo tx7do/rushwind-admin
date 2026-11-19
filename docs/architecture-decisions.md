@@ -20,7 +20,7 @@
 ```
 backend/
 ├── apps/admin/                  # 唯一产品 crate：一池一类型一装配
-│   ├── src/admin/               # 上游同步面（41 服务、数据层、路由边、审计、迁移种子）——fork 只读
+│   ├── src/admin/               # 上游同步面（59 个挂载服务面、数据层、路由边、审计、迁移种子）——fork 只读
 │   ├── src/modules/template/    # 下游自有面骨架（copy-rename 起步；i_notice BFF 随域走）
 │   ├── src/proto/               # 契约生成面（api/ 树 → 一个 buf 工作区 → 一池一类型）
 │   ├── api/

@@ -13,7 +13,7 @@ rushwind-admin/
 │           ├── api/            应用的契约工作区（一个 buf.yaml + 一个 buf.lock）
 │           │   ├── protos/     admin 契约树（MANIFEST.sha256 校验门，禁手改）
 │           │   └── fork/protos/ fork 模块契约树（fork 自有，自由编辑）
-│           ├── src/admin/      41 服务 + 数据层 + 路由边 + 审计（上行同步落点）
+│           ├── src/admin/      59 个挂载服务面 + 数据层 + 路由边 + 审计（上行同步落点）
 │           ├── src/modules/    fork 业务模块（copy-rename template 起步）
 │           ├── src/proto/      契约面（构建期生成：类型/池/gen 各 face）
 │           └── assets/         内嵌配置（server.yaml / auth.yaml / …）
@@ -24,8 +24,8 @@ rushwind-admin/
 
 两个要点：
 
-- **`crates/` 与 `apps/` 的分工**：crates 放框架库（契约构建引擎、鉴权门——不含任何 admin 业务语义），apps 放产品应用；数据层（实体、仓储、租户范围）属于应用自身，放在 `apps/admin/src/admin/data/` 里，不抽公共 crate。业务模块长在应用内部 `src/modules/`，与上游同步面同仓不同室（所有权一条线，见 [09 章](./09-write-your-first-module.md)）。
-- **proto 是唯一 API 契约**：284 条 REST 路由全部由 proto 的 `google.api.http` 注解在构建期生成，仓库里没有一条手写路由。契约树的维护方式见[第 3 章](./03-codegen-chain.md)。
+- **`crates/` 与 `apps/` 的分工**：crates 放框架库（契约构建引擎、鉴权门——不含任何 admin 业务语义），apps 放产品应用；数据层（实体、仓储、租户范围）属于应用自身，放在 `apps/admin/src/admin/data/` 里，不抽公共 crate。业务模块长在应用内部 `apps/admin/src/modules/`，与上游同步面同仓不同室（所有权一条线，见 [09 章](./09-write-your-first-module.md)）。
+- **proto 是唯一 API 契约**：admin 面的 291 条 REST 路由绑定全部由 proto 的 `google.api.http` 注解在构建期生成（fork 面 5 条同源生成，另计），仓库里没有一条手写路由——唯一例外是 `rest.rs` 手写的图片代理路由 `GET /admin/v1/file/image`（签名图片代理，不走契约注解）。契约树的维护方式见[第 3 章](./03-codegen-chain.md)。
 
 前端说明：本仓随仓携带三套前端同步快照（`frontend/admin/{react,vue-element,vue-vben}`），生成的 TypeScript 客户端三份字节相同。三套前端功能同构、技术栈各异（React 19 + Ant Design V6 / Vue3 + Element Plus / Vben Admin 5.x）、共用同一套后端契约——**它们是给不同技术栈团队的三个并列选项，不是"同时要三套"的一套交付**。
 
@@ -45,7 +45,7 @@ RushWind 装配层（rushwind-bootstrap，由 apps/admin/assets/server.yaml 驱�
   │  edge：gorilla 兼容的 CORS 层 + 10s 请求预算
   ▼
 REST transport（axum，:7788）
-  │  1. 路由匹配：构建期从注解描述符生成的路由表（284 条）
+  │  1. 路由匹配：构建期从注解描述符生成的路由表（291 条）
   │  2. 绑定层（逐路由最外层）：body 走 protojson（Content-Type 查表）、
   │     query 走 form 编解码——绑定失败在这里就返回 400，先于任何鉴权
   │  3. 鉴权门（仅门控路由）：JWT RS256 验签 + Redis 会话检查 → 租户检查
@@ -57,10 +57,10 @@ REST transport（axum，:7788）
 Service 层（apps/admin/src/admin/services/*.rs）
   │  业务逻辑：从请求上下文取操作者、调仓储、做 proto↔模型映射
   ▼
-Repo 层（src/data/repos/*.rs）
+Repo 层（apps/admin/src/admin/data/repos/*.rs）
   │  分页/过滤/排序组装（fetch_paged），查询谓词由 Viewer 派生
   ▼
-数据层租户规则（src/data/scope.rs）
+数据层租户规则（apps/admin/src/admin/data/scope.rs）
   │  平台视图全见；租户视图强制 tenant_id 谓词；系统视图旁路
   ▼
 SeaORM → PostgreSQL
@@ -81,7 +81,7 @@ SeaORM → PostgreSQL
 
 | 通道 | 端口 | 用途 |
 |---|---|---|
-| REST | :7788 | 全部管理面路由（284 条） |
+| REST | :7788 | 全部管理面路由（291 条） |
 | SSE | :7789 `/events` | 服务端推送（站内信、通知）；流按 userId 归属校验，连接独立鉴权 |
 | 任务队列 worker | —（无监听端口） | 消费 Postgres 队列（rushwind-apalis-postgres）：广播扇出、审计归档、定时备份等异步任务 |
 | cron 生产者 | —（无监听端口） | 周期投递任务：租户到期扫描（每小时）、审计归档（03:30）、sys_tasks 表驱动的用户任务 |
@@ -92,14 +92,14 @@ SeaORM → PostgreSQL
 |---|---|---|---|
 | 认证 | JWT RS256（access + refresh HttpOnly Cookie 双 Cookie 轮换），口令应用层加密传输；认证阶段由框架 crate（rushwind-authn-gate）承载 | `crates/auth` + `services/.../token.rs`、`services/authentication/` | 第 5 章 |
 | 授权（接口级） | authz 评估"该用户能否调该接口"，策略存 DB，每次评估落策略评估日志 | `crates/auth` + `services/.../authorizer.rs` | 第 5 章 |
-| 租户隔离 | 数据层 Viewer 三态（平台/租户/系统）+ HTTP 层租户闸门（套餐模块白名单） | `src/data/scope.rs` + `crates/auth` | 第 6 章 |
+| 租户隔离 | 数据层 Viewer 三态（平台/租户/系统）+ HTTP 层租户闸门（套餐模块白名单） | `apps/admin/src/admin/data/scope.rs` + `crates/auth` | 第 6 章 |
 | 数据范围 | 角色级行过滤（五档），令牌承载聚合结果（`ds`/`dss` 声明） | 仓储谓词 + 令牌载荷 | 第 6 章 |
 | 字段级权限 | 角色黑名单字段（`hfs` 声明），服务端响应裁剪 + 前端隐藏 | `services/admin_portal.rs`、`role.rs` | 第 5 章 |
-| 审计日志 | 六类日志全覆盖：登录（含风控打分）/操作/API/数据访问/权限变更/策略评估 | `src/audit/`（中间件层） | 第 7 章 |
-| 异步任务 | Postgres 队列 + cron 生产者（系统任务 + sys_tasks 表驱动任务） | `src/server/apalis.rs` | [docs/README.md](../README.md) 工程档案 |
-| SSE 推送 | 站内信/通知推送；Hub 广播 + 逐收件人投递 | `src/server/sse.rs` | [docs/README.md](../README.md) 工程档案 |
-| 参数管理 | 平台全局参数键值（sys_config），缓存读取 + Redis 发布订阅多实例失效 | `src/services/config.rs` | — |
-| 对象存储 | MinIO（S3 兼容），五内容桶，签名图片代理 | `src/state.rs` + `services/file.rs` | — |
+| 审计日志 | 六类日志全覆盖：登录（含风控打分）/操作/API/数据访问/权限变更/策略评估 | `apps/admin/src/admin/audit/`（中间件层） | 第 7 章 |
+| 异步任务 | Postgres 队列 + cron 生产者（系统任务 + sys_tasks 表驱动任务） | `apps/admin/src/admin/server/apalis.rs` | [docs/README.md](../README.md) 工程档案 |
+| SSE 推送 | 站内信/通知推送；Hub 广播 + 逐收件人投递 | `apps/admin/src/admin/server/sse.rs` | [docs/README.md](../README.md) 工程档案 |
+| 参数管理 | 平台全局参数键值（sys_config），缓存读取 + Redis 发布订阅多实例失效 | `apps/admin/src/admin/services/config.rs` | — |
+| 对象存储 | MinIO（S3 兼容），五内容桶，签名图片代理 | `apps/admin/src/admin/state.rs` + `services/file.rs` | — |
 | 质量门禁 | fmt / clippy / test / 契约同步四道 CI 门 + 差分回归台架 | `.github/workflows/ci.yml`、`backend/testbed` | 第 3 章 |
 
 ## 5. 生成代码与手写代码的边界
@@ -114,7 +114,7 @@ SeaORM → PostgreSQL
 | 前端 `src/api/generated/**` | 从契约生成的 TypeScript 客户端 | ❌ |
 | `apps/admin/src/admin/services/**` | 手写（模式化样板） | ✅ |
 | `apps/admin/src/admin/data/**` | 手写（实体/仓储/租户规则） | ✅ |
-| `crates/auth`、`src/server/**`、`src/audit/**` | 手写（门、装配、审计层） | ✅ |
+| `crates/auth`、`apps/admin/src/admin/server/**`、`apps/admin/src/admin/audit/**` | 手写（门、装配、审计层） | ✅ |
 
 生成链路的完整机制在[第 3 章](./03-codegen-chain.md)，实战在[第 4 章](./04-first-service-module.md)。
 

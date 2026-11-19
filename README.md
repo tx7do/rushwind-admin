@@ -18,10 +18,10 @@
 
 - **多前端适配**：同时提供 `Vue3 Vben`（Ant Design Vue）、`Vue3 Element Plus`、`React19 Antd` 三套前端，满足不同团队偏好
 - **企业级 RBAC**：支持多租户、多角色、多部门、菜单/按钮/数据级权限控制
-- **契约驱动的代码生成**：Protobuf 是唯一 API 契约——构建期确定性生成 284 条路由、546 条错误状态映射、556 个服务接口，零手写路由；前端 TypeScript 客户端三份字节相同
+- **契约驱动的代码生成**：Protobuf 是唯一 API 契约——构建期确定性生成 291 条路由、491 条错误状态映射、602 个服务接口（按 RPC 声明数计），零手写路由；前端 TypeScript 客户端三份字节相同
 - **安全与等保合规**：按等保 2.0 技术要求内置 180 天审计日志留存归档、口令策略三件套、TOTP MFA、口令应用层加密、动态 RBAC 与多租户隔离，详见[安全与等保合规](#安全与等保合规)
 - **生产就绪基座**：JWT RS256 鉴权、统一四字段错误信封、CORS、SSE 消息推送（:7789 /events）、异步任务队列（Postgres 队列 worker + cron 生产者）
-- **质量门禁**：fmt / clippy / test / 契约同步四道 CI 门（ubuntu + windows 矩阵）
+- **质量门禁**：契约同步门 + 三道前端快照门 + fmt / clippy / test，七道 CI 检查（ubuntu + windows 矩阵）
 
 ## 演示地址
 
@@ -108,9 +108,9 @@ backend/apps/admin/api/fork/     proto 契约·fork 模块树（fork 自有，�
         │  一个 buf 工作区编译出一份注解描述符（一池一类型）
         ▼
 backend/apps/admin               build.rs 构建期生成（crate::proto 面）
-        ├── ROUTES 路由表（284 条，含 additional_bindings）
-        ├── 错误状态表（546 条 reason → HTTP 状态映射）
-        ├── 服务 trait（556 个方法）+ mounts 挂载胶水
+        ├── ROUTES 路由表（291 条，含 additional_bindings）
+        ├── 错误状态表（491 条 reason → HTTP 状态映射）
+        ├── 服务 trait（59 个服务面 · 286 个方法）+ mounts 挂载胶水
         └── protojson 编解码（金样测试锁定）
         ▼
 src/admin/                       手写服务实现挂到生成的 trait 上（上行同步落点）
@@ -143,9 +143,9 @@ src/modules/                     fork 业务模块（copy-rename template 起步
 |------|---------|---------|
 | `backend/apps/admin/api/protos/**` | `sync-protos.sh` 从契约源同步（MANIFEST 校验门） | ❌ 改契约源后重新同步 |
 | `backend/apps/admin/api/fork/protos/**` | fork 自有契约树 | ✅ 模块契约面 |
-| `apps/admin/src/proto` 生成面 | `build.rs` 构建期确定性再生 | ❌ |
+| `backend/apps/admin/src/proto` 生成面 | `build.rs` 构建期确定性再生 | ❌ |
 | 前端 `src/api/generated/**` | 从契约生成的 TypeScript 客户端 | ❌ |
-| `apps/admin/src/admin/services/**`、`apps/admin/src/admin/data/**` | 手写业务逻辑与数据层（上行同步落点） | fork 只读 |
+| `backend/apps/admin/src/admin/services/**`、`backend/apps/admin/src/admin/data/**` | 手写业务逻辑与数据层（上行同步落点） | fork 只读 |
 | `src/modules/**` | fork 业务模块 | ✅ |
 
 逐层拆解与机制细节见[教程第一章：架构全景](./docs/tutorial/01-architecture-overview.md)。
@@ -177,15 +177,15 @@ src/modules/                     fork 业务模块（copy-rename template 起步
 **已落地**
 
 - 契约流水线：proto 同步（MANIFEST 校验门 + 漂移检测）→ 注解描述符 → 构建期确定性生成路由 / 错误状态表 / 服务接口 / 挂载胶水
-- REST :7788 装配：284 条路由、8 个免鉴权端点白名单、JWT RS256 鉴权门、CORS、统一四字段错误信封（code / reason / message / metadata）
+- REST :7788 装配：291 条路由、8 个免鉴权端点白名单、JWT RS256 鉴权门、CORS、统一四字段错误信封（code / reason / message / metadata）
 - 编解码对齐：protojson 请求绑定与响应发射（64 位整数字符串化、presence 省略、well-known 类型语义），金样测试锁定
 - 真实服务实现覆盖全部组织 / 权限 / 认证 / 消息 / 审计 / 监控域，并完整移植 ce8ab49 vintage 的新域：OIDC SSO 单点登录与租户白标、通知偏好与模板、渠道扩展（39 个 EXT 渠道 schema 注册表 + settings 存取）、监控告警（阈值评估器 + 冷却/恢复状态机）、系统任务巡检、BI 仪表盘（乐观锁 + 内置模板）、打印模板（服务端 HTML→PDF 渲染）、AI 全域（提供商 / 对话 / 消息 / 用量 / 知识库 RAG / Agent 图引擎 / 内容生成）
 - NL2SQL（智能问数）按显式边界声明 NOT_IMPLEMENTED：其四重只读护栏链（表白名单 / LIMIT 钳制 / 语句只读校验 / 租户后置 fail-closed）须整链落地后才放行生成 SQL 执行
 
 **进行中 / 规划**
 
-- 出站投递：SMTP / WEBHOOK / SMS / EXT 渠道真实 sender 与台账实投（通知域既有欠账）、告警周期扫描、事务性邮件按用户偏好语言渲染
-- SSE 业务推送接入（站内信 / 通知实时下发）、审计日志归档
+- 出站投递：SMTP / WEBHOOK / SMS 三渠道真实 sender 与台账实投已上线（EXT 渠道待接）；告警周期扫描、事务性邮件按用户偏好语言渲染仍在路上
+- 站内信的实时 SSE 下发已接入（消息管理发送面，指定收件人与全员直发均随投随推）；通知规则 / 告警触发面与全员广播队列投递的 SSE 下发、审计日志归档导出仍在路上
 - 文件域入知识库（UploadDocFile）
 
 ---
@@ -237,7 +237,7 @@ cargo clippy --workspace -- -D warnings
 cargo test --workspace
 ```
 
-CI（ubuntu + windows 矩阵）执行同样的四道门：fmt / clippy / test / 契约同步校验，见 [.github/workflows/ci.yml](./.github/workflows/ci.yml)。
+CI（ubuntu + windows 矩阵）执行同样的七道检查：契约同步校验（proto MANIFEST）、三道前端快照校验、fmt / clippy / test，见 [.github/workflows/ci.yml](./.github/workflows/ci.yml)。
 
 ### 前端启动
 
@@ -245,25 +245,25 @@ CI（ubuntu + windows 矩阵）执行同样的四道门：fmt / clippy / test / 
 
 | 前端版本 | 目录 | 状态 | 启动命令 | 端口 |
 |---------|------|------|---------|------|
-| React | `frontend/admin/react` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev` | 5888 |
-| Vue Element | `frontend/admin/vue-element` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev` | 5777 |
-| Vue Vben | `frontend/admin/vue-vben` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev:antd` | 5666 |
+| React | `frontend/admin/react` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev` | 15888 |
+| Vue Element | `frontend/admin/vue-element` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev` | 15777 |
+| Vue Vben | `frontend/admin/vue-vben` | ✅ 随仓快照 + 品牌覆写 | `pnpm dev` | 15666 |
 
 ```shell
 # React 版（本仓 frontend/admin/react）
 cd frontend/admin/react
 pnpm install
-pnpm dev            # :5888，代理转发至 REST :7788
+pnpm dev            # :15888，代理转发至 REST :7788
 
 # Vue Element 版（本仓 frontend/admin/vue-element）
 cd frontend/admin/vue-element
 pnpm install
-pnpm dev            # :5777，代理转发至 REST :7788
+pnpm dev            # :15777，代理转发至 REST :7788
 
-# Vue Vben 版（本仓 frontend/admin/vue-vben，monorepo，在仓库根执行）
+# Vue Vben 版（本仓 frontend/admin/vue-vben）
 cd frontend/admin/vue-vben
 pnpm install
-pnpm dev:antd       # :5666，代理转发至 REST :7788
+pnpm dev            # :15666，代理转发至 REST :7788
 ```
 
 ---
@@ -279,7 +279,7 @@ pnpm dev:antd       # :5666，代理转发至 REST :7788
 | 功能 | 说明 |
 |------|-----|
 | 用户管理 | 管理和查询用户，支持高级查询和按部门联动用户，用户可禁用/启用、设置/取消主管、重置密码、配置多角色、多部门和上级主管、一键登录指定用户等功能 |
-| 租户管理 | 管理租户，新增租户后自动初始化租户部门、默认角色和管理员。支持配置套餐、禁用/启用、一键登录租户管理员功能 |
+| 租户管理 | 管理租户，新增租户后自动初始化租户部门、默认角色和管理员。支持配置套餐、禁用/启用、一键登录租户管理员、租户回收站（删除即入回收站，平台门禁查看/恢复/彻底清除，purge 全域级联）功能 |
 | 套餐与配额管理 | 管理租户订阅套餐及其资源配额（如模块白名单、用量上限），支持套餐与配额项的增删改查 |
 | 角色管理 | 管理角色和角色分组，支持按角色联动用户，设置菜单授权、数据权限范围（五档 / 自定义组织单元集）与字段级权限（黑名单字段集），批量添加和移除员工；支持父子角色权限继承（子角色权限集必须落在父角色已授予集合内，改父/改权双向重对齐，沿父链防环） |
 | 权限管理 | 管理权限分组、菜单、权限点，支持树形列表展示 |
@@ -344,6 +344,8 @@ rushwind-admin/
 │   ├── crates/
 │   │   ├── auth/                   # 鉴权门（框架 crate：门状态钉字面量，等值守卫在 app 侧）
 │   │   └── biz-proto-build/        # 契约构建引擎（manifest_dir/api 布局，单池多 face）
+│   ├── testbed/
+│   │   └── admin-diff/             # URL 驱动的差分台架（对拍 Go 参考实现；corpus/exemptions/compose 同址）
 │   └── apps/
 │       └── admin/                  # ★ 唯一的产品应用：一个 crate，一个二进制
 │           ├── api/                # 应用的契约工作区（一个 buf.yaml + 一个 buf.lock）
@@ -353,13 +355,12 @@ rushwind-admin/
 │           ├── src/
 │           │   ├── main.rs         #   装配：迁移链→种子→route packs→cron/sse/tasks（每模块四行）
 │           │   ├── proto/          #   契约面（生成：类型/池/gen 各 face）
-│           │   ├── admin/          #   ★ 上行同步机房：41 服务 + 数据层 + 路由边 + 审计（fork 只读）
+│           │   ├── admin/          #   ★ 上行同步机房：59 服务 + 数据层 + 路由边 + 审计（fork 只读）
 │           │   └── modules/        #   ★ fork 自有的一切（copy-rename template 起步）
 │           └── tests/              #   线契约守卫 + 模板守卫 + 等值守卫
-├── testbed/admin-diff/             # URL 驱动的差分台架（对拍 Go 参考实现）
 ├── frontend/                       # 三套前端同步快照（sync-frontend.sh + 双清单门 + RushWind 品牌覆写）
 ├── docs/                           # 项目文档（教程 tutorial / 索引 README / binding-spec / development-plan / operator-matrix / screenshots）
-└── .github/workflows/              # CI（fmt / clippy / test / 契约同步门）
+└── .github/workflows/              # CI（契约同步门 + 三道前端快照门 + fmt / clippy / test）
 ```
 
 所有权一句话：**上行同步只落 `src/admin/` 与 `api/protos/`；你的一切代码活在 `src/modules/`、`api/fork/protos/` 和 `main.rs` 的装配行里。**
@@ -370,7 +371,7 @@ rushwind-admin/
 
 教程与参考文档体系从 [docs/README.md](./docs/README.md) 进入：
 
-- **教程层**（[docs/tutorial/](./docs/tutorial/README.md)）—— 八章渐进：架构全景 → 从零跑起来 → 契约与生成链路 → 第一个服务模块 → 权限模型 → 多租户与行级隔离 → 审计与等保 → 部署上线
+- **教程层**（[docs/tutorial/](./docs/tutorial/README.md)）—— 九章渐进：架构全景 → 从零跑起来 → 契约与生成链路 → 第一个服务模块 → 权限模型 → 多租户与行级隔离 → 审计与等保 → 部署上线 → 写你的第一个业务模块（fork 工作流）
 - **参考层** —— [binding-spec](./docs/binding-spec.md)（线上字节契约基准）等工程档案，动对应子系统前必读
 
 ---

@@ -1,6 +1,6 @@
 # 03 · 契约与生成链路
 
-> 前置：[02 从零跑起来](./02-get-it-running.md)。读完你会知道：proto 如何变成 284 条路由、546 条错误映射和 556 个服务方法；哪些代码永远不该手改。
+> 前置：[02 从零跑起来](./02-get-it-running.md)。读完你会知道：proto 如何变成 admin 面的 291 条路由、491 条错误映射和 286 个服务方法（fork 面另有 5 条路由、6 条错误映射、5 个方法，同链路生成）；哪些代码永远不该手改。
 
 ## 1. 契约树的维护方式：同步 + 校验门
 
@@ -25,17 +25,19 @@ backend/apps/admin/api/protos（admin 树）+ api/fork/protos（fork 模块树�
         │
         ├─ buf build → 全量闭包注解镜像（含 google.api.http / 错误码等自定义选项字节）
         │     └─ rushwind-gen-http（框架仓的生成器）解析描述符，确定性生成：
-        │          · ROUTES 路由表（284 条，含 additional_bindings）
-        │          · 错误状态表（546 条 reason → HTTP 状态）
-        │          · 服务 trait（556 个方法，XxxServiceHandlers）
+        │          · ROUTES 路由表（291 条，含 additional_bindings）
+        │          · 错误状态表（491 条 reason → HTTP 状态）
+        │          · 服务 trait（286 个方法，XxxServiceHandlers）
         │          · mounts 挂载胶水（每服务一个，pub/gate 双路由线程）
         │          · 逐路由绑定计划（body/query/path 变量怎么解）
         │
-        └─ protox → 过滤后的描述符集 → prost + pbjson
+        └─ buf build（带 source info）→ 过滤后的描述符集 → prost + pbjson
               └─ proto 类型与 protojson serde（64 位整数字符串化、presence 语义）
 ```
 
-为什么必须装 buf：protox 的序列化器会**丢弃自定义选项字节**，而选项字节正是路由与错误码的载体——所以注解闭包这条面只能走 buf build（它保留选项字节，且产出排序的平台无关镜像）。这是环境要求里 buf"必须"的原因。
+两条闭包都是 buf build 的产物：注解闭包编译时不带 source info（描述符镜像按序产出、平台无关）；类型闭包带 source info——proto 注释经 prost 变成生成类型的 rustdoc，再过滤掉注解声明文件后交给 prost_build/pbjson_build。admin 树与 fork 模块树各出一个 gen face（同一闭包按树前缀切片），类型面则共用一个池。
+
+为什么必须装 buf：构建引擎直接消费 `buf build` 的描述符产物——Rust 侧序列化器（如曾经的 protox 管线）会**丢弃自定义选项字节**，而选项字节正是路由与错误码的载体；生成链已不再依赖 protox，两条闭包统一走 buf build。这是环境要求里 buf"必须"的原因。
 
 ## 3. 生成面落位（crate `proto`）
 
@@ -49,7 +51,7 @@ backend/apps/admin/api/protos（admin 树）+ api/fork/protos（fork 模块树�
 
 `admin/server/rest.rs` 的 `mount_service!` 表是服务与挂载的唯一对接点——每个服务一行 `($mount, $Service)`，绑定计划决定 `wrap` 怎么组合层级。
 
-> **已知例外（284 条中的 1 条）**：`POST /admin/v1/bi-dashboards/{id}:copy`
+> **已知例外（291 条中的 1 条）**：`POST /admin/v1/bi-dashboards/{id}:copy`
 > 是 AIP-136 "资源上的自定义动作"形态——路径段里参数后跟 `:verb` 字面量。
 > Go 参照的 mux 按字符前缀匹配支持它，而 axum 0.8 的 matchit 路由树拒绝
 > 这种混合段（"Only one parameter is allowed per path segment"）。生成的
@@ -62,7 +64,7 @@ backend/apps/admin/api/protos（admin 树）+ api/fork/protos（fork 模块树�
 
 ## 4. 差分回归台架：契约面的验收
 
-`backend/testbed` 通过 compose 拉起中间件与 **Go / Rust 双栈后端**，`admin-diff` 对 284 条路由 + 93 条 HEAD 自动 sweep 并**逐字节比对**响应，豁免显式登记于 `exemptions.json`（当前 4 类：路由遮蔽、鉴权后路径绑定、HEAD-on-GET、sweep 分类的形态差异）。
+`backend/testbed` 通过 compose 拉起中间件与 **Go / Rust 双栈后端**，`admin-diff` 对 291 条路由 + 121 条 HEAD 探针（GET 路由逐条自动 sweep）并**逐字节比对**响应，豁免显式登记于 `exemptions.json`（当前 3 类：路由遮蔽、鉴权后路径绑定、HEAD-on-GET）。
 
 使用方式与"探针方法学陷阱"（代理污染、Content-Type 注入等，复跑前必读）见 [backend/testbed/README.md](../../backend/testbed/README.md)。
 
@@ -76,7 +78,7 @@ backend/apps/admin/api/protos（admin 树）+ api/fork/protos（fork 模块树�
 
 - 契约同步进仓 + MANIFEST 门：proto 面不可手改，漂移必须显式接受；
 - 构建期一次编译产出两个面：注解描述符（路由/错误/绑定/trait）与 prost 类型（protojson）；
-- 挂载对接只有一张表（`mount_services!`），服务与路由的连接零手写；
+- 挂载对接只有一张表（`mount_service!` 逐行宏，`mount_items()` 收集），服务与路由的连接零手写；
 - 台架逐字节比对是契约改动的验收面。
 
 下一步：[04 · 第一个服务模块](./04-first-service-module.md)。
