@@ -185,6 +185,76 @@ fn merge_settings_for_update(
     normalize_settings_for_store(type_name, &merged_str)
 }
 
+/// 更新载荷的字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码
+/// 即存量 if-let-Some 全量提交语义不变）。name 是 NOT NULL 列走 req 形态
+/// （None 永不写、无可清语义）；`enabled` 的列名是 status（wire 名 ≠ 列名）
+/// 走 opt_named；掩码选中 + 载荷 None = 显式清可空列。settings 域（敏感
+/// 留空保留的合并语义 + 点路径不存在——wire 上是单串 JSON）在 update 内
+/// 单独过门。
+fn apply_fields(
+    a: &mut crate::data::sys_notification_channels::ActiveModel,
+    data: &NotificationChannel,
+    mask: &crate::fieldmask::FieldMask,
+) {
+    crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+    crate::set_masked!(opt mask, a, smtp_host, data.smtp_host, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, smtp_port, data.smtp_port, |v: &u32| Some(
+        *v
+    ));
+    crate::set_masked!(opt mask, a, smtp_username, data.smtp_username, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, smtp_from, data.smtp_from, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, webhook_url, data.webhook_url, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(
+        opt mask,
+        a,
+        webhook_payload_template,
+        data.webhook_payload_template,
+        |v: &String| Some(v.clone())
+    );
+    crate::set_masked!(opt mask, a, webhook_sign_style, data.webhook_sign_style, |v: &i32| Some(
+        mapping::notification_sign_style_str(*v)
+            .unwrap_or("CUSTOM")
+            .to_string()
+    ));
+    crate::set_masked!(opt mask, a, smtp_tls, data.smtp_tls, |v: &i32| Some(
+        mapping::notification_smtp_tls_str(*v)
+            .unwrap_or("START_TLS")
+            .to_string()
+    ));
+    crate::set_masked!(opt_named mask, a, status, "enabled", data.enabled, |v: &bool| Some(
+        if *v { "ON".into() } else { "OFF".into() }
+    ));
+    crate::set_masked!(opt mask, a, sms_provider, data.sms_provider, |v: &i32| {
+        mapping::notification_sms_provider_str(*v).map(|s| s.to_string())
+    });
+    crate::set_masked!(opt mask, a, sms_access_key_id, data.sms_access_key_id, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, sms_sign_name, data.sms_sign_name, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, sms_template_code, data.sms_template_code, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, sms_app_id, data.sms_app_id, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, sms_region, data.sms_region, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, smtp_from_name, data.smtp_from_name, |v: &String| Some(
+        v.clone()
+    ));
+}
+
 #[async_trait::async_trait]
 impl crate::proto::gen::services::NotificationChannelServiceHandlers
     for NotificationChannelService
@@ -290,77 +360,31 @@ impl crate::proto::gen::services::NotificationChannelServiceHandlers
         let type_name = row.type_column.clone().unwrap_or_default();
         let mut a: crate::admin::data::sys_notification_channels::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = &data.smtp_host {
-                a.smtp_host = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.smtp_port {
-                a.smtp_port = Set(Some(v));
-            }
-            if let Some(v) = &data.smtp_username {
-                a.smtp_username = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.smtp_from {
-                a.smtp_from = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.webhook_url {
-                a.webhook_url = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.webhook_payload_template {
-                a.webhook_payload_template = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.webhook_sign_style {
-                a.webhook_sign_style = Set(Some(
-                    mapping::notification_sign_style_str(v)
-                        .unwrap_or("CUSTOM")
-                        .to_string(),
-                ));
-            }
-            if let Some(v) = data.smtp_tls {
-                a.smtp_tls = Set(Some(
-                    mapping::notification_smtp_tls_str(v)
-                        .unwrap_or("START_TLS")
-                        .to_string(),
-                ));
-            }
-            if let Some(v) = data.enabled {
-                a.status = Set(Some(if v { "ON".into() } else { "OFF".into() }));
-            }
-            // 扩展渠道 settings 合并（sensitive 留空 = 保留已存）；非扩展渠道
-            // 传 settings 一律拒绝（与上游 normalizeSettingsForWrite 同则）。
-            if let Some(v) = data.settings.as_deref().filter(|s| !s.is_empty()) {
-                let stored = {
-                    let sea_orm::ActiveValue::Unchanged(current) = &a.settings else {
-                        unreachable!("freshly loaded row carries Unchanged values")
-                    };
-                    current.clone()
-                };
-                let merged = merge_settings_for_update(&type_name, stored.as_deref(), v)?;
-                a.settings = Set(Some(merged));
-            }
-            if let Some(v) = data.sms_provider {
-                a.sms_provider =
-                    Set(mapping::notification_sms_provider_str(v).map(|s| s.to_string()));
-            }
-            if let Some(v) = &data.sms_access_key_id {
-                a.sms_access_key_id = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.sms_sign_name {
-                a.sms_sign_name = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.sms_template_code {
-                a.sms_template_code = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.sms_app_id {
-                a.sms_app_id = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.sms_region {
-                a.sms_region = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.smtp_from_name {
-                a.smtp_from_name = Set(Some(v.clone()));
+            // 字段写入统一过 update_mask 白名单门（无掩码即存量全量提交语义）。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            apply_fields(&mut a, data, &mask);
+            // settings 域单独过门：掩码选中且载荷带非空 JSON → 走敏感留空
+            // 保留的合并写（合并本身仍按 schema 校验，非扩展渠道照样拒绝）；
+            // 掩码整域选中 + 载荷缺/空 → 显式清列（settings 在 wire 上是
+            // 单串 JSON，无点路径子段）；无掩码时缺/空 = 不动（存量语义）。
+            if mask.touches("settings") {
+                match data.settings.as_deref().filter(|s| !s.is_empty()) {
+                    Some(v) => {
+                        let stored = {
+                            let sea_orm::ActiveValue::Unchanged(current) = &a.settings else {
+                                unreachable!("freshly loaded row carries Unchanged values")
+                            };
+                            current.clone()
+                        };
+                        let merged = merge_settings_for_update(&type_name, stored.as_deref(), v)?;
+                        a.settings = Set(Some(merged));
+                    }
+                    None => {
+                        if !mask.unrestricted() && mask.selects_whole("settings") {
+                            a.settings = Set(None);
+                        }
+                    }
+                }
             }
         }
         crate::stamp_update!(a, payload.user_id);
@@ -542,6 +566,143 @@ impl NotificationChannelService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::sys_notification_channels as channels;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::NotificationChannelServiceHandlers as _;
+    use sea_orm::{EntityTrait, Set};
+
+    async fn plant(db: &sea_orm::DatabaseConnection, name: &str) -> channels::Model {
+        channels::ActiveModel {
+            name: Set(name.into()),
+            type_column: Set(Some("EMAIL".into())),
+            smtp_host: Set(Some("smtp.example.com".into())),
+            smtp_port: Set(Some(465)),
+            smtp_tls: Set(Some("SSL".into())),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> channels::Model {
+        channels::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(
+        id: u64,
+        data: NotificationChannel,
+        paths: &[&str],
+    ) -> UpdateNotificationChannelRequest {
+        UpdateNotificationChannelRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 即便带了 smtp_host/smtp_port 也不许动；enabled 的列名是 status，
+    /// 照样过门。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = NotificationChannelService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "旧渠道").await;
+
+        svc.update_notification_channel(
+            ctx(0, 9),
+            update_req(
+                row.id as u64,
+                NotificationChannel {
+                    name: Some("新渠道".into()),
+                    smtp_host: Some("evil.example.com".into()),
+                    smtp_port: Some(25),
+                    enabled: Some(false),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "新渠道", "masked name lands");
+        assert_eq!(
+            fresh.smtp_host.as_deref(),
+            Some("smtp.example.com"),
+            "unmasked smtp_host is not writable through the gate"
+        );
+        assert_eq!(fresh.smtp_port, Some(465), "unmasked smtp_port untouched");
+        assert_eq!(
+            fresh.status.as_deref(),
+            Some("ON"),
+            "unmasked enabled (status column) untouched"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = NotificationChannelService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "渠道").await;
+
+        // 无掩码：None 不动列。
+        svc.update_notification_channel(
+            ctx(0, 9),
+            UpdateNotificationChannelRequest {
+                id: row.id as u64,
+                data: Some(NotificationChannel {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.smtp_host.as_deref(),
+            Some("smtp.example.com"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update_notification_channel(
+            ctx(0, 9),
+            update_req(
+                row.id as u64,
+                NotificationChannel::default(),
+                &["smtp_host"],
+            ),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.smtp_host.is_none(),
+            "masked None explicitly clears the column"
+        );
+    }
 
     #[test]
     fn settings_write_requires_schema_required_fields() {

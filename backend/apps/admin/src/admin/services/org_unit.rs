@@ -101,6 +101,93 @@ pub struct OrgUnitService {
 }
 
 impl OrgUnitService {
+    /// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+    /// 存量全量提交语义）。business_scopes/permission_tags 保留引用同款
+    /// nil-branch（空列表清列、非空列表不随 update 落库），只把清列通道
+    /// 关进掩码门。
+    fn apply_fields(
+        a: &mut crate::data::sys_org_units::ActiveModel,
+        data: &OrgUnit,
+        mask: &crate::fieldmask::FieldMask,
+    ) {
+        crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+        crate::set_masked!(opt mask, a, code, data.code, |v: &String| Some(v.clone()));
+        crate::set_masked!(opt mask, a, leader_id, data.leader_id, |v: &u64| Some(
+            *v as i64
+        ));
+        crate::set_masked!(opt_named mask, a, type_column, "type", data.r#type, |v: &i32| Some(
+            org_type_to_str(*v)
+        ));
+        crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(*v));
+        crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(if *v == 0 {
+            "OFF".into()
+        } else {
+            "ON".into()
+        }));
+        crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &u64| if *v == 0 {
+            None
+        } else {
+            Some(*v as i64)
+        });
+        crate::set_masked!(opt mask, a, path, data.path, |v: &String| Some(v.clone()));
+        crate::set_masked!(opt mask, a, external_id, data.external_id, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, is_legal_entity, data.is_legal_entity, |v: &bool| Some(
+            *v
+        ));
+        crate::set_masked!(opt mask, a, registration_number, data.registration_number, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, tax_id, data.tax_id, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, legal_entity_org_id, data.legal_entity_org_id, |v: &u64| Some(
+            *v as i64
+        ));
+        crate::set_masked!(opt mask, a, address, data.address, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, phone, data.phone, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, email, data.email, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, timezone, data.timezone, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, country, data.country, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, latitude, data.latitude, |v: &f64| Some(*v));
+        crate::set_masked!(opt mask, a, longitude, data.longitude, |v: &f64| Some(*v));
+        crate::set_masked!(opt mask, a, start_at, data.start_at, |v: &pbjson_types::Timestamp| {
+            crate::state::ts_to_naive(v)
+        });
+        crate::set_masked!(opt mask, a, end_at, data.end_at, |v: &pbjson_types::Timestamp| {
+            crate::state::ts_to_naive(v)
+        });
+        crate::set_masked!(opt mask, a, contact_user_id, data.contact_user_id, |v: &u64| Some(
+            *v as i64
+        ));
+        // Absent scope/tag lists clear the columns (the reference's
+        // nil-branch; present lists never ride an update)——掩码未选中时
+        // 清列通道同样关闭。
+        if data.business_scopes.is_empty() && mask.touches("business_scopes") {
+            a.business_scopes = Set(None);
+        }
+        if data.permission_tags.is_empty() && mask.touches("permission_tags") {
+            a.permission_tags = Set(None);
+        }
+    }
+
     /// setTreePath: the parent's path (a missing parent for a non-root
     /// node fails; a root takes the fresh root prefix).
     async fn build_path(&self, parent_id: Option<i64>, own_id: i64) -> Result<String, StatusError> {
@@ -234,90 +321,12 @@ impl crate::proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
                     ));
                 }
             }
-            parent_present = data.parent_id.is_some();
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = &data.code {
-                a.code = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.remark {
-                a.remark = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.description {
-                a.description = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.r#type {
-                a.type_column = Set(Some(org_type_to_str(v)));
-            }
-            if let Some(v) = data.sort_order {
-                a.sort_order = Set(Some(v));
-            }
-            if let Some(v) = data.status {
-                a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
-            }
-            if let Some(v) = data.parent_id {
-                a.parent_id = Set(if v == 0 { None } else { Some(v as i64) });
-            }
-            if let Some(v) = &data.path {
-                a.path = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.leader_id {
-                a.leader_id = Set(Some(v as i64));
-            }
-            if let Some(v) = &data.external_id {
-                a.external_id = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.is_legal_entity {
-                a.is_legal_entity = Set(Some(v));
-            }
-            if let Some(v) = &data.registration_number {
-                a.registration_number = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.tax_id {
-                a.tax_id = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.legal_entity_org_id {
-                a.legal_entity_org_id = Set(Some(v as i64));
-            }
-            if let Some(v) = &data.address {
-                a.address = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.phone {
-                a.phone = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.email {
-                a.email = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.timezone {
-                a.timezone = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.country {
-                a.country = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.latitude {
-                a.latitude = Set(Some(v));
-            }
-            if let Some(v) = data.longitude {
-                a.longitude = Set(Some(v));
-            }
-            if let Some(v) = &data.start_at {
-                a.start_at = Set(crate::admin::state::ts_to_naive(v));
-            }
-            if let Some(v) = &data.end_at {
-                a.end_at = Set(crate::admin::state::ts_to_naive(v));
-            }
-            if let Some(v) = data.contact_user_id {
-                a.contact_user_id = Set(Some(v as i64));
-            }
-            // Absent scope/tag lists clear the columns (the reference's
-            // nil-branch; present lists never ride an update).
-            if data.business_scopes.is_empty() {
-                a.business_scopes = Set(None);
-            }
-            if data.permission_tags.is_empty() {
-                a.permission_tags = Set(None);
-            }
+            // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
+            // 提交语义；有掩码只有选中字段可动。父级未被掩码选中时不动
+            // parent，子树 relocate 也不跑（掩码外字段不产生副作用）。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            parent_present = data.parent_id.is_some() && mask.touches("parent_id");
+            Self::apply_fields(&mut a, data, &mask);
         }
         crate::stamp_update!(a, payload.user_id);
         let updated = a.update(&self.state.db).await.map_err(db_err)?;
@@ -422,5 +431,138 @@ impl crate::proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
             }
         }
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::sys_org_units as orgs;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::OrgUnitServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(
+        db: &sea_orm::DatabaseConnection,
+        name: &str,
+        code: &str,
+        remark: &str,
+    ) -> orgs::Model {
+        orgs::ActiveModel {
+            name: Set(name.into()),
+            code: Set(Some(code.into())),
+            remark: Set(Some(remark.into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> orgs::Model {
+        orgs::Entity::find_by_id(id).one(db).await.unwrap().unwrap()
+    }
+
+    fn update_req(id: u64, data: OrgUnit, paths: &[&str]) -> UpdateOrgUnitRequest {
+        UpdateOrgUnitRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门：掩码只选 name 时，载荷里多带的 code/remark
+    /// 不许落列——开放 API 按契约送部分字段不再误写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = OrgUnitService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "平台一组", "D01", "旧备注").await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                OrgUnit {
+                    name: Some("研发一组".into()),
+                    code: Some("EVIL".into()),
+                    remark: Some("恶意备注".into()),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "研发一组", "masked field lands");
+        assert_eq!(
+            fresh.code.as_deref(),
+            Some("D01"),
+            "unmasked code is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("旧备注"),
+            "unmasked remark is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（可空列清值通道）；NOT NULL 列
+    /// （name）同样选中时跳过不清；无掩码 None 仍是"不动"。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = OrgUnitService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "平台一组", "D02", "待清备注").await;
+
+        // 无掩码：None 不动列（全量提交语义不回退）。
+        svc.update(
+            ctx(0, 1),
+            UpdateOrgUnitRequest {
+                id: row.id as u64,
+                data: Some(OrgUnit {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "改名");
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("待清备注"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中 name + remark、载荷全 None：可空 remark 清列，NOT NULL
+        // name 原样保留。
+        svc.update(
+            ctx(0, 1),
+            update_req(row.id as u64, OrgUnit::default(), &["name", "remark"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.remark.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(fresh.name, "改名", "NOT NULL column never clears");
     }
 }

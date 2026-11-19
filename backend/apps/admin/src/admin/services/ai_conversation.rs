@@ -72,7 +72,8 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
         Ok(conv_proto(row))
     }
 
-    /// 会话改名（标题）。
+    /// 会话改名（标题）。字段级更新：写入过 update_mask 白名单门（无掩码
+    /// 即存量全量提交语义）；会话归属校验（repo 按操作者租户钉定）原位保留。
     async fn update(
         &self,
         ctx: rushwind_http_binding::ctx::RequestContext,
@@ -89,9 +90,8 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
             .ok_or_else(|| not_found("ai conversation"))?;
         let mut a: crate::admin::data::sys_ai_conversations::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.title {
-                a.title = Set(Some(v.clone()));
-            }
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(opt mask, a, title, data.title, |v: &String| Some(v.clone()));
         }
         // 会话表无 updated_by 冗余列；updated_at 手动盖章。
         a.updated_at = Set(Some(crate::admin::data::now()));
@@ -127,5 +127,143 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
             .await
             .map_err(db_err)?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::sys_ai_conversations as convs;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::AiConversationServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, title: &str) -> convs::Model {
+        convs::ActiveModel {
+            tenant_id: Set(Some(1)),
+            title: Set(Some(title.into())),
+            provider_id: Set(Some(3)),
+            user_id: Set(1),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> convs::Model {
+        convs::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: AiConversation, paths: &[&str]) -> UpdateAiConversationRequest {
+        UpdateAiConversationRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码不含 title 时，载荷里
+    /// 的标题不许动；掩码选中 title 才落列。本 handler 的写面只有 title，
+    /// 门外的 provider_id 本就不可写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = AiConversationService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "旧标题").await;
+
+        // 掩码不含 title：改名请求被门挡下。
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                AiConversation {
+                    title: Some("劫持标题".into()),
+                    ..Default::default()
+                },
+                &["provider_id"],
+            ),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.title.as_deref(),
+            Some("旧标题"),
+            "unmasked title is not writable through the gate"
+        );
+
+        // 掩码选中 title：改名落列。
+        svc.update(
+            ctx(0, 1),
+            update_req(
+                row.id as u64,
+                AiConversation {
+                    title: Some("新标题".into()),
+                    ..Default::default()
+                },
+                &["title"],
+            ),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.title.as_deref(), Some("新标题"), "masked title lands");
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = AiConversationService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "旧标题").await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateAiConversationRequest {
+                id: row.id as u64,
+                data: Some(AiConversation::default()),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.title.as_deref(),
+            Some("旧标题"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            update_req(row.id as u64, AiConversation::default(), &["title"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.title.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }

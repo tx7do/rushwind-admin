@@ -119,34 +119,42 @@ pub struct RoleService {
 }
 
 impl RoleService {
-    fn apply_fields(a: &mut crate::admin::data::sys_roles::ActiveModel, data: &Role) {
-        if let Some(v) = &data.name {
-            a.name = Set(v.clone());
-        }
-        if let Some(v) = &data.code {
-            a.code = Set(v.clone());
-        }
-        if let Some(v) = data.parent_id {
-            a.parent_id = Set(Some(v as i64));
-        }
-        if let Some(v) = &data.home_path {
-            a.home_path = Set(if v.is_empty() { None } else { Some(v.clone()) });
-        }
-        if let Some(v) = &data.description {
-            a.description = Set(Some(v.clone()));
-        }
-        if let Some(v) = data.is_protected {
-            a.is_protected = Set(Some(v));
-        }
-        if let Some(v) = data.status {
-            a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
-        }
-        if let Some(v) = data.sort_order {
-            a.sort_order = Set(Some(v));
-        }
-        if let Some(v) = data.data_scope {
-            a.data_scope = Set(Some(scope_to_str(v)));
-        }
+    /// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+    /// 存量全量提交语义）：name/code 是 NOT NULL 列走 req 形态（None 永不
+    /// 写、无可清语义）；掩码选中 + 载荷 None = 显式清可空列；无掩码
+    /// None 不动列。create 走 `FieldMask::unmasked()` 复用同一写面。
+    fn apply_fields(
+        a: &mut crate::data::sys_roles::ActiveModel,
+        data: &Role,
+        mask: &crate::fieldmask::FieldMask,
+    ) {
+        crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+        crate::set_masked!(req mask, a, code, data.code, |v: &String| v.clone());
+        crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &u64| Some(
+            *v as i64
+        ));
+        // home_path（默认首页路由，issue #12）晚于分支分叉落地——掩码形态
+        // 补位：空串清列/缺省不动与旧 if-let-Some 语义一致。
+        crate::set_masked!(opt mask, a, home_path, data.home_path, |v: &String| {
+            if v.is_empty() { None } else { Some(v.clone()) }
+        });
+        crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+            v.clone()
+        ));
+        crate::set_masked!(opt mask, a, is_protected, data.is_protected, |v: &bool| Some(
+            *v
+        ));
+        crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(if *v == 0 {
+            "OFF".into()
+        } else {
+            "ON".into()
+        }));
+        crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(
+            *v
+        ));
+        crate::set_masked!(opt mask, a, data_scope, data.data_scope, |v: &i32| Some(
+            scope_to_str(*v)
+        ));
     }
 
     fn type_to_str(v: i32) -> String {
@@ -279,7 +287,8 @@ impl RoleService {
     /// 更新路径的关联同步（上游 Update 关联落库语义）：载荷数组非空才
     /// 替换落库，空数组跳过（保持原值）。prost 的 repeated 字段无法区分
     /// "未设置"与"显式空数组"，故显式清空在此契约面不可表达——与 update()
-    /// 处 effective_perms 的取舍同口径。
+    /// 处 effective_perms 的取舍同口径。绑定表是子资源写，不受 update_mask
+    /// 白名单门管辖（门只管"载荷字段→列"的写面）。
     async fn sync_bindings_update(
         &self,
         tenant_id: i64,
@@ -481,7 +490,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
             updated_at: Set(Some(crate::admin::data::now())),
             ..Default::default()
         };
-        Self::apply_fields(&mut a, &data);
+        Self::apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         if a.status.clone().unwrap().is_none() {
             a.status = Set(Some("ON".into()));
         }
@@ -531,7 +540,11 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
                 self.ensure_no_role_cycle(req.id as i64, effective_parent)
                     .await?;
             }
-            Self::apply_fields(&mut a, data);
+            // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+            // 存量全量提交语义）；保留字校验/父角色绑定校验/环检测在门前
+            // 原位保留，下方绑定重建是子资源写，同样不受掩码门管辖。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            Self::apply_fields(&mut a, data, &mask);
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
             self.sync_bindings_update(payload.tenant_id, req.id as i64, data)
@@ -637,5 +650,134 @@ mod tests {
         assert_eq!(RoleService::type_to_str(1), "TEMPLATE");
         assert_eq!(RoleService::type_to_str(2), "TENANT");
         assert_eq!(RoleService::type_to_str(99), "TENANT");
+    }
+}
+
+#[cfg(test)]
+mod update_mask_tests {
+    use super::*;
+    use crate::data::sys_roles as roles;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::RoleServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, name: &str, code: &str) -> roles::Model {
+        roles::ActiveModel {
+            tenant_id: Set(Some(0)),
+            name: Set(name.into()),
+            code: Set(code.into()),
+            type_column: Set(Some("TENANT".into())),
+            description: Set(Some("原始描述".into())),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> roles::Model {
+        roles::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: Role, paths: &[&str]) -> UpdateRoleRequest {
+        UpdateRoleRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 即便带了 code 与 description 也不许动——NOT NULL 列同样受门管辖。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = RoleService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "运营", "ops").await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Role {
+                    name: Some("运营新名".into()),
+                    code: Some("ops:evil".into()),
+                    description: Some("不该落的描述".into()),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "运营新名", "masked field lands");
+        assert_eq!(fresh.code, "ops", "unmasked code is not writable");
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("原始描述"),
+            "unmasked description is not writable"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清可空列；无掩码时 None 仍是"不动"
+    /// （全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = RoleService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "运营", "ops").await;
+
+        // 无掩码：None 不动列（只改 name，description 原样）。
+        svc.update(
+            ctx(0, 1),
+            UpdateRoleRequest {
+                id: row.id as u64,
+                data: Some(Role {
+                    name: Some("运营新名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("原始描述"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            ctx(0, 1),
+            update_req(row.id as u64, Role::default(), &["description"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.description.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(fresh.name, "运营新名", "req column untouched by None");
     }
 }

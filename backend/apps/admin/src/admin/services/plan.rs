@@ -175,24 +175,25 @@ impl crate::proto::gen::services::PlanServiceHandlers for PlanService {
             .ok_or_else(|| not_found("plan"))?;
         let mut a: crate::admin::data::sys_plans::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = data.version {
-                a.version = Set(Some(plan_version_to_str(v)));
-            }
-            if let Some(v) = data.expiry_policy {
-                a.expiry_policy = Set(Some(expiry_policy_to_str(v)));
-            }
-            if let Some(v) = data.data_retention_days {
-                a.data_retention_days = Set(Some(v));
-            }
-            if let Some(v) = &data.description {
-                a.description = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.remark {
-                a.remark = Set(Some(v.clone()));
-            }
+            // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
+            // 提交语义；有掩码只有选中字段可动。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+            crate::set_masked!(opt mask, a, version, data.version, |v: &i32| Some(
+                plan_version_to_str(*v)
+            ));
+            crate::set_masked!(opt mask, a, expiry_policy, data.expiry_policy, |v: &i32| Some(
+                expiry_policy_to_str(*v)
+            ));
+            crate::set_masked!(opt mask, a, data_retention_days, data.data_retention_days, |v: &u32| Some(
+                *v
+            ));
+            crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(
+                v.clone()
+            ));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -297,9 +298,12 @@ impl crate::proto::gen::services::PlanModuleServiceHandlers for PlanModuleServic
             .ok_or_else(|| not_found("plan module"))?;
         let mut a: crate::admin::data::sys_plan_modules::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = data.module {
-                a.module = Set(Some(module_to_str(v)));
-            }
+            // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
+            // 提交语义；有掩码只有选中字段可动。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(opt mask, a, module, data.module, |v: &i32| Some(
+                module_to_str(*v)
+            ));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -377,9 +381,12 @@ impl crate::proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService 
             .ok_or_else(|| not_found("plan quota"))?;
         let mut a: crate::admin::data::sys_plan_quotas::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = data.quota_value {
-                a.quota_value = Set(Some(v as i64));
-            }
+            // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
+            // 提交语义；有掩码只有选中字段可动。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(opt mask, a, quota_value, data.quota_value, |v: &u64| Some(
+                *v as i64
+            ));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -400,5 +407,367 @@ impl crate::proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService 
             .await
             .map_err(db_err)?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::{sys_plan_modules, sys_plan_quotas, sys_plans};
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::{
+        PlanModuleServiceHandlers as _, PlanQuotaServiceHandlers as _, PlanServiceHandlers as _,
+    };
+    use sea_orm::EntityTrait;
+
+    async fn plant_plan(
+        db: &sea_orm::DatabaseConnection,
+        name: &str,
+        remark: &str,
+    ) -> sys_plans::Model {
+        sys_plans::ActiveModel {
+            name: Set(name.into()),
+            version: Set(Some("STANDARD".into())),
+            expiry_policy: Set(Some("READONLY".into())),
+            data_retention_days: Set(Some(30)),
+            description: Set(Some("旧描述".into())),
+            remark: Set(Some(remark.into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn plant_module(
+        db: &sea_orm::DatabaseConnection,
+        plan_id: i64,
+        module: &str,
+    ) -> sys_plan_modules::Model {
+        sys_plan_modules::ActiveModel {
+            plan_id: Set(plan_id),
+            module: Set(Some(module.into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn plant_quota(
+        db: &sea_orm::DatabaseConnection,
+        plan_id: i64,
+        quota_value: i64,
+    ) -> sys_plan_quotas::Model {
+        sys_plan_quotas::ActiveModel {
+            plan_id: Set(plan_id),
+            quota_type: Set(Some("USER_LIMIT".into())),
+            quota_value: Set(Some(quota_value)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn plan_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> sys_plans::Model {
+        sys_plans::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    async fn module_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> sys_plan_modules::Model {
+        sys_plan_modules::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    async fn quota_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> sys_plan_quotas::Model {
+        sys_plan_quotas::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn field_mask(paths: &[&str]) -> Option<pbjson_types::FieldMask> {
+        Some(pbjson_types::FieldMask {
+            paths: paths.iter().map(|s| s.to_string()).collect(),
+        })
+    }
+
+    /// update_mask 白名单门（plan）：掩码只选 name 时，载荷里多带的
+    /// remark 与 data_retention_days 不许落列。
+    #[tokio::test]
+    async fn plan_mask_gates_unlisted_fields() {
+        let state = test_state().await;
+        let svc = PlanService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant_plan(db, "基础版", "旧备注").await;
+
+        svc.update(
+            me,
+            UpdatePlanRequest {
+                id: row.id as u64,
+                data: Some(Plan {
+                    name: Some("专业版".into()),
+                    remark: Some("越权备注".into()),
+                    data_retention_days: Some(99),
+                    ..Default::default()
+                }),
+                update_mask: field_mask(&["name"]),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = plan_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "专业版", "masked field lands");
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("旧备注"),
+            "unmasked remark is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.data_retention_days,
+            Some(30),
+            "unmasked data_retention_days is not writable through the gate"
+        );
+    }
+
+    /// plan 掩码选中 + 载荷 None = 显式清列（可空列清值通道）；NOT NULL
+    /// 列（name）同样选中时跳过不清；无掩码 None 仍是"不动"。
+    #[tokio::test]
+    async fn plan_masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = PlanService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant_plan(db, "基础版", "待清备注").await;
+
+        // 无掩码：None 不动列（全量提交语义不回退）。
+        svc.update(
+            ctx(0, 1),
+            UpdatePlanRequest {
+                id: row.id as u64,
+                data: Some(Plan {
+                    description: Some("新描述".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = plan_by_id(db, row.id).await;
+        assert_eq!(fresh.description.as_deref(), Some("新描述"));
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("待清备注"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中 name + remark、载荷全 None：可空 remark 清列，NOT NULL
+        // name 原样保留。
+        svc.update(
+            ctx(0, 1),
+            UpdatePlanRequest {
+                id: row.id as u64,
+                data: Some(Plan::default()),
+                update_mask: field_mask(&["name", "remark"]),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = plan_by_id(db, row.id).await;
+        assert!(
+            fresh.remark.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(fresh.name, "基础版", "NOT NULL column never clears");
+    }
+
+    /// update_mask 白名单门（plan_module）：掩码只选 plan_id 时，载荷里
+    /// 携带的 module 不许落列。
+    #[tokio::test]
+    async fn plan_module_mask_gates_unlisted_fields() {
+        let state = test_state().await;
+        let svc = PlanModuleService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant_module(db, 1, "DASHBOARD").await;
+
+        svc.update(
+            me,
+            UpdatePlanModuleRequest {
+                id: row.id as u64,
+                data: Some(PlanModule {
+                    plan_id: Some(99),
+                    module: Some(5),
+                    ..Default::default()
+                }),
+                update_mask: field_mask(&["plan_id"]),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = module_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.module.as_deref(),
+            Some("DASHBOARD"),
+            "unmasked module is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.plan_id, 1,
+            "plan_id stays (not an update-writable column)"
+        );
+    }
+
+    /// plan_module 掩码选中 + 载荷 None = 显式清列；无掩码 None 仍是
+    /// "不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn plan_module_masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = PlanModuleService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant_module(db, 1, "DASHBOARD").await;
+
+        // 无掩码：None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdatePlanModuleRequest {
+                id: row.id as u64,
+                data: Some(PlanModule::default()),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = module_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.module.as_deref(),
+            Some("DASHBOARD"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中 module、载荷 None：可空 module 清列。
+        svc.update(
+            ctx(0, 1),
+            UpdatePlanModuleRequest {
+                id: row.id as u64,
+                data: Some(PlanModule::default()),
+                update_mask: field_mask(&["module"]),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = module_by_id(db, row.id).await;
+        assert!(
+            fresh.module.is_none(),
+            "masked None explicitly clears the column"
+        );
+    }
+
+    /// update_mask 白名单门（plan_quota）：掩码只选 quota_type 时，载荷里
+    /// 携带的 quota_value 不许落列。
+    #[tokio::test]
+    async fn plan_quota_mask_gates_unlisted_fields() {
+        let state = test_state().await;
+        let svc = PlanQuotaService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant_quota(db, 1, 100).await;
+
+        svc.update(
+            me,
+            UpdatePlanQuotaRequest {
+                id: row.id as u64,
+                data: Some(PlanQuota {
+                    quota_value: Some(500),
+                    ..Default::default()
+                }),
+                update_mask: field_mask(&["quota_type"]),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = quota_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.quota_value,
+            Some(100),
+            "unmasked quota_value is not writable through the gate"
+        );
+    }
+
+    /// plan_quota 掩码选中 + 载荷 None = 显式清列；无掩码 None 仍是
+    /// "不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn plan_quota_masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = PlanQuotaService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant_quota(db, 1, 100).await;
+
+        // 无掩码：None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdatePlanQuotaRequest {
+                id: row.id as u64,
+                data: Some(PlanQuota::default()),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = quota_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.quota_value,
+            Some(100),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中 quota_value、载荷 None：可空 quota_value 清列。
+        svc.update(
+            ctx(0, 1),
+            UpdatePlanQuotaRequest {
+                id: row.id as u64,
+                data: Some(PlanQuota::default()),
+                update_mask: field_mask(&["quota_value"]),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = quota_by_id(db, row.id).await;
+        assert!(
+            fresh.quota_value.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }

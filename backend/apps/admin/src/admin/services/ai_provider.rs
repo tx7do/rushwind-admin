@@ -2,6 +2,8 @@
 //! （AES-256-GCM，enc: 前缀）落库并刷新脱敏 hint；更新时 key 为空 = 本次
 //! 不改 key（hint 与 has 面照常回显），与上游 service 层语义一致。
 //! is_default 唯一化：置默认时清掉同租户其他默认行。
+//! 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+//! 全量提交语义）——密钥与唯一化的特殊逻辑原位保留，写面同样过门。
 
 use std::sync::Arc;
 
@@ -83,42 +85,55 @@ fn provider_proto(r: crate::admin::data::sys_ai_providers::Model) -> AiProvider 
     }
 }
 
-fn upsert_fields(a: &mut crate::admin::data::sys_ai_providers::ActiveModel, data: &AiProvider) {
-    if let Some(v) = &data.name {
-        a.name = Set(Some(v.clone()));
+/// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+/// if-let-Some 全量提交语义：None 不动列）。api_key 加密落库/hint 刷新
+/// 原位保留，但写面同样过门；model_type 未知枚举值沿用"整段跳过不写"
+/// （opt 的 None 清列通道表达不了这个语义，留 if-let 走门）。
+fn apply_fields(
+    a: &mut crate::data::sys_ai_providers::ActiveModel,
+    data: &AiProvider,
+    mask: &crate::fieldmask::FieldMask,
+) {
+    crate::set_masked!(opt mask, a, name, data.name, |v: &String| Some(v.clone()));
+    if mask.touches("model_type") {
+        if let Some(v) = data.model_type.and_then(model_type_str) {
+            a.model_type = Set(Some(v.into()));
+        }
     }
-    if let Some(v) = data.model_type.and_then(model_type_str) {
-        a.model_type = Set(Some(v.into()));
-    }
-    if let Some(v) = &data.model_name {
-        a.model_name = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.base_url {
-        a.base_url = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.organization {
-        a.organization = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.local_host {
-        a.local_host = Set(Some(v.clone()));
-    }
-    if let Some(v) = data.local_port {
-        a.local_port = Set(Some(v));
-    }
-    if let Some(v) = data.timeout_seconds {
-        a.timeout_seconds = Set(Some(v));
-    }
-    if let Some(v) = &data.system_prompt {
-        a.system_prompt = Set(Some(v.clone()));
-    }
-    if let Some(v) = data.is_default {
-        a.is_default = Set(Some(v));
-    }
-    if let Some(v) = &data.remark {
-        a.remark = Set(Some(v.clone()));
-    }
-    if let Some(v) = data.is_enabled {
-        a.is_enabled = Set(Some(v));
+    crate::set_masked!(opt mask, a, model_name, data.model_name, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, base_url, data.base_url, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, organization, data.organization, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, local_host, data.local_host, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, local_port, data.local_port, |v: &i32| Some(*v));
+    crate::set_masked!(opt mask, a, timeout_seconds, data.timeout_seconds, |v: &i32| Some(
+        *v
+    ));
+    crate::set_masked!(opt mask, a, system_prompt, data.system_prompt, |v: &String| Some(
+        v.clone()
+    ));
+    crate::set_masked!(opt mask, a, is_default, data.is_default, |v: &bool| Some(*v));
+    crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(v.clone()));
+    crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(*v));
+    // api_key 明文非空 → 加密落库并刷新 hint；空 = 本次不改 key（hint
+    // 与 has 面照常回显）——密钥面特殊逻辑，掩码未选中时密钥不动。
+    if mask.touches("api_key") {
+        if let Some(k) = data
+            .api_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|k| !k.is_empty())
+        {
+            a.api_key = Set(Some(crate::crypto::encrypt_if_needed(k)));
+            a.api_key_hint = Set(Some(hint_of(k)));
+        }
     }
 }
 
@@ -190,26 +205,16 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let _repo =
-            crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
-        // api_key 明文非空 → 加密落库并刷新 hint；为空 → 不设 key。
-        let (api_key, api_key_hint) = match data.api_key.as_deref().map(str::trim) {
-            Some(k) if !k.is_empty() => (
-                Some(crate::admin::crypto::encrypt_if_needed(k)),
-                Some(hint_of(k)),
-            ),
-            _ => (None, None),
-        };
-        let mut a = crate::admin::data::sys_ai_providers::ActiveModel {
+        let _repo = crate::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
+        let mut a = crate::data::sys_ai_providers::ActiveModel {
             tenant_id: Set(Some(payload.tenant_id)),
-            api_key: Set(api_key),
-            api_key_hint: Set(api_key_hint),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::admin::data::now())),
             updated_at: Set(Some(crate::admin::data::now())),
             ..Default::default()
         };
-        upsert_fields(&mut a, &data);
+        // 无掩码全放行：api_key 的加密落库/hint 刷新统一在 apply_fields。
+        apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         if a.is_enabled.clone().unwrap().is_none() {
             a.is_enabled = Set(Some(true));
         }
@@ -234,16 +239,12 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
             .find_scoped(req.id as i64)
             .await?
             .ok_or_else(|| not_found("ai provider"))?;
-        let mut a: crate::admin::data::sys_ai_providers::ActiveModel = row.into();
-        upsert_fields(&mut a, &data);
-        // key 为空 → 本次请求不改 key：api_key/api_key_hint 摘出（保留原值）。
-        match data.api_key.as_deref().map(str::trim) {
-            Some(k) if !k.is_empty() => {
-                a.api_key = Set(Some(crate::admin::crypto::encrypt_if_needed(k)));
-                a.api_key_hint = Set(Some(hint_of(k)));
-            }
-            _ => {}
-        }
+        let mut a: crate::data::sys_ai_providers::ActiveModel = row.into();
+        // 字段级更新：掩码白名单外字段不动（无掩码 = 全量提交语义不变）；
+        // key 为空 → 本次请求不改 key，api_key 的加密写面在 apply_fields
+        // 内过门。
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+        apply_fields(&mut a, &data, &mask);
         crate::stamp_update!(a, payload.user_id);
         a.updated_at = Set(Some(crate::admin::data::now()));
         let is_default = a.is_default.clone().unwrap() == Some(true);
@@ -312,5 +313,207 @@ mod tests {
         assert_eq!(model_type_str(0), None);
         assert_eq!(model_type_str(99), None);
         assert_eq!(model_type_proto("UNKNOWN"), 0);
+    }
+
+    // ---- update_mask 门控（sqlite 内存库走真 handler） ----
+
+    use crate::data::sys_ai_providers as providers;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::AiProviderServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection) -> providers::Model {
+        providers::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set(Some("deepseek".into())),
+            model_type: Set(Some("OPENAI".into())),
+            base_url: Set(Some("https://api.deepseek.com/v1".into())),
+            remark: Set(Some("旧备注".into())),
+            is_enabled: Set(Some(true)),
+            api_key: Set(Some("enc:old-key".into())),
+            api_key_hint: Set(Some("sk-***old".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> providers::Model {
+        providers::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: AiProvider, paths: &[&str]) -> UpdateAiProviderRequest {
+        UpdateAiProviderRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 带的 remark/is_enabled/model_type 都不许动——开放 API 按契约送
+    /// 部分字段不再误写开关与枚举。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = AiProviderService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db).await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                AiProvider {
+                    name: Some("新名".into()),
+                    remark: Some("劫持".into()),
+                    is_enabled: Some(false),
+                    model_type: Some(3), // OLLAMA——未选中，不得落列
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name.as_deref(), Some("新名"), "masked field lands");
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("旧备注"),
+            "unmasked remark is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.is_enabled,
+            Some(true),
+            "unmasked is_enabled is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.model_type.as_deref(),
+            Some("OPENAI"),
+            "unmasked model_type is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = AiProviderService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db).await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateAiProviderRequest {
+                id: row.id as u64,
+                data: Some(AiProvider {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("旧备注"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            update_req(row.id as u64, AiProvider::default(), &["remark"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.remark.is_none(),
+            "masked None explicitly clears the column"
+        );
+    }
+
+    /// api_key 写面同样过门：掩码未选中时载荷带新密钥也不落库（明文与
+    /// hint 原样）；掩码选中且非空才加密落库并刷新 hint（测试态无加密
+    /// 配置，encrypt_if_needed 明文直通）。
+    #[tokio::test]
+    async fn api_key_write_respects_the_mask() {
+        let state = test_state().await;
+        let svc = AiProviderService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db).await;
+
+        // 未选中：新密钥不落库。
+        svc.update(
+            ctx(0, 1),
+            update_req(
+                row.id as u64,
+                AiProvider {
+                    api_key: Some("sk-new-secret".into()),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.api_key.as_deref(),
+            Some("enc:old-key"),
+            "unmasked api_key never lands"
+        );
+        assert_eq!(fresh.api_key_hint.as_deref(), Some("sk-***old"));
+
+        // 选中且非空：加密落库 + hint 刷新。
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                AiProvider {
+                    api_key: Some("sk-new-secret".into()),
+                    ..Default::default()
+                },
+                &["api_key"],
+            ),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.api_key.as_deref(),
+            Some("sk-new-secret"),
+            "masked non-empty key lands (plaintext without the encryptor)"
+        );
+        assert_eq!(
+            fresh.api_key_hint.as_deref(),
+            Some("sk-***cret"),
+            "hint refreshes to the new tail"
+        );
     }
 }

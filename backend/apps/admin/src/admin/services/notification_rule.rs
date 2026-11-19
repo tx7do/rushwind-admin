@@ -44,29 +44,53 @@ fn rule_proto(r: crate::admin::data::sys_notification_rules::Model) -> Notificat
     }
 }
 
-fn upsert_fields(
-    a: &mut crate::admin::data::sys_notification_rules::ActiveModel,
+/// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+/// if-let-Some 全量提交语义不变）。全部可空列走 opt 形态：掩码选中 +
+/// 载荷 None = 显式清列；无掩码 None 不动列。event_type/channel 的
+/// 未知枚举拒绝保留原位（闭包无法短路返回 Err，走 touches + if-let）。
+fn apply_fields(
+    a: &mut crate::data::sys_notification_rules::ActiveModel,
     data: &NotificationRule,
+    mask: &crate::fieldmask::FieldMask,
 ) -> Result<(), StatusError> {
-    if let Some(v) = data.event_type {
-        let s = mapping::notification_event_type_str(v)
-            .ok_or_else(|| status_error("BAD_REQUEST", "unknown event_type"))?;
-        a.event_type = Set(Some(s.into()));
+    // event_type/channel 的未知枚举拒绝保留原位（闭包无法短路返回 Err）；
+    // None 分支与 set_masked!(opt) 精确同形——掩码选中 + 载荷 None = 显式
+    // 清列，无掩码 None 不动列。
+    if mask.touches("event_type") {
+        match data.event_type {
+            Some(v) => {
+                let s = mapping::notification_event_type_str(v)
+                    .ok_or_else(|| status_error("BAD_REQUEST", "unknown event_type"))?;
+                a.event_type = Set(Some(s.into()));
+            }
+            None => {
+                if !mask.unrestricted() {
+                    a.event_type = Set(None);
+                }
+            }
+        }
     }
-    if let Some(v) = data.channel {
-        let s = mapping::notification_channel_kind_str(v)
-            .ok_or_else(|| status_error("BAD_REQUEST", "unknown channel"))?;
-        a.channel = Set(Some(s.into()));
+    if mask.touches("channel") {
+        match data.channel {
+            Some(v) => {
+                let s = mapping::notification_channel_kind_str(v)
+                    .ok_or_else(|| status_error("BAD_REQUEST", "unknown channel"))?;
+                a.channel = Set(Some(s.into()));
+            }
+            None => {
+                if !mask.unrestricted() {
+                    a.channel = Set(None);
+                }
+            }
+        }
     }
-    if let Some(v) = data.is_async {
-        a.is_async = Set(Some(v));
-    }
-    if let Some(v) = data.is_enabled {
-        a.is_enabled = Set(Some(v));
-    }
-    if let Some(v) = &data.remark {
-        a.remark = Set(Some(v.clone()));
-    }
+    crate::set_masked!(opt mask, a, is_async, data.is_async, |v: &bool| Some(*v));
+    crate::set_masked!(opt mask, a, is_enabled, data.is_enabled, |v: &bool| Some(
+        *v
+    ));
+    crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(
+        v.clone()
+    ));
     Ok(())
 }
 
@@ -112,7 +136,7 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
             updated_at: Set(Some(crate::admin::data::now())),
             ..Default::default()
         };
-        upsert_fields(&mut a, &data)?;
+        apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked())?;
         let event_type = match &a.event_type {
             Set(v) => v.clone().unwrap_or_default(),
             _ => String::new(),
@@ -136,8 +160,12 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
         let data = require_data(req.data)?;
         let repo = crate::admin::data::repos::NotificationRuleRepo::new(&self.state.db);
         let row = repo.get_by_id(req.id as i64).await?;
-        let mut a: crate::admin::data::sys_notification_rules::ActiveModel = row.into();
-        upsert_fields(&mut a, &data)?;
+        let mut a: crate::data::sys_notification_rules::ActiveModel = row.into();
+        // 字段写入统一过 update_mask 白名单门（无掩码即存量全量提交语义）；
+        // event_type 唯一性冲突校验保留原位——门只管"载荷字段→列"的写面，
+        // 掩码未选 event_type 时列保持 Unchanged，校验自然早退。
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+        apply_fields(&mut a, &data, &mask)?;
         if let sea_orm::ActiveValue::Set(v) = &a.event_type {
             let ev = v.clone().unwrap_or_default();
             if !ev.is_empty() {
@@ -206,5 +234,134 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
             delivery_id: 0,
             status: mapping::notification_delivery_status_of(outcome.status()).unwrap_or(1),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::sys_notification_rules as rules;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::NotificationRuleServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, event_type: &str) -> rules::Model {
+        rules::ActiveModel {
+            event_type: Set(Some(event_type.into())),
+            channel: Set(Some("EMAIL".into())),
+            is_enabled: Set(Some(true)),
+            remark: Set(Some("原始备注".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> rules::Model {
+        rules::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(
+        id: u64,
+        data: NotificationRule,
+        paths: &[&str],
+    ) -> UpdateNotificationRuleRequest {
+        UpdateNotificationRuleRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 remark 时，载荷里
+    /// 即便带了 is_enabled 也不许动——部分提交不再误写未选中列。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = NotificationRuleService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "CONTACT_BIND_CODE").await;
+
+        svc.update_notification_rule(
+            ctx(0, 9),
+            update_req(
+                row.id as u64,
+                NotificationRule {
+                    remark: Some("新备注".into()),
+                    is_enabled: Some(false),
+                    ..Default::default()
+                },
+                &["remark"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("新备注"),
+            "masked remark lands"
+        );
+        assert_eq!(
+            fresh.is_enabled,
+            Some(true),
+            "unmasked is_enabled is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = NotificationRuleService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "CHANNEL_TEST_EMAIL").await;
+
+        // 无掩码：None 不动列。
+        svc.update_notification_rule(
+            ctx(0, 9),
+            UpdateNotificationRuleRequest {
+                id: row.id as u64,
+                data: Some(NotificationRule {
+                    is_enabled: Some(false),
+                    ..Default::default()
+                }),
+                update_mask: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("原始备注"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update_notification_rule(
+            ctx(0, 9),
+            update_req(row.id as u64, NotificationRule::default(), &["remark"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.remark.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }

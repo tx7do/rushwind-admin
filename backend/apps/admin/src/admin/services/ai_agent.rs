@@ -58,28 +58,33 @@ fn run_proto(r: crate::admin::data::sys_ai_agent_runs::Model) -> AiAgentRun {
     }
 }
 
-fn upsert_fields(
-    a: &mut crate::admin::data::sys_ai_agent_apps::ActiveModel,
+/// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即存量
+/// if-let-Some 全量提交语义：None 不动列，可空列显式清值只在掩码选中
+/// 时发生）。graph 定义是一整份可解析文档（解析/静态校验/快照都以整图
+/// 为单位），不拆点路径合并——保持整列写。图非空时必须能解析且过静态
+/// 校验：校验保留在写前，且只在掩码选中 graph 时触发。
+fn apply_fields(
+    a: &mut crate::data::sys_ai_agent_apps::ActiveModel,
     data: &AiAgentApp,
+    mask: &crate::fieldmask::FieldMask,
 ) -> Result<(), StatusError> {
-    if let Some(v) = &data.name {
-        a.name = Set(v.clone());
-    }
-    if let Some(v) = &data.description {
-        a.description = Set(Some(v.clone()));
-    }
-    if let Some(v) = &data.graph {
-        // 图非空时必须能解析且过静态校验。
-        if !v.trim().is_empty() {
-            let g =
-                agent_graph::parse_agent_graph(v).map_err(|e| status_error("BAD_REQUEST", e))?;
-            agent_graph::validate_agent_graph(&g).map_err(|e| status_error("BAD_REQUEST", e))?;
+    crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+    crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+        v.clone()
+    ));
+    if mask.touches("graph") {
+        if let Some(v) = &data.graph {
+            // 图非空时必须能解析且过静态校验（写前拒绝，不清残列）。
+            if !v.trim().is_empty() {
+                let g = agent_graph::parse_agent_graph(v)
+                    .map_err(|e| status_error("BAD_REQUEST", e))?;
+                agent_graph::validate_agent_graph(&g)
+                    .map_err(|e| status_error("BAD_REQUEST", e))?;
+            }
         }
-        a.graph = Set(Some(v.clone()));
     }
-    if let Some(v) = data.enabled {
-        a.enabled = Set(Some(v));
-    }
+    crate::set_masked!(opt mask, a, graph, data.graph, |v: &String| Some(v.clone()));
+    crate::set_masked!(opt mask, a, enabled, data.enabled, |v: &bool| Some(*v));
     Ok(())
 }
 
@@ -292,7 +297,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
             updated_at: Set(Some(crate::admin::data::now())),
             ..Default::default()
         };
-        upsert_fields(&mut a, &data)?;
+        apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked())?;
         if a.enabled.clone().unwrap().is_none() {
             a.enabled = Set(Some(true));
         }
@@ -313,14 +318,20 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         // 辅功能拖死，但丢快照必须可观测。
         let pre_graph = row.graph.clone();
         let pre_tenant = row.tenant_id;
-        let mut a: crate::admin::data::sys_ai_agent_apps::ActiveModel = row.into();
-        upsert_fields(&mut a, &data)?;
+        let mut a: crate::data::sys_ai_agent_apps::ActiveModel = row.into();
+        // 字段级更新：掩码白名单外字段不动（无掩码 = 全量提交语义不变）。
+        let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+        apply_fields(&mut a, &data, &mask)?;
         crate::stamp_update!(a, payload.user_id);
         a.updated_at = Set(Some(crate::admin::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
 
-        if pre_graph.as_deref().unwrap_or_default() != data.graph.as_deref().unwrap_or_default() {
-            let revisions = crate::admin::data::repos::AiAgentRevisionRepo::new(
+        // graph 未被掩码选中时列不可能变——不为没动过的 graph 误留 SAVE
+        // 快照（mask 缺省时 touches 恒真，行为与存量逐字一致）。
+        if mask.touches("graph")
+            && pre_graph.as_deref().unwrap_or_default() != data.graph.as_deref().unwrap_or_default()
+        {
+            let revisions = crate::data::repos::AiAgentRevisionRepo::new(
                 &self.state.db,
                 Viewer::from_ctx(&ctx),
             );
@@ -595,5 +606,142 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         a.updated_at = Set(Some(crate::admin::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::sys_ai_agent_apps as apps;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::AiAgentServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(
+        db: &sea_orm::DatabaseConnection,
+        name: &str,
+        graph: Option<String>,
+    ) -> apps::Model {
+        apps::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set(name.into()),
+            description: Set(Some("旧描述".into())),
+            graph: Set(graph),
+            enabled: Set(Some(true)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> apps::Model {
+        apps::Entity::find_by_id(id).one(db).await.unwrap().unwrap()
+    }
+
+    fn update_req(id: u64, data: AiAgentApp, paths: &[&str]) -> UpdateAiAgentAppRequest {
+        UpdateAiAgentAppRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 带的 description/enabled 都不许动；未选中 graph 连静态校验都不触发
+    /// ——非法图文本不会借未选中字段炸掉本次合法改名。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = AiAgentService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "助手", Some(r#"{"nodes":[]}"#.into())).await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                AiAgentApp {
+                    name: Some("新名".into()),
+                    description: Some("劫持".into()),
+                    enabled: Some(false),
+                    graph: Some("not-a-valid-graph".into()),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "新名", "masked field lands");
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("旧描述"),
+            "unmasked description is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.enabled,
+            Some(true),
+            "unmasked enabled is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.graph.as_deref(),
+            Some(r#"{"nodes":[]}"#),
+            "unmasked graph skips both validation and the write"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = AiAgentService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "助手", None).await;
+
+        // 无掩码：载荷 None 不动列。
+        svc.update(
+            ctx(0, 1),
+            UpdateAiAgentAppRequest {
+                id: row.id as u64,
+                data: Some(AiAgentApp {
+                    name: Some("改名".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("旧描述"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            me,
+            update_req(row.id as u64, AiAgentApp::default(), &["description"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.description.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }

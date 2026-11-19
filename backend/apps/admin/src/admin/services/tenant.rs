@@ -425,37 +425,44 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
             .ok_or_else(|| not_found("tenant"))?;
         let mut a: crate::admin::data::sys_tenants::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = &data.domain {
-                a.domain = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.logo_url {
-                a.logo_url = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.industry {
-                a.industry = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.remark {
-                a.remark = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.r#type {
-                a.type_column = Set(Some(type_to_str(v)));
-            }
-            if let Some(v) = data.status {
-                a.status = Set(Some(status_to_str(v)));
-            }
-            // UNSPECIFIED (0) carries no opinion on a partial update.
-            if let Some(v) = data.audit_status.filter(|v| *v != 0) {
-                a.audit_status = Set(Some(audit_status_to_str(v)));
-            }
-            if let Some(v) = data.plan_id {
-                a.plan_id = Set(Some(v as i64));
-            }
-            if let Some(v) = &data.expired_at {
-                a.expired_at = Set(crate::admin::state::ts_to_naive(v));
-            }
+            // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
+            // 提交语义；有掩码只有选中字段可动。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+            crate::set_masked!(opt mask, a, domain, data.domain, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, logo_url, data.logo_url, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, industry, data.industry, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, remark, data.remark, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt_named mask, a, type_column, "type", data.r#type, |v: &i32| Some(
+                type_to_str(*v)
+            ));
+            crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(
+                status_to_str(*v)
+            ));
+            // UNSPECIFIED (0) carries no opinion on a partial update——过滤
+            // 后的载荷 None（含 0）在掩码下也不写列（审核态无清值语义）。
+            crate::set_masked!(
+                req_named mask,
+                a,
+                audit_status,
+                "audit_status",
+                data.audit_status.filter(|v| *v != 0),
+                |v: &i32| Some(audit_status_to_str(*v))
+            );
+            crate::set_masked!(opt mask, a, plan_id, data.plan_id, |v: &u64| Some(
+                *v as i64
+            ));
+            crate::set_masked!(opt mask, a, expired_at, data.expired_at, |v: &pbjson_types::Timestamp| {
+                crate::state::ts_to_naive(v)
+            });
         }
         a.updated_at = Set(Some(crate::admin::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -980,5 +987,180 @@ mod tests {
         ] {
             assert_eq!(err, "FORBIDDEN");
         }
+    }
+
+    /// update_mask 白名单门：掩码只选 domain 时，载荷里多带的 industry/
+    /// remark 不许落列。
+    #[tokio::test]
+    async fn mask_gates_unlisted_tenant_fields() {
+        let state = test_state().await;
+        let svc = TenantService {
+            state: state.clone(),
+        };
+        let me = admin_ctx();
+
+        svc.create(
+            me.clone(),
+            CreateTenantRequest {
+                data: Some(tenant("acme", Some(2))),
+            },
+        )
+        .await
+        .unwrap();
+        let listed = svc
+            .list(me.clone(), PagingRequest::default())
+            .await
+            .unwrap();
+        let acme_id = listed.items[0].id.unwrap();
+
+        svc.update(
+            me.clone(),
+            UpdateTenantRequest {
+                id: acme_id,
+                data: Some(Tenant {
+                    domain: Some("acme.dev".into()),
+                    industry: Some("越权行业".into()),
+                    remark: Some("越权备注".into()),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["domain".into()],
+                }),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let fresh = svc
+            .get(
+                me,
+                GetTenantRequest {
+                    query_by: Some(
+                        proto::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                            acme_id,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            fresh.domain.as_deref(),
+            Some("acme.dev"),
+            "masked field lands"
+        );
+        assert_eq!(
+            fresh.industry, None,
+            "unmasked industry is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.remark, None,
+            "unmasked remark is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列；audit_status 的 UNSPECIFIED(0)
+    /// 在掩码下仍不写列（审核态无清值语义）；无掩码 None 仍是"不动"。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_tenant_column() {
+        let state = test_state().await;
+        let svc = TenantService {
+            state: state.clone(),
+        };
+        let me = admin_ctx();
+
+        svc.create(
+            me.clone(),
+            CreateTenantRequest {
+                data: Some(tenant("globex", Some(2))),
+            },
+        )
+        .await
+        .unwrap();
+        let listed = svc
+            .list(me.clone(), PagingRequest::default())
+            .await
+            .unwrap();
+        let globex_id = listed.items[0].id.unwrap();
+
+        // 无掩码：None 不动列（全量提交语义不回退）——remark 可写入但
+        // 缺席字段不误清。
+        svc.update(
+            me.clone(),
+            UpdateTenantRequest {
+                id: globex_id,
+                data: Some(Tenant {
+                    remark: Some("待清备注".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = svc
+            .get(
+                me.clone(),
+                GetTenantRequest {
+                    query_by: Some(
+                        proto::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                            globex_id,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("待清备注"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中 remark + audit_status：可空 remark 清列；audit_status
+        // 载荷 0（UNSPECIFIED）照旧不写列，审核态保持 APPROVED。
+        svc.update(
+            me.clone(),
+            UpdateTenantRequest {
+                id: globex_id,
+                data: Some(Tenant {
+                    audit_status: Some(0),
+                    ..Default::default()
+                }),
+                update_mask: Some(pbjson_types::FieldMask {
+                    paths: vec!["remark".into(), "audit_status".into()],
+                }),
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = svc
+            .get(
+                me,
+                GetTenantRequest {
+                    query_by: Some(
+                        proto::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                            globex_id,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert!(
+            fresh.remark.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(
+            fresh.audit_status,
+            Some(2),
+            "UNSPECIFIED audit_status never writes under the mask"
+        );
     }
 }

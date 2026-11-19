@@ -329,21 +329,23 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
             .ok_or_else(|| not_found("api"))?;
         let mut a: crate::admin::data::sys_apis::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.description {
-                a.description = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.path {
-                a.path = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.method {
-                a.method = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.operation {
-                a.operation = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.status {
-                a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
-            }
+            // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+            // 存量 if-let-Some 全量提交语义不变）。掩码选中 + 载荷 None =
+            // 显式清可空列；无掩码 None 不动列。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, path, data.path, |v: &String| Some(v.clone()));
+            crate::set_masked!(opt mask, a, method, data.method, |v: &String| Some(v.clone()));
+            crate::set_masked!(opt mask, a, operation, data.operation, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(if *v == 0 {
+                "OFF".into()
+            } else {
+                "ON".into()
+            }));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -683,6 +685,130 @@ mod description_tests {
         assert_eq!(
             repaired.description.as_deref(),
             Some("分页查询访问凭证列表")
+        );
+    }
+}
+
+#[cfg(test)]
+mod update_mask_tests {
+    use super::*;
+    use crate::data::sys_apis as apis;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::ApiServiceHandlers as _;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, path: &str, method: &str) -> apis::Model {
+        apis::ActiveModel {
+            path: Set(Some(path.into())),
+            method: Set(Some(method.into())),
+            description: Set(Some("原始描述".into())),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> apis::Model {
+        apis::Entity::find_by_id(id).one(db).await.unwrap().unwrap()
+    }
+
+    fn update_req(id: u64, data: Api, paths: &[&str]) -> UpdateApiRequest {
+        UpdateApiRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 description 时，
+    /// 载荷里即便带了 path 也不许动——开放 API 按契约送部分字段不再误写。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = ApiService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "/admin/v1/access-keys", "GET").await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Api {
+                    description: Some("新描述".into()),
+                    path: Some("/evil".into()),
+                    ..Default::default()
+                },
+                &["description"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("新描述"),
+            "masked field lands"
+        );
+        assert_eq!(
+            fresh.path.as_deref(),
+            Some("/admin/v1/access-keys"),
+            "unmasked path is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = ApiService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "/admin/v1/access-keys", "GET").await;
+
+        // 无掩码：None 不动列（只改 method，description 原样）。
+        svc.update(
+            ctx(0, 1),
+            UpdateApiRequest {
+                id: row.id as u64,
+                data: Some(Api {
+                    method: Some("PUT".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("原始描述"),
+            "no mask keeps the whole-submit semantics"
+        );
+        assert_eq!(fresh.method.as_deref(), Some("PUT"), "unmasked Some lands");
+
+        // 掩码选中：None 清列。
+        svc.update(
+            ctx(0, 1),
+            update_req(row.id as u64, Api::default(), &["description"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.description.is_none(),
+            "masked None explicitly clears the column"
         );
     }
 }

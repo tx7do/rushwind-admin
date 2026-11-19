@@ -143,24 +143,23 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             .ok_or_else(|| not_found("position"))?;
         let mut a: crate::admin::data::sys_positions::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = &data.description {
-                a.description = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.headcount {
-                a.headcount = Set(Some(v));
-            }
-            if let Some(v) = data.sort_order {
-                a.sort_order = Set(Some(v));
-            }
-            if let Some(v) = data.status {
-                a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
-            }
-            if let Some(v) = data.org_unit_id {
-                a.org_unit_id = Set(Some(v as i64));
-            }
+            // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
+            // 提交语义；有掩码只有选中字段可动。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+            crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, headcount, data.headcount, |v: &u32| Some(*v));
+            crate::set_masked!(opt mask, a, sort_order, data.sort_order, |v: &u32| Some(*v));
+            crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(if *v == 0 {
+                "OFF".into()
+            } else {
+                "ON".into()
+            }));
+            crate::set_masked!(opt mask, a, org_unit_id, data.org_unit_id, |v: &u64| Some(
+                *v as i64
+            ));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -181,5 +180,142 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             .await
             .map_err(db_err)?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::sys_positions as positions;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::PositionServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(db: &sea_orm::DatabaseConnection, name: &str, remark: &str) -> positions::Model {
+        positions::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set(name.into()),
+            remark: Set(Some(remark.into())),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> positions::Model {
+        positions::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: Position, paths: &[&str]) -> UpdatePositionRequest {
+        UpdatePositionRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门：掩码只选 name 时，载荷里多带的 description
+    /// 与 org_unit_id 不许落列。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = PositionService {
+            state: state.clone(),
+        };
+        // 同租户视角（payload.tenant_id = 1 的行才可见）。
+        let me = ctx(1, 9);
+        let db = &state.db;
+        let row = plant(db, "招聘专员", "旧说明").await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Position {
+                    name: Some("HR 专员".into()),
+                    description: Some("越权说明".into()),
+                    org_unit_id: Some(42),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "HR 专员", "masked field lands");
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("旧说明"),
+            "unlisted columns keep their values"
+        );
+        assert_eq!(
+            fresh.description, None,
+            "unmasked description is not writable through the gate"
+        );
+        assert_eq!(
+            fresh.org_unit_id, None,
+            "unmasked org_unit_id is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（可空列清值通道）；NOT NULL 列
+    /// （name）同样选中时跳过不清；无掩码 None 仍是"不动"。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = PositionService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "客服", "待清说明").await;
+
+        // 无掩码：None 不动列（全量提交语义不回退）。
+        svc.update(
+            ctx(1, 9),
+            UpdatePositionRequest {
+                id: row.id as u64,
+                data: Some(Position {
+                    name: Some("客服一号".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "客服一号");
+        assert_eq!(
+            fresh.remark.as_deref(),
+            Some("待清说明"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中 name + description、载荷全 None：可空 description 清列，
+        // NOT NULL name 原样保留。
+        svc.update(
+            ctx(1, 9),
+            update_req(row.id as u64, Position::default(), &["name", "description"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.description.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(fresh.name, "客服一号", "NOT NULL column never clears");
     }
 }

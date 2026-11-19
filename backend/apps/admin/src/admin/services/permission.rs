@@ -936,21 +936,25 @@ impl proto::gen::services::PermissionServiceHandlers for PermissionService {
             .ok_or_else(|| not_found("permission"))?;
         let mut a: crate::data::sys_permissions::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.name {
-                a.name = Set(v.clone());
-            }
-            if let Some(v) = &data.code {
-                a.code = Set(v.clone());
-            }
-            if let Some(v) = &data.description {
-                a.description = Set(Some(v.clone()));
-            }
-            if let Some(v) = data.group_id {
-                a.group_id = Set(Some(v as i64));
-            }
-            if let Some(v) = data.status {
-                a.status = Set(Some(if v == 0 { "OFF".into() } else { "ON".into() }));
-            }
+            // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+            // 存量 if-let-Some 全量提交语义不变）。name/code 是 NOT NULL 列
+            // 走 req 形态（None 永不写、无可清语义）；掩码选中 + 载荷 None =
+            // 显式清可空列。下方 menu/api 绑定重建是子资源写，保留原
+            // "非空才替换"语义，不受掩码门管辖。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
+            crate::set_masked!(req mask, a, code, data.code, |v: &String| v.clone());
+            crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, group_id, data.group_id, |v: &u64| Some(
+                *v as i64
+            ));
+            crate::set_masked!(opt mask, a, status, data.status, |v: &i32| Some(if *v == 0 {
+                "OFF".into()
+            } else {
+                "ON".into()
+            }));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -1394,5 +1398,136 @@ mod sync_tests {
         assert_eq!(p.menu_ids, vec![m.id as u64]);
         assert_eq!(p.api_ids, vec![a.id as u64]);
         assert_eq!(p.group_name.as_deref(), Some("系统管理"));
+    }
+}
+
+#[cfg(test)]
+mod update_mask_tests {
+    use super::*;
+    use crate::data::sys_permissions as perms;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::PermissionServiceHandlers as _;
+
+    async fn plant(
+        db: &sea_orm::DatabaseConnection,
+        name: &str,
+        code: &str,
+        description: Option<&str>,
+    ) -> perms::Model {
+        perms::ActiveModel {
+            name: Set(name.into()),
+            code: Set(code.into()),
+            description: Set(description.map(String::from)),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> perms::Model {
+        perms::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: Permission, paths: &[&str]) -> UpdatePermissionRequest {
+        UpdatePermissionRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 name 时，载荷里
+    /// 即便带了 code 与 description 也不许动——NOT NULL 列同样受门管辖。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = PermissionService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "用户查看", "user:view", Some("原始描述")).await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Permission {
+                    name: Some("用户新查看".into()),
+                    code: Some("evil:code".into()),
+                    description: Some("不该落的描述".into()),
+                    ..Default::default()
+                },
+                &["name"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "用户新查看", "masked field lands");
+        assert_eq!(fresh.code, "user:view", "unmasked code is not writable");
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("原始描述"),
+            "unmasked description is not writable"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清可空列；无掩码时 None 仍是"不动"
+    /// （全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = PermissionService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, "用户查看", "user:view", Some("原始描述")).await;
+
+        // 无掩码：None 不动列（只改 name，description 原样）。
+        svc.update(
+            ctx(0, 1),
+            UpdatePermissionRequest {
+                id: row.id as u64,
+                data: Some(Permission {
+                    name: Some("用户新查看".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                allow_missing: None,
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.description.as_deref(),
+            Some("原始描述"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update(
+            ctx(0, 1),
+            update_req(row.id as u64, Permission::default(), &["description"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.description.is_none(),
+            "masked None explicitly clears the column"
+        );
+        assert_eq!(fresh.name, "用户新查看", "req column untouched by None");
     }
 }

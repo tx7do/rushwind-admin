@@ -126,12 +126,16 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
             .ok_or_else(|| not_found("internal message"))?;
         let mut a: crate::admin::data::internal_messages::ActiveModel = row.into();
         if let Some(data) = &req.data {
-            if let Some(v) = &data.title {
-                a.title = Set(Some(v.clone()));
-            }
-            if let Some(v) = &data.content {
-                a.content = Set(Some(v.clone()));
-            }
+            // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
+            // 存量 if-let-Some 全量提交语义不变）。掩码选中 + 载荷 None =
+            // 显式清可空列；无掩码 None 不动列。
+            let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
+            crate::set_masked!(opt mask, a, title, data.title, |v: &String| Some(
+                v.clone()
+            ));
+            crate::set_masked!(opt mask, a, content, data.content, |v: &String| Some(
+                v.clone()
+            ));
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
@@ -270,5 +274,133 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
         a.updated_at = Set(Some(crate::admin::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
         Ok(Empty {})
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::data::internal_messages as messages;
+    use crate::testsupport::{ctx, test_state};
+    use proto::gen::services::InternalMessageServiceHandlers as _;
+    use sea_orm::EntityTrait;
+
+    async fn plant(
+        db: &sea_orm::DatabaseConnection,
+        tenant: i64,
+        title: &str,
+        content: &str,
+    ) -> messages::Model {
+        messages::ActiveModel {
+            tenant_id: Set(Some(tenant)),
+            title: Set(Some(title.into())),
+            content: Set(Some(content.into())),
+            status: Set(Some("PUBLISHED".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> messages::Model {
+        messages::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: InternalMessage, paths: &[&str]) -> UpdateInternalMessageRequest {
+        UpdateInternalMessageRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            ..Default::default()
+        }
+    }
+
+    /// update_mask 白名单门（字段级更新语义）：掩码只选 title 时，载荷里
+    /// 即便带了 content 也不许动——部分提交不再误写未选中列。
+    #[tokio::test]
+    async fn mask_gates_unlisted_scalar_fields() {
+        let state = test_state().await;
+        let svc = InternalMessageService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, 1, "旧标题", "旧内容").await;
+
+        svc.update_message(
+            ctx(1, 9),
+            update_req(
+                row.id as u64,
+                InternalMessage {
+                    title: Some("新标题".into()),
+                    content: Some("越权内容".into()),
+                    ..Default::default()
+                },
+                &["title"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.title.as_deref(), Some("新标题"), "masked title lands");
+        assert_eq!(
+            fresh.content.as_deref(),
+            Some("旧内容"),
+            "unmasked content is not writable through the gate"
+        );
+    }
+
+    /// 掩码选中 + 载荷 None = 显式清列（字段级清值通道）；无掩码时
+    /// None 仍是"不动"（全量提交语义不回退）。
+    #[tokio::test]
+    async fn masked_none_clears_nullable_column() {
+        let state = test_state().await;
+        let svc = InternalMessageService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let row = plant(db, 1, "标题", "正文").await;
+
+        // 无掩码：None 不动列。
+        svc.update_message(
+            ctx(1, 9),
+            UpdateInternalMessageRequest {
+                id: row.id as u64,
+                data: Some(InternalMessage {
+                    title: Some("换个标题".into()),
+                    ..Default::default()
+                }),
+                update_mask: None,
+                ..Default::default()
+            },
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(
+            fresh.content.as_deref(),
+            Some("正文"),
+            "no mask keeps the whole-submit semantics"
+        );
+
+        // 掩码选中：None 清列。
+        svc.update_message(
+            ctx(1, 9),
+            update_req(row.id as u64, InternalMessage::default(), &["content"]),
+        )
+        .await
+        .unwrap();
+        let fresh = row_by_id(db, row.id).await;
+        assert!(
+            fresh.content.is_none(),
+            "masked None explicitly clears the column"
+        );
     }
 }
