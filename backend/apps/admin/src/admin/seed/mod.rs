@@ -294,18 +294,19 @@ async fn seed_permission_groups(state: &Arc<AppState>) -> Result<(), String> {
         return Ok(());
     }
     let rows = [
-        (1u64, "系统管理", "/", Some(0u64)),
-        (2, "系统权限", "/1/2/", Some(1)),
-        (3, "租户管理", "/1/3/", Some(1)),
-        (4, "审计管理", "/1/4/", Some(1)),
-        (5, "安全管理", "/1/5/", Some(1)),
+        (1u64, "系统管理", "sys", "/", Some(0u64)),
+        (2, "系统权限", "sys.permission", "/1/2/", Some(1)),
+        (3, "租户管理", "sys.tenant", "/1/3/", Some(1)),
+        (4, "审计管理", "sys.audit", "/1/4/", Some(1)),
+        (5, "安全管理", "sys.security", "/1/5/", Some(1)),
     ];
-    for (id, name, path, parent) in rows {
+    for (id, name, code, path, parent) in rows {
         insert_seed!(
             &state.db,
             groups::ActiveModel {
                 id: Set(id as i64),
                 name: Set(name.into()),
+                code: Set(Some(code.into())),
                 module: Set(Some("sys".into())),
                 path: Set(Some(path.into())),
                 parent_id: Set(parent.map(|v| v as i64)),
