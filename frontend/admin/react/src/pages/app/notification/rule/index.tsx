@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import {
   ModalForm,
@@ -20,8 +20,8 @@ import type {
   notificationservicev1_UpdateNotificationRuleRequest,
 } from '@/api/generated/admin/service/v1';
 import { useListChannelSchemas } from '@/api/hooks/notification-channel-schema';
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
 import {
   fetchListNotificationRules,
   useCreateNotificationRule,
@@ -29,7 +29,7 @@ import {
   useTestDispatchNotification,
   useUpdateNotificationRule,
 } from '@/api/hooks/notification-rule';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { searchOptionRender } from '@/components/common/searchSubmitter';
@@ -292,7 +292,7 @@ const NotificationRulePage = () => {
             return { data: response.items || [], total: Number(response.total ?? 0), success: true };
           }}
           rowKey="id"
-          search={{ optionRender: searchOptionRender, labelWidth: 'auto', defaultCollapsed: false }}
+          search={{ optionRender: searchOptionRender, labelWidth: 'auto', defaultCollapsed: true }}
           pagination={{
             defaultPageSize: TABLE.DEFAULT_PAGE_SIZE,
             showSizeChanger: true,

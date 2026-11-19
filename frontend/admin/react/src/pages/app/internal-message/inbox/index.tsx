@@ -1,22 +1,22 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import dayjs, { type Dayjs } from 'dayjs';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import { Button, Tag, App } from 'antd';
 import { DeleteOutlined, CheckOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { internal_messageservicev1_InternalMessageRecipient as InboxItem } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
-import { useAuthStore } from '@/stores';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { useAuthStore } from '@go-wind/admin-react';
 import {
   fetchListUserInbox,
   useMarkNotificationAsRead,
   useDeleteNotificationFromInbox,
 } from '@/api/hooks/internal-message';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { InboxDetailDrawer } from './components/InboxDetailDrawer';
 import { getRecipientStatusMap, getRecipientStatusOptions } from './constants';
@@ -284,7 +284,7 @@ const InboxList = () => {
           rowKey="id"
           search={{ optionRender: searchOptionRender,
             labelWidth: 'auto',
-            defaultCollapsed: false,
+            defaultCollapsed: true,
             // 全局 span 8，各字段再乘自己的 colSize（标题 1 / 状态 0.625 / 接收时间
             // 1.375）= 8/5/11 共 24 一行放下：状态列最窄（标签短、下拉瘦），
             // 让宽给内容固有宽约 390px 的双输入区间控件

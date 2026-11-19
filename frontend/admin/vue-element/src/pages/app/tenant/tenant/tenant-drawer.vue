@@ -167,10 +167,14 @@
       >
         <ElInput
           v-model="formData.password"
-          type="password"
-          show-password
+          :type="adminPwdVisible ? 'text' : 'password'"
           :placeholder="$t('common.placeholder.input')"
-        />
+        >
+          <template #suffix>
+            <!-- 自实现眼睛：EP 2.14 的 show-password 空值不渲染图标，见 PasswordToggle -->
+            <PasswordToggle v-model="adminPwdVisible" />
+          </template>
+        </ElInput>
       </ElFormItem>
 
       <ElFormItem
@@ -181,10 +185,13 @@
       >
         <ElInput
           v-model="formData.passwordConfirm"
-          type="password"
-          show-password
+          :type="adminPwdConfirmVisible ? 'text' : 'password'"
           :placeholder="$t('common.placeholder.input')"
-        />
+        >
+          <template #suffix>
+            <PasswordToggle v-model="adminPwdConfirmVisible" />
+          </template>
+        </ElInput>
       </ElFormItem>
 
       <ElFormItem
@@ -237,10 +244,10 @@ import {
   fetchListTenants,
   fetchListPlans,
 } from "@/api/composables";
-import { PaginationQuery } from "@/core/transport/rest";
+import { PaginationQuery } from "@go-wind/admin-core";
 import type { identityservicev1_Plan as Plan } from "@/api/generated/admin/service/v1";
 import type { identityservicev1_Tenant as Tenant } from "@/api/generated/admin/service/v1";
-import { $t } from "@/core/i18n";
+import { $t } from "@go-wind/admin-element";
 import { DRAWER_WIDTH } from "@/constants";
 import { injectProModalApi } from "@/components/Pro";
 import ProModal from "@/components/Pro/ProModal/index.vue";
@@ -254,6 +261,10 @@ const modalApi = injectProModalApi();
 // 这里直接读取响应式的 store.sharedData。
 const data = computed(() => modalApi.store.sharedData as { create?: boolean; row?: Tenant });
 const isCreate = computed(() => !!data.value.create);
+
+// 管理员密码字段的明文开关（PasswordToggle 眼睛，见模板注释）
+const adminPwdVisible = ref(false);
+const adminPwdConfirmVisible = ref(false);
 
 const visible = computed({
   get: () => modalApi.store.isOpen,

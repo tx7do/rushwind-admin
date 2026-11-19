@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import { Button, Tag, App, Upload } from 'antd';
 import {
   DeleteOutlined,
@@ -12,10 +12,10 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { storageservicev1_File as FileItem } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
+import { PaginationQuery } from '@go-wind/admin-react';
 import { fetchListFiles, useDeleteFile } from '@/api/hooks/file';
 import { useUploadFile, useDownloadFile } from '@/api/hooks/file-transfer';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { getProviderMap, formatFileSize } from './constants';
 import FileDrawer from './components/FileDrawer';
@@ -212,7 +212,7 @@ const FileManagement = () => {
             rowKey="id"
             search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
-              defaultCollapsed: false,
+              defaultCollapsed: true,
             }}
             pagination={false}
             toolBarRender={() => [

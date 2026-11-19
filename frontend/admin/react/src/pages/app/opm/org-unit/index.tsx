@@ -1,8 +1,9 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import SplitPane from '@/components/common/SplitPane';
+import { ListTable } from '@go-wind/admin-react';
 import { Button, Tag, App } from 'antd';
 import {
   EditOutlined,
@@ -14,12 +15,13 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { identityservicev1_OrgUnit as OrgUnit } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
+import { PaginationQuery } from '@go-wind/admin-react';
 import { fetchListOrgUnits, useDeleteOrgUnit } from '@/api/hooks/org-unit';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { getStatusMap, getStatusOptions, getOrgTypeMap, getOrgTypeOptions } from './constants';
 import OrgDrawer from './components/OrgDrawer';
+import OrgList from '../user/list/OrgList';
 import { searchOptionRender } from '@/components/common/searchSubmitter';
 import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
 
@@ -44,6 +46,17 @@ const OrgUnitManagement = () => {
 
   // 树数据
   const [treeData, setTreeData] = useState<OrgUnit[]>([]);
+
+  // 左树选中（issue #5：左树右表）；undefined = 全部。键与用户页树同构
+  // （`${parentId}-${id}`）；右表按 parentId 精确过滤（_id 后缀键走 exact）。
+  const [selectedOrgNode, setSelectedOrgNode] = useState<any | null>(null);
+  const selectedOrgKey: React.Key | undefined = selectedOrgNode
+    ? `${selectedOrgNode.parentId ?? ''}-${selectedOrgNode.id ?? ''}`
+    : undefined;
+  const handleOrgNodeSelect = (node: any | null) => {
+    setSelectedOrgNode(node);
+    actionRef.current?.reload();
+  };
 
   const statusMap = getStatusMap(t);
   const orgTypeMap = getOrgTypeMap(t);
@@ -204,17 +217,35 @@ const OrgUnitManagement = () => {
   return (
     <>
       <ContentContainer heightMode="fixed" padding="16px" bottomMargin={0}>
-        <div ref={containerRef} className="page-container-content">
+        <SplitPane>
+          <SplitPane.Panel defaultSize="25%" min="15%" max="40%">
+            <OrgList
+              currentOrgUnitId={undefined}
+              currentTenantId={undefined}
+              onTenantSelect={() => {}}
+              onOrgSelect={() => {}}
+              externalSelectedKey={selectedOrgKey}
+              onOrgSelectNode={handleOrgNodeSelect}
+            />
+          </SplitPane.Panel>
+          <SplitPane.Panel>
+            {/* ref 必须挂在 ListTable 的直接包裹层：useProTableScrollY 测这个容器
+                的高度反推 .ant-table-body 的高（scroll.y），漏挂则 scroll.y 恒为
+                初始值、卡片不撑满面板高度（右侧列表悬空，页面下半截留白） */}
+            <div ref={containerRef} style={{ height: '100%', paddingLeft: 8 }}>
           <ListTable<OrgUnit>
             actionRef={actionRef}
             columns={columns}
             request={async (params, _sorter, _filter) => {
+              const formEntries = Object.entries(params).filter(
+                ([key]) => !['current', 'pageSize'].includes(key),
+              );
+              // 左树选中注入 parentId（_id 后缀键走精确匹配）
+              if (selectedOrgNode?.id) {
+                formEntries.push(['parentId', String(selectedOrgNode.id)]);
+              }
               const query = new PaginationQuery({
-                formValues: Object.fromEntries(
-                  Object.entries(params).filter(
-                    ([key]) => !['current', 'pageSize'].includes(key),
-                  ),
-                ),
+                formValues: Object.fromEntries(formEntries),
               });
 
               const response = await fetchListOrgUnits(query);
@@ -232,7 +263,7 @@ const OrgUnitManagement = () => {
             rowKey="id"
             search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
-              defaultCollapsed: false,
+              defaultCollapsed: true,
             }}
             pagination={false}
             toolBarRender={() => [
@@ -276,7 +307,9 @@ const OrgUnitManagement = () => {
               onExpandedRowsChange: (keys) => setExpandedRowKeys(keys),
             }}
           />
-        </div>
+            </div>
+          </SplitPane.Panel>
+        </SplitPane>
       </ContentContainer>
 
       {/* 组织架构编辑/创建 Drawer */}

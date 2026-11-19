@@ -9,6 +9,8 @@ import type {
   identityservicev1_CreateTenantRequest,
   identityservicev1_CreateTenantWithAdminUserRequest,
   identityservicev1_DeleteTenantRequest,
+  identityservicev1_PurgeTenantRequest,
+  identityservicev1_RestoreTenantRequest,
   identityservicev1_GetTenantRequest,
   identityservicev1_GetTenantUsageRequest,
   identityservicev1_CleanupTenantDataRequest,
@@ -19,10 +21,10 @@ import type {
   identityservicev1_Tenant_Status as Tenant_Status,
   identityservicev1_Tenant_Type as Tenant_Type,
 } from "@/api/generated/admin/service/v1";
-import { makeUpdateMask, type PaginationQuery } from "@/core/transport/rest";
+import { makeUpdateMask, type PaginationQuery } from "@go-wind/admin-core";
 import { apiClient } from "@/api/client";
 import { queryClient } from "@/plugins/vue-query";
-import { i18n } from "@/core/i18n";
+import { i18n } from "@go-wind/admin-element";
 import type { TagType } from "./shared";
 
 const t = i18n.global.t;
@@ -45,6 +47,16 @@ export async function fetchListTenants(params: PaginationQuery) {
   return queryClient.fetchQuery({
     queryKey: ["listTenants", params],
     queryFn: () => apiClient.tenantService.List(params.toRawParams()),
+    staleTime: 0,
+    retry: 0,
+  });
+}
+
+/** 回收站列表：已删除（停车）租户（issue #3） */
+export async function fetchTrashTenants(params: PaginationQuery) {
+  return queryClient.fetchQuery({
+    queryKey: ["trashTenants", params],
+    queryFn: () => apiClient.tenantService.ListDeletedTenants(params.toRawParams()),
     staleTime: 0,
     retry: 0,
   });
@@ -103,6 +115,26 @@ export function useDeleteTenant(
 ) {
   return useMutation({
     mutationFn: (req) => apiClient.tenantService.Delete(req),
+    ...options,
+  });
+}
+
+/** 回收站：恢复停车租户（issue #3） */
+export function useRestoreTenant(
+  options?: UseMutationOptions<{}, Error, identityservicev1_RestoreTenantRequest>
+) {
+  return useMutation({
+    mutationFn: (req) => apiClient.tenantService.RestoreTenant(req),
+    ...options,
+  });
+}
+
+/** 回收站：彻底删除停车租户（不可逆，issue #3） */
+export function usePurgeTenant(
+  options?: UseMutationOptions<{}, Error, identityservicev1_PurgeTenantRequest>
+) {
+  return useMutation({
+    mutationFn: (req) => apiClient.tenantService.PurgeTenant(req),
     ...options,
   });
 }

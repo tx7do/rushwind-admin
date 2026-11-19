@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
-import TableExportButton from '@/components/common/TableExportButton';
+import { ListTable } from '@go-wind/admin-react';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import { Button, Modal, Tag, Typography, App } from 'antd';
 import {
@@ -13,13 +13,13 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { access_keyservicev1_AccessKey as AccessKey } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
+import { PaginationQuery } from '@go-wind/admin-react';
 import {
   fetchListAccessKeys,
   useDeleteAccessKey,
   useResetAccessKeySecret,
 } from '@/api/hooks/access-key';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import AccessKeyDrawer from './components/AccessKeyDrawer';
 import { searchOptionRender } from '@/components/common/searchSubmitter';
@@ -156,7 +156,7 @@ export default function AccessKeyPage() {
           actionRef={actionRef}
           columns={columns}
           rowKey="id"
-          search={{ optionRender: searchOptionRender, labelWidth: 'auto', defaultCollapsed: false }}
+          search={{ optionRender: searchOptionRender, labelWidth: 'auto', defaultCollapsed: true }}
           scroll={{ y: tableScrollY }}
           pagination={{
             defaultPageSize: 20,

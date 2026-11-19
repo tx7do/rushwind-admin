@@ -32,11 +32,15 @@
       <ElFormItem v-if="isCreate" :label="$t('pages.user.table.password')" prop="password">
         <ElInput
           v-model="formData.password"
-          type="password"
+          :type="pwdVisible ? 'text' : 'password'"
           :placeholder="$t('common.placeholder.input')"
-          show-password
           clearable
-        />
+        >
+          <template #suffix>
+            <!-- 自实现眼睛：EP 2.14 的 show-password 空值不渲染图标，见 PasswordToggle -->
+            <PasswordToggle v-model="pwdVisible" />
+          </template>
+        </ElInput>
       </ElFormItem>
 
       <ElFormItem :label="$t('pages.user.form.role')" prop="roleIds">
@@ -182,10 +186,10 @@ import {
   fetchListOrgUnits,
   fetchListPositions,
 } from "@/api/composables";
-import { PaginationQuery } from "@/core/transport/rest";
-import { $t } from "@/core/i18n";
-import { isFieldHidden as isFieldHiddenBase } from "@/core/access";
-import { useAccessStore } from "@/stores";
+import { PaginationQuery } from "@go-wind/admin-core";
+import { $t } from "@go-wind/admin-element";
+import { isFieldHidden as isFieldHiddenBase } from "@go-wind/admin-element";
+import { useAccessStore } from '@go-wind/admin-element';
 
 const emit = defineEmits<{
   success: [];
@@ -206,6 +210,7 @@ const pageLoading = ref(false);
 const isCreate = ref(true);
 const currentId = ref<string>();
 const formRef = ref();
+const pwdVisible = ref(false);
 
 // 表单数据
 const formData = reactive({

@@ -11,12 +11,12 @@ const ReactQueryDevtools =
     ? await import('@tanstack/react-query-devtools').then((m) => m.ReactQueryDevtools)
     : () => null;
 
-import { ThemeProvider } from '@/core/preferences/components/ThemeProvider';
-import { queryClient } from './core';
+import { ThemeProvider, queryClient } from '@go-wind/admin-react';
 import { bootstrap } from '@/bootstrap.ts';
 
 // 样式
 import 'nprogress/nprogress.css';
+import '@go-wind/admin-react/style.css';
 
 import './styles/global.css';
 import './styles/tailwind.css';
@@ -24,7 +24,6 @@ import './styles/skeleton-force-dark.css';
 import './styles/pro-layout-overrides.css';
 import './styles/pro-components-dark.css';
 import './styles/semantic-text.css';
-import './styles/list-table.css';
 
 import './index.css';
 import App from './app.tsx';

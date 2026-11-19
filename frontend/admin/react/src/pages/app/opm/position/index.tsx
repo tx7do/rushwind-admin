@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import { Button, Tag, App } from 'antd';
 import {
   EditOutlined,
@@ -13,9 +13,9 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { identityservicev1_Position as Position } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
+import { PaginationQuery } from '@go-wind/admin-react';
 import { fetchListPositions, useCreatePosition, useDeletePosition } from '@/api/hooks/position';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import ImportModal from '@/components/common/ImportModal';
 import type { ImportField } from '@/utils/import';
@@ -216,7 +216,7 @@ const PositionManagement = () => {
             rowKey="id"
             search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
-              defaultCollapsed: false,
+              defaultCollapsed: true,
             }}
             pagination={{
               defaultPageSize: 20,

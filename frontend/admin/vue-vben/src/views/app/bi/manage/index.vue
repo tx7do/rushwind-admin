@@ -9,7 +9,7 @@ import { LucideCopy, LucidePencil, LucideTrash2 , LucideHistory } from '@vben/ic
 import { notification } from 'ant-design-vue';
 
 import { useVbenVxeGrid } from '#/adapter/vxe-table';
-import { PaginationQuery } from '#/transport/rest';
+import { PaginationQuery } from '@go-wind/admin-core';
 
 import {
   fetchListBiDashboards,
@@ -30,7 +30,6 @@ const { mutateAsync: deleteDashboard } = useDeleteBiDashboard();
 const { mutateAsync: copyDashboard } = useCopyBiDashboard();
 
 const formOptions: VbenFormProps = {
-  collapsed: false,
   showCollapseButton: false,
   submitOnEnter: true,
   schema: [

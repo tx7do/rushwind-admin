@@ -23,7 +23,7 @@ import { renderHtmlPages, browserCodeRenderer } from '@go-wind/print-core/browse
 import { writeHtmlToFrame } from './previewRender';
 import { useDrawerCloseGuard } from '@/components/common/use-drawer-close-guard';
 import { useCreatePrintTemplate, useUpdatePrintTemplate } from '@/api/hooks/print-template';
-import { usePreferencesStore } from '@/core/preferences';
+import { usePreferencesStore } from '@go-wind/admin-react';
 import { applyPrintDesignerTheme } from '../printDesignerTheme';
 import {
   extractRedundant,
@@ -240,7 +240,7 @@ const TemplateDesignerDrawer: React.FC<TemplateDesignerDrawerProps> = ({
         title={templateTitle(t, mode)}
         open={open}
         onClose={guardClose}
-        width="100%"
+        size="100%"
         destroyOnHidden
         footer={
           <Space style={{ float: 'right' }}>

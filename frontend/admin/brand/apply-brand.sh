@@ -31,19 +31,10 @@ replace() {
 
 case "$FRONTEND" in
   react)
-    replace src/core/preferences/config/default.ts \
-      -e 's/name: "GoWind Admin"/name: "RushWind Admin"/' \
-      -e 's/companyName: "GoWind"/companyName: "RushWind"/' \
-      -e 's|companySiteLink: "https://www.gowind.cloud"|companySiteLink: "https://github.com/tx7do/rushwind"|'
-
-    replace src/locales/zh-CN/_core/auth.json \
-      -e 's/风行中后台管理系统/锐风中后台管理系统/' \
-      -e 's/Copyright © {{year}} GoWind/Copyright © {{year}} RushWind/'
-
-    replace src/locales/en-US/_core/auth.json \
-      -e 's/GoWind Admin Management System/RushWind Admin Management System/' \
-      -e 's/Copyright © {{year}} GoWind/Copyright © {{year}} RushWind/'
-
+    # 上游 preferences 偏好默认值与 _core/auth.json 文案已随结构重组迁走
+    # （app.name 走 VITE_APP_TITLE，登录/版权文案进组件层），可替换面收窄
+    # 到 index.html 与 .env；CSS 变量名/存储命名空间（gowind-*）是功能标识，
+    # 与 GOWIND_PASSWORD_RSA_PRIVATE_KEY 同性质，不换。
     replace index.html \
       -e 's/content="GoWind Admin React AntD Vite"/content="RushWind Admin React AntD Vite"/' \
       -e 's/name="author" content="GoWind"/name="author" content="RushWind"/'
@@ -54,19 +45,12 @@ case "$FRONTEND" in
     ;;
 
   vue-element)
-    replace src/core/preferences/config/default.ts \
-      -e 's/name: "GoWind Admin"/name: "RushWind Admin"/' \
-      -e 's/companyName: "GoWind"/companyName: "RushWind"/' \
-      -e 's|companySiteLink: "https://www.gowind.cloud"|companySiteLink: "https://github.com/tx7do/rushwind"|'
-
+    # 上游 preferences default.ts 与 update-css-variables.ts 已迁走，落点收窄。
     replace src/bootstrap.ts \
       -e 's/|| "GoWind Admin"/|| "RushWind Admin"/'
 
     replace src/constants/index.ts \
       -e 's/APP_PREFIX = "gowind"/APP_PREFIX = "rushwind"/'
-
-    replace src/core/preferences/update-css-variables.ts \
-      -e 's/__gowind-styles__/__rushwind-styles__/'
 
     replace vite.config.ts \
       -e 's/gowind-csp-meta/rushwind-csp-meta/'
@@ -89,18 +73,12 @@ case "$FRONTEND" in
     ;;
 
   vue-vben)
-    # vben5 单包结构（上游自 monorepo 重构）：偏好默认值在 framework/core/preferences，
-    # 登录插画与版权组件在 framework/effects/layouts，多语言在 framework/locales，
-    # license 横幅插件在 build-config/vite-config，应用面在 src/，env 在仓库根。
-    replace framework/core/preferences/config.ts \
-      -e "s/companyName: 'GoWind'/companyName: 'RushWind'/" \
-      -e "s|companySiteLink: 'https://www.gowind.cloud'|companySiteLink: 'https://github.com/tx7do/rushwind'|"
-
+    # vben5 单包结构（上游自 monorepo 重构）：登录插画与版权组件在
+    # framework/effects/layouts，license 横幅插件在 build-config/vite-config，
+    # 应用面在 src/，env 在仓库根。上游 preferences 配置与 framework/locales
+    # 的登录文案已迁走（风行字样上游已清零），落点收窄。
     replace framework/effects/layouts/basic/copyright/copyright.vue \
       -e "s/companyName: 'GoWind Admin'/companyName: 'RushWind Admin'/"
-
-    replace framework/locales/langs/zh-CN/authentication.json \
-      -e 's/风行中后台管理系统/锐风中后台管理系统/'
 
     replace build-config/vite-config/src/plugins/license.ts \
       -e 's/ \* GoWind Admin/ * RushWind Admin/' \

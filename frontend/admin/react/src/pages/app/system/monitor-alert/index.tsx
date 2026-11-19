@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ActionType, ProColumns } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import {
   DrawerForm,
@@ -24,8 +24,8 @@ import type {
   monitor_alertservicev1_MonitorAlertRule as MonitorAlertRule,
   monitor_alertservicev1_UpdateMonitorAlertRuleRequest,
 } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
 import {
   fetchListMonitorAlertRules,
   useCreateMonitorAlertRule,
@@ -33,7 +33,7 @@ import {
   useEvaluateMonitorAlerts,
   useUpdateMonitorAlertRule,
 } from '@/api/hooks/monitor-alert';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { searchOptionRender } from '@/components/common/searchSubmitter';
 import { ColumnSlidersIcon } from '@/components/common/columnSettingIcon';
@@ -280,7 +280,7 @@ const MonitorAlertPage = () => {
             return { data: response.items || [], total: Number(response.total ?? 0), success: true };
           }}
           rowKey="id"
-          search={{ optionRender: searchOptionRender, labelWidth: 'auto', defaultCollapsed: false }}
+          search={{ optionRender: searchOptionRender, labelWidth: 'auto', defaultCollapsed: true }}
           pagination={{
             defaultPageSize: TABLE.DEFAULT_PAGE_SIZE,
             showSizeChanger: true,

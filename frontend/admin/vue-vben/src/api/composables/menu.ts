@@ -25,7 +25,7 @@ import {
 import { apiClient } from '#/api/client';
 import { BasicLayout, IFrameView } from '#/layouts';
 import { queryClient } from '#/plugins/vue-query';
-import { makeUpdateMask, type PaginationQuery } from '#/transport/rest';
+import { makeUpdateMask, type PaginationQuery } from '@go-wind/admin-core';
 
 const t = i18n.global.t;
 
@@ -48,7 +48,9 @@ export async function fetchListMenus(params: PaginationQuery) {
   return queryClient.fetchQuery({
     queryKey: ['listMenus', params],
     queryFn: () => apiClient.menuService.List(params.toRawParams()),
-    staleTime: 0,
+    // 选项目录（抽屉/筛选下拉）是准静态数据：60s 内复用缓存，避免每次
+    // 开抽屉全量重拉（issue #9d）。写操作面通过 invalidateQueries 失效。
+    staleTime: 60_000,
     retry: 0,
   });
 }

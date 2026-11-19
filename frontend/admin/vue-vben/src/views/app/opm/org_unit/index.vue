@@ -1,7 +1,7 @@
 ﻿<script lang="ts" setup>
 import type { VxeGridProps } from '#/adapter/vxe-table';
 
-import { h } from 'vue';
+import { h, ref } from 'vue';
 
 import { Page, useVbenDrawer, type VbenFormProps } from '@vben/common-ui';
 import { LucideFilePenLine, LucideTrash2 } from '@vben/icons';
@@ -22,18 +22,32 @@ import {
   useDeleteOrgUnit,
 } from '#/api';
 import { $t } from '#/locales';
+import SplitPane from '#/components/SplitPane.vue';
 import TableActions from '#/components/TableActions.vue';
 import type { TableAction } from '#/components/TableActions.vue';
 import TableAddButton from '#/components/TableAddButton.vue';
 import TableExportButton from '#/components/TableExportButton.vue';
 
 import OrgDrawer from './org-drawer.vue';
+import OrgTreePanel from '../user/list/org-list.vue';
+
+// 左树选中机构（issue #5：左树右表布局）；undefined = 全部
+const selectedOrgId = ref<string | undefined>(undefined);
+const selectedOrgKey = ref<(number | string)[]>([]);
+
+function handleOrgSelect(node: any) {
+  // 左树用于导航聚焦：选中后按该机构过滤右表（parentId 精确匹配——
+  // _id 后缀键在 makeQueryString 里不加 __contains，走 exact）。
+  selectedOrgId.value = node?.id ? String(node.id) : undefined;
+  selectedOrgKey.value = node?.id ? [`${node.parentId ?? ''}-${node.id}`] : [];
+  // gridApi 在本文件后段才解构（模板事件晚于装配，运行时必然就绪）
+  gridApi?.reload();
+}
 
 const { mutateAsync: deleteOrgUnit } = useDeleteOrgUnit();
 
 const formOptions: VbenFormProps = {
   // 默认展开
-  collapsed: false,
   // 控制表单是否显示折叠按钮
   showCollapseButton: false,
   // 按下回车时是否提交表单
@@ -102,11 +116,15 @@ const gridOptions: VxeGridProps<OrgUnit> = {
   proxyConfig: {
     ajax: {
       query: async ({ page }, formValues) => {
-
+        // 左树选中机构注入 parentId 过滤（_id 后缀走精确匹配，issue #5）
+        const merged = { ...formValues };
+        if (selectedOrgId.value) {
+          merged.parentId = selectedOrgId.value;
+        }
         return await fetchListOrgUnits(
           new PaginationQuery({
             paging: { page: page.currentPage, pageSize: page.pageSize },
-            formValues,
+            formValues: merged,
           }),
         );
       },
@@ -114,16 +132,19 @@ const gridOptions: VxeGridProps<OrgUnit> = {
   },
 
   columns: [
-    { title: $t('page.orgUnit.name'), field: 'name', treeNode: true },
-    { title: $t('page.orgUnit.code'), field: 'code' },
+    // 弹性列一律给 minWidth：左树右表布局下右栏窄（1280 视口仅 ~730px），裸弹性列
+    // 会被 fit 模式钳到 40px 下限且总宽溢出被裁剪——表头折行、固定列前露画布黑带、
+    // 滚动机制失灵（scrollW 仍报容器宽）。给 minWidth 后 vxe 走"真溢出→横向滚动"路径。
+    { title: $t('page.orgUnit.name'), field: 'name', treeNode: true, minWidth: 140 },
+    { title: $t('page.orgUnit.code'), field: 'code', minWidth: 100 },
     {
       title: $t('page.orgUnit.type'),
       field: 'type',
       slots: { default: 'orgUnitType' },
       width: 95,
     },
-    { title: $t('page.orgUnit.description'), field: 'description' },
-    { title: $t('page.orgUnit.leaderName'), field: 'leaderName' },
+    { title: $t('page.orgUnit.description'), field: 'description', minWidth: 120 },
+    { title: $t('page.orgUnit.leaderName'), field: 'leaderName', minWidth: 95 },
     {
       title: $t('ui.table.status'),
       field: 'status',
@@ -137,7 +158,7 @@ const gridOptions: VxeGridProps<OrgUnit> = {
       formatter: 'formatDateTime',
       width: 140,
     },
-    { title: $t('ui.table.remark'), field: 'remark' },
+    { title: $t('ui.table.remark'), field: 'remark', minWidth: 100 },
     {
       title: $t('ui.table.action'),
       field: 'action',
@@ -239,7 +260,26 @@ function buildRowActions(): TableAction[] {
 
 <template>
   <Page auto-content-height>
-    <Grid :table-title="$t('menu.opm.orgUnit')">
+    <SplitPane
+      auto-content-height
+      :left-collapsed-width="0"
+      :left-collapsible="false"
+      :left-max-width="40"
+      :left-min-width="20"
+      :left-width="25"
+      :right-width="75"
+      :resizable="true"
+      :split-handle="true"
+      :split-line="true"
+    >
+      <template #left>
+        <OrgTreePanel
+          v-model:selected-keys="selectedOrgKey"
+          @org-select="handleOrgSelect"
+        />
+      </template>
+      <div class="ml-3 h-full">
+        <Grid :table-title="$t('menu.opm.orgUnit')">
       <template #toolbar-tools>
         <a-button class="mr-2" @click="expandAll">
           {{ $t('ui.tree.expand_all') }}
@@ -260,10 +300,12 @@ function buildRowActions(): TableAction[] {
           {{ orgUnitTypeToName(row.type) }}
         </a-tag>
       </template>
-      <template #action="{ row }">
-        <TableActions :row="row" :actions="buildRowActions()" />
-      </template>
-    </Grid>
+          <template #action="{ row }">
+            <TableActions :row="row" :actions="buildRowActions()" />
+          </template>
+        </Grid>
+      </div>
+    </SplitPane>
     <Drawer />
   </Page>
 </template>

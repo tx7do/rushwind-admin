@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import { Tag, Button, App } from 'antd';
 import {
   EditOutlined,
@@ -14,10 +14,10 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { printservicev1_PrintTemplate as PrintTemplate } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
 import { fetchListPrintTemplates, useDeletePrintTemplate } from '@/api/hooks/print-template';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { orientationLabel } from './constants';
 import TemplateDesignerDrawer from './components/TemplateDesignerDrawer';
@@ -216,7 +216,7 @@ const PrintTemplateManagement = () => {
             rowKey="id"
             search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
-              defaultCollapsed: false,
+              defaultCollapsed: true,
             }}
             pagination={{
               defaultPageSize: TABLE.DEFAULT_PAGE_SIZE,

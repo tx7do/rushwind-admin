@@ -1,18 +1,18 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
 import dayjs, { type Dayjs } from 'dayjs';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Button, Dropdown, Tag, App } from 'antd';
 import { useTranslation } from 'react-i18next';
 import type { auditservicev1_PermissionAuditLog as PermissionAuditLog } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
 import { fetchListPermissionAuditLogs } from '@/api/hooks/permission-audit-log';
-import { exportAuditLogs, type AuditExportFormat } from '@/utils/csv';
+import { exportAuditLogs, type AuditExportFormat } from '@go-wind/admin-react';
 import { exportAuditLogsServer } from '@/api/hooks/audit-export';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { getActionMap, getActionOptions } from './constants';
 import PermissionAuditLogDetailDrawer from './DetailDrawer';
@@ -262,7 +262,7 @@ const PermissionAuditLogPage = () => {
             rowKey="id"
             search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
-              defaultCollapsed: false,
+              defaultCollapsed: true,
             }}
             pagination={{
               defaultPageSize: TABLE.DEFAULT_PAGE_SIZE,

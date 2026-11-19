@@ -14,7 +14,7 @@ import {
 
 import { apiClient } from '#/api/client';
 import { queryClient } from '#/plugins/vue-query';
-import { makeUpdateMask, type PaginationQuery } from '#/transport/rest';
+import { makeUpdateMask, type PaginationQuery } from '@go-wind/admin-core';
 
 // ==============================
 // API 管理
@@ -35,7 +35,9 @@ export async function fetchListApis(params: PaginationQuery) {
   return queryClient.fetchQuery({
     queryKey: ['listApis', params],
     queryFn: () => apiClient.apiService.List(params.toRawParams()),
-    staleTime: 0,
+    // 选项目录（抽屉/筛选下拉）是准静态数据：60s 内复用缓存，避免每次
+    // 开抽屉全量重拉（issue #9d）。写操作面通过 invalidateQueries 失效。
+    staleTime: 60_000,
     retry: 0,
   });
 }

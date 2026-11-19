@@ -1,16 +1,16 @@
 import { useRef, useState, useEffect } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import { Button, Tag, App, Empty } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import { fetchListPlanQuotas, useDeletePlanQuota } from '@/api/hooks/plan';
 import { getQuotaTypeMap, getQuotaTypeOptions } from './constants';
 import PlanQuotaDrawer from './components/PlanQuotaDrawer';
@@ -164,7 +164,7 @@ const PlanQuotaList: React.FC<PlanQuotaListProps> = ({ planId }) => {
             rowKey="id"
             search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
-              defaultCollapsed: false,
+              defaultCollapsed: true,
             }}
             pagination={{
               defaultPageSize: TABLE.DEFAULT_PAGE_SIZE,

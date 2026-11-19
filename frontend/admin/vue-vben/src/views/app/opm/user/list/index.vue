@@ -1,7 +1,7 @@
 ﻿<script lang="ts" setup>
 import { reactive } from 'vue';
 
-import { ColPage } from '@vben/common-ui';
+import SplitPane from '#/components/SplitPane.vue';
 
 import OrgList from './org-list.vue';
 import UserList from './user-list.vue';
@@ -20,10 +20,13 @@ const props = reactive({
 </script>
 
 <template>
-  <ColPage auto-content-height v-bind="props">
+  <SplitPane auto-content-height v-bind="props">
     <template #left>
       <OrgList />
     </template>
-    <UserList />
-  </ColPage>
+    <!-- 分割线右侧同距（issue #4）：左栏 m-3 与右侧 ml-3 对称 -->
+    <div class="ml-3 h-full">
+      <UserList />
+    </div>
+  </SplitPane>
 </template>

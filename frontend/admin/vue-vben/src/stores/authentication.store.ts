@@ -15,8 +15,8 @@ import { apiClient } from '#/api/client';
 import { $t } from '#/locales';
 import { queryClient } from '#/plugins/vue-query';
 import { router } from '#/router';
-import { setCaptchaHeaders } from '#/transport/rest';
-import { globalSSEClient } from '#/transport/sse';
+import { setCaptchaHeaders } from '@go-wind/admin-core';
+import { globalSSEClient } from '@go-wind/admin-core';
 
 type RefreshTokenFunc = () => Promise<string> | string;
 
@@ -63,7 +63,9 @@ export const useAuthStore = defineStore('auth', () => {
   async function authLogin(
     params: Recordable<any>,
     onSuccess?: () => Promise<void> | void,
-  ): Promise<{ userInfo: null | UserInfo } | null> {
+  ): Promise<
+    { captchaRequired?: boolean; userInfo: null | UserInfo } | null
+  > {
     // 异步处理用户登录操作并获取 accessToken
     let userInfo: null | UserInfo = null;
     try {
@@ -106,6 +108,14 @@ export const useAuthStore = defineStore('auth', () => {
         message: $t('authentication.loginFailed'),
         description: errorMsg,
       });
+      // 渐进式验证码（issue #1）：后端对失败达阈值的登录投递
+      // CAPTCHA_REQUIRED reason——原样外露给页面点亮验证码输入。
+      if (
+        (error as any)?.reason === 'CAPTCHA_REQUIRED' ||
+        (error as any)?.metadata?.captchaRequired
+      ) {
+        return { captchaRequired: true, userInfo: null };
+      }
       return null;
     } finally {
       loginLoading.value = false;

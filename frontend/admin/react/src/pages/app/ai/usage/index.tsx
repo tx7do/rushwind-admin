@@ -1,15 +1,15 @@
 import { useRef } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import ListTable from '@/components/common/ListTable';
-import TableExportButton from '@/components/common/TableExportButton';
+import { ListTable } from '@go-wind/admin-react';
+import { TableExportButton } from '@go-wind/admin-react';
 import { Progress } from 'antd';
 import { useTranslation } from 'react-i18next';
-import { PaginationQuery } from '@/core';
+import { PaginationQuery } from '@go-wind/admin-react';
 import { useGetAiUsageSummary } from '@/api/hooks/ai-usage';
 import { fetchListAiUsageLogs } from '@/api/hooks/ai-usage';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
-import { TABLE } from '@/config/constants';
+import { TABLE } from '@go-wind/admin-react';
 
 interface UsageRow {
   id?: string; // uint64 → proto3 JSON 下为字符串

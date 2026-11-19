@@ -27,14 +27,14 @@ import { getIconFromName } from '@/layouts/MainLayout/utils/iconResolver';
 
 import { SettingBoltIcon } from '@/components/common/settingBoltIcon';
 
-import { useI18n } from '@/core/i18n';
-import { usePreferencesStore } from '@/core/preferences/store';
-import type { SupportedLanguagesType } from '@/core/preferences/types/layout';
+import { useI18n } from '@go-wind/admin-react';
+import { usePreferencesStore } from '@go-wind/admin-react';
+import type { SupportedLanguagesType } from '@go-wind/admin-react';
 import { fetchListUserInbox, } from '@/api/hooks/internal-message';
 import { apiClient } from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
-import { PaginationQuery, queryClient } from '@/core';
-import { globalSSEClient, SSE_EVENT } from '@/core/transport/sse';
+import { PaginationQuery, queryClient } from '@go-wind/admin-react';
+import { globalSSEClient, SSE_EVENT } from '@go-wind/admin-react';
 import { useLockStore } from '@/stores';
 import { LockScreenModal } from './LockScreenModal';
 
@@ -98,6 +98,12 @@ const LanguageTranslateIcon = () => (
     <path d="m18.5 10 4.4 11h-2.155l-1.201-3h-4.09l-1.199 3h-2.154L16.5 10h2zM10 2v2h6v2h-1.968a18.221 18.221 0 0 1-3.62 6.301 14.865 14.865 0 0 0 2.335 1.707l-.75 1.878A17.016 17.016 0 0 1 9 13.725a16.677 16.677 0 0 1-6.201 3.548l-.536-1.929a14.7 14.7 0 0 0 5.327-3.042A18.078 18.078 0 0 1 4.767 8h2.24A16.031 16.031 0 0 0 9 10.877a16.165 16.165 0 0 0 2.91-4.876L2 6V4h6V2h2zm7.5 10.885L16.253 16h2.492L17.5 12.885z" />
   </svg>
 );
+
+/**
+ * 窄屏隐藏面包屑的档位（三端统一，权威值见 docs/design-language.md §4）：
+ * 1024 即 vben 头部 `hidden lg:block` 的 lg 断点，不是本端自定的新数。
+ */
+const HEADER_BREADCRUMB_MIN_VIEWPORT = 1024;
 
 /** 键位提示条的小 kbd 徽标（与触发条上的 Ctrl K 同族样式） */
 const searchHintKbdStyle: React.CSSProperties = {
@@ -255,6 +261,20 @@ export const HeaderContent = ({
   // 面包屑偏好设置
   const breadcrumbPreferences = usePreferencesStore((state) => state.preferences.breadcrumb);
   const breadcrumbStyleType = breadcrumbPreferences?.styleType ?? 'normal';
+
+  // 三端统一硬闸：视口宽 < 1024px 整体隐藏面包屑。1024 不是新值——它就是 vben
+  // 头部 `hidden lg:block` 的 lg 档（CSSOM 现量：@media (min-width: 1024px)）。
+  // 容量判据（下面 fit 逻辑）继续生效，作为宽屏但文案过长时的第二道防线。
+  const [viewportWideEnough, setViewportWideEnough] = useState(
+    () => window.innerWidth >= HEADER_BREADCRUMB_MIN_VIEWPORT,
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${HEADER_BREADCRUMB_MIN_VIEWPORT}px)`);
+    const sync = () => setViewportWideEnough(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   // ======== 面包屑过窄整体隐藏（对齐 vben：宁可无面包屑，不要挤压/截断） ========
   // 自然宽（wrap.scrollWidth）> 头部分配宽（wrap.clientWidth）→ 整体隐藏
@@ -917,14 +937,14 @@ export const HeaderContent = ({
           }}
         />
 
-        {/* 面包屑（过窄整体隐藏，见上方 hook 注释） */}
+        {/* 面包屑（窄屏硬闸 + 过窄整体隐藏，见上方 hook 注释） */}
         <div
           ref={breadcrumbWrapRef}
           style={{
             display: 'flex',
             minWidth: 0,
             overflow: 'hidden',
-            ...(breadcrumbHidden
+            ...(breadcrumbHidden || !viewportWideEnough
               ? { visibility: 'hidden', width: 0, flexShrink: 0 }
               : {}),
           }}

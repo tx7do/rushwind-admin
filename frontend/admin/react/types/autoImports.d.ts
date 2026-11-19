@@ -19,6 +19,7 @@ declare global {
   const EditorProvider: typeof import('../src/components/common/Editor/index').EditorProvider
   const EditorType: typeof import('../src/components/common/Editor/index').EditorType
   const Fragment: typeof import('react').Fragment
+  const IconPicker: typeof import('../src/components/common/IconPicker').default
   const IframeModal: typeof import('../src/components/common/Editor/src/TiptapEditor/modals').IframeModal
   const ImportModal: typeof import('../src/components/common/ImportModal/index').default
   const JsonEditor: typeof import('../src/components/common/Editor/src/JsonEditor').default
@@ -37,6 +38,7 @@ declare global {
   const Routes: typeof import('react-router-dom').Routes
   const SettingBoltIcon: typeof import('../src/components/common/settingBoltIcon').SettingBoltIcon
   const SloganIcon: typeof import('../src/components/bussiness/AuthLayout/icons/SloganIcon').default
+  const SplitPane: typeof import('../src/components/common/SplitPane/index').default
   const StatusBar: typeof import('../src/components/common/Editor/src/TiptapEditor/index').StatusBar
   const Suspense: typeof import('react').Suspense
   const TableActions: typeof import('../src/components/common/TableActions/index').default
@@ -66,6 +68,7 @@ declare global {
   const isDarkMode: typeof import('../src/components/common/Editor/index').isDarkMode
   const languages: typeof import('../src/components/common/Editor/src/TiptapEditor/index').languages
   const lazy: typeof import('react').lazy
+  const lucideIconNames: typeof import('../src/components/common/iconifyOffline').lucideIconNames
   const memo: typeof import('react').memo
   const monacoLoader: typeof import('../src/components/common/Editor/src/monaco-loader').default
   const reconnectSSEServer: typeof import('../src/hooks/useTokenRefresh').reconnectSSEServer
@@ -130,6 +133,6 @@ declare global {
 // for type re-export
 declare global {
   // @ts-ignore
-  export type { EditorEnv, ResizableCellProps, TableActionConfirm, TableAction, FC, ECOption, AuthLayoutProps, EditorProps, CodeEditorProps, JsonEditorProps, MarkdownEditorProps, PlainTextEditorProps, TiptapEditorProps, CodeBlockModalProps, VideoModalProps, IframeModalProps, ImportModalProps, TableSkeletonProps, ThemeLoadingProps, TableExportServerExport, TableExportButtonProps, TokenPayload, AuthState, UserState, TabItem } from './autoImports.d'
+  export type { SplitPanePanelProps, SplitPaneProps, EditorEnv, ResizableCellProps, TableActionConfirm, TableAction, FC, ECOption, AuthLayoutProps, EditorProps, CodeEditorProps, JsonEditorProps, MarkdownEditorProps, PlainTextEditorProps, TiptapEditorProps, CodeBlockModalProps, VideoModalProps, IframeModalProps, ImportModalProps, TableSkeletonProps, ThemeLoadingProps, TableExportServerExport, TableExportButtonProps, TokenPayload, AuthState, UserState, TabItem } from './autoImports.d'
   import('./autoImports.d')
 }

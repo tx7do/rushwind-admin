@@ -1,11 +1,6 @@
-# https://docs.github.com/cn/get-started/getting-started-with-git/configuring-git-to-handle-line-endings
-
-# Automatically normalize line endings (to LF) for all text-based files.
-* text=auto eol=lf
-
-# Declare files that will always have CRLF line endings on checkout.
-*.{cmd,[cC][mM][dD]} text eol=crlf
-*.{bat,[bB][aA][tT]} text eol=crlf
-
-# Denote all files that are truly binary and should not be modified.
-*.{ico,png,jpg,jpeg,gif,webp,svg,woff,woff2} binary
+# RushWind snapshot discipline: the MANIFEST gate hashes this tree verbatim,
+# so no path may take EOL conversion — the repo-root -text rules cannot
+# pierce this file (deeper gitattributes win), so the freeze is declared
+# here where it actually applies. Part of the brand overlay (the allowed
+# deviation), rebuilt by sync-frontend.sh.
+* -text

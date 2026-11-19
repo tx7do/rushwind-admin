@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import { Button, Tag, App } from 'antd';
 import {
   EditOutlined,
@@ -14,8 +14,8 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 
-import { PaginationQuery } from '@/core';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import { fetchListPermissionGroups, useDeletePermissionGroup } from '@/api/hooks/permission-group';
 import { getStatusMap, getStatusOptions } from './constants';
 import PermissionGroupDrawer from './PermissionGroupDrawer';
@@ -193,7 +193,7 @@ const PermissionGroupList: React.FC<PermissionGroupListProps> = ({
           rowKey="id"
           search={{ optionRender: searchOptionRender,
             labelWidth: 'auto',
-            defaultCollapsed: false,
+            defaultCollapsed: true,
             span: 12,
           }}
           pagination={false}

@@ -1,17 +1,17 @@
 import { useRef, useState } from 'react';
 import type { ProColumns, ActionType } from '@ant-design/pro-components';
-import TableExportButton from '@/components/common/TableExportButton';
+import { TableExportButton } from '@go-wind/admin-react';
 import TableActions from '@/components/common/TableActions';
-import ListTable from '@/components/common/ListTable';
+import { ListTable } from '@go-wind/admin-react';
 import { Button, Tag, App } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import type { authenticationservicev1_LoginPolicy as LoginPolicy } from '@/api/generated/admin/service/v1';
-import { PaginationQuery } from '@/core';
-import { TABLE } from '@/config/constants';
+import { PaginationQuery } from '@go-wind/admin-react';
+import { TABLE } from '@go-wind/admin-react';
 import { fetchListLoginPolicies, useDeleteLoginPolicy } from '@/api/hooks/login-policy';
-import { useProTableScrollY } from '@/hooks/useProTableScrollY';
+import { useProTableScrollY } from '@go-wind/admin-react';
 import ContentContainer from '@/layouts/components/PageContainer/ContentContainer';
 import { getPolicyTypeMap, getPolicyMethodMap, getPolicyMethodOptions } from './constants';
 import LoginPolicyDrawer from './components/LoginPolicyDrawer';
@@ -196,7 +196,7 @@ const LoginPolicyManagement = () => {
             rowKey="id"
             search={{ optionRender: searchOptionRender,
               labelWidth: 'auto',
-              defaultCollapsed: false,
+              defaultCollapsed: true,
             }}
             pagination={{
               defaultPageSize: TABLE.DEFAULT_PAGE_SIZE,
