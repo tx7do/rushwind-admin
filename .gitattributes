@@ -3,6 +3,9 @@
 # proto 契约与 manifest 必须字节精确（checksum 门依赖），禁止任何 EOL 转换。
 *.proto -text
 backend/api/MANIFEST.sha256 -text
+# 会话二十一契约树移动后的现路径（旧路径规则保留兼容历史克隆）。
+backend/apps/admin/api/MANIFEST.sha256 -text
+backend/apps/admin/api/protos/** -text
 # 前端零改动快照与 manifest 同理：字节精确，禁止 EOL 转换（含快照内 husky 脚本，
 # 规则置后以覆盖上面的 *.sh 规则）。
 frontend/admin/react/** -text

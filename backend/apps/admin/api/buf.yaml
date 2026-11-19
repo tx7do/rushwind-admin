@@ -26,6 +26,14 @@ modules:
     lint:
       use:
         - STANDARD
+      # 上游契约的 *_error.proto 枚举值走裸 HTTP 状态拼写（PRECONDITION_
+      # FAILED/UPLOAD_FAILED…），是 wire 契约的一部分（errors.code reason
+      # 注解按此拼装），改名即破坏线上客户端——样式债记在上游
+      # （go-wind-admin/backend/api 的同一份契约），fork 不为上游样式背锅，
+      # 这里除名两条命名规则让 lint 报告聚焦本仓可修的面。
+      except:
+        - ENUM_VALUE_UPPER_SNAKE_CASE
+        - ENUM_ZERO_VALUE_SUFFIX
   # fork 自有契约树（src/modules 的模块契约面）：自由编辑，不做字节清单门。
   # copy-rename 模板即 notice/；新模块的契约树在此并排落地，与 admin 树
   # 共享一次编译、一个池、一套分页类型。
