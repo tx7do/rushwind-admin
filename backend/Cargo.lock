@@ -461,6 +461,7 @@ dependencies = [
  "rushwind-authn",
  "rushwind-authn-gate",
  "rushwind-http-binding",
+ "serde_json",
 ]
 
 [[package]]

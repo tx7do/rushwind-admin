@@ -16,3 +16,4 @@ rushwind-authn = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 rushwind-authn-gate = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 rushwind-http-binding = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 axum = { version = "0.8", default-features = false, features = ["matched-path"] }
+serde_json = { workspace = true }
