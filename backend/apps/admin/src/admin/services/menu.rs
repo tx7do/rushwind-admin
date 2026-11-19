@@ -211,6 +211,9 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
             .await
             .map_err(db_err)?
             .ok_or_else(|| not_found("menu"))?;
+        // 存量 meta 先取（row 马上被 move 进 ActiveModel）：meta.* 点路径
+        // 合并以它为基线。
+        let existing_meta = row.meta.clone();
         let mut a: crate::admin::data::sys_menus::ActiveModel = row.into();
         if let Some(data) = &req.data {
             // 环检测前置（树形加固）：父级改到自身或自己的后代即成环，
@@ -224,6 +227,30 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
                 }
             }
             Self::apply_fields(&mut a, data);
+            // 上游 dcaa4fa9d 同语义：update_mask 的 meta.* 点路径不再整列
+            // 替换——选中子字段合并进存量 jsonb（未选中键保留、选中但为空
+            // 的键显式写 null 清残值），NULL 列由 {} 兜底。顶层 meta（或无
+            // 掩码）保持整列替换语义（apply_fields 已写）；两种形态同现时
+            // 以点路径合并后写为准。掩码里 data.meta 缺席 → Go 侧同款早退，
+            // meta 原样不动。
+            let meta_leaves: Vec<&str> = req
+                .update_mask
+                .as_ref()
+                .map(|m| {
+                    m.paths
+                        .iter()
+                        .filter_map(|p| p.strip_prefix("meta.").filter(|l| !l.is_empty()))
+                        .collect()
+                })
+                .unwrap_or_default();
+            if !meta_leaves.is_empty() {
+                if let Some(meta) = &data.meta {
+                    let base = existing_meta
+                        .clone()
+                        .unwrap_or_else(|| serde_json::json!({}));
+                    a.meta = Set(Some(merge_meta_fields(base, meta, &meta_leaves)));
+                }
+            }
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
         }
@@ -654,6 +681,69 @@ pub(crate) fn menu_meta_to_json(
     serde_json::Value::Object(obj)
 }
 
+/// update_mask 掩码叶子（snake/camel 都认）→ protojson camelCase 键。
+/// protojson 的 FieldMask 路径是 snake 原名，前端 makeUpdateMask 却可能送
+/// camel 表单键——归一（去下划线小写）后对表，两边都收敛到同一存储键。
+fn meta_field_json_key(field: &str) -> Option<&'static str> {
+    const KEYS: &[&str] = &[
+        "activeIcon",
+        "activePath",
+        "affixTab",
+        "affixTabOrder",
+        "authority",
+        "badge",
+        "badgeType",
+        "badgeVariants",
+        "hideChildrenInMenu",
+        "hideInBreadcrumb",
+        "hideInMenu",
+        "hideInTab",
+        "icon",
+        "iframeSrc",
+        "ignoreAccess",
+        "keepAlive",
+        "link",
+        "loaded",
+        "maxNumOfOpenTab",
+        "menuVisibleWithForbidden",
+        "openInNewWindow",
+        "order",
+        "title",
+    ];
+    let want = field.trim().replace('_', "").to_ascii_lowercase();
+    KEYS.iter()
+        .copied()
+        .find(|k| k.to_ascii_lowercase() == want)
+}
+
+/// update_mask 点路径选中的 meta 子字段合并进存量 jsonb（上游 dcaa4fa9d
+/// 同语义）：选中且有值 → 写值；选中但为空 → 显式写 json null（清空
+/// 图标/标题不留残值）；未选中的键 → 存量原样保留。base 为 NULL 列时从
+/// `{}` 起步——应用层合并天然免疫 SQL `NULL || x` 静默丢失，等价 Go 侧
+/// COALESCE(meta,'{}')。
+fn merge_meta_fields(
+    base: serde_json::Value,
+    meta: &proto::proto::permission::service::v1::MenuMeta,
+    leaves: &[&str],
+) -> serde_json::Value {
+    let mut obj = match base {
+        serde_json::Value::Object(map) => map,
+        _ => serde_json::Map::new(),
+    };
+    let converted = menu_meta_to_json(meta);
+    for leaf in leaves {
+        let Some(key) = meta_field_json_key(leaf) else {
+            continue;
+        };
+        let value = converted
+            .get(key)
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
+        obj.insert(key.to_string(), value);
+    }
+    serde_json::Value::Object(obj)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -705,6 +795,287 @@ mod tests {
         .insert(db)
         .await
         .unwrap()
+    }
+
+    async fn set_meta(db: &sea_orm::DatabaseConnection, id: i64, meta: serde_json::Value) {
+        let row = menus::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut a: menus::ActiveModel = row.into();
+        a.meta = Set(Some(meta));
+        a.update(db).await.unwrap();
+    }
+
+    async fn row_by_id(db: &sea_orm::DatabaseConnection, id: i64) -> menus::Model {
+        menus::Entity::find_by_id(id)
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap()
+    }
+
+    fn update_req(id: u64, data: Menu, paths: &[&str]) -> UpdateMenuRequest {
+        UpdateMenuRequest {
+            id,
+            data: Some(data),
+            update_mask: Some(pbjson_types::FieldMask {
+                paths: paths.iter().map(|s| s.to_string()).collect(),
+            }),
+            allow_missing: None,
+        }
+    }
+
+    /// meta.* 点路径 = 子字段合并语义（上游 dcaa4fa9d）：只动掩码选中的
+    /// 键，title/keepAlive 等未选中键不被整列替换抹掉。
+    #[tokio::test]
+    async fn dotted_meta_mask_merges_instead_of_replacing() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "dashboard", "/dashboard", None).await;
+        set_meta(
+            db,
+            row.id,
+            serde_json::json!({"title": "仪表盘", "icon": "lucide:home", "keepAlive": true}),
+        )
+        .await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Menu {
+                    meta: Some(proto::proto::permission::service::v1::MenuMeta {
+                        icon: Some("lucide:layout-dashboard".into()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                &["meta.icon"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let meta = row_by_id(db, row.id).await.meta.expect("meta present");
+        assert_eq!(
+            meta.get("icon").and_then(|v| v.as_str()),
+            Some("lucide:layout-dashboard"),
+            "masked leaf updated"
+        );
+        assert_eq!(
+            meta.get("title").and_then(|v| v.as_str()),
+            Some("仪表盘"),
+            "unmasked title survives the merge"
+        );
+        assert_eq!(
+            meta.get("keepAlive").and_then(|v| v.as_bool()),
+            Some(true),
+            "unmasked keepAlive survives the merge"
+        );
+    }
+
+    /// 掩码选中但值为空 → 显式写 json null（上游 NilValuePaths 语义）：
+    /// 清空图标后旧值不残留，读回 proto 时收敛为 None。
+    #[tokio::test]
+    async fn dotted_meta_mask_writes_null_for_masked_empty_fields() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "dashboard", "/dashboard", None).await;
+        set_meta(
+            db,
+            row.id,
+            serde_json::json!({"title": "仪表盘", "icon": "lucide:home"}),
+        )
+        .await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Menu {
+                    meta: Some(proto::proto::permission::service::v1::MenuMeta::default()),
+                    ..Default::default()
+                },
+                &["meta.icon"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let meta = row_by_id(db, row.id).await.meta.expect("meta present");
+        assert_eq!(
+            meta.get("icon"),
+            Some(&serde_json::Value::Null),
+            "masked-but-empty leaf written as explicit null"
+        );
+        assert_eq!(
+            meta.get("title").and_then(|v| v.as_str()),
+            Some("仪表盘"),
+            "unmasked title still survives"
+        );
+    }
+
+    /// meta 列为 NULL（API 直建/老数据）时点路径合并照常落键——基线从
+    /// `{}` 起步，等价上游 COALESCE(meta,'{}')，不再静默丢失。
+    #[tokio::test]
+    async fn merge_tolerates_null_meta_column() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        // plant 不带 meta → 列为 NULL
+        let row = plant(db, "legacy", "/legacy", None).await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Menu {
+                    meta: Some(proto::proto::permission::service::v1::MenuMeta {
+                        title: Some("新标题".into()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                &["meta.title"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let meta = row_by_id(db, row.id).await.meta.expect("meta present");
+        assert_eq!(
+            meta,
+            serde_json::json!({"title": "新标题"}),
+            "NULL column coalesced to an empty object before the merge"
+        );
+    }
+
+    /// 顶层 meta 掩码（或无掩码）保持整列替换语义——旧行为不回退。
+    #[tokio::test]
+    async fn top_level_meta_mask_keeps_whole_replace() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "dashboard", "/dashboard", None).await;
+        set_meta(
+            db,
+            row.id,
+            serde_json::json!({"title": "旧", "icon": "old:icon"}),
+        )
+        .await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Menu {
+                    meta: Some(proto::proto::permission::service::v1::MenuMeta {
+                        title: Some("新".into()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                &["meta"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let meta = row_by_id(db, row.id).await.meta.expect("meta present");
+        assert_eq!(
+            meta,
+            serde_json::json!({"title": "新"}),
+            "whole replace: unmentioned icon gone"
+        );
+    }
+
+    /// 掩码混排标量与 meta 点路径：标量照常落列，meta 子字段照常合并。
+    #[tokio::test]
+    async fn mixed_scalar_and_dotted_meta_mask_lands_both() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "dashboard", "/dashboard", None).await;
+        set_meta(db, row.id, serde_json::json!({"icon": "lucide:home"})).await;
+
+        svc.update(
+            me,
+            update_req(
+                row.id as u64,
+                Menu {
+                    name: Some("工作台".into()),
+                    meta: Some(proto::proto::permission::service::v1::MenuMeta {
+                        title: Some("工作台标题".into()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                &["name", "meta.title"],
+            ),
+        )
+        .await
+        .unwrap();
+
+        let fresh = row_by_id(db, row.id).await;
+        assert_eq!(fresh.name, "工作台", "scalar field lands");
+        let meta = fresh.meta.expect("meta present");
+        assert_eq!(
+            meta.get("title").and_then(|v| v.as_str()),
+            Some("工作台标题"),
+            "dotted meta leaf lands"
+        );
+        assert_eq!(
+            meta.get("icon").and_then(|v| v.as_str()),
+            Some("lucide:home"),
+            "other meta keys preserved"
+        );
+    }
+
+    /// 掩码带 meta 点路径但 data.meta 缺席 → Go 侧 updateMetaField 同款
+    /// 早退：meta 原样不动，不炸不误清。
+    #[tokio::test]
+    async fn dotted_mask_without_meta_payload_is_noop() {
+        let state = test_state().await;
+        let svc = MenuService {
+            state: state.clone(),
+        };
+        let me = ctx(0, 1);
+        let db = &state.db;
+        let row = plant(db, "dashboard", "/dashboard", None).await;
+        set_meta(db, row.id, serde_json::json!({"title": "保留"})).await;
+
+        svc.update(
+            me,
+            update_req(row.id as u64, Menu::default(), &["meta.title"]),
+        )
+        .await
+        .unwrap();
+
+        let meta = row_by_id(db, row.id).await.meta.expect("meta present");
+        assert_eq!(
+            meta.get("title").and_then(|v| v.as_str()),
+            Some("保留"),
+            "meta untouched when the payload omits it"
+        );
     }
 
     /// MERGE 按全路径匹配（issue #7）：不带 id 的推送树命中库存行原位
