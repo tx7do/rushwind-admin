@@ -131,7 +131,7 @@ impl MfaService {
             username: payload.username.clone(),
             tenant_id: payload.tenant_id,
             device: payload.device_id.clone(),
-            login_at: chrono::Local::now().naive_local().to_string(),
+            login_at: chrono::Utc::now().naive_utc().to_string(),
         };
         let _ = self
             .state

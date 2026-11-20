@@ -59,7 +59,11 @@ pub fn collect_subtree_ids<T: Copy + Eq + std::hash::Hash>(
 
 pub mod repos;
 
-/// Wall clock for timestamp columns.
+/// Wall clock for timestamp columns — always UTC.
+///
+/// The columns are naive by type, and the protojson bridge
+/// (`naive_to_ts`) reads them as UTC wall time: writing UTC here keeps
+/// the wire face truthful regardless of the host timezone.
 pub fn now() -> chrono::NaiveDateTime {
-    chrono::Local::now().naive_local()
+    chrono::Utc::now().naive_utc()
 }

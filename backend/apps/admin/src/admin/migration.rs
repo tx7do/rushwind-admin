@@ -183,6 +183,7 @@ impl MigratorTrait for Migrator {
             Box::new(PermissionMenuFullPath),
             Box::new(IdWidenU64),
             Box::new(PermissionGroupCode),
+            Box::new(AiSearchIndexUtcTime),
         ]
     }
 }
@@ -462,7 +463,7 @@ impl MigrationTrait for AiSearchIndexTable {
             .execute_unprepared(
                 "CREATE TABLE IF NOT EXISTS sys_ai_search_index (\
                  id BIGSERIAL PRIMARY KEY, \
-                 created_at TIMESTAMPTZ DEFAULT NOW(), \
+                 created_at TIMESTAMP DEFAULT (NOW() AT TIME ZONE 'UTC'), \
                  item_type VARCHAR(20) NOT NULL DEFAULT 'menu', \
                  item_id BIGINT NOT NULL, \
                  title TEXT NOT NULL, \
@@ -471,6 +472,54 @@ impl MigrationTrait for AiSearchIndexTable {
             )
             .await
             .map(|_| ())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        Ok(())
+    }
+}
+
+/// 语义检索索引表的时间列归一（时钟统一 UTC 轮）：建表期 DDL 曾把
+/// created_at 声明成 TIMESTAMPTZ——全库实体列族是 naive timestamp（按
+/// UTC 墙钟写入/读出，见 `data::now` 与 `naive_to_ts`），这张手写表
+/// 对齐同一列族；默认值 `NOW() AT TIME ZONE 'UTC'` 与 Postgres 会话
+/// 时区脱钩。存量库按 information_schema 门控转换（USING 已按 UTC 墙
+/// 钟解释原 timestamptz 值）；表缺席（vector 扩展缺席时建表迁移跳过）
+/// 或列已是 timestamp 时安静跳过，可重复执行。
+struct AiSearchIndexUtcTime;
+
+impl MigrationName for AiSearchIndexUtcTime {
+    fn name(&self) -> &str {
+        "m20251120_000001_ai_search_index_utc_time"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for AiSearchIndexUtcTime {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        let conn = manager.get_connection();
+        let is_timestamptz = conn
+            .query_one_raw(sea_orm::Statement::from_string(
+                manager.get_database_backend(),
+                "SELECT 1 FROM information_schema.columns \
+                 WHERE table_name = 'sys_ai_search_index' \
+                 AND column_name = 'created_at' \
+                 AND data_type = 'timestamp with time zone'",
+            ))
+            .await
+            .map(|r| r.is_some())
+            .unwrap_or(false);
+        if !is_timestamptz {
+            return Ok(());
+        }
+        conn.execute_unprepared(
+            "ALTER TABLE sys_ai_search_index \
+             ALTER COLUMN created_at \
+               TYPE timestamp USING created_at AT TIME ZONE 'UTC', \
+             ALTER COLUMN created_at SET DEFAULT (NOW() AT TIME ZONE 'UTC')",
+        )
+        .await
+        .map(|_| ())
     }
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {

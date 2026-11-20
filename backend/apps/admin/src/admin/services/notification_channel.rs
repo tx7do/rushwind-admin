@@ -482,7 +482,7 @@ impl NotificationChannelService {
                 format!(
                     "这是渠道 [{id}] 的测试邮件。\n\n触发人：用户 {}\n时间：{}",
                     payload.user_id,
-                    chrono::Local::now().format("%Y-%m-%d %H:%M:%S")
+                    chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
                 ),
                 None,
             ),

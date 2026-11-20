@@ -125,7 +125,7 @@ impl AuthenticationService {
         let max_age = self.config_int("sys.password.maxAgeDays", 90).await;
         if max_age > 0 && row.credential_type.as_deref() == Some("PASSWORD_HASH") {
             if let Some(updated_at) = row.updated_at {
-                let age = chrono::Local::now().naive_local() - updated_at;
+                let age = crate::admin::data::now() - updated_at;
                 if age > chrono::Duration::days(max_age) {
                     return Err(status_error("INVALID_PASSWORD", "incorrect password"));
                 }

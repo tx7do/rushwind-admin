@@ -48,7 +48,7 @@ impl AuthenticationService {
             ip: String::new(),
             user_agent: String::new(),
             device: payload.device_id.clone(),
-            login_at: chrono::Local::now().naive_local().to_string(),
+            login_at: chrono::Utc::now().naive_utc().to_string(),
         }
     }
 

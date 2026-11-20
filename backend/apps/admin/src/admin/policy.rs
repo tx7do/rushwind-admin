@@ -42,16 +42,18 @@ fn ipv4_to_u32(text: &str) -> Option<u32> {
     )
 }
 
-/// `matchTimeWindow`: `HH:MM-HH:MM` local-time window (end inclusive).
+/// `matchTimeWindow`: `HH:MM-HH:MM` UTC window (end inclusive) — window
+/// specs are authored against the system-wide timezone convention (UTC),
+/// not the host clock.
 /// 跨午夜窗口（start > end，如 22:00-06:00）语义为"越过午夜仍连续"——
 /// 原实现恒 false，用作白名单等于全天拒绝、用作黑名单夜间封禁静默失效。
 pub fn time_window_matches(value: &str) -> bool {
-    let local = chrono::Local::now();
-    time_window_matches_at(value, local.hour(), local.minute())
+    let utc = chrono::Utc::now();
+    time_window_matches_at(value, utc.hour(), utc.minute())
 }
 
-/// The pure matcher behind [`time_window_matches`], taking the local
-/// clock so the window logic (inclusive ends, midnight wrap) is testable.
+/// The pure matcher behind [`time_window_matches`], taking the clock
+/// so the window logic (inclusive ends, midnight wrap) is testable.
 pub fn time_window_matches_at(value: &str, hour: u32, minute: u32) -> bool {
     let Some((start, end)) = value.split_once('-') else {
         return false;

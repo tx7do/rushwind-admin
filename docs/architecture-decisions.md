@@ -145,6 +145,7 @@ apps/admin            二进制：features 选域，逐域四行装配
 2. **重构轮与功能轮永不并行**——同一时段主线只允许一种性质的波次。
 3. **合并跨目录挪移的分支时，modify-vs-delete 禁止按"目录已删除"整体裁决**——必须逐文件确认语义已迁移至新路径，未迁移项显式登记为"放弃"并留档。
 4. **全量上游同步前必跑差分回归**（sync-protos.sh 头部既有此建议），同步后对照 §2.3 的投影面退役政策。
+5. **时钟统一 UTC**——存储列是 naive timestamp（无时区），唯一时钟源 `data::now()` 返回 UTC 墙钟，wire 桥 `naive_to_ts` 按 UTC 解释：三层在同一时区对齐，wire 时刻与部署环境的时区脱钩。新增时间源头禁用 `Local::now`；登录策略 TIME 窗、cron 规格与出站时间串同样按 UTC 书写与判定。
 
 ---
 
@@ -162,3 +163,4 @@ apps/admin            二进制：features 选域，逐域四行装配
 | 2026-11-19 | 多服务演进路线独立成篇：L1 单体模块 → L2 feature 门 → L3 lib 三 crate → L4 多服务 → L5 规模化，rushwind-cms 为 L4 参考形态 | ✅ 定稿（见 [services-evolution.md](./services-evolution.md)） |
 | 2026-11-20 | 文档审计轮：15 文档 50+ 处事实回填（291/296、491、602/286、59、61、283 等全部实测重钉）+ binding-spec 增 §2.5 update_mask 应用语义 | ✅ 完成（3e7e85b） |
 | 2026-11-20 | 本文档第三路审计勘误：apalis 移出根 re-export 清单、§1.2 补 5 项模板实际消费的稳定入口、i_* 定性修订（上游已携带投影层，"fork 创作"表述作废）、迁移成本 203→86 文件 | ✅ 完成 |
+| 2026-11-20 | 时钟统一 UTC：唯一时钟源 `data::now()` = `Utc::now().naive_utc()`；登录策略 TIME 窗改按 UTC 判定；会话 `login_at`/渠道测试邮件时间串随钟改 UTC；sys_ai_search_index 时间列归一 naive timestamp（`AT TIME ZONE 'UTC'` 默认值 + 存量门控迁移）——wire 时刻与部署时区脱钩（§4.5） | ✅ 完成 |
