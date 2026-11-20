@@ -173,12 +173,8 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             ..Default::default()
         };
         apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
-        if a.is_built_in.clone().unwrap().is_none() {
-            a.is_built_in = Set(Some(false));
-        }
-        if a.is_enabled.clone().unwrap().is_none() {
-            a.is_enabled = Set(Some(true));
-        }
+        crate::ensure_default!(a, is_built_in, false);
+        crate::ensure_default!(a, is_enabled, true);
         a.insert(&self.state.db).await.map_err(db_err)?;
         Ok(Empty {})
     }

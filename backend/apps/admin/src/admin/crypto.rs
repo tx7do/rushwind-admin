@@ -19,11 +19,19 @@ pub const DEFAULT_AES_KEY: &[u8; 16] = b"f51d66a73d8a0927";
 
 /// The AES-256-GCM key for `enc:` secrets (MFA factors): derived from
 /// env `RUSHWIND_CRYPTO_KEY`; unset ⇒ factors are stored in plaintext.
+/// 非 32 字节配置走 SHA-256 派生定长——原实现零填充，有效熵钉在原长度
+/// 上还悄悄放行弱配置（16 字节 env key 实际只用一半熵）。注意：与旧零
+/// 填充派生的密文不兼容，曾用短密钥的历史因子需重新绑定。
 pub fn crypto_key() -> Option<[u8; 32]> {
     let raw = std::env::var("RUSHWIND_CRYPTO_KEY").ok()?;
-    let mut key = [0u8; 32];
     let bytes = raw.as_bytes();
-    key[..bytes.len().min(32)].copy_from_slice(&bytes[..bytes.len().min(32)]);
+    if bytes.len() == 32 {
+        let mut key = [0u8; 32];
+        key.copy_from_slice(bytes);
+        return Some(key);
+    }
+    let mut key = [0u8; 32];
+    key.copy_from_slice(Sha256::digest(bytes).as_slice());
     Some(key)
 }
 

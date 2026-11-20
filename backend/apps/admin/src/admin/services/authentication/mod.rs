@@ -99,10 +99,11 @@ impl AuthenticationServiceHandlers for AuthenticationService {
                 .ok()
                 .flatten();
             if row.is_some() {
-                let code = format!(
-                    "{:06}",
-                    chrono::Utc::now().timestamp_micros().rem_euclid(1_000_000)
-                );
+                // 随机重置码（C6）：原实现 timestamp_micros % 1_000_000 是
+                // 服务器时间的确定性函数，NTP 同步下候选空间可收窄到可在线
+                // 爆破；校验端另配按 identifier 的尝试上限。
+                use rand::Rng;
+                let code = format!("{:06}", rand::rng().random_range(0..1_000_000u32));
                 let mut conn = self.state.redis.clone();
                 let _: Result<(), _> = redis::AsyncCommands::set_ex(
                     &mut conn,
@@ -112,9 +113,9 @@ impl AuthenticationServiceHandlers for AuthenticationService {
                 )
                 .await;
                 // Delivery rides the SMTP notification channel; without a
-                // configured relay the code stays retrievable server-side
-                // (same fail mode as without channels).
-                eprintln!("[forgot-password] reset code for {identifier}: {code}");
+                // configured relay the code is never delivered — and never
+                // recoverable from logs either (原实现 eprintln 把明文码写进
+                // stderr，一并移除)。出站投递待通知域事件源接入。
             }
         }
         Ok(Empty {})
@@ -129,6 +130,14 @@ impl AuthenticationServiceHandlers for AuthenticationService {
         let code = req.code.unwrap_or_default();
         if identifier.is_empty() || code.is_empty() {
             return Err(status_error("BAD_REQUEST", "invalid identifier or code"));
+        }
+        // 尝试上限闸（C6）：按 identifier 计每次校验尝试，超限一律按
+        // "invalid verification code" 拒绝——原实现无任何限速，配合旧的可
+        // 预测码可匿名爆破。上限 5 次 / 600s（与码 TTL 同窗），耗尽后重新
+        // 走 ForgotPassword 领新码。GET+SET EX 两段式与 mini-redis 测试面
+        // 兼容（同一考量见 ratelimit 计数器）。
+        if crate::admin::ratelimit::reset_code_attempt(&self.state.redis, &identifier).await {
+            return Err(status_error("BAD_REQUEST", "invalid verification code"));
         }
         let key = format!("admin:vcode:reset_password:{identifier}");
         let mut conn = self.state.redis.clone();
@@ -289,6 +298,14 @@ impl AuthenticationServiceHandlers for AuthenticationService {
             .await
             .map_err(|e| internal_error(format!("db: {e}")))?
             .ok_or_else(|| status_error("INCORRECT_REFRESH_TOKEN", "invalid refresh token"))?;
+        // 账号状态闸（H1）：被禁用/锁定的用户不能无限续期——按错误的
+        // refresh token 应答（不经此通道泄露账号状态）。
+        if user.status.as_deref() != Some("NORMAL") {
+            return Err(status_error(
+                "INCORRECT_REFRESH_TOKEN",
+                "invalid refresh token",
+            ));
+        }
         let payload = self
             .payload_for_user(user, req.client_id.clone(), req.device_id.clone())
             .await?;
@@ -534,6 +551,12 @@ impl AuthenticationService {
 
         if user.tenant_id.unwrap_or(0) != tenant_id {
             return Err(status_error("BAD_REQUEST", "invalid tenant"));
+        }
+
+        // 账号状态闸（H1）：原实现只查租户一致性，DISABLED/LOCKED/CLOSED
+        // 的用户凭有效凭证照常换取 token（SSO 路径有此检查，密码路径漏了）。
+        if user.status.as_deref() != Some("NORMAL") {
+            return Err(status_error("FORBIDDEN", "account is frozen"));
         }
 
         // User-targeted policy pass.

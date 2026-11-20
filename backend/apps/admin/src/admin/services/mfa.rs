@@ -57,8 +57,9 @@ impl MfaService {
     }
 
     /// 同码重放防线（P3 加固）：记录 (uid, code) 组合，90 秒内（TOTP ±skew
-    /// 窗口）重复出现即拒绝。Redis 异常放行（防御性优化，不阻断正常流程；
-    /// 主防线是挑战/因子校验本体）。
+    /// 窗口）重复出现即拒绝。Redis 异常改为拒绝（fail-closed）：登录链
+    /// 本身依赖 Redis（会话/白名单），故障期间 MFA 放行只会多开一道
+    /// 90 秒同码重放窗口，而拒绝并不增加新的不可用面。
     async fn try_acquire_used_totp_code(&self, user_id: i64, code: &str) -> bool {
         let mut conn = self.state.redis.clone();
         let key = format!("mfa:usedcode:{user_id}:{code}");
@@ -71,7 +72,7 @@ impl MfaService {
             .query_async::<Option<()>>(&mut conn)
             .await
         {
-            Err(_) => true,       // Redis 异常放行
+            Err(_) => false,      // Redis 异常拒绝（fail-closed，见上）
             Ok(Some(())) => true, // 首次出现，获取成功
             Ok(None) => false,    // 90 秒内重复出现 → 重放拒绝
         }

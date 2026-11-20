@@ -361,6 +361,8 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: CreateTenantRequest,
     ) -> Result<Empty, StatusError> {
+        // 平台专属写口（P2 收闸补齐）：租户是平台资产，读写两侧同口径。
+        self.require_platform_admin(&ctx, "tenant create").await?;
         let payload = operator_of(&ctx)?;
         let data = crate::admin::state::require_data(req.data)?;
         // The exists gate: code OR name.
@@ -417,6 +419,9 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: UpdateTenantRequest,
     ) -> Result<Empty, StatusError> {
+        // 平台专属写口（P2 收闸补齐）：原实现只验身份，任何登录用户可改
+        // 任意租户的 status/plan/expired_at。
+        self.require_platform_admin(&ctx, "tenant update").await?;
         let _ = operator_of(&ctx)?;
         let repo = crate::admin::data::repos::TenantRepo::new(&self.state.db);
         let row = repo
@@ -474,6 +479,9 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: DeleteTenantRequest,
     ) -> Result<Empty, StatusError> {
+        // 平台专属写口（P2 收闸补齐）：delete 触发 cleanup_rows 级联清数，
+        // 是全系统破坏面最大的单口。
+        self.require_platform_admin(&ctx, "tenant delete").await?;
         let id = crate::query_by_id!(
             req.query_by,
             crate::proto::identity::service::v1::delete_tenant_request::QueryBy
@@ -581,6 +589,8 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: CreateTenantWithAdminUserRequest,
     ) -> Result<Empty, StatusError> {
+        // 平台专属写口（P2 收闸补齐）：与 create 同口径。
+        self.require_platform_admin(&ctx, "tenant create").await?;
         let payload = operator_of(&ctx)?;
         let tenant_data = req
             .tenant
@@ -631,10 +641,20 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
 
     async fn get_usage(
         &self,
-        _ctx: rushwind_http_binding::ctx::RequestContext,
+        ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetTenantUsageRequest,
     ) -> Result<TenantUsage, StatusError> {
-        usage_for(&self.state, req.id as i64).await
+        // 归属闸：平台管理员看任意租户用量，租户成员只看自己（防跨租户
+        // 用量探测）。
+        let payload = operator_of(&ctx)?;
+        let tid = req.id as i64;
+        if payload.is_platform_admin != Some(true) && payload.tenant_id != tid {
+            return Err(status_error(
+                "FORBIDDEN",
+                "cannot read another tenant's usage",
+            ));
+        }
+        usage_for(&self.state, tid).await
     }
 
     async fn cleanup_data(
@@ -642,6 +662,8 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: CleanupTenantDataRequest,
     ) -> Result<Empty, StatusError> {
+        // 平台专属写口（P2 收闸补齐）：cleanup_rows 级联清 30+ 张表。
+        self.require_platform_admin(&ctx, "tenant cleanup").await?;
         let _ = operator_of(&ctx)?;
         self.cleanup_rows(req.id as i64).await?;
         // Park the tenant, keep the row.
@@ -1162,5 +1184,66 @@ mod tests {
             Some(2),
             "UNSPECIFIED audit_status never writes under the mask"
         );
+    }
+
+    /// 平台专属写口（C4 补闸）：非平台操作者的 create/update/delete/
+    /// cleanup_data 全部 FORBIDDEN——P2 收闸此前只收了读口，而 delete/
+    /// cleanup_data 触发 cleanup_rows 级联清数，是破坏面最大的单口。
+    #[tokio::test]
+    async fn tenant_writes_require_platform_admin() {
+        let state = test_state().await;
+        let svc = TenantService {
+            state: state.clone(),
+        };
+        let me = ctx(7, 1); // 非 ipa
+        for err in [
+            svc.create(
+                me.clone(),
+                CreateTenantRequest {
+                    data: Some(tenant("acme9", None)),
+                },
+            )
+            .await
+            .unwrap_err()
+            .reason,
+            svc.update(
+                me.clone(),
+                UpdateTenantRequest {
+                    id: 1,
+                    data: Some(Tenant {
+                        name: Some("越权改名".into()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap_err()
+            .reason,
+            svc.delete(
+                me.clone(),
+                DeleteTenantRequest {
+                    query_by: Some(DeleteQueryBy::Id(1)),
+                },
+            )
+            .await
+            .unwrap_err()
+            .reason,
+            svc.cleanup_data(me.clone(), CleanupTenantDataRequest { id: 1 })
+                .await
+                .unwrap_err()
+                .reason,
+        ] {
+            assert_eq!(err, "FORBIDDEN");
+        }
+        // 平台管理员照常通过（既有流程不回退）。
+        svc.create(
+            admin_ctx(),
+            CreateTenantRequest {
+                data: Some(tenant("acme10", None)),
+            },
+        )
+        .await
+        .unwrap();
     }
 }

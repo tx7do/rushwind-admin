@@ -24,10 +24,16 @@ pub fn ip_matches(client_ip: &str, value: &str) -> bool {
 }
 
 fn ipv4_to_u32(text: &str) -> Option<u32> {
-    let octets: Vec<u8> = text.split('.').filter_map(|p| p.parse().ok()).collect();
-    if octets.len() != 4 {
+    // 逐段全解析（非 filter_map 静默丢弃）：原实现 "1.2.3.4.5" 会把
+    // 末段丢掉后按 1.2.3.4 误匹配，畸形策略值退化成意外命中。
+    let parts: Vec<&str> = text.split('.').collect();
+    if parts.len() != 4 {
         return None;
     }
+    let octets = parts
+        .iter()
+        .map(|p| p.parse::<u8>().ok())
+        .collect::<Option<Vec<u8>>>()?;
     Some(
         ((octets[0] as u32) << 24)
             | ((octets[1] as u32) << 16)
@@ -37,7 +43,16 @@ fn ipv4_to_u32(text: &str) -> Option<u32> {
 }
 
 /// `matchTimeWindow`: `HH:MM-HH:MM` local-time window (end inclusive).
+/// 跨午夜窗口（start > end，如 22:00-06:00）语义为"越过午夜仍连续"——
+/// 原实现恒 false，用作白名单等于全天拒绝、用作黑名单夜间封禁静默失效。
 pub fn time_window_matches(value: &str) -> bool {
+    let local = chrono::Local::now();
+    time_window_matches_at(value, local.hour(), local.minute())
+}
+
+/// The pure matcher behind [`time_window_matches`], taking the local
+/// clock so the window logic (inclusive ends, midnight wrap) is testable.
+pub fn time_window_matches_at(value: &str, hour: u32, minute: u32) -> bool {
     let Some((start, end)) = value.split_once('-') else {
         return false;
     };
@@ -48,9 +63,12 @@ pub fn time_window_matches(value: &str) -> bool {
     let (Some(start), Some(end)) = (minutes(start), minutes(end)) else {
         return false;
     };
-    let local = chrono::Local::now();
-    let now = local.hour() * 60 + local.minute();
-    now >= start && now <= end
+    let now = hour * 60 + minute;
+    if start <= end {
+        now >= start && now <= end
+    } else {
+        now >= start || now <= end
+    }
 }
 
 use chrono::Timelike;
@@ -102,10 +120,37 @@ mod tests {
     }
 
     #[test]
+    fn ip_rejects_malformed_values() {
+        // 逐段全解析回归：多段/缺段/空段不得静默降级成误匹配。
+        assert!(!ip_matches("1.2.3.4", "1.2.3.4.5"));
+        assert!(!ip_matches("1.2.3.4", "1..2.3"));
+        assert!(!ip_matches("1.2.3.4", "1.2.3"));
+        assert!(!ip_matches("1.2.3.4", "300.1.1.1"));
+    }
+
+    #[test]
     fn time_window_rejects_malformed() {
         assert!(!time_window_matches("nodash"));
         assert!(!time_window_matches("9:00-not-a-time"));
         assert!(!time_window_matches("bad:00-10:00"));
+    }
+
+    #[test]
+    fn time_window_same_day_bounds() {
+        // 端点均含：22:00 前/后不入窗，22:00 与 23:59 入窗。
+        assert!(!time_window_matches_at("22:00-23:59", 21, 59));
+        assert!(time_window_matches_at("22:00-23:59", 22, 0));
+        assert!(time_window_matches_at("22:00-23:59", 23, 59));
+    }
+
+    #[test]
+    fn time_window_wraps_midnight() {
+        // 跨午夜窗口（22:00-06:00）：两侧深夜入窗、正午不入窗、午夜整点入窗。
+        assert!(time_window_matches_at("22:00-06:00", 23, 30));
+        assert!(time_window_matches_at("22:00-06:00", 5, 59));
+        assert!(time_window_matches_at("22:00-06:00", 6, 0));
+        assert!(!time_window_matches_at("22:00-06:00", 12, 0));
+        assert!(time_window_matches_at("22:00-06:00", 0, 0));
     }
 
     #[test]

@@ -6,7 +6,9 @@
 use std::sync::Arc;
 
 use sea_orm::sea_query::Condition;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set, TransactionTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set, TransactionTrait,
+};
 
 use crate::admin::data::repos::UserRepo;
 use crate::admin::data::Viewer;
@@ -114,6 +116,10 @@ impl UserService {
     }
 
     /// The role binding for create/update (role_ids on the payload).
+    /// 归属闸：先校验 role_ids 全部属于操作者租户再落绑定——绑定期不校验
+    /// 时，载荷可以引用外租户（含平台侧）的角色 id，而 resolve_authority
+    /// 解析权威只按 UserId 查绑定，下次登录/刷新即按外租户角色赋权（跨
+    /// 租户提权入口）。重复 id 去重后计数比对。
     async fn sync_roles<C>(
         db: &C,
         tenant_id: i64,
@@ -123,6 +129,29 @@ impl UserService {
     where
         C: sea_orm::ConnectionTrait,
     {
+        let unique: Vec<i64> = role_ids
+            .iter()
+            .map(|v| *v as i64)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        if !unique.is_empty() {
+            let owned = crate::admin::data::sys_roles::Entity::find()
+                .filter(
+                    Condition::all()
+                        .add(crate::admin::data::sys_roles::Column::TenantId.eq(tenant_id))
+                        .add(crate::admin::data::sys_roles::Column::Id.is_in(unique.clone())),
+                )
+                .count(db)
+                .await
+                .map_err(db_err)?;
+            if owned as usize != unique.len() {
+                return Err(status_error(
+                    "BAD_REQUEST",
+                    "role_ids contain a role outside the operator tenant",
+                ));
+            }
+        }
         crate::admin::data::sys_user_roles::Entity::delete_many()
             .filter(
                 Condition::all()
@@ -132,11 +161,11 @@ impl UserService {
             .exec(db)
             .await
             .map_err(db_err)?;
-        for role_id in role_ids {
+        for role_id in &unique {
             crate::admin::data::sys_user_roles::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 user_id: Set(Some(user_id)),
-                role_id: Set(Some(*role_id as i64)),
+                role_id: Set(Some(*role_id)),
                 status: Set(Some("ACTIVE".into())),
                 assigned_at: Set(Some(crate::admin::data::now())),
                 created_at: Set(Some(crate::admin::data::now())),
@@ -238,13 +267,25 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: GetUserRequest,
     ) -> Result<User, StatusError> {
-        let tid = tenant_of(&ctx);
+        let payload = operator_of(&ctx)?;
+        let tid = payload.tenant_id;
         let row = match req.query_by {
             Some(crate::proto::identity::service::v1::get_user_request::QueryBy::Id(id)) => {
-                crate::admin::data::sys_users::Entity::find_by_id(id as i64)
+                // Id 路径归属闸：原实现裸 id 全库找行（跨租户 PII 读取）。
+                // 平台管理员放行，其余仅限本租户；拒绝按 not_found 应答。
+                let found = crate::admin::data::sys_users::Entity::find_by_id(id as i64)
                     .one(&self.state.db)
                     .await
-                    .map_err(db_err)?
+                    .map_err(db_err)?;
+                match found {
+                    Some(r)
+                        if payload.is_platform_admin == Some(true)
+                            || r.tenant_id.unwrap_or(0) == tid =>
+                    {
+                        Some(r)
+                    }
+                    _ => None,
+                }
             }
             Some(crate::proto::identity::service::v1::get_user_request::QueryBy::Username(
                 name,
@@ -283,9 +324,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             ..Default::default()
         };
         Self::apply_user_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
-        if a.status.clone().unwrap().is_none() {
-            a.status = Set(Some("NORMAL".into()));
-        }
+        crate::ensure_default!(a, status, "NORMAL".to_string());
         // 单事务：用户行 + 凭证 + 角色绑定原子落库——凭证/角色任一步失败
         // 即整体回滚，不再留下"提示错误但用户已创建"的半创建行。
         let txn = self.state.db.begin().await.map_err(db_err)?;
@@ -317,6 +356,10 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             .ok_or_else(|| not_found("user"))?;
         let mut a: crate::admin::data::sys_users::ActiveModel = row.into();
         let username_before = a.username.clone().unwrap().clone();
+        let mut password_set = false;
+        // 单事务：字段更新 + 角色绑定 + 密码凭据原子落库——原实现角色绑定
+        // 跑在裸连接上，先删后插，中途失败用户角色被清空。
+        let txn = self.state.db.begin().await.map_err(db_err)?;
         if let Some(data) = &req.data {
             // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
             // 提交语义；有掩码只有选中字段可动。角色绑定与密码凭据是
@@ -324,26 +367,24 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
             Self::apply_user_fields(&mut a, data, &mask);
             crate::stamp_update!(a, payload.user_id);
-            a.update(&self.state.db).await.map_err(db_err)?;
+            a.update(&txn).await.map_err(db_err)?;
             if !data.role_ids.is_empty() {
-                Self::sync_roles(
-                    &self.state.db,
-                    payload.tenant_id,
-                    req.id as i64,
-                    &data.role_ids,
-                )
-                .await?;
+                Self::sync_roles(&txn, payload.tenant_id, req.id as i64, &data.role_ids).await?;
             }
         }
         if req.password.as_deref().is_some_and(|v| !v.is_empty()) {
             Self::upsert_credential(
-                &self.state.db,
+                &txn,
                 payload.tenant_id,
                 req.id as i64,
                 &username_before,
                 req.password.as_deref(),
             )
             .await?;
+            password_set = true;
+        }
+        txn.commit().await.map_err(db_err)?;
+        if password_set {
             self.state.tokens.revoke_user_token(req.id as i64).await;
         }
         Ok(Empty {})
@@ -368,24 +409,41 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
                 .ok_or_else(|| not_found("user"))?,
             None => return Err(status_error("BAD_REQUEST", "query_by required")),
         };
+        // Id 路径归属闸：原实现 delete_by_id 直删任意租户的用户（跨租户
+        // 删号 + 平台侧账号删除）。平台管理员放行，其余仅限本租户；拒绝
+        // 按 not_found 应答（防枚举）。
+        let row = crate::admin::data::sys_users::Entity::find_by_id(id)
+            .one(&self.state.db)
+            .await
+            .map_err(db_err)?
+            .ok_or_else(|| not_found("user"))?;
+        let row_tid = row.tenant_id.unwrap_or(0);
+        let payload = operator_of(&ctx)?;
+        let is_platform = payload.is_platform_admin == Some(true);
+        if !is_platform && row_tid != payload.tenant_id {
+            return Err(not_found("user"));
+        }
+        // 单事务：凭证 + 角色绑定 + 用户行原子清除。
+        let txn = self.state.db.begin().await.map_err(db_err)?;
         crate::admin::data::sys_user_credentials::Entity::delete_many()
             .filter(
                 Condition::all()
-                    .add(crate::admin::data::sys_user_credentials::Column::TenantId.eq(tid))
+                    .add(crate::admin::data::sys_user_credentials::Column::TenantId.eq(row_tid))
                     .add(crate::admin::data::sys_user_credentials::Column::UserId.eq(id)),
             )
-            .exec(&self.state.db)
+            .exec(&txn)
             .await
             .map_err(db_err)?;
         crate::admin::data::sys_user_roles::Entity::delete_many()
             .filter(crate::admin::data::sys_user_roles::Column::UserId.eq(id))
-            .exec(&self.state.db)
+            .exec(&txn)
             .await
             .map_err(db_err)?;
         crate::admin::data::sys_users::Entity::delete_by_id(id)
-            .exec(&self.state.db)
+            .exec(&txn)
             .await
             .map_err(db_err)?;
+        txn.commit().await.map_err(db_err)?;
         self.state.tokens.revoke_user_token(id).await;
         Ok(Empty {})
     }
@@ -398,11 +456,22 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         let tid = tenant_of(&ctx);
         let exist = match req.query_by {
             Some(crate::proto::identity::service::v1::user_exists_request::QueryBy::Id(id)) => {
-                crate::admin::data::sys_users::Entity::find_by_id(id as i64)
+                // Id 路径归属闸：跨租户 id 不报存在（防存在性探测），平台
+                // 管理员放行。
+                let payload = operator_of(&ctx)?;
+                let found = crate::admin::data::sys_users::Entity::find_by_id(id as i64)
                     .one(&self.state.db)
                     .await
-                    .map_err(db_err)?
-                    .is_some()
+                    .map_err(db_err)?;
+                match found {
+                    Some(r)
+                        if payload.is_platform_admin == Some(true)
+                            || r.tenant_id.unwrap_or(0) == tid =>
+                    {
+                        true
+                    }
+                    _ => false,
+                }
             }
             Some(crate::proto::identity::service::v1::user_exists_request::QueryBy::Username(
                 name,
@@ -417,7 +486,26 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: EditUserPasswordRequest,
     ) -> Result<Empty, StatusError> {
-        let _ = operator_of(&ctx)?;
+        let payload = operator_of(&ctx)?;
+        // 归属闸：本人改自己、平台管理员代改、或同租户内的操作（租户内部
+        // 的细粒度权限仍归授权引擎；跨租户与对平台侧账号的改动一律关死）。
+        // 原实现无任何校验——任意登录用户可重置任意 user_id 的密码并吊销
+        // 其全部会话（任意账户接管）。
+        let target = crate::admin::data::sys_users::Entity::find_by_id(req.user_id as i64)
+            .one(&self.state.db)
+            .await
+            .map_err(db_err)?
+            .ok_or_else(|| not_found("user"))?;
+        let target_tid = target.tenant_id.unwrap_or(0);
+        let allowed = payload.user_id == target.id
+            || payload.is_platform_admin == Some(true)
+            || (target_tid != 0 && target_tid == payload.tenant_id);
+        if !allowed {
+            return Err(status_error(
+                "FORBIDDEN",
+                "cannot edit a password outside the operator tenant",
+            ));
+        }
         // Plaintext over the wire here (the proto validates 8..=128);
         // complexity mirrors the policy checks.
         let min_len = crate::admin::data::sys_configs::Entity::find()
@@ -436,9 +524,11 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         }
         let hash =
             crate::admin::crypto::hash_password(&req.new_password).map_err(internal_error)?;
+        // 凭证定位带租户谓词：原实现只按 (USERNAME, user_id) 全库找行。
         let cred = crate::admin::data::sys_user_credentials::Entity::find()
             .filter(
                 Condition::all()
+                    .add(crate::admin::data::sys_user_credentials::Column::TenantId.eq(target_tid))
                     .add(
                         crate::admin::data::sys_user_credentials::Column::IdentityType
                             .eq("USERNAME"),
@@ -689,5 +779,245 @@ mod tests {
             "masked None explicitly clears the column"
         );
         assert_eq!(fresh.username, "bob", "NOT NULL column never clears");
+    }
+
+    /// create 省略 optional 字段（status）不得 panic（ensure_default! 回归）：
+    /// 缺省路径正是原 `a.status.clone().unwrap()` 炸 NotSet 的地方——载荷
+    /// 不带 status 时该值保持 NotSet，unwrap 在"补默认值"的本意路径上把
+    /// handler 炸掉。
+    #[tokio::test]
+    async fn create_without_optional_fields_defaults_status() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        svc.create(
+            ctx(1, 9),
+            CreateUserRequest {
+                data: Some(User {
+                    username: Some("carol".into()),
+                    ..Default::default()
+                }),
+                password: None,
+            },
+        )
+        .await
+        .expect("omitted optional fields must not panic");
+        let row = users::Entity::find()
+            .filter(users::Column::Username.eq("carol"))
+            .one(&state.db)
+            .await
+            .unwrap()
+            .expect("user row");
+        assert_eq!(row.status.as_deref(), Some("NORMAL"), "default status");
+    }
+
+    /// 角色绑定归属闸（C1）：role_ids 引用外租户（平台侧）角色 →
+    /// BAD_REQUEST，且单事务回滚不留半创建用户行——原实现盲插任意
+    /// role_id，resolve_authority 只按 UserId 查绑定，下次登录即按平台
+    /// 角色赋权（跨租户提权）。
+    #[tokio::test]
+    async fn create_rejects_foreign_tenant_roles() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let platform_role = crate::admin::data::sys_roles::ActiveModel {
+            tenant_id: Set(Some(0)),
+            name: Set("平台管理员".into()),
+            code: Set("platform:admin".into()),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(&state.db)
+        .await
+        .unwrap();
+
+        let err = svc
+            .create(
+                ctx(1, 9),
+                CreateUserRequest {
+                    data: Some(User {
+                        username: Some("mallory".into()),
+                        role_ids: vec![platform_role.id as u64],
+                        ..Default::default()
+                    }),
+                    password: None,
+                },
+            )
+            .await
+            .expect_err("foreign tenant role must be rejected");
+        assert_eq!(err.reason, "BAD_REQUEST", "ownership gate fires");
+        let row = users::Entity::find()
+            .filter(users::Column::Username.eq("mallory"))
+            .one(&state.db)
+            .await
+            .unwrap();
+        assert!(
+            row.is_none(),
+            "transaction rolled back, no half-created row"
+        );
+    }
+
+    /// edit_user_password 归属闸（C2）：跨租户目标 FORBIDDEN，同租户放行，
+    /// 平台管理员全域——原实现无任何校验，任意登录用户可重置任意 user_id
+    /// 的密码并吊销其全部会话。
+    #[tokio::test]
+    async fn edit_user_password_is_tenant_gated() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let platform_user = users::ActiveModel {
+            tenant_id: Set(Some(0)),
+            username: Set("root".into()),
+            status: Set(Some("NORMAL".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+        plant_credential(db, 0, platform_user.id, "root").await;
+        let target = plant(db, "bob").await;
+        plant_credential(db, 1, target.id, "bob").await;
+
+        // 跨租户：租户 1 操作者改平台用户 → FORBIDDEN。
+        let err = svc
+            .edit_user_password(
+                ctx(1, 9),
+                EditUserPasswordRequest {
+                    user_id: platform_user.id as u64,
+                    new_password: "Str0ngPass!".into(),
+                },
+            )
+            .await
+            .expect_err("cross-tenant password edit must be rejected");
+        assert_eq!(err.reason, "FORBIDDEN");
+
+        // 同租户：放行（租户内细粒度权限归授权引擎）。
+        svc.edit_user_password(
+            ctx(1, 9),
+            EditUserPasswordRequest {
+                user_id: target.id as u64,
+                new_password: "Str0ngPass!".into(),
+            },
+        )
+        .await
+        .expect("same-tenant password edit passes");
+
+        // 平台管理员：全域放行。
+        let mut admin = ctx(0, 1);
+        if let Some(claims) = admin.claims.as_mut() {
+            claims.insert("ipa".into(), serde_json::json!(true));
+        }
+        svc.edit_user_password(
+            admin,
+            EditUserPasswordRequest {
+                user_id: platform_user.id as u64,
+                new_password: "Str0ngPass!".into(),
+            },
+        )
+        .await
+        .expect("platform admin passes");
+    }
+
+    /// get 的 Id 路径归属闸（C3）：跨租户 id 按 not_found 应答（防 PII
+    /// 读取与枚举），本租户正常返回，平台管理员全域——原实现裸 id 全库
+    /// 找行。
+    #[tokio::test]
+    async fn get_id_path_is_tenant_scoped() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let mine = plant(db, "alice").await;
+        let foreign = users::ActiveModel {
+            tenant_id: Set(Some(2)),
+            username: Set("eve".into()),
+            status: Set(Some("NORMAL".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        let u = svc
+            .get(
+                ctx(1, 9),
+                GetUserRequest {
+                    query_by: Some(
+                        crate::proto::identity::service::v1::get_user_request::QueryBy::Id(
+                            mine.id as u64,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(u.username, Some("alice".into()));
+
+        let err = svc
+            .get(
+                ctx(1, 9),
+                GetUserRequest {
+                    query_by: Some(
+                        crate::proto::identity::service::v1::get_user_request::QueryBy::Id(
+                            foreign.id as u64,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect_err("cross-tenant id must not resolve");
+        assert_eq!(err.reason, "NOT_FOUND");
+
+        let mut admin = ctx(0, 1);
+        if let Some(claims) = admin.claims.as_mut() {
+            claims.insert("ipa".into(), serde_json::json!(true));
+        }
+        let u = svc
+            .get(
+                admin,
+                GetUserRequest {
+                    query_by: Some(
+                        crate::proto::identity::service::v1::get_user_request::QueryBy::Id(
+                            foreign.id as u64,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(u.username, Some("eve".into()));
+    }
+
+    /// 凭证行种子（edit_user_password 的定位前提）。
+    async fn plant_credential(
+        db: &sea_orm::DatabaseConnection,
+        tenant_id: i64,
+        user_id: i64,
+        username: &str,
+    ) {
+        crate::admin::data::sys_user_credentials::ActiveModel {
+            tenant_id: Set(Some(tenant_id)),
+            user_id: Set(Some(user_id)),
+            identity_type: Set(Some("USERNAME".into())),
+            identifier: Set(username.into()),
+            credential_type: Set(Some("PASSWORD_HASH".into())),
+            credential: Set("seed".into()),
+            is_primary: Set(Some(true)),
+            status: Set(Some("ENABLED".into())),
+            created_at: Set(Some(crate::admin::data::now())),
+            updated_at: Set(Some(crate::admin::data::now())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
     }
 }

@@ -157,3 +157,29 @@ pub async fn reset_captcha_fail(redis: &ConnectionManager, ip: &str, username: &
             .ok();
     }
 }
+
+/// The reset-code verify limiter (忘记密码链路): every verification
+/// attempt counts per identifier; past the cap the endpoint keeps
+/// answering "invalid verification code" until the window expires and a
+/// fresh ForgotPassword code is requested. GET+SET EX two-form — the
+/// mini-redis test face implements neither INCR nor SETEX (same
+/// constraint as the captcha counter above); fail-open on Redis errors
+/// (next resets to 1).
+const RESET_CODE_MAX_ATTEMPTS: i64 = 5;
+const RESET_CODE_WINDOW_SECS: i64 = 600;
+
+pub async fn reset_code_attempt(redis: &ConnectionManager, identifier: &str) -> bool {
+    let mut conn = redis.clone();
+    let key = format!("admin:reset:attempts:{identifier}");
+    let current: Option<i64> = conn.get(&key).await.ok().flatten();
+    let next = current.unwrap_or(0) + 1;
+    redis::cmd("SET")
+        .arg(&key)
+        .arg(next)
+        .arg("EX")
+        .arg(RESET_CODE_WINDOW_SECS)
+        .query_async::<()>(&mut conn)
+        .await
+        .ok();
+    next > RESET_CODE_MAX_ATTEMPTS
+}

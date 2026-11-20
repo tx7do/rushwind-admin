@@ -298,9 +298,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
             ..Default::default()
         };
         apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked())?;
-        if a.enabled.clone().unwrap().is_none() {
-            a.enabled = Set(Some(true));
-        }
+        crate::ensure_default!(a, enabled, true);
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
         Ok(app_proto(inserted))
     }

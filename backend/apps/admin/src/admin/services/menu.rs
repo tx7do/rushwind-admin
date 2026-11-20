@@ -209,9 +209,7 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
             ..Default::default()
         };
         Self::apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
-        if a.status.clone().unwrap().is_none() {
-            a.status = Set(Some("ON".into()));
-        }
+        crate::ensure_default!(a, status, "ON".to_string());
         a.insert(&self.state.db).await.map_err(db_err)?;
         Ok(Empty {})
     }

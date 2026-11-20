@@ -35,12 +35,15 @@ impl AuthenticationService {
         payload: &mut UserTokenPayload,
     ) -> Result<(), StatusError> {
         let uid = payload.user_id;
-        let _tid = payload.tenant_id;
 
+        // 绑定/角色查询带租户与状态谓词（防御纵深）：写入侧 sync_roles
+        // 已校验角色归属，这里再拦一次——停用角色不赋权，外租户绑定即便
+        // 历史残留也不参与权威解析。
         let role_rows = user_roles::Entity::find()
             .filter(
                 Condition::all()
                     .add(user_roles::Column::UserId.eq(uid))
+                    .add(user_roles::Column::TenantId.eq(payload.tenant_id))
                     .add(user_roles::Column::Status.eq("ACTIVE")),
             )
             .all(&self.state.db)
@@ -77,7 +80,12 @@ impl AuthenticationService {
         }
 
         let role_rows = roles::Entity::find()
-            .filter(roles::Column::Id.is_in(role_ids))
+            .filter(
+                Condition::all()
+                    .add(roles::Column::Id.is_in(role_ids))
+                    .add(roles::Column::TenantId.eq(payload.tenant_id))
+                    .add(roles::Column::Status.eq("ON")),
+            )
             .all(&self.state.db)
             .await
             .map_err(|e| internal_error(format!("db: {e}")))?;

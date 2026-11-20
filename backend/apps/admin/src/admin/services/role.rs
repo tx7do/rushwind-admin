@@ -491,9 +491,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
             ..Default::default()
         };
         Self::apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
-        if a.status.clone().unwrap().is_none() {
-            a.status = Set(Some("ON".into()));
-        }
+        crate::ensure_default!(a, status, "ON".to_string());
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
         self.sync_bindings(payload.tenant_id, inserted.id as u64 as i64, &data)
             .await?;

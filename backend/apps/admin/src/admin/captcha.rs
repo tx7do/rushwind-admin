@@ -46,18 +46,84 @@ pub async fn generate(redis: &ConnectionManager) -> Result<(String, String, Stri
 
 /// Verify-and-delete: a match consumes the row; anything else (missing,
 /// expired, mismatched) fails.
+///
+/// 猜测预算（H6）：错答不再让行原样保留——每个 id 记错答次数，超过 5 次
+/// 挑战即作废，防对同一 captcha_id 无限在线探测。计数键 GET+SET EX 两段
+/// 式（mini-redis 测试面不认 INCR/SETEX，同 ratelimit 计数器的考量）；
+/// 错答计数竞态（并发丢一次计数）对"低赌注挑战"可接受，与失败计数器
+/// 同一姿态。作废不用 DEL（mini-redis 不实现 DEL）——覆写为不在字形池
+/// 里的哨兵值，两面通用。
+const CAPTCHA_MAX_ATTEMPTS: i64 = 5;
+const CAPTCHA_EXHAUSTED: &str = "!exhausted!";
+
+fn tries_key(id: &str) -> String {
+    format!("admin:captcha:tries:{id}")
+}
+
 pub async fn verify(redis: &ConnectionManager, id: &str, value: &str) -> bool {
     if id.is_empty() || value.is_empty() {
         return false;
     }
     let mut conn = redis.clone();
-    let stored: Option<String> = conn.get(captcha_key(id)).await.unwrap_or(None);
+    let key = captcha_key(id);
+    let tkey = tries_key(id);
+    let stored: Option<String> = conn.get(&key).await.unwrap_or(None);
     match stored {
         Some(answer) if answer == value => {
-            let _: Result<i64, _> = conn.del(captcha_key(id)).await;
+            let _: Result<i64, _> = conn.del(&key).await;
+            let _: Result<i64, _> = conn.del(&tkey).await;
             true
         }
-        _ => false,
+        Some(_) => {
+            let tries: Option<i64> = conn.get(&tkey).await.unwrap_or(None);
+            let next = tries.unwrap_or(0) + 1;
+            let _: redis::RedisResult<()> = redis::cmd("SET")
+                .arg(&tkey)
+                .arg(next)
+                .arg("EX")
+                .arg(CAPTCHA_TTL_SECS)
+                .query_async(&mut conn)
+                .await;
+            if next > CAPTCHA_MAX_ATTEMPTS {
+                // 猜测预算耗尽：挑战作废（覆写哨兵，正确答案也不再命中）。
+                let _: redis::RedisResult<()> = redis::cmd("SET")
+                    .arg(&key)
+                    .arg(CAPTCHA_EXHAUSTED)
+                    .arg("EX")
+                    .arg(CAPTCHA_TTL_SECS)
+                    .query_async(&mut conn)
+                    .await;
+            }
+            false
+        }
+        None => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::test_state;
+
+    #[tokio::test]
+    async fn wrong_guesses_exhaust_then_kill_the_challenge() {
+        let state = test_state().await;
+        let (id, _png, answer) = generate(&state.redis).await.expect("generate");
+        let wrong = if answer == "ZZZZZZ" {
+            "AAAAAA"
+        } else {
+            "ZZZZZZ"
+        };
+        // 预算内错答逐次失败。
+        for _ in 0..CAPTCHA_MAX_ATTEMPTS {
+            assert!(!verify(&state.redis, &id, wrong).await);
+        }
+        // 第 6 次错答触发作废：正确答案也不再命中。
+        assert!(!verify(&state.redis, &id, wrong).await);
+        assert!(!verify(&state.redis, &id, &answer).await);
+        // 新挑战有独立的计数键，不受残留影响。
+        let (id2, _png2, answer2) = generate(&state.redis).await.expect("generate 2");
+        assert!(verify(&state.redis, &id2, &answer2).await);
     }
 }
 

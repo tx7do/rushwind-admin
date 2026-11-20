@@ -57,6 +57,49 @@ impl<'a> AiProviderRepo<'a> {
         }
         query.one(self.db).await.map_err(db_err)
     }
+
+    /// 会话链路的取数谓词（归属闸）：本租户的 provider 或平台共享
+    /// （tenant 0）的 provider。原 chat 链路用 `Viewer::system()` 全域取
+    /// 行，任意用户可引用外租户 provider_id 消耗其 API key/配额——chat
+    /// 的可见规则是刻意的超集（自有租户 + 平台共享），不套用通用 viewer
+    /// 谓词，因此独立成方法，谓词仍收在 repo 层。
+    pub async fn find_for_chat(
+        &self,
+        id: i64,
+        tenant_id: i64,
+    ) -> Result<Option<provider::Model>, StatusError> {
+        provider::Entity::find_by_id(id)
+            .filter(
+                Condition::any()
+                    .add(provider::Column::TenantId.eq(tenant_id))
+                    .add(provider::Column::TenantId.eq(0)),
+            )
+            .one(self.db)
+            .await
+            .map_err(db_err)
+    }
+
+    /// 会话链路的默认提供商：优先本租户默认，缺省回落平台共享默认。
+    pub async fn find_default_for_chat(
+        &self,
+        tenant_id: i64,
+    ) -> Result<Option<provider::Model>, StatusError> {
+        let own = provider::Entity::find()
+            .filter(provider::Column::IsDefault.eq(true))
+            .filter(provider::Column::TenantId.eq(tenant_id))
+            .one(self.db)
+            .await
+            .map_err(db_err)?;
+        if own.is_some() || tenant_id == 0 {
+            return Ok(own);
+        }
+        provider::Entity::find()
+            .filter(provider::Column::IsDefault.eq(true))
+            .filter(provider::Column::TenantId.eq(0))
+            .one(self.db)
+            .await
+            .map_err(db_err)
+    }
 }
 
 pub struct AiUsageLogRepo<'a> {

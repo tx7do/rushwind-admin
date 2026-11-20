@@ -93,22 +93,24 @@ impl AiChatService {
         tenant_id: i64,
         provider_id: Option<i64>,
     ) -> Result<crate::admin::data::sys_ai_providers::Model, StatusError> {
-        let viewer = Viewer::system();
-        let repo = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, viewer);
+        // 归属闸：会话取数只认本租户的 provider 或平台共享（tenant 0）的
+        // provider（见 AiProviderRepo::find_for_chat）——原实现
+        // Viewer::system() 全域取行，任意用户可引用外租户 provider_id
+        // 消耗其 API key/配额。
+        let repo = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::system());
         let row = match provider_id {
             Some(id) => repo
-                .find_scoped(id)
+                .find_for_chat(id, tenant_id)
                 .await?
                 .ok_or_else(|| not_found("ai provider"))?,
             None => repo
-                .find_default()
+                .find_default_for_chat(tenant_id)
                 .await?
                 .ok_or_else(|| status_error("BAD_REQUEST", "no ai provider configured"))?,
         };
         if row.is_enabled != Some(true) {
             return Err(status_error("BAD_REQUEST", "ai provider is disabled"));
         }
-        let _ = tenant_id;
         Ok(row)
     }
 }

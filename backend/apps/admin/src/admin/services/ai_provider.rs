@@ -215,9 +215,7 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
         };
         // 无掩码全放行：api_key 的加密落库/hint 刷新统一在 apply_fields。
         apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
-        if a.is_enabled.clone().unwrap().is_none() {
-            a.is_enabled = Set(Some(true));
-        }
+        crate::ensure_default!(a, is_enabled, true);
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
         if inserted.is_default == Some(true) {
             self.clear_other_defaults(payload.tenant_id, inserted.id as u64 as i64)

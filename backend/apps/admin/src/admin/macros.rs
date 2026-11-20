@@ -26,6 +26,25 @@ macro_rules! stamp_update {
     };
 }
 
+/// create 路径的缺省列兜底：字段在载荷里缺席时补默认值。替代
+/// `a.field.clone().unwrap().is_none()` 的写法——那个 unwrap 在字段
+/// NotSet（`set_masked!(opt …)` 无掩码 + 载荷省略时的落点）上会 panic，
+/// 恰好炸在"缺省即兜底"的本意路径上；本宏把 NotSet/Set(None)/
+/// Unchanged(None) 都视同"缺席"，语义与原 is_none() 判断一致。
+#[macro_export]
+macro_rules! ensure_default {
+    ($model:expr, $field:ident, $value:expr) => {
+        if matches!(
+            $model.$field,
+            sea_orm::ActiveValue::NotSet
+                | sea_orm::ActiveValue::Set(None)
+                | sea_orm::ActiveValue::Unchanged(None)
+        ) {
+            $model.$field = sea_orm::Set(Some($value));
+        }
+    };
+}
+
 /// update_mask 白名单门下的字段写入（`fieldmask::FieldMask` 搭档，字段级
 /// 更新语义的统一实现面）：
 ///
