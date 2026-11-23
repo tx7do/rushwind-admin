@@ -37,7 +37,7 @@ fn schema_by_type(type_name: &str) -> Option<ChannelSchema> {
 fn channel_proto(r: crate::admin::data::sys_notification_channels::Model) -> NotificationChannel {
     let type_name = r.type_column.clone().unwrap_or_default();
     NotificationChannel {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         r#type: mapping::notification_channel_type_of(&type_name),
         smtp_host: r.smtp_host,
@@ -56,8 +56,8 @@ fn channel_proto(r: crate::admin::data::sys_notification_channels::Model) -> Not
             .map(|s| mapping::notification_smtp_tls_of(s).unwrap_or(1)),
         enabled: r.status.as_deref().map(|s| s != "OFF"),
         remark: r.remark,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         webhook_url: r.webhook_url,
@@ -268,7 +268,7 @@ impl crate::proto::gen::services::NotificationChannelServiceHandlers
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListNotificationChannelResponse {
             items: rows.into_iter().map(channel_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -278,7 +278,7 @@ impl crate::proto::gen::services::NotificationChannelServiceHandlers
         req: GetNotificationChannelRequest,
     ) -> Result<NotificationChannel, StatusError> {
         let repo = crate::admin::data::repos::NotificationChannelRepo::new(&self.state.db);
-        Ok(channel_proto(repo.get_by_id(req.id as i64).await?))
+        Ok(channel_proto(repo.get_by_id(req.id).await?))
     }
 
     async fn create_notification_channel(
@@ -356,7 +356,7 @@ impl crate::proto::gen::services::NotificationChannelServiceHandlers
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let repo = crate::admin::data::repos::NotificationChannelRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id as i64).await?;
+        let row = repo.get_by_id(req.id).await?;
         let type_name = row.type_column.clone().unwrap_or_default();
         let mut a: crate::admin::data::sys_notification_channels::ActiveModel = row.into();
         if let Some(data) = &req.data {
@@ -398,8 +398,8 @@ impl crate::proto::gen::services::NotificationChannelServiceHandlers
         req: DeleteNotificationChannelRequest,
     ) -> Result<Empty, StatusError> {
         let repo = crate::admin::data::repos::NotificationChannelRepo::new(&self.state.db);
-        repo.get_by_id(req.id as i64).await?;
-        repo.delete_by_id(req.id as i64).await?;
+        repo.get_by_id(req.id).await?;
+        repo.delete_by_id(req.id).await?;
         Ok(Empty {})
     }
 
@@ -409,7 +409,7 @@ impl crate::proto::gen::services::NotificationChannelServiceHandlers
         req: SendTestEmailRequest,
     ) -> Result<Empty, StatusError> {
         // 两代测试入口之一：强制 EMAIL 口径走同一套 投递+台账 语义。
-        self.send_test_impl(ctx, req.id as i64, req.recipient, Some("EMAIL"))
+        self.send_test_impl(ctx, req.id, req.recipient, Some("EMAIL"))
             .await
     }
 
@@ -418,8 +418,7 @@ impl crate::proto::gen::services::NotificationChannelServiceHandlers
         ctx: rushwind_http_binding::ctx::RequestContext,
         req: SendTestRequest,
     ) -> Result<Empty, StatusError> {
-        self.send_test_impl(ctx, req.id as i64, req.recipient, None)
-            .await
+        self.send_test_impl(ctx, req.id, req.recipient, None).await
     }
 
     async fn list_channel_schemas(
@@ -595,7 +594,7 @@ mod tests {
     }
 
     fn update_req(
-        id: u64,
+        id: i64,
         data: NotificationChannel,
         paths: &[&str],
     ) -> UpdateNotificationChannelRequest {
@@ -624,7 +623,7 @@ mod tests {
         svc.update_notification_channel(
             ctx(0, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 NotificationChannel {
                     name: Some("新渠道".into()),
                     smtp_host: Some("evil.example.com".into()),
@@ -668,7 +667,7 @@ mod tests {
         svc.update_notification_channel(
             ctx(0, 9),
             UpdateNotificationChannelRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(NotificationChannel {
                     name: Some("改名".into()),
                     ..Default::default()
@@ -689,11 +688,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update_notification_channel(
             ctx(0, 9),
-            update_req(
-                row.id as u64,
-                NotificationChannel::default(),
-                &["smtp_host"],
-            ),
+            update_req(row.id, NotificationChannel::default(), &["smtp_host"]),
         )
         .await
         .unwrap();

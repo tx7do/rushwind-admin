@@ -724,3 +724,22 @@ P4 收尾/验收                                    █████  (2-3M)
 >   ⑤ **D5 决策修正**：任务队列落地为 `rushwind-apalis-postgres`（PG 队列表，
 >   enqueue/worker 双侧 + cron 生产者），而非新建 redis 变体——§3 能力表与
 >   §4-D5 的「rushwind-apalis-redis 适配 crate」叙述作废，以本条为准。
+> - **回填（2026-11-23，基座 vintage af495eb8a..7d98aade4 整体接受）**：
+>   ① **契约 int64 定版**：proto 镜像此前滞留 uint64 时代（11-10 上游
+>   fc48f5b7a 波段未接受），本次整树重同步一次对齐——全仓 430 处 `as u64`
+>   桥接 cast 收敛为直通，实体 i64 与契约同宽；`role.proto`/`user.proto`
+>   的 `home_path`（issue #12，本仓 810a4c7 先行实现、上游随后跟进）随共享
+>   message 自动到位；fork notice 面随 int64 惯例同宽，模板模块不再播种
+>   u64 形态。`quota_value`/`file.size` 上游保留 uint64，契约照抄、桥接。
+>   ② **全站请求体护栏**（上游 522d7ec9d 同语义）：edge 最外层 413/401
+>   分层判定先于任何 body 读取——声明超 50MiB×4/3+4MiB 即 413；超 1MiB
+>   或长度未知须有效令牌否则 401；免鉴权端点（登录/验证码/找回/SSO）
+>   body 全部远小于 1MiB。`MAX_UPLOAD_SIZE` 上移 `pub(crate)` 供护栏取数。
+>   ③ **上游追平项核对**（本仓先行、上游随后跟进的语义逐一对齐）：
+>   用户创建单事务+凭证信封解密明文兜底、租户建号事务显式回滚、套餐空白
+>   名单专属报错、X-Tenant-Id 代租户（tid=0 + platform:admin 限定，租户
+>   阶段对生效租户执行）、home_path 空串归一/三态更新/sort_order 回填——
+>   全部已在本仓，无需重移植。
+>   ④ **分歧保留**：上游导出/格式化改走进程本地时区（a2b177220），本仓
+>   §4.5 UTC 惯例不随；`TOO_MANY_ATTEMPTS=1161` fork 增补在镜像 admin_error
+>   保留（上游无此码，登录链 answer 1161），MANIFEST 重钉时同步留痕。

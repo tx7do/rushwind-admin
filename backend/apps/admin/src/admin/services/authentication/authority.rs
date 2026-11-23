@@ -174,8 +174,8 @@ impl AuthenticationService {
         device_id: Option<String>,
     ) -> Result<UserTokenPayload, StatusError> {
         let mut payload = UserTokenPayload {
-            user_id: (user.id as u64 as i64),
-            tenant_id: (user.tenant_id.unwrap_or(0) as u64 as i64),
+            user_id: user.id,
+            tenant_id: user.tenant_id.unwrap_or(0),
             username: user.username.clone(),
             client_id,
             device_id,

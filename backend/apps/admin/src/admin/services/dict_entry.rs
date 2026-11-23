@@ -15,16 +15,16 @@ use pbjson_types::Empty;
 
 fn dict_entry_proto(r: crate::admin::data::sys_dict_entries::Model) -> DictEntry {
     DictEntry {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
-        type_id: r.type_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
+        type_id: r.type_id,
         entry_value: r.entry_value,
         numeric_value: r.numeric_value,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -72,7 +72,7 @@ impl crate::proto::gen::services::DictEntryServiceHandlers for DictEntryService 
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListDictEntryResponse {
             items: rows.into_iter().map(dict_entry_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -85,7 +85,7 @@ impl crate::proto::gen::services::DictEntryServiceHandlers for DictEntryService 
         let data = crate::admin::state::require_data(req.data)?;
         crate::admin::data::sys_dict_entries::ActiveModel {
             tenant_id: Set(Some(payload.tenant_id)),
-            type_id: Set(data.type_id.map(|v| v as i64)),
+            type_id: Set(data.type_id),
             entry_value: Set(data.entry_value),
             numeric_value: Set(data.numeric_value),
             is_enabled: Set(data.is_enabled.or(Some(true))),
@@ -107,7 +107,7 @@ impl crate::proto::gen::services::DictEntryServiceHandlers for DictEntryService 
         req: UpdateDictEntryRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_dict_entries::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_dict_entries::Entity::find_by_id(req.id)
             .filter(crate::admin::data::sys_dict_entries::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -228,7 +228,7 @@ mod tests {
         svc.update(
             me,
             UpdateDictEntryRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(DictEntry {
                     entry_value: Some("FEMALE".into()),
                     numeric_value: Some(999),
@@ -297,7 +297,7 @@ mod tests {
         svc.update(
             ctx(7, 1),
             UpdateDictEntryRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(DictEntry {
                     entry_value: Some("PENDING".into()),
                     ..Default::default()
@@ -319,7 +319,7 @@ mod tests {
         svc.update(
             me,
             UpdateDictEntryRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(DictEntry::default()),
                 update_mask: Some(pbjson_types::FieldMask {
                     paths: vec!["numeric_value".into()],

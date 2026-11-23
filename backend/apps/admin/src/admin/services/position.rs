@@ -16,7 +16,7 @@ use pbjson_types::Empty;
 
 fn position_proto(r: crate::admin::data::sys_positions::Model) -> Position {
     Position {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         code: r.code,
         headcount: r.headcount,
@@ -35,17 +35,17 @@ fn position_proto(r: crate::admin::data::sys_positions::Model) -> Position {
         job_grade: r.job_grade,
         level: r.level,
         is_key_position: r.is_key_position,
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        tenant_id: r.tenant_id,
         tenant_name: None,
-        org_unit_id: r.org_unit_id.map(|v| v as u64),
+        org_unit_id: r.org_unit_id,
         org_unit_name: None,
-        reports_to_position_id: r.reports_to_position_id.map(|v| v as u64),
+        reports_to_position_id: r.reports_to_position_id,
         reports_to_position_name: None,
         start_at: r.start_at.and_then(crate::admin::state::naive_to_ts),
         end_at: r.end_at.and_then(crate::admin::state::naive_to_ts),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -70,7 +70,7 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListPositionResponse {
             items: rows.into_iter().map(position_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -83,7 +83,7 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             req.query_by,
             crate::proto::identity::service::v1::get_position_request::QueryBy
         );
-        let row = crate::admin::data::sys_positions::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_positions::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -102,8 +102,8 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             tenant_id: Set(Some(payload.tenant_id)),
             name: Set(data.name.unwrap_or_default()),
             code: Set(data.code),
-            org_unit_id: Set(data.org_unit_id.map(|v| v as i64)),
-            reports_to_position_id: Set(data.reports_to_position_id.map(|v| v as i64)),
+            org_unit_id: Set(data.org_unit_id),
+            reports_to_position_id: Set(data.reports_to_position_id),
             description: Set(data.description),
             job_family: Set(data.job_family),
             job_grade: Set(data.job_grade),
@@ -135,7 +135,7 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
         req: UpdatePositionRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_positions::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_positions::Entity::find_by_id(req.id)
             .filter(crate::admin::data::sys_positions::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -157,8 +157,8 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             } else {
                 "ON".into()
             }));
-            crate::set_masked!(opt mask, a, org_unit_id, data.org_unit_id, |v: &u64| Some(
-                *v as i64
+            crate::set_masked!(opt mask, a, org_unit_id, data.org_unit_id, |v: &i64| Some(
+                *v
             ));
         }
         crate::stamp_update!(a, payload.user_id);
@@ -175,7 +175,7 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             req.query_by,
             crate::proto::identity::service::v1::delete_position_request::QueryBy
         );
-        crate::admin::data::sys_positions::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_positions::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -212,7 +212,7 @@ mod tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: Position, paths: &[&str]) -> UpdatePositionRequest {
+    fn update_req(id: i64, data: Position, paths: &[&str]) -> UpdatePositionRequest {
         UpdatePositionRequest {
             id,
             data: Some(data),
@@ -239,7 +239,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Position {
                     name: Some("HR 专员".into()),
                     description: Some("越权说明".into()),
@@ -284,7 +284,7 @@ mod tests {
         svc.update(
             ctx(1, 9),
             UpdatePositionRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Position {
                     name: Some("客服一号".into()),
                     ..Default::default()
@@ -307,7 +307,7 @@ mod tests {
         // NOT NULL name 原样保留。
         svc.update(
             ctx(1, 9),
-            update_req(row.id as u64, Position::default(), &["name", "description"]),
+            update_req(row.id, Position::default(), &["name", "description"]),
         )
         .await
         .unwrap();

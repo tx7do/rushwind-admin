@@ -27,9 +27,9 @@ fn session_proto(jti: &str, uid: i64, meta: &SessionMeta, current_uid: i64) -> O
     OnlineSession {
         current: Some(uid == current_uid),
         jti: Some(jti.to_string()),
-        user_id: Some(uid as u64),
+        user_id: Some(uid),
         username: Some(meta.username.clone()),
-        tenant_id: Some(meta.tenant_id as u64),
+        tenant_id: Some(meta.tenant_id),
         client_type: Some(0),
         ip_address: Some(meta.ip.clone()),
         user_agent: Some(meta.user_agent.clone()),
@@ -72,7 +72,7 @@ impl crate::proto::gen::services::OnlineSessionServiceHandlers for OnlineSession
                 .map(|t| t.seconds)
                 .cmp(&a.login_at.as_ref().map(|t| t.seconds))
         });
-        let total = items.len() as u64;
+        let total = items.len();
         let page = req.page.unwrap_or(1).max(1) as usize;
         let size = req.page_size.unwrap_or(10).max(1) as usize;
         let page_items: Vec<OnlineSession> = items
@@ -82,7 +82,7 @@ impl crate::proto::gen::services::OnlineSessionServiceHandlers for OnlineSession
             .collect();
         Ok(ListOnlineSessionResponse {
             items: page_items,
-            total,
+            total: total as i64,
         })
     }
 
@@ -103,7 +103,7 @@ impl crate::proto::gen::services::OnlineSessionServiceHandlers for OnlineSession
         // 任意账号（含平台管理员）。平台管理员放行；租户成员仅限目标
         // 会话属于本租户——目标无会话时幂等返回（无可踢，效果等价）。
         if me.is_platform_admin != Some(true) {
-            let sessions = self.state.tokens.list_user_sessions(uid as i64).await;
+            let sessions = self.state.tokens.list_user_sessions(uid).await;
             if !sessions.is_empty()
                 && !sessions
                     .iter()
@@ -116,10 +116,8 @@ impl crate::proto::gen::services::OnlineSessionServiceHandlers for OnlineSession
             }
         }
         match req.jti.as_deref() {
-            Some(jti) if !jti.is_empty() => {
-                self.state.tokens.revoke_token_by_jti(uid as i64, jti).await
-            }
-            _ => self.state.tokens.revoke_user_token(uid as i64).await,
+            Some(jti) if !jti.is_empty() => self.state.tokens.revoke_token_by_jti(uid, jti).await,
+            _ => self.state.tokens.revoke_user_token(uid).await,
         }
         Ok(ForceLogoutSessionResponse {})
     }
@@ -136,7 +134,7 @@ impl crate::proto::gen::services::OnlineSessionServiceHandlers for OnlineSession
             .map(|(jti, meta)| session_proto(jti, me.user_id, meta, me.user_id))
             .collect();
         Ok(ListOnlineSessionResponse {
-            total: items.len() as u64,
+            total: items.len() as i64,
             items,
         })
     }
@@ -180,15 +178,6 @@ mod tests {
     use crate::admin::state::operator_of;
     use crate::proto::gen::services::OnlineSessionServiceHandlers as _;
     use crate::testsupport::{ctx, test_state};
-
-    /// 平台管理员 ctx（tid=0 + ipa=true）。
-    fn admin_ctx() -> rushwind_http_binding::ctx::RequestContext {
-        let mut c = ctx(0, 1);
-        if let Some(claims) = c.claims.as_mut() {
-            claims.insert("ipa".into(), serde_json::json!(true));
-        }
-        c
-    }
 
     fn meta(tenant: i64, username: &str) -> SessionMeta {
         SessionMeta {

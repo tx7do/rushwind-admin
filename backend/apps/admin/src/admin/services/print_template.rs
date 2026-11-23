@@ -23,7 +23,7 @@ use pbjson_types::Empty;
 
 fn tpl_proto(r: crate::admin::data::print_templates::Model) -> PrintTemplate {
     PrintTemplate {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         code: Some(r.code),
         resource_key: r.resource_key,
@@ -33,9 +33,9 @@ fn tpl_proto(r: crate::admin::data::print_templates::Model) -> PrintTemplate {
         orientation: r.orientation,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -91,7 +91,7 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListPrintTemplateResponse {
             items: rows.into_iter().map(tpl_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -106,7 +106,7 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
         );
         let row = match req.query_by {
             Some(crate::proto::print::service::v1::get_print_template_request::QueryBy::Id(id)) => {
-                repo.find_scoped(id as i64).await?
+                repo.find_scoped(id).await?
             }
             None => None,
         }
@@ -158,12 +158,12 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
             Viewer::from_ctx(&ctx),
         );
         let row = repo
-            .find_scoped(req.id as i64)
+            .find_scoped(req.id)
             .await?
             .ok_or_else(|| not_found("print template"))?;
         if let Some(code) = data.code.as_deref().filter(|c| !c.is_empty()) {
             if let Some(other) = repo.find_by_code(code).await? {
-                if other.id != req.id as i64 {
+                if other.id != req.id {
                     return Err(status_error("CONFLICT", "template code already exists"));
                 }
             }
@@ -193,7 +193,7 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
             Viewer::from_ctx(&ctx),
         );
         let row = repo
-            .find_scoped(id as i64)
+            .find_scoped(id)
             .await?
             .ok_or_else(|| not_found("print template"))?;
         // 内置行禁删（与上游 repo 同则）。
@@ -203,7 +203,7 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
                 "built-in print template cannot be deleted",
             ));
         }
-        crate::admin::data::print_templates::Entity::delete_by_id(id as i64)
+        crate::admin::data::print_templates::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -385,7 +385,7 @@ mod tests {
         svc.update(
             me,
             UpdatePrintTemplateRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PrintTemplate {
                     name: Some("出库单改".into()),
                     payload: Some("{\"v\":2}".into()),
@@ -435,7 +435,7 @@ mod tests {
         svc.update(
             ctx(7, 1),
             UpdatePrintTemplateRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PrintTemplate {
                     name: Some("对账单".into()),
                     ..Default::default()
@@ -461,7 +461,7 @@ mod tests {
         svc.update(
             me,
             UpdatePrintTemplateRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PrintTemplate {
                     name: Some("对账单".into()),
                     ..Default::default()

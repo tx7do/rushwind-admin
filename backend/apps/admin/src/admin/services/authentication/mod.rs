@@ -231,10 +231,7 @@ impl AuthenticationServiceHandlers for AuthenticationService {
             .await
             .map_err(|e| internal_error(format!("db: {e}")))?;
 
-        self.state
-            .tokens
-            .revoke_user_token(user.id as u64 as i64)
-            .await;
+        self.state.tokens.revoke_user_token(user.id).await;
         let _ = ctx;
         Ok(Empty {})
     }
@@ -437,7 +434,7 @@ impl AuthenticationService {
                 .await
                 .map_err(|e| internal_error(format!("db: {e}")))?;
             match tenant {
-                Some(t) if t.status.as_deref() == Some("ON") => tenant_id = t.id as u64 as i64,
+                Some(t) if t.status.as_deref() == Some("ON") => tenant_id = t.id,
                 // Own reason (issue #1): the login screen folds wrong-tenant
                 // into the unified credential message via the i18n table —
                 // a shared BAD_REQUEST would render as 参数错误.

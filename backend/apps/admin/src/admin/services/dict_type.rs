@@ -19,15 +19,15 @@ use pbjson_types::Empty;
 
 fn dict_type_proto(r: crate::admin::data::sys_dict_types::Model) -> DictType {
     DictType {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         type_code: Some(r.type_code),
         type_name: Some(r.type_name),
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -65,7 +65,7 @@ impl crate::proto::gen::services::DictTypeServiceHandlers for DictTypeService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListDictTypeResponse {
             items: rows.into_iter().map(dict_type_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -76,9 +76,7 @@ impl crate::proto::gen::services::DictTypeServiceHandlers for DictTypeService {
     ) -> Result<DictType, StatusError> {
         let tenant = tenant_of(&ctx);
         let id = match req.query_by {
-            Some(crate::proto::dict::service::v1::get_dict_type_request::QueryBy::Id(id)) => {
-                id as i64
-            }
+            Some(crate::proto::dict::service::v1::get_dict_type_request::QueryBy::Id(id)) => id,
             Some(crate::proto::dict::service::v1::get_dict_type_request::QueryBy::Code(code)) => {
                 crate::admin::data::sys_dict_types::Entity::find()
                     .filter(
@@ -132,7 +130,7 @@ impl crate::proto::gen::services::DictTypeServiceHandlers for DictTypeService {
         req: UpdateDictTypeRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_dict_types::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_dict_types::Entity::find_by_id(req.id)
             .filter(crate::admin::data::sys_dict_types::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -369,7 +367,7 @@ mod tests {
         svc.update(
             me,
             UpdateDictTypeRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(DictType {
                     type_name: Some("应用类型改".into()),
                     is_enabled: Some(false),
@@ -437,7 +435,7 @@ mod tests {
         svc.update(
             ctx(7, 1),
             UpdateDictTypeRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(DictType {
                     type_name: Some("风险类型".into()),
                     ..Default::default()
@@ -463,7 +461,7 @@ mod tests {
         svc.update(
             me,
             UpdateDictTypeRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(DictType::default()),
                 update_mask: Some(pbjson_types::FieldMask {
                     paths: vec!["is_enabled".into()],

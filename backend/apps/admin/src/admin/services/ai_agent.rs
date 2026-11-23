@@ -24,14 +24,14 @@ use super::agent_graph;
 
 fn app_proto(r: crate::admin::data::sys_ai_agent_apps::Model) -> AiAgentApp {
     AiAgentApp {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         name: Some(r.name),
         description: r.description,
         graph: r.graph,
         enabled: r.enabled,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
     }
@@ -39,8 +39,8 @@ fn app_proto(r: crate::admin::data::sys_ai_agent_apps::Model) -> AiAgentApp {
 
 fn run_proto(r: crate::admin::data::sys_ai_agent_runs::Model) -> AiAgentRun {
     AiAgentRun {
-        id: Some(r.id as u64),
-        app_id: Some(r.app_id as u64),
+        id: Some(r.id),
+        app_id: Some(r.app_id),
         status: Some(match r.status.as_deref() {
             Some("SUCCEEDED") => 2,
             Some("FAILED") => 3,
@@ -141,9 +141,9 @@ impl AiAgentService {
         let provider = {
             let viewer = Viewer::system();
             let repo = crate::admin::data::repos::AiProviderRepo::new(&self.state.db, viewer);
-            let pid = agent_graph::data_u64(&node.data, "providerId");
+            let pid = agent_graph::data_i64(&node.data, "providerId", 0);
             let row = if pid > 0 {
-                repo.find_scoped(pid as i64)
+                repo.find_scoped(pid)
                     .await
                     .map_err(|e| e.message.clone())?
                     .ok_or_else(|| format!("ai provider [{pid}] not found"))?
@@ -224,7 +224,7 @@ impl AiAgentService {
         node: &agent_graph::AgentGraphNode,
         query: &str,
     ) -> Result<(String, usize), String> {
-        let base_id = agent_graph::data_u64(&node.data, "baseId");
+        let base_id = agent_graph::data_i64(&node.data, "baseId", 0);
         if base_id == 0 {
             return Err("knowledge node has no baseId configured".into());
         }
@@ -233,7 +233,7 @@ impl AiAgentService {
             &self.state,
             tenant_id,
             user_id,
-            base_id as i64,
+            base_id,
             query,
             top_k,
         )
@@ -246,11 +246,11 @@ impl AiAgentService {
 
 fn rev_proto(r: crate::admin::data::sys_ai_agent_revisions::Model) -> AiAgentRevision {
     AiAgentRevision {
-        id: Some(r.id as u64),
-        app_id: r.app_id.map(|v| v as u64),
+        id: Some(r.id),
+        app_id: r.app_id,
         graph: r.graph,
         source: r.source,
-        created_by: r.created_by.map(|v| v as u64),
+        created_by: r.created_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
     }
 }
@@ -269,7 +269,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         let (rows, total) = crate::admin::paging::fetch_paged(&self.state.db, query, &req).await?;
         Ok(ListAiAgentAppsResponse {
             items: rows.into_iter().map(app_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -279,7 +279,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         req: GetAiAgentAppRequest,
     ) -> Result<AiAgentApp, StatusError> {
         let id = req.id;
-        Ok(app_proto(self.app_scoped(&ctx, id as i64).await?))
+        Ok(app_proto(self.app_scoped(&ctx, id).await?))
     }
 
     async fn create(
@@ -310,7 +310,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
-        let row = self.app_scoped(&ctx, req.id as i64).await?;
+        let row = self.app_scoped(&ctx, req.id).await?;
         // 版本快照（BI 同款口径）：更新成功把**更新前**的 graph 留一行（SAVE，
         // 仅 graph 实际变化时）。快照失败不阻断更新（留痕）——主功能不应被
         // 辅功能拖死，但丢快照必须可观测。
@@ -334,13 +334,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
                 Viewer::from_ctx(&ctx),
             );
             if let Err(serr) = revisions
-                .create(
-                    pre_tenant,
-                    req.id as i64,
-                    pre_graph,
-                    "SAVE",
-                    payload.user_id,
-                )
+                .create(pre_tenant, req.id, pre_graph, "SAVE", payload.user_id)
                 .await
             {
                 eprintln!(
@@ -358,7 +352,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         req: DeleteAiAgentAppRequest,
     ) -> Result<Empty, StatusError> {
         let id = req.id;
-        self.app_scoped(&ctx, id as i64).await?;
+        self.app_scoped(&ctx, id).await?;
         // 级联清运行记录与版本快照（上游 edge cascade 同语义）。
         crate::admin::data::sys_ai_agent_runs::Entity::delete_many()
             .filter(crate::admin::data::sys_ai_agent_runs::Column::AppId.eq(id))
@@ -366,9 +360,9 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
             .await
             .map_err(db_err)?;
         crate::admin::data::repos::AiAgentRevisionRepo::new(&self.state.db, Viewer::from_ctx(&ctx))
-            .delete_for_app(id as i64)
+            .delete_for_app(id)
             .await?;
-        crate::admin::data::sys_ai_agent_apps::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_ai_agent_apps::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -384,7 +378,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         req: RunAiAgentAppRequest,
     ) -> Result<AiAgentRun, StatusError> {
         let payload = operator_of(&ctx)?;
-        let app = self.app_scoped(&ctx, req.id as i64).await?;
+        let app = self.app_scoped(&ctx, req.id).await?;
         if app.enabled != Some(true) {
             return Err(status_error("BAD_REQUEST", "ai agent app is disabled"));
         }
@@ -508,7 +502,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         let (rows, total) = crate::admin::paging::fetch_paged(&self.state.db, query, &req).await?;
         Ok(ListAiAgentRunsResponse {
             items: rows.into_iter().map(run_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -518,7 +512,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         req: GetAiAgentRunRequest,
     ) -> Result<AiAgentRun, StatusError> {
         let id = req.id;
-        Ok(run_proto(self.run_scoped(&ctx, id as i64).await?))
+        Ok(run_proto(self.run_scoped(&ctx, id).await?))
     }
 
     /// 版本历史：每次成功更新把更新前的 graph 留一行（新快照在前）。
@@ -540,14 +534,14 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
         );
         let (rows, total) = repo
             .list_paged(
-                req.app_id as i64,
+                req.app_id,
                 req.page.as_ref().and_then(|p| p.page),
                 req.page.as_ref().and_then(|p| p.page_size),
             )
             .await?;
         Ok(ListAiAgentRevisionsResponse {
             items: rows.into_iter().map(rev_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -568,7 +562,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
             Viewer::from_ctx(&ctx),
         );
         let revision = revisions
-            .find_scoped(req.id as i64)
+            .find_scoped(req.id)
             .await?
             .ok_or_else(|| not_found("ai agent revision"))?;
         let graph = revision.graph.clone().unwrap_or_default();
@@ -637,7 +631,7 @@ mod tests {
         apps::Entity::find_by_id(id).one(db).await.unwrap().unwrap()
     }
 
-    fn update_req(id: u64, data: AiAgentApp, paths: &[&str]) -> UpdateAiAgentAppRequest {
+    fn update_req(id: i64, data: AiAgentApp, paths: &[&str]) -> UpdateAiAgentAppRequest {
         UpdateAiAgentAppRequest {
             id,
             data: Some(data),
@@ -663,7 +657,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 AiAgentApp {
                     name: Some("新名".into()),
                     description: Some("劫持".into()),
@@ -712,7 +706,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdateAiAgentAppRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(AiAgentApp {
                     name: Some("改名".into()),
                     ..Default::default()
@@ -732,7 +726,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update(
             me,
-            update_req(row.id as u64, AiAgentApp::default(), &["description"]),
+            update_req(row.id, AiAgentApp::default(), &["description"]),
         )
         .await
         .unwrap();

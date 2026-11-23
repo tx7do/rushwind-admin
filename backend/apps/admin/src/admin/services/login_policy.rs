@@ -36,17 +36,17 @@ fn method_to_proto(s: &str) -> i32 {
 
 fn policy_proto(r: crate::admin::data::sys_login_policies::Model) -> LoginPolicy {
     LoginPolicy {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         target_id: r.target_id.as_deref().and_then(|v| v.parse().ok()),
         method: r.method.as_deref().map(method_to_proto),
         value: r.value,
         reason: r.reason,
         r#type: r.type_column.as_deref().map(type_to_proto),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        tenant_id: r.tenant_id,
         tenant_name: None,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -71,7 +71,7 @@ impl crate::proto::gen::services::LoginPolicyServiceHandlers for LoginPolicyServ
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListLoginPolicyResponse {
             items: rows.into_iter().map(policy_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -84,7 +84,7 @@ impl crate::proto::gen::services::LoginPolicyServiceHandlers for LoginPolicyServ
             req.query_by,
             crate::proto::authentication::service::v1::get_login_policy_request::QueryBy
         );
-        let row = crate::admin::data::sys_login_policies::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_login_policies::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -131,7 +131,7 @@ impl crate::proto::gen::services::LoginPolicyServiceHandlers for LoginPolicyServ
         req: UpdateLoginPolicyRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_login_policies::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_login_policies::Entity::find_by_id(req.id)
             .filter(crate::admin::data::sys_login_policies::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -144,7 +144,7 @@ impl crate::proto::gen::services::LoginPolicyServiceHandlers for LoginPolicyServ
             // （wire 名 ≠ 列名）走 opt_named；掩码选中 + 载荷 None = 显式清
             // 可空列；无掩码 None 不动列。
             let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
-            crate::set_masked!(opt mask, a, target_id, data.target_id, |v: &u64| Some(
+            crate::set_masked!(opt mask, a, target_id, data.target_id, |v: &i64| Some(
                 v.to_string()
             ));
             crate::set_masked!(opt mask, a, value, data.value, |v: &String| Some(
@@ -174,7 +174,7 @@ impl crate::proto::gen::services::LoginPolicyServiceHandlers for LoginPolicyServ
             req.query_by,
             crate::proto::authentication::service::v1::delete_login_policy_request::QueryBy
         );
-        crate::admin::data::sys_login_policies::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_login_policies::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -213,7 +213,7 @@ mod tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: LoginPolicy, paths: &[&str]) -> UpdateLoginPolicyRequest {
+    fn update_req(id: i64, data: LoginPolicy, paths: &[&str]) -> UpdateLoginPolicyRequest {
         UpdateLoginPolicyRequest {
             id,
             data: Some(data),
@@ -239,7 +239,7 @@ mod tests {
         svc.update(
             ctx(1, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 LoginPolicy {
                     reason: Some("新原因".into()),
                     value: Some("5.6.7.8".into()),
@@ -291,7 +291,7 @@ mod tests {
         svc.update(
             ctx(1, 9),
             UpdateLoginPolicyRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(LoginPolicy {
                     value: Some("10.0.0.2".into()),
                     ..Default::default()
@@ -312,7 +312,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update(
             ctx(1, 9),
-            update_req(row.id as u64, LoginPolicy::default(), &["reason"]),
+            update_req(row.id, LoginPolicy::default(), &["reason"]),
         )
         .await
         .unwrap();

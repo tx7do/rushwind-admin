@@ -124,14 +124,14 @@ impl UserService {
         db: &C,
         tenant_id: i64,
         user_id: i64,
-        role_ids: &[u64],
+        role_ids: &[i64],
     ) -> Result<(), StatusError>
     where
         C: sea_orm::ConnectionTrait,
     {
         let unique: Vec<i64> = role_ids
             .iter()
-            .map(|v| *v as i64)
+            .copied()
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
             .collect();
@@ -258,7 +258,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
                 .into_iter()
                 .map(|u| user_to_proto(u, Vec::new()))
                 .collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -273,7 +273,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             Some(crate::proto::identity::service::v1::get_user_request::QueryBy::Id(id)) => {
                 // Id 路径归属闸：原实现裸 id 全库找行（跨租户 PII 读取）。
                 // 平台管理员放行，其余仅限本租户；拒绝按 not_found 应答。
-                let found = crate::admin::data::sys_users::Entity::find_by_id(id as i64)
+                let found = crate::admin::data::sys_users::Entity::find_by_id(id)
                     .one(&self.state.db)
                     .await
                     .map_err(db_err)?;
@@ -348,7 +348,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         req: UpdateUserRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_users::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_users::Entity::find_by_id(req.id)
             .filter(crate::admin::data::sys_users::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -369,14 +369,14 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             crate::stamp_update!(a, payload.user_id);
             a.update(&txn).await.map_err(db_err)?;
             if !data.role_ids.is_empty() {
-                Self::sync_roles(&txn, payload.tenant_id, req.id as i64, &data.role_ids).await?;
+                Self::sync_roles(&txn, payload.tenant_id, req.id, &data.role_ids).await?;
             }
         }
         if req.password.as_deref().is_some_and(|v| !v.is_empty()) {
             Self::upsert_credential(
                 &txn,
                 payload.tenant_id,
-                req.id as i64,
+                req.id,
                 &username_before,
                 req.password.as_deref(),
             )
@@ -385,7 +385,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         }
         txn.commit().await.map_err(db_err)?;
         if password_set {
-            self.state.tokens.revoke_user_token(req.id as i64).await;
+            self.state.tokens.revoke_user_token(req.id).await;
         }
         Ok(Empty {})
     }
@@ -397,9 +397,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
     ) -> Result<Empty, StatusError> {
         let tid = tenant_of(&ctx);
         let id = match req.query_by {
-            Some(crate::proto::identity::service::v1::delete_user_request::QueryBy::Id(id)) => {
-                id as i64
-            }
+            Some(crate::proto::identity::service::v1::delete_user_request::QueryBy::Id(id)) => id,
             Some(crate::proto::identity::service::v1::delete_user_request::QueryBy::Username(
                 name,
             )) => self
@@ -459,19 +457,16 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
                 // Id 路径归属闸：跨租户 id 不报存在（防存在性探测），平台
                 // 管理员放行。
                 let payload = operator_of(&ctx)?;
-                let found = crate::admin::data::sys_users::Entity::find_by_id(id as i64)
+                let found = crate::admin::data::sys_users::Entity::find_by_id(id)
                     .one(&self.state.db)
                     .await
                     .map_err(db_err)?;
-                match found {
+                matches!(
+                    found,
                     Some(r)
                         if payload.is_platform_admin == Some(true)
-                            || r.tenant_id.unwrap_or(0) == tid =>
-                    {
-                        true
-                    }
-                    _ => false,
-                }
+                            || r.tenant_id.unwrap_or(0) == tid
+                )
             }
             Some(crate::proto::identity::service::v1::user_exists_request::QueryBy::Username(
                 name,
@@ -491,7 +486,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         // 的细粒度权限仍归授权引擎；跨租户与对平台侧账号的改动一律关死）。
         // 原实现无任何校验——任意登录用户可重置任意 user_id 的密码并吊销
         // 其全部会话（任意账户接管）。
-        let target = crate::admin::data::sys_users::Entity::find_by_id(req.user_id as i64)
+        let target = crate::admin::data::sys_users::Entity::find_by_id(req.user_id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -543,10 +538,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         a.credential = Set(hash);
         a.updated_at = Set(Some(crate::admin::data::now()));
         a.update(&self.state.db).await.map_err(db_err)?;
-        self.state
-            .tokens
-            .revoke_user_token(req.user_id as i64)
-            .await;
+        self.state.tokens.revoke_user_token(req.user_id).await;
         Ok(Empty {})
     }
 }
@@ -593,8 +585,8 @@ pub(crate) fn user_to_proto(
 ) -> User {
     User {
         home_path: None,
-        id: Some(user.id as u64),
-        tenant_id: user.tenant_id.map(|v| v as u64),
+        id: Some(user.id),
+        tenant_id: user.tenant_id,
         username: Some(user.username),
         nickname: user.nickname,
         realname: user.realname,
@@ -619,9 +611,9 @@ pub(crate) fn user_to_proto(
             .as_deref()
             .map(|s| mapping::user_status_of(s).unwrap_or(0)),
         locked_until: user.locked_until.and_then(crate::admin::state::naive_to_ts),
-        created_by: user.created_by.map(|v| v as u64),
-        updated_by: user.updated_by.map(|v| v as u64),
-        deleted_by: user.deleted_by.map(|v| v as u64),
+        created_by: user.created_by,
+        updated_by: user.updated_by,
+        deleted_by: user.deleted_by,
         created_at: user.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: user.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: user.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -672,7 +664,7 @@ mod tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: User, paths: &[&str]) -> UpdateUserRequest {
+    fn update_req(id: i64, data: User, paths: &[&str]) -> UpdateUserRequest {
         UpdateUserRequest {
             id,
             data: Some(data),
@@ -699,7 +691,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 User {
                     email: Some("alice@corp.dev".into()),
                     mobile: Some("19999999999".into()),
@@ -745,7 +737,7 @@ mod tests {
         svc.update(
             ctx(1, 9),
             UpdateUserRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(User {
                     nickname: Some("新昵称".into()),
                     ..Default::default()
@@ -769,7 +761,7 @@ mod tests {
         // NOT NULL username 原样保留。
         svc.update(
             ctx(1, 9),
-            update_req(row.id as u64, User::default(), &["username", "mobile"]),
+            update_req(row.id, User::default(), &["username", "mobile"]),
         )
         .await
         .unwrap();
@@ -839,7 +831,7 @@ mod tests {
                 CreateUserRequest {
                     data: Some(User {
                         username: Some("mallory".into()),
-                        role_ids: vec![platform_role.id as u64],
+                        role_ids: vec![platform_role.id],
                         ..Default::default()
                     }),
                     password: None,
@@ -887,7 +879,7 @@ mod tests {
             .edit_user_password(
                 ctx(1, 9),
                 EditUserPasswordRequest {
-                    user_id: platform_user.id as u64,
+                    user_id: platform_user.id,
                     new_password: "Str0ngPass!".into(),
                 },
             )
@@ -899,7 +891,7 @@ mod tests {
         svc.edit_user_password(
             ctx(1, 9),
             EditUserPasswordRequest {
-                user_id: target.id as u64,
+                user_id: target.id,
                 new_password: "Str0ngPass!".into(),
             },
         )
@@ -914,7 +906,7 @@ mod tests {
         svc.edit_user_password(
             admin,
             EditUserPasswordRequest {
-                user_id: platform_user.id as u64,
+                user_id: platform_user.id,
                 new_password: "Str0ngPass!".into(),
             },
         )
@@ -948,9 +940,7 @@ mod tests {
                 ctx(1, 9),
                 GetUserRequest {
                     query_by: Some(
-                        crate::proto::identity::service::v1::get_user_request::QueryBy::Id(
-                            mine.id as u64,
-                        ),
+                        crate::proto::identity::service::v1::get_user_request::QueryBy::Id(mine.id),
                     ),
                     ..Default::default()
                 },
@@ -965,7 +955,7 @@ mod tests {
                 GetUserRequest {
                     query_by: Some(
                         crate::proto::identity::service::v1::get_user_request::QueryBy::Id(
-                            foreign.id as u64,
+                            foreign.id,
                         ),
                     ),
                     ..Default::default()
@@ -985,7 +975,7 @@ mod tests {
                 GetUserRequest {
                     query_by: Some(
                         crate::proto::identity::service::v1::get_user_request::QueryBy::Id(
-                            foreign.id as u64,
+                            foreign.id,
                         ),
                     ),
                     ..Default::default()

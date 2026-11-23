@@ -71,7 +71,7 @@ impl crate::proto::gen::services::RedisCacheMonitorServiceHandlers for RedisCach
                 name: "memory".into(),
                 entries,
             }],
-            db_size: db_size.max(0) as u64,
+            db_size: db_size.max(0),
             slowlog: Vec::new(),
         })
     }

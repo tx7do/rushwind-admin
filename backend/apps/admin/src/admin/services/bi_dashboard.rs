@@ -38,7 +38,7 @@ fn kind_proto(s: &str) -> i32 {
 
 fn dash_proto(r: crate::admin::data::bi_dashboards::Model) -> BiDashboard {
     BiDashboard {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         code: Some(r.code),
         kind: r.kind.as_deref().map(kind_proto),
@@ -52,9 +52,9 @@ fn dash_proto(r: crate::admin::data::bi_dashboards::Model) -> BiDashboard {
         version: r.version,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -63,13 +63,13 @@ fn dash_proto(r: crate::admin::data::bi_dashboards::Model) -> BiDashboard {
 
 fn rev_proto(r: crate::admin::data::bi_dashboard_revisions::Model) -> BiDashboardRevision {
     BiDashboardRevision {
-        id: r.id as u64,
-        dashboard_id: r.dashboard_id.unwrap_or(0) as u64,
+        id: r.id,
+        dashboard_id: r.dashboard_id.unwrap_or(0),
         version: r.version.unwrap_or(0),
         name: r.name,
         payload: r.payload,
         source: r.source,
-        created_by: r.created_by.map(|v| v as u64),
+        created_by: r.created_by,
         // 与上游 DTO 同口径："2006-01-02 15:04:05"
         created_at: r
             .created_at
@@ -126,7 +126,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListBiDashboardResponse {
             items: rows.into_iter().map(dash_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -139,7 +139,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = match req.query_by {
             Some(crate::proto::bi::service::v1::get_bi_dashboard_request::QueryBy::Id(id)) => {
-                repo.find_scoped(id as i64).await?
+                repo.find_scoped(id).await?
             }
             None => None,
         }
@@ -189,12 +189,12 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         let repo =
             crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(req.id as i64)
+            .find_scoped(req.id)
             .await?
             .ok_or_else(|| crate::admin::state::not_found("bi dashboard"))?;
         if let Some(code) = data.code.as_deref().filter(|c| !c.is_empty()) {
             if let Some(other) = repo.find_by_code(code).await? {
-                if other.id != req.id as i64 {
+                if other.id != req.id {
                     return Err(status_error("CONFLICT", "dashboard code already exists"));
                 }
             }
@@ -239,7 +239,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         if let Err(serr) = revisions
             .create(
                 pre.0,
-                req.id as i64,
+                req.id,
                 pre.1,
                 Some(pre.2),
                 pre.3,
@@ -268,7 +268,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         let repo =
             crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(id as i64)
+            .find_scoped(id)
             .await?
             .ok_or_else(|| crate::admin::state::not_found("bi dashboard"))?;
         // 内置行禁删（内置模板只读，派生出来的才是租户自有资产）。
@@ -278,7 +278,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
                 "built-in dashboard cannot be deleted",
             ));
         }
-        crate::admin::data::bi_dashboards::Entity::delete_by_id(id as i64)
+        crate::admin::data::bi_dashboards::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -287,7 +287,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             &self.state.db,
             Viewer::from_ctx(&ctx),
         )
-        .delete_for_dashboard(id as i64)
+        .delete_for_dashboard(id)
         .await?;
         Ok(Empty {})
     }
@@ -304,7 +304,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         let repo =
             crate::admin::data::repos::BiDashboardRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let source = repo
-            .find_scoped(req.id as i64)
+            .find_scoped(req.id)
             .await?
             .ok_or_else(|| crate::admin::state::not_found("bi dashboard"))?;
 
@@ -365,7 +365,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
         );
         let (rows, total) = repo
             .list_paged(
-                req.dashboard_id as i64,
+                req.dashboard_id,
                 req.page.as_ref().and_then(|p| p.page),
                 req.page.as_ref().and_then(|p| p.page_size),
             )
@@ -392,7 +392,7 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             Viewer::from_ctx(&ctx),
         );
         let revision = revisions
-            .find_scoped(req.id as i64)
+            .find_scoped(req.id)
             .await?
             .ok_or_else(|| crate::admin::state::not_found("bi dashboard revision"))?;
         let dashboard_id = revision.dashboard_id.unwrap_or(0);
@@ -581,7 +581,7 @@ mod update_mask_tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: BiDashboard, paths: &[&str]) -> UpdateBiDashboardRequest {
+    fn update_req(id: i64, data: BiDashboard, paths: &[&str]) -> UpdateBiDashboardRequest {
         UpdateBiDashboardRequest {
             id,
             data: Some(data),
@@ -608,7 +608,7 @@ mod update_mask_tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 BiDashboard {
                     name: Some("新名".into()),
                     remark: Some("劫持".into()),
@@ -656,7 +656,7 @@ mod update_mask_tests {
         svc.update(
             ctx(0, 1),
             UpdateBiDashboardRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(BiDashboard {
                     name: Some("改名".into()),
                     ..Default::default()
@@ -675,12 +675,9 @@ mod update_mask_tests {
         );
 
         // 掩码选中：None 清列。
-        svc.update(
-            me,
-            update_req(row.id as u64, BiDashboard::default(), &["remark"]),
-        )
-        .await
-        .unwrap();
+        svc.update(me, update_req(row.id, BiDashboard::default(), &["remark"]))
+            .await
+            .unwrap();
         let fresh = row_by_id(db, row.id).await;
         assert!(
             fresh.remark.is_none(),

@@ -100,33 +100,6 @@ pub async fn verify(redis: &ConnectionManager, id: &str, value: &str) -> bool {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::testsupport::test_state;
-
-    #[tokio::test]
-    async fn wrong_guesses_exhaust_then_kill_the_challenge() {
-        let state = test_state().await;
-        let (id, _png, answer) = generate(&state.redis).await.expect("generate");
-        let wrong = if answer == "ZZZZZZ" {
-            "AAAAAA"
-        } else {
-            "ZZZZZZ"
-        };
-        // 预算内错答逐次失败。
-        for _ in 0..CAPTCHA_MAX_ATTEMPTS {
-            assert!(!verify(&state.redis, &id, wrong).await);
-        }
-        // 第 6 次错答触发作废：正确答案也不再命中。
-        assert!(!verify(&state.redis, &id, wrong).await);
-        assert!(!verify(&state.redis, &id, &answer).await);
-        // 新挑战有独立的计数键，不受残留影响。
-        let (id2, _png2, answer2) = generate(&state.redis).await.expect("generate 2");
-        assert!(verify(&state.redis, &id2, &answer2).await);
-    }
-}
-
 /// Cropper-safe glyph-run envelope, in pixels across. The renderer packs
 /// its six glyphs into a run and centers the crop window on that run; the
 /// window is 240 px wide on a 400 px canvas, so a run wider than the
@@ -183,4 +156,31 @@ fn render_png_base64() -> Result<(String, String), String> {
         .as_base64()
         .ok_or_else(|| "captcha render".to_string())?;
     Ok((b64, answer))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testsupport::test_state;
+
+    #[tokio::test]
+    async fn wrong_guesses_exhaust_then_kill_the_challenge() {
+        let state = test_state().await;
+        let (id, _png, answer) = generate(&state.redis).await.expect("generate");
+        let wrong = if answer == "ZZZZZZ" {
+            "AAAAAA"
+        } else {
+            "ZZZZZZ"
+        };
+        // 预算内错答逐次失败。
+        for _ in 0..CAPTCHA_MAX_ATTEMPTS {
+            assert!(!verify(&state.redis, &id, wrong).await);
+        }
+        // 第 6 次错答触发作废：正确答案也不再命中。
+        assert!(!verify(&state.redis, &id, wrong).await);
+        assert!(!verify(&state.redis, &id, &answer).await);
+        // 新挑战有独立的计数键，不受残留影响。
+        let (id2, _png2, answer2) = generate(&state.redis).await.expect("generate 2");
+        assert!(verify(&state.redis, &id2, &answer2).await);
+    }
 }

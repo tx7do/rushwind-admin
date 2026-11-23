@@ -77,7 +77,7 @@ fn tag_to_module(tag: &str) -> &'static str {
 
 fn api_proto(r: crate::admin::data::sys_apis::Model) -> Api {
     Api {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         operation: r.operation,
         path: r.path,
         method: r.method,
@@ -93,9 +93,9 @@ fn api_proto(r: crate::admin::data::sys_apis::Model) -> Api {
             .status
             .as_deref()
             .map(crate::admin::state::status_to_proto),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -121,16 +121,16 @@ impl ApiService {
             .all(txn)
             .await
             .map_err(db_err)?;
-        let mut existing_by_key: std::collections::HashMap<(String, String), u64> =
+        let mut existing_by_key: std::collections::HashMap<(String, String), i64> =
             std::collections::HashMap::with_capacity(existing.len());
-        let mut row_by_id: std::collections::HashMap<u64, &crate::admin::data::sys_apis::Model> =
+        let mut row_by_id: std::collections::HashMap<i64, &crate::admin::data::sys_apis::Model> =
             std::collections::HashMap::with_capacity(existing.len());
         for row in &existing {
             let (Some(path), Some(method)) = (row.path.clone(), row.method.clone()) else {
                 continue;
             };
-            existing_by_key.insert((path, method.to_uppercase()), row.id as u64);
-            row_by_id.insert(row.id as u64, row);
+            existing_by_key.insert((path, method.to_uppercase()), row.id);
+            row_by_id.insert(row.id, row);
         }
 
         let mut spec_keys = std::collections::HashSet::with_capacity(rows.len());
@@ -247,7 +247,7 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListApiResponse {
             items: rows.into_iter().map(api_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -260,7 +260,7 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
             req.query_by,
             crate::proto::permission::service::v1::get_api_request::QueryBy
         );
-        let row = crate::admin::data::sys_apis::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_apis::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -322,7 +322,7 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
         req: UpdateApiRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_apis::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_apis::Entity::find_by_id(req.id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -364,7 +364,7 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
         // 先取行拿端点身份：删行后按 api_id 与 (path, method) 快照双口径
         // 级联清理权限绑定，消灭孤儿绑定（孤儿绑定会在 id 重编号后指到无关
         // 端点造成越权放行——上游 CascadeDeleteBindings 同语义）。
-        let row = crate::admin::data::sys_apis::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_apis::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -394,7 +394,7 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
                     .map_err(db_err)?;
             }
         }
-        crate::admin::data::sys_apis::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_apis::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -713,7 +713,7 @@ mod update_mask_tests {
         apis::Entity::find_by_id(id).one(db).await.unwrap().unwrap()
     }
 
-    fn update_req(id: u64, data: Api, paths: &[&str]) -> UpdateApiRequest {
+    fn update_req(id: i64, data: Api, paths: &[&str]) -> UpdateApiRequest {
         UpdateApiRequest {
             id,
             data: Some(data),
@@ -739,7 +739,7 @@ mod update_mask_tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Api {
                     description: Some("新描述".into()),
                     path: Some("/evil".into()),
@@ -779,7 +779,7 @@ mod update_mask_tests {
         svc.update(
             ctx(0, 1),
             UpdateApiRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Api {
                     method: Some("PUT".into()),
                     ..Default::default()
@@ -801,7 +801,7 @@ mod update_mask_tests {
         // 掩码选中：None 清列。
         svc.update(
             ctx(0, 1),
-            update_req(row.id as u64, Api::default(), &["description"]),
+            update_req(row.id, Api::default(), &["description"]),
         )
         .await
         .unwrap();

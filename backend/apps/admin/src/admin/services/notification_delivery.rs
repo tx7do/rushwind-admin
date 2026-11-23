@@ -15,7 +15,7 @@ fn delivery_proto(
     r: crate::admin::data::sys_notification_deliveries::Model,
 ) -> NotificationDelivery {
     NotificationDelivery {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         event_type: r
             .event_type
             .as_deref()
@@ -24,9 +24,9 @@ fn delivery_proto(
             .channel
             .as_deref()
             .and_then(mapping::notification_channel_kind_of),
-        channel_id: r.channel_id.map(|v| v as u64),
-        recipient_user_id: r.recipient_user_id.map(|v| v as u64),
-        related_id: r.related_id.map(|v| v as u64),
+        channel_id: r.channel_id,
+        recipient_user_id: r.recipient_user_id,
+        related_id: r.related_id,
         target: r.target,
         status: r
             .status
@@ -36,8 +36,8 @@ fn delivery_proto(
         sent_at: None,
         request_id: r.request_id,
         attempts: r.attempts,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
     }
@@ -58,7 +58,7 @@ impl crate::proto::gen::services::NotificationServiceHandlers for NotificationDe
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListNotificationDeliveryResponse {
             items: rows.into_iter().map(delivery_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -68,6 +68,6 @@ impl crate::proto::gen::services::NotificationServiceHandlers for NotificationDe
         req: GetNotificationDeliveryRequest,
     ) -> Result<NotificationDelivery, StatusError> {
         let repo = crate::admin::data::repos::NotificationDeliveryRepo::new(&self.state.db);
-        Ok(delivery_proto(repo.get_by_id(req.id as i64).await?))
+        Ok(delivery_proto(repo.get_by_id(req.id).await?))
     }
 }

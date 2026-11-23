@@ -14,12 +14,12 @@ use crate::proto::permission::service::v1::{
 
 fn log_proto(r: crate::admin::data::sys_policy_evaluation_logs::Model) -> PolicyEvaluationLog {
     PolicyEvaluationLog {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
-        user_id: r.user_id.map(|v| v as u64),
-        membership_id: r.membership_id.map(|v| v as u64),
-        permission_id: r.permission_id.map(|v| v as u64),
-        policy_id: r.policy_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
+        user_id: r.user_id,
+        membership_id: r.membership_id,
+        permission_id: r.permission_id,
+        policy_id: r.policy_id,
         request_path: r.request_path,
         request_method: r.request_method,
         result: r.result,
@@ -51,7 +51,7 @@ impl crate::proto::gen::services::PolicyEvaluationLogServiceHandlers
         let (rows, total) = repo.paged_policy_evaluation(&req).await?;
         Ok(ListPolicyEvaluationLogResponse {
             items: rows.into_iter().map(log_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -64,7 +64,7 @@ impl crate::proto::gen::services::PolicyEvaluationLogServiceHandlers
             req.query_by,
             crate::proto::permission::service::v1::get_policy_evaluation_log_request::QueryBy
         );
-        let row = crate::admin::data::sys_policy_evaluation_logs::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_policy_evaluation_logs::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?

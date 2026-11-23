@@ -351,12 +351,12 @@ async fn seed_permissions(state: &Arc<AppState>) -> Result<(), String> {
     // 种子不硬编码 id：角色授权按 DefaultRolePermissionCodes 的 code 动态
     // 解析（上游 836334e3 同语义）——超管=当前全量；租户管理员模板=登录链路
     // 身份权限。权限行 id 在种子重建后漂移也不再错绑。
-    let perm_id_by_code: std::collections::HashMap<String, u64> = perms::Entity::find()
+    let perm_id_by_code: std::collections::HashMap<String, i64> = perms::Entity::find()
         .all(&state.db)
         .await
         .map_err(|e| e.to_string())?
         .into_iter()
-        .map(|r| (r.code.clone(), r.id as u64))
+        .map(|r| (r.code.clone(), r.id))
         .collect();
     for (role_id, codes) in [
         (
@@ -379,7 +379,7 @@ async fn seed_permissions(state: &Arc<AppState>) -> Result<(), String> {
                 role_perms::ActiveModel {
                     tenant_id: Set(Some(0)),
                     role_id: Set(Some(role_id as i64)),
-                    permission_id: Set(Some(perm as i64)),
+                    permission_id: Set(Some(perm)),
                     effect: Set(Some("ALLOW".into())),
                     status: Set(Some("ON".into())),
                     created_at: Set(Some(crate::admin::data::now())),
@@ -550,7 +550,7 @@ mod tests {
                     .all(&state.db)
                     .await
                     .expect("query after seed")
-                    .len() as u64
+                    .len()
             }};
         }
 

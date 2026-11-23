@@ -36,7 +36,7 @@ fn new_secret() -> String {
 impl AccessKeyService {
     fn to_proto(&self, row: crate::admin::data::sys_access_keys::Model) -> AccessKey {
         AccessKey {
-            id: Some(row.id as u64),
+            id: Some(row.id),
             name: Some(row.name),
             access_key: Some(row.access_key),
             status: Some(if row.status.as_deref() == Some("OFF") {
@@ -46,10 +46,10 @@ impl AccessKeyService {
             }),
             expires_at: row.expires_at.and_then(crate::admin::state::naive_to_ts),
             last_used_at: row.last_used_at.and_then(crate::admin::state::naive_to_ts),
-            tenant_id: row.tenant_id.map(|v| v as u64),
-            created_by: row.created_by.map(|v| v as u64),
-            updated_by: row.updated_by.map(|v| v as u64),
-            deleted_by: row.deleted_by.map(|v| v as u64),
+            tenant_id: row.tenant_id,
+            created_by: row.created_by,
+            updated_by: row.updated_by,
+            deleted_by: row.deleted_by,
             created_at: row.created_at.and_then(crate::admin::state::naive_to_ts),
             updated_at: row.updated_at.and_then(crate::admin::state::naive_to_ts),
             deleted_at: row.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -72,7 +72,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListAccessKeyResponse {
             items: rows.into_iter().map(|r| self.to_proto(r)).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -89,7 +89,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         let row = match req.query_by {
             Some(crate::proto::access_key::service::v1::get_access_key_request::QueryBy::Id(
                 id,
-            )) => Some(repo.get_by_id(id as i64).await?),
+            )) => Some(repo.get_by_id(id).await?),
             Some(
                 crate::proto::access_key::service::v1::get_access_key_request::QueryBy::AccessKey(
                     ak,
@@ -147,7 +147,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
             crate::admin::data::Viewer::from_ctx(&ctx),
         );
         let mut active: crate::admin::data::sys_access_keys::ActiveModel =
-            repo.get_by_id(req.id as i64).await?.into();
+            repo.get_by_id(req.id).await?.into();
         if let Some(data) = &req.data {
             // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
             // 存量 if-let-Some 全量提交语义不变）。name 是 NOT NULL 列走
@@ -180,8 +180,8 @@ impl AccessKeyServiceHandlers for AccessKeyService {
             &self.state.db,
             crate::admin::data::Viewer::from_ctx(&ctx),
         );
-        repo.get_by_id(req.id as i64).await?;
-        repo.delete_by_id(req.id as i64).await?;
+        repo.get_by_id(req.id).await?;
+        repo.delete_by_id(req.id).await?;
         Ok(Empty {})
     }
 
@@ -197,7 +197,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         );
         let secret = new_secret();
         let mut active: crate::admin::data::sys_access_keys::ActiveModel =
-            repo.get_by_id(req.id as i64).await?.into();
+            repo.get_by_id(req.id).await?.into();
         active.secret_hash = Set(crate::admin::crypto::sha256_hex(secret.as_bytes()));
         crate::stamp_update!(active, payload.user_id);
         let updated = active
@@ -255,7 +255,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
         let payload = UserTokenPayload {
             username: format!("ak:{}", row.access_key),
             user_id: 0,
-            tenant_id: (row.tenant_id.unwrap_or(0) as u64 as i64),
+            tenant_id: row.tenant_id.unwrap_or(0),
             roles: vec!["machine".into()],
             ..Default::default()
         };
@@ -322,7 +322,7 @@ mod tests {
         keys::Entity::find_by_id(id).one(db).await.unwrap().unwrap()
     }
 
-    fn update_req(id: u64, data: AccessKey, paths: &[&str]) -> UpdateAccessKeyRequest {
+    fn update_req(id: i64, data: AccessKey, paths: &[&str]) -> UpdateAccessKeyRequest {
         UpdateAccessKeyRequest {
             id,
             data: Some(data),
@@ -347,7 +347,7 @@ mod tests {
         svc.update(
             ctx(1, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 AccessKey {
                     name: Some("新凭证".into()),
                     status: Some(0),
@@ -400,7 +400,7 @@ mod tests {
         svc.update(
             ctx(1, 9),
             UpdateAccessKeyRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(AccessKey {
                     name: Some("改名".into()),
                     ..Default::default()
@@ -420,7 +420,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update(
             ctx(1, 9),
-            update_req(row.id as u64, AccessKey::default(), &["expires_at"]),
+            update_req(row.id, AccessKey::default(), &["expires_at"]),
         )
         .await
         .unwrap();

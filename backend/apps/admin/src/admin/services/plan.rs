@@ -50,16 +50,16 @@ fn quota_type_to_str(v: i32) -> String {
 
 fn plan_proto(r: crate::admin::data::sys_plans::Model) -> Plan {
     Plan {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         version: r.version.as_deref().map(plan_version_to_proto),
         expiry_policy: r.expiry_policy.as_deref().map(expiry_policy_to_proto),
         data_retention_days: r.data_retention_days,
         description: r.description,
         remark: r.remark,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -68,15 +68,15 @@ fn plan_proto(r: crate::admin::data::sys_plans::Model) -> Plan {
 
 fn plan_module_proto(r: crate::admin::data::sys_plan_modules::Model) -> PlanModule {
     PlanModule {
-        id: Some(r.id as u64),
-        plan_id: Some(r.plan_id as u64),
+        id: Some(r.id),
+        plan_id: Some(r.plan_id),
         module: r
             .module
             .as_deref()
             .map(|s| mapping::menu_module_of(s).unwrap_or(0)),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -85,16 +85,16 @@ fn plan_module_proto(r: crate::admin::data::sys_plan_modules::Model) -> PlanModu
 
 fn plan_quota_proto(r: crate::admin::data::sys_plan_quotas::Model) -> PlanQuota {
     PlanQuota {
-        id: Some(r.id as u64),
-        plan_id: Some(r.plan_id as u64),
+        id: Some(r.id),
+        plan_id: Some(r.plan_id),
         quota_type: r
             .quota_type
             .as_deref()
             .map(|s| mapping::plan_quota_type_of(s).unwrap_or(0)),
         quota_value: r.quota_value.map(|v| v as u64),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -116,7 +116,7 @@ impl crate::proto::gen::services::PlanServiceHandlers for PlanService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListPlanResponse {
             items: rows.into_iter().map(plan_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -129,7 +129,7 @@ impl crate::proto::gen::services::PlanServiceHandlers for PlanService {
             req.query_by,
             crate::proto::identity::service::v1::get_plan_request::QueryBy
         );
-        let row = crate::admin::data::sys_plans::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_plans::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -168,7 +168,7 @@ impl crate::proto::gen::services::PlanServiceHandlers for PlanService {
         req: UpdatePlanRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_plans::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_plans::Entity::find_by_id(req.id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -220,7 +220,7 @@ impl crate::proto::gen::services::PlanServiceHandlers for PlanService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        crate::admin::data::sys_plans::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_plans::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -243,7 +243,7 @@ impl crate::proto::gen::services::PlanModuleServiceHandlers for PlanModuleServic
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListPlanModuleResponse {
             items: rows.into_iter().map(plan_module_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -256,7 +256,7 @@ impl crate::proto::gen::services::PlanModuleServiceHandlers for PlanModuleServic
             req.query_by,
             crate::proto::identity::service::v1::get_plan_module_request::QueryBy
         );
-        let row = crate::admin::data::sys_plan_modules::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_plan_modules::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -272,7 +272,7 @@ impl crate::proto::gen::services::PlanModuleServiceHandlers for PlanModuleServic
         let payload = operator_of(&ctx)?;
         let data = crate::admin::state::require_data(req.data)?;
         crate::admin::data::sys_plan_modules::ActiveModel {
-            plan_id: Set(data.plan_id.map(|v| v as i64).unwrap_or(0)),
+            plan_id: Set(data.plan_id.unwrap_or(0)),
             module: Set(Some(module_to_str(data.module.unwrap_or(0)))),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::admin::data::now())),
@@ -291,7 +291,7 @@ impl crate::proto::gen::services::PlanModuleServiceHandlers for PlanModuleServic
         req: UpdatePlanModuleRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_plan_modules::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_plan_modules::Entity::find_by_id(req.id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -319,7 +319,7 @@ impl crate::proto::gen::services::PlanModuleServiceHandlers for PlanModuleServic
             req.query_by,
             crate::proto::identity::service::v1::delete_plan_module_request::QueryBy
         );
-        crate::admin::data::sys_plan_modules::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_plan_modules::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -342,7 +342,7 @@ impl crate::proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService 
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListPlanQuotaResponse {
             items: rows.into_iter().map(plan_quota_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -354,7 +354,7 @@ impl crate::proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService 
         let payload = operator_of(&ctx)?;
         let data = crate::admin::state::require_data(req.data)?;
         crate::admin::data::sys_plan_quotas::ActiveModel {
-            plan_id: Set(data.plan_id.map(|v| v as i64).unwrap_or(0)),
+            plan_id: Set(data.plan_id.unwrap_or(0)),
             quota_type: Set(Some(quota_type_to_str(data.quota_type.unwrap_or(0)))),
             quota_value: Set(data.quota_value.map(|v| v as i64)),
             created_by: Set(Some(payload.user_id)),
@@ -374,7 +374,7 @@ impl crate::proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService 
         req: UpdatePlanQuotaRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_plan_quotas::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_plan_quotas::Entity::find_by_id(req.id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -402,7 +402,7 @@ impl crate::proto::gen::services::PlanQuotaServiceHandlers for PlanQuotaService 
             req.query_by,
             crate::proto::identity::service::v1::delete_plan_quota_request::QueryBy
         );
-        crate::admin::data::sys_plan_quotas::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_plan_quotas::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -515,7 +515,7 @@ mod tests {
         svc.update(
             me,
             UpdatePlanRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Plan {
                     name: Some("专业版".into()),
                     remark: Some("越权备注".into()),
@@ -558,7 +558,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdatePlanRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Plan {
                     description: Some("新描述".into()),
                     ..Default::default()
@@ -582,7 +582,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdatePlanRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Plan::default()),
                 update_mask: field_mask(&["name", "remark"]),
                 allow_missing: None,
@@ -613,7 +613,7 @@ mod tests {
         svc.update(
             me,
             UpdatePlanModuleRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PlanModule {
                     plan_id: Some(99),
                     module: Some(5),
@@ -653,7 +653,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdatePlanModuleRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PlanModule::default()),
                 update_mask: None,
                 allow_missing: None,
@@ -672,7 +672,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdatePlanModuleRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PlanModule::default()),
                 update_mask: field_mask(&["module"]),
                 allow_missing: None,
@@ -702,7 +702,7 @@ mod tests {
         svc.update(
             me,
             UpdatePlanQuotaRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PlanQuota {
                     quota_value: Some(500),
                     ..Default::default()
@@ -737,7 +737,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdatePlanQuotaRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PlanQuota::default()),
                 update_mask: None,
                 allow_missing: None,
@@ -756,7 +756,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdatePlanQuotaRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PlanQuota::default()),
                 update_mask: field_mask(&["quota_value"]),
                 allow_missing: None,

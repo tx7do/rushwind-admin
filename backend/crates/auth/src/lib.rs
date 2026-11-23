@@ -25,6 +25,11 @@ use rushwind_authn_gate::SessionError;
 
 pub use rushwind_authn_gate::AccessTokenChecker;
 
+/// The gate's verify face (signature + session validity) reused by the
+/// edge's request-body guard — "has a valid access token" ahead of any
+/// body read, same primitives as the gate, no second truth.
+pub use rushwind_authn_gate::authenticate_and_check_session;
+
 /// The tenant-level access checks — status, expiry read-only, and the
 /// plan module whitelist — split out so the storage stays service-side.
 /// Only tenant members (`tid > 0`) reach it; platform admins skip.

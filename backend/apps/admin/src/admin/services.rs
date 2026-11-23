@@ -1,6 +1,10 @@
 //! The service layer — one module per proto service, each implementing
+
 //! its generated Handlers trait against the shared [`crate::admin::state::AppState`]
 
+// The upload ceiling the edge's request-body guard derives from —
+// re-exported so the server layer reads one constant, not module internals.
+pub(crate) use file::media::MAX_UPLOAD_SIZE;
 mod access_key;
 mod admin_portal;
 mod agent_graph;

@@ -25,7 +25,7 @@ use pbjson_types::Empty;
 /// uses for its own unported outbounds.
 fn rule_proto(r: crate::admin::data::sys_notification_rules::Model) -> NotificationRule {
     NotificationRule {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         event_type: r
             .event_type
             .as_deref()
@@ -37,8 +37,8 @@ fn rule_proto(r: crate::admin::data::sys_notification_rules::Model) -> Notificat
         is_async: r.is_async,
         is_enabled: r.is_enabled,
         remark: r.remark,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
     }
@@ -109,7 +109,7 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListNotificationRuleResponse {
             items: rows.into_iter().map(rule_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -119,7 +119,7 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
         req: GetNotificationRuleRequest,
     ) -> Result<NotificationRule, StatusError> {
         let repo = crate::admin::data::repos::NotificationRuleRepo::new(&self.state.db);
-        Ok(rule_proto(repo.get_by_id(req.id as i64).await?))
+        Ok(rule_proto(repo.get_by_id(req.id).await?))
     }
 
     async fn create_notification_rule(
@@ -159,7 +159,7 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
         let repo = crate::admin::data::repos::NotificationRuleRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id as i64).await?;
+        let row = repo.get_by_id(req.id).await?;
         let mut a: crate::data::sys_notification_rules::ActiveModel = row.into();
         // 字段写入统一过 update_mask 白名单门（无掩码即存量全量提交语义）；
         // event_type 唯一性冲突校验保留原位——门只管"载荷字段→列"的写面，
@@ -170,7 +170,7 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
             let ev = v.clone().unwrap_or_default();
             if !ev.is_empty() {
                 if let Some(other) = repo.find_by_event_type(&ev).await? {
-                    if other.id != req.id as i64 {
+                    if other.id != req.id {
                         return Err(status_error("CONFLICT", "event_type already routed"));
                     }
                 }
@@ -187,8 +187,8 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
         req: DeleteNotificationRuleRequest,
     ) -> Result<Empty, StatusError> {
         let repo = crate::admin::data::repos::NotificationRuleRepo::new(&self.state.db);
-        repo.get_by_id(req.id as i64).await?;
-        repo.delete_by_id(req.id as i64).await?;
+        repo.get_by_id(req.id).await?;
+        repo.delete_by_id(req.id).await?;
         Ok(Empty {})
     }
 
@@ -199,7 +199,7 @@ impl crate::proto::gen::services::NotificationRuleServiceHandlers for Notificati
     ) -> Result<TestDispatchNotificationResponse, StatusError> {
         let payload = operator_of(&ctx)?;
         let repo = crate::admin::data::repos::NotificationRuleRepo::new(&self.state.db);
-        let rule = repo.get_by_id(req.id as i64).await?;
+        let rule = repo.get_by_id(req.id).await?;
         if !rule.is_enabled.unwrap_or(false) {
             return Err(status_error("BAD_REQUEST", "rule is disabled"));
         }
@@ -267,7 +267,7 @@ mod tests {
     }
 
     fn update_req(
-        id: u64,
+        id: i64,
         data: NotificationRule,
         paths: &[&str],
     ) -> UpdateNotificationRuleRequest {
@@ -294,7 +294,7 @@ mod tests {
         svc.update_notification_rule(
             ctx(0, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 NotificationRule {
                     remark: Some("新备注".into()),
                     is_enabled: Some(false),
@@ -334,7 +334,7 @@ mod tests {
         svc.update_notification_rule(
             ctx(0, 9),
             UpdateNotificationRuleRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(NotificationRule {
                     is_enabled: Some(false),
                     ..Default::default()
@@ -354,7 +354,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update_notification_rule(
             ctx(0, 9),
-            update_req(row.id as u64, NotificationRule::default(), &["remark"]),
+            update_req(row.id, NotificationRule::default(), &["remark"]),
         )
         .await
         .unwrap();

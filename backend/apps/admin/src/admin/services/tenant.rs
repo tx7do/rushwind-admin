@@ -54,7 +54,7 @@ fn audit_status_to_str(v: i32) -> String {
 
 fn tenant_proto(r: crate::admin::data::sys_tenants::Model) -> Tenant {
     Tenant {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         code: Some(r.code),
         domain: r.domain,
@@ -62,19 +62,19 @@ fn tenant_proto(r: crate::admin::data::sys_tenants::Model) -> Tenant {
         industry: r.industry,
         r#type: r.type_column.as_deref().map(type_to_proto),
         remark: r.remark,
-        admin_user_id: r.admin_user_id.map(|v| v as u64),
+        admin_user_id: r.admin_user_id,
         admin_user_name: None,
         subscription_at: r.subscription_at.and_then(crate::admin::state::naive_to_ts),
         unsubscribe_at: r.unsubscribe_at.and_then(crate::admin::state::naive_to_ts),
         expired_at: r.expired_at.and_then(crate::admin::state::naive_to_ts),
         subscription_plan: r.subscription_plan,
-        plan_id: r.plan_id.map(|v| v as u64),
+        plan_id: r.plan_id,
         member_count: None,
         status: r.status.as_deref().map(status_to_proto),
         audit_status: r.audit_status.as_deref().map(audit_status_to_proto),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -110,7 +110,7 @@ impl TenantService {
         use crate::proto::identity::service::v1::get_tenant_request::QueryBy;
         let repo = crate::admin::data::repos::TenantRepo::new(&self.state.db);
         match query {
-            QueryBy::Id(id) => repo.find_by_id(id as i64).await,
+            QueryBy::Id(id) => repo.find_by_id(id).await,
             QueryBy::Code(code) => repo.find_by_code(&code).await,
             QueryBy::Name(name) => repo.find_by_name(&name).await,
         }
@@ -145,7 +145,7 @@ impl TenantService {
                 .expired_at
                 .as_ref()
                 .and_then(crate::admin::state::ts_to_naive)),
-            plan_id: Set(tenant_data.plan_id.map(|v| v as i64)),
+            plan_id: Set(tenant_data.plan_id),
             created_by: Set(Some(operator_id)),
             created_at: Set(Some(crate::admin::data::now())),
             updated_at: Set(Some(crate::admin::data::now())),
@@ -338,7 +338,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListTenantResponse {
             items: rows.into_iter().map(tenant_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -402,7 +402,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
                 .expired_at
                 .as_ref()
                 .and_then(crate::admin::state::ts_to_naive)),
-            plan_id: Set(data.plan_id.map(|v| v as i64)),
+            plan_id: Set(data.plan_id),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::admin::data::now())),
             updated_at: Set(Some(crate::admin::data::now())),
@@ -425,7 +425,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         let _ = operator_of(&ctx)?;
         let repo = crate::admin::data::repos::TenantRepo::new(&self.state.db);
         let row = repo
-            .find_by_id(req.id as i64)
+            .find_by_id(req.id)
             .await?
             .ok_or_else(|| not_found("tenant"))?;
         let mut a: crate::admin::data::sys_tenants::ActiveModel = row.into();
@@ -462,8 +462,8 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
                 data.audit_status.filter(|v| *v != 0),
                 |v: &i32| Some(audit_status_to_str(*v))
             );
-            crate::set_masked!(opt mask, a, plan_id, data.plan_id, |v: &u64| Some(
-                *v as i64
+            crate::set_masked!(opt mask, a, plan_id, data.plan_id, |v: &i64| Some(
+                *v
             ));
             crate::set_masked!(opt mask, a, expired_at, data.expired_at, |v: &pbjson_types::Timestamp| {
                 crate::state::ts_to_naive(v)
@@ -488,7 +488,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         );
         let repo = crate::admin::data::repos::TenantRepo::new(&self.state.db);
         let row = repo
-            .find_by_id(id as i64)
+            .find_by_id(id)
             .await?
             .ok_or_else(|| not_found("tenant"))?;
         // Cleanup semantics ride along: the tenants themselves are parked,
@@ -517,7 +517,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         let (rows, total) = repo.paged_deleted(&req).await?;
         Ok(ListTenantResponse {
             items: rows.into_iter().map(tenant_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -535,7 +535,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         let payload = operator_of(&ctx)?;
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
         let row = repo
-            .find_by_id_unfiltered(req.id as i64)
+            .find_by_id_unfiltered(req.id)
             .await?
             .ok_or_else(|| not_found("tenant"))?;
         if row.deleted_at.is_none() {
@@ -567,7 +567,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         self.require_platform_admin(&ctx, "tenant purge").await?;
         let repo = crate::data::repos::TenantRepo::new(&self.state.db);
         let row = repo
-            .find_by_id_unfiltered(req.id as i64)
+            .find_by_id_unfiltered(req.id)
             .await?
             .ok_or_else(|| not_found("tenant"))?;
         if row.deleted_at.is_none() {
@@ -647,7 +647,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         // 归属闸：平台管理员看任意租户用量，租户成员只看自己（防跨租户
         // 用量探测）。
         let payload = operator_of(&ctx)?;
-        let tid = req.id as i64;
+        let tid = req.id;
         if payload.is_platform_admin != Some(true) && payload.tenant_id != tid {
             return Err(status_error(
                 "FORBIDDEN",
@@ -665,10 +665,10 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         // 平台专属写口（P2 收闸补齐）：cleanup_rows 级联清 30+ 张表。
         self.require_platform_admin(&ctx, "tenant cleanup").await?;
         let _ = operator_of(&ctx)?;
-        self.cleanup_rows(req.id as i64).await?;
+        self.cleanup_rows(req.id).await?;
         // Park the tenant, keep the row.
         let repo = crate::admin::data::repos::TenantRepo::new(&self.state.db);
-        if let Some(row) = repo.find_by_id(req.id as i64).await? {
+        if let Some(row) = repo.find_by_id(req.id).await? {
             let mut a: crate::admin::data::sys_tenants::ActiveModel = row.into();
             a.status = Set(Some("OFF".into()));
             a.updated_at = Set(Some(crate::admin::data::now()));
@@ -698,11 +698,11 @@ pub(crate) async fn usage_for(
         None => None,
     };
     Ok(TenantUsage {
-        tenant_id: tenant_id as u64,
-        user_count,
+        tenant_id,
+        user_count: user_count as i64,
         storage_used_bytes: 0,
         api_call_count: 0,
-        plan_id: tenant.and_then(|t| t.plan_id).map(|v| v as u64),
+        plan_id: tenant.and_then(|t| t.plan_id),
         plan_name,
         quotas: Vec::new(),
     })
@@ -792,7 +792,7 @@ mod tests {
         svc.update(
             me.clone(),
             UpdateTenantRequest {
-                id: acme_id as u64,
+                id: acme_id,
                 data: Some(Tenant {
                     audit_status: Some(3),
                     ..Default::default()
@@ -808,7 +808,7 @@ mod tests {
                 GetTenantRequest {
                     query_by: Some(
                         crate::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
-                            acme_id as u64,
+                            acme_id,
                         ),
                     ),
                     ..Default::default()
@@ -822,7 +822,7 @@ mod tests {
         svc.delete(
             me.clone(),
             DeleteTenantRequest {
-                query_by: Some(DeleteQueryBy::Id(acme_id as u64)),
+                query_by: Some(DeleteQueryBy::Id(acme_id)),
             },
         )
         .await
@@ -832,7 +832,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(after.total, 1, "parked tenant leaves the list");
-        assert!(after.items.iter().all(|t| t.id != Some(acme_id as u64)));
+        assert!(after.items.iter().all(|t| t.id != Some(acme_id)));
         // Recreating the parked tenant's code passes the exists gate.
         svc.create(
             me.clone(),
@@ -873,7 +873,7 @@ mod tests {
         svc.delete(
             me.clone(),
             DeleteTenantRequest {
-                query_by: Some(DeleteQueryBy::Id(acme_id as u64)),
+                query_by: Some(DeleteQueryBy::Id(acme_id)),
             },
         )
         .await
@@ -885,7 +885,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(trash.total, 1, "parked tenant shows in trash");
-        assert_eq!(trash.items[0].id, Some(acme_id as u64));
+        assert_eq!(trash.items[0].id, Some(acme_id));
         assert!(trash.items[0].deleted_by.is_some(), "deleted_by stamped");
 
         // 在营对照：占用者与 acme 同 code/name（停车腾出唯一性后才建得成
@@ -908,9 +908,7 @@ mod tests {
         let err = svc
             .purge_tenant(
                 me.clone(),
-                crate::proto::identity::service::v1::PurgeTenantRequest {
-                    id: occupant_id as u64,
-                },
+                crate::proto::identity::service::v1::PurgeTenantRequest { id: occupant_id },
             )
             .await
             .unwrap_err();
@@ -923,7 +921,7 @@ mod tests {
         let err = svc
             .restore_tenant(
                 me.clone(),
-                crate::proto::identity::service::v1::RestoreTenantRequest { id: acme_id as u64 },
+                crate::proto::identity::service::v1::RestoreTenantRequest { id: acme_id },
             )
             .await
             .unwrap_err();
@@ -933,16 +931,14 @@ mod tests {
         svc.delete(
             me.clone(),
             DeleteTenantRequest {
-                query_by: Some(DeleteQueryBy::Id(occupant_id as u64)),
+                query_by: Some(DeleteQueryBy::Id(occupant_id)),
             },
         )
         .await
         .unwrap();
         svc.purge_tenant(
             me.clone(),
-            crate::proto::identity::service::v1::PurgeTenantRequest {
-                id: occupant_id as u64,
-            },
+            crate::proto::identity::service::v1::PurgeTenantRequest { id: occupant_id },
         )
         .await
         .unwrap();
@@ -953,7 +949,7 @@ mod tests {
         assert!(raw.is_none(), "purged row is gone even unfiltered");
         svc.restore_tenant(
             me.clone(),
-            crate::proto::identity::service::v1::RestoreTenantRequest { id: acme_id as u64 },
+            crate::proto::identity::service::v1::RestoreTenantRequest { id: acme_id },
         )
         .await
         .unwrap();

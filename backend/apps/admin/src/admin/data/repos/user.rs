@@ -293,14 +293,14 @@ impl<'a> UserRepo<'a> {
     }
 
     /// Role bindings of a user (sys_user_roles).
-    pub async fn list_role_ids(&self, user_id: i64) -> Result<Vec<u64>, StatusError> {
+    pub async fn list_role_ids(&self, user_id: i64) -> Result<Vec<i64>, StatusError> {
         Ok(sys_user_roles::Entity::find()
             .filter(sys_user_roles::Column::UserId.eq(user_id))
             .all(self.db)
             .await
             .map_err(db_err)?
             .iter()
-            .filter_map(|r| r.role_id.map(|v| v as u64))
+            .filter_map(|r| r.role_id)
             .collect())
     }
 

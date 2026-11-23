@@ -60,7 +60,7 @@ fn hint_of(key: &str) -> String {
 
 fn provider_proto(r: crate::admin::data::sys_ai_providers::Model) -> AiProvider {
     AiProvider {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: r.name,
         model_type: r.model_type.as_deref().map(model_type_proto),
         model_name: r.model_name,
@@ -76,9 +76,9 @@ fn provider_proto(r: crate::admin::data::sys_ai_providers::Model) -> AiProvider 
         is_default: r.is_default,
         remark: r.remark,
         is_enabled: r.is_enabled,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -176,7 +176,7 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListAiProviderResponse {
             items: rows.into_iter().map(provider_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -192,7 +192,7 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
             crate::proto::ai::service::v1::get_ai_provider_request::QueryBy
         );
         let row = repo
-            .find_scoped(id as i64)
+            .find_scoped(id)
             .await?
             .ok_or_else(|| not_found("ai provider"))?;
         Ok(provider_proto(row))
@@ -218,7 +218,7 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
         crate::ensure_default!(a, is_enabled, true);
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
         if inserted.is_default == Some(true) {
-            self.clear_other_defaults(payload.tenant_id, inserted.id as u64 as i64)
+            self.clear_other_defaults(payload.tenant_id, inserted.id as i64)
                 .await?;
         }
         Ok(Empty {})
@@ -234,7 +234,7 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
         let repo =
             crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
         let row = repo
-            .find_scoped(req.id as i64)
+            .find_scoped(req.id)
             .await?
             .ok_or_else(|| not_found("ai provider"))?;
         let mut a: crate::data::sys_ai_providers::ActiveModel = row.into();
@@ -248,8 +248,7 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
         let is_default = a.is_default.clone().unwrap() == Some(true);
         a.update(&self.state.db).await.map_err(db_err)?;
         if is_default {
-            self.clear_other_defaults(payload.tenant_id, req.id as i64)
-                .await?;
+            self.clear_other_defaults(payload.tenant_id, req.id).await?;
         }
         Ok(Empty {})
     }
@@ -265,10 +264,10 @@ impl crate::proto::gen::services::AiProviderServiceHandlers for AiProviderServic
         );
         let repo =
             crate::admin::data::repos::AiProviderRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
-        repo.find_scoped(id as i64)
+        repo.find_scoped(id)
             .await?
             .ok_or_else(|| not_found("ai provider"))?;
-        crate::admin::data::sys_ai_providers::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_ai_providers::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -345,7 +344,7 @@ mod tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: AiProvider, paths: &[&str]) -> UpdateAiProviderRequest {
+    fn update_req(id: i64, data: AiProvider, paths: &[&str]) -> UpdateAiProviderRequest {
         UpdateAiProviderRequest {
             id,
             data: Some(data),
@@ -372,7 +371,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 AiProvider {
                     name: Some("新名".into()),
                     remark: Some("劫持".into()),
@@ -421,7 +420,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdateAiProviderRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(AiProvider {
                     name: Some("改名".into()),
                     ..Default::default()
@@ -440,12 +439,9 @@ mod tests {
         );
 
         // 掩码选中：None 清列。
-        svc.update(
-            me,
-            update_req(row.id as u64, AiProvider::default(), &["remark"]),
-        )
-        .await
-        .unwrap();
+        svc.update(me, update_req(row.id, AiProvider::default(), &["remark"]))
+            .await
+            .unwrap();
         let fresh = row_by_id(db, row.id).await;
         assert!(
             fresh.remark.is_none(),
@@ -470,7 +466,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             update_req(
-                row.id as u64,
+                row.id,
                 AiProvider {
                     api_key: Some("sk-new-secret".into()),
                     ..Default::default()
@@ -492,7 +488,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 AiProvider {
                     api_key: Some("sk-new-secret".into()),
                     ..Default::default()

@@ -15,15 +15,15 @@ use pbjson_types::Empty;
 
 fn conv_proto(r: crate::admin::data::sys_ai_conversations::Model) -> AiConversation {
     AiConversation {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         title: r.title,
-        provider_id: r.provider_id.map(|v| v as u64),
-        user_id: Some(r.user_id as u64),
+        provider_id: r.provider_id,
+        user_id: Some(r.user_id),
         last_message_at: r.last_message_at.and_then(crate::admin::state::naive_to_ts),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -48,7 +48,7 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListAiConversationResponse {
             items: rows.into_iter().map(conv_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -66,7 +66,7 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
             crate::proto::ai::service::v1::get_ai_conversation_request::QueryBy
         );
         let row = repo
-            .find_scoped(id as i64)
+            .find_scoped(id)
             .await?
             .ok_or_else(|| not_found("ai conversation"))?;
         Ok(conv_proto(row))
@@ -85,7 +85,7 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
             Viewer::from_ctx(&ctx),
         );
         let row = repo
-            .find_scoped(req.id as i64)
+            .find_scoped(req.id)
             .await?
             .ok_or_else(|| not_found("ai conversation"))?;
         let mut a: crate::admin::data::sys_ai_conversations::ActiveModel = row.into();
@@ -112,7 +112,7 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
             &self.state.db,
             Viewer::from_ctx(&ctx),
         );
-        repo.find_scoped(id as i64)
+        repo.find_scoped(id)
             .await?
             .ok_or_else(|| not_found("ai conversation"))?;
         // 会话删除级联消息行（上游 delete cascade 同语义）。
@@ -122,7 +122,7 @@ impl crate::proto::gen::services::AiConversationServiceHandlers for AiConversati
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        crate::admin::data::sys_ai_conversations::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_ai_conversations::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -159,7 +159,7 @@ mod tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: AiConversation, paths: &[&str]) -> UpdateAiConversationRequest {
+    fn update_req(id: i64, data: AiConversation, paths: &[&str]) -> UpdateAiConversationRequest {
         UpdateAiConversationRequest {
             id,
             data: Some(data),
@@ -187,7 +187,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 AiConversation {
                     title: Some("劫持标题".into()),
                     ..Default::default()
@@ -208,7 +208,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             update_req(
-                row.id as u64,
+                row.id,
                 AiConversation {
                     title: Some("新标题".into()),
                     ..Default::default()
@@ -238,7 +238,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdateAiConversationRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(AiConversation::default()),
                 update_mask: None,
                 allow_missing: None,
@@ -256,7 +256,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update(
             me,
-            update_req(row.id as u64, AiConversation::default(), &["title"]),
+            update_req(row.id, AiConversation::default(), &["title"]),
         )
         .await
         .unwrap();

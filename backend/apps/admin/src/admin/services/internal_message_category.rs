@@ -19,17 +19,17 @@ fn category_proto(
     r: crate::admin::data::internal_message_categories::Model,
 ) -> InternalMessageCategory {
     InternalMessageCategory {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         name: Some(r.name),
         code: Some(r.code),
         icon_url: r.icon_url,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
         tenant_name: None,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -54,7 +54,7 @@ impl crate::proto::gen::services::InternalMessageCategoryServiceHandlers
         let (rows, total) = repo.paged_list(tid, &req).await?;
         Ok(ListInternalMessageCategoryResponse {
             items: rows.into_iter().map(category_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -67,7 +67,7 @@ impl crate::proto::gen::services::InternalMessageCategoryServiceHandlers
         let scope = crate::admin::data::Viewer::from_ctx(&ctx).tenant_scope();
         let repo = crate::admin::data::repos::InternalMessageCategoryRepo::new(&self.state.db);
         let row = repo
-            .find_scoped(id as i64, scope)
+            .find_scoped(id, scope)
             .await?
             .ok_or_else(|| not_found("message category"))?;
         Ok(category_proto(row))
@@ -107,7 +107,7 @@ impl crate::proto::gen::services::InternalMessageCategoryServiceHandlers
         let scope = crate::admin::data::Viewer::from_ctx(&ctx).tenant_scope();
         let repo = crate::admin::data::repos::InternalMessageCategoryRepo::new(&self.state.db);
         let row = repo
-            .find_scoped(req.id as i64, scope)
+            .find_scoped(req.id, scope)
             .await?
             .ok_or_else(|| not_found("message category"))?;
         let mut a: crate::admin::data::internal_message_categories::ActiveModel = row.into();
@@ -141,7 +141,7 @@ impl crate::proto::gen::services::InternalMessageCategoryServiceHandlers
         let id = crate::query_by_id!(req.query_by, DeleteQueryBy);
         let scope = crate::admin::data::Viewer::from_ctx(&ctx).tenant_scope();
         let repo = crate::admin::data::repos::InternalMessageCategoryRepo::new(&self.state.db);
-        repo.delete_scoped(id as i64, scope).await?;
+        repo.delete_scoped(id, scope).await?;
         Ok(Empty {})
     }
 }
@@ -178,7 +178,7 @@ mod tests {
     }
 
     fn update_req(
-        id: u64,
+        id: i64,
         data: InternalMessageCategory,
         paths: &[&str],
     ) -> crate::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
@@ -206,7 +206,7 @@ mod tests {
         svc.update(
             ctx(1, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 InternalMessageCategory {
                     name: Some("新分类".into()),
                     icon_url: Some("lucide:evil".into()),
@@ -244,7 +244,7 @@ mod tests {
         svc.update(
             ctx(1, 9),
             crate::proto::internal_message::service::v1::UpdateInternalMessageCategoryRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(InternalMessageCategory {
                     name: Some("改名".into()),
                     ..Default::default()
@@ -265,11 +265,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update(
             ctx(1, 9),
-            update_req(
-                row.id as u64,
-                InternalMessageCategory::default(),
-                &["icon_url"],
-            ),
+            update_req(row.id, InternalMessageCategory::default(), &["icon_url"]),
         )
         .await
         .unwrap();

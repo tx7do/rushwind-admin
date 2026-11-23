@@ -10,13 +10,13 @@ repo_shell!(global LanguageRepo, entity, "language");
 
 impl<'a> LanguageRepo<'a> {
     /// The id behind a language-code lookup (Get's query_by=code).
-    pub async fn find_id_by_code(&self, code: &str) -> Result<Option<u64>, StatusError> {
+    pub async fn find_id_by_code(&self, code: &str) -> Result<Option<i64>, StatusError> {
         entity::Entity::find()
             .filter(entity::Column::LanguageCode.eq(code))
             .one(self.db)
             .await
             .map_err(db_err)
-            .map(|row| row.map(|row| row.id as u64))
+            .map(|row| row.map(|row| row.id))
     }
 
     /// One insert, shared by create and batch_create.
@@ -73,7 +73,7 @@ mod tests {
 
         assert_eq!(
             repo.find_id_by_code("en-US").await.unwrap(),
-            Some((zh.id + 1) as u64)
+            Some(zh.id + 1)
         );
 
         repo.delete_by_id(zh.id).await.unwrap();

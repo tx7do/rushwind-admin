@@ -13,15 +13,15 @@ use crate::proto::ai::service::v1::{AiConversation, AiMessage, ChatRequest, Chat
 
 fn conv_proto(r: crate::admin::data::sys_ai_conversations::Model) -> AiConversation {
     AiConversation {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         title: r.title,
-        provider_id: r.provider_id.map(|v| v as u64),
-        user_id: Some(r.user_id as u64),
+        provider_id: r.provider_id,
+        user_id: Some(r.user_id),
         last_message_at: r.last_message_at.and_then(crate::admin::state::naive_to_ts),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -30,9 +30,9 @@ fn conv_proto(r: crate::admin::data::sys_ai_conversations::Model) -> AiConversat
 
 fn msg_proto(r: crate::admin::data::sys_ai_messages::Model) -> AiMessage {
     AiMessage {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
-        conversation_id: Some(r.conversation_id as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
+        conversation_id: Some(r.conversation_id),
         role: r.role.as_deref().map(|s| match s {
             "ASSISTANT" => 1,
             "SYSTEM" => 2,
@@ -44,7 +44,7 @@ fn msg_proto(r: crate::admin::data::sys_ai_messages::Model) -> AiMessage {
         completion_tokens: r.completion_tokens,
         duration_ms: r.duration_ms,
         error_message: r.error_message,
-        user_id: Some(r.user_id as u64),
+        user_id: Some(r.user_id),
         created_by: None,
         updated_by: None,
         deleted_by: None,
@@ -139,7 +139,7 @@ impl crate::proto::gen::services::AiChatServiceHandlers for AiChatService {
                 &self.state.db,
                 Viewer::from_ctx(&ctx),
             )
-            .find_scoped(cid as i64)
+            .find_scoped(cid)
             .await?
             .ok_or_else(|| not_found("ai conversation"))?
         } else {
@@ -147,7 +147,7 @@ impl crate::proto::gen::services::AiChatServiceHandlers for AiChatService {
             crate::admin::data::sys_ai_conversations::ActiveModel {
                 tenant_id: Set(Some(payload.tenant_id)),
                 title: Set(Some(title)),
-                provider_id: Set(req.provider_id.map(|v| v as i64)),
+                provider_id: Set(req.provider_id),
                 user_id: Set(payload.user_id),
                 created_by: Set(Some(payload.user_id)),
                 updated_by: Set(Some(payload.user_id)),
@@ -161,10 +161,7 @@ impl crate::proto::gen::services::AiChatServiceHandlers for AiChatService {
         };
 
         // Provider 解析：载荷 > 会话绑定 > 默认。
-        let provider_id = req
-            .provider_id
-            .map(|v| v as i64)
-            .or(conversation.provider_id);
+        let provider_id = req.provider_id.or(conversation.provider_id);
         let provider = self.load_provider(payload.tenant_id, provider_id).await?;
 
         // 用户消息落库。

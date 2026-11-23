@@ -37,10 +37,10 @@ fn pref_proto(
 ) -> NotificationPreference {
     let muted = r.muted_category_ids.and_then(|v| {
         v.as_array()
-            .map(|arr| arr.iter().filter_map(|x| x.as_u64()).collect::<Vec<u64>>())
+            .map(|arr| arr.iter().filter_map(|x| x.as_i64()).collect::<Vec<i64>>())
     });
     NotificationPreference {
-        user_id: Some(r.user_id as u64),
+        user_id: Some(r.user_id),
         quiet_enabled: r.quiet_enabled,
         quiet_start_minute: r.quiet_start_minute,
         quiet_end_minute: r.quiet_end_minute,
@@ -119,7 +119,7 @@ impl crate::proto::gen::services::NotificationPreferenceServiceHandlers
         match repo.get_by_user_id(payload.user_id).await? {
             Some(row) => Ok(pref_proto(row)),
             None => Ok(NotificationPreference {
-                user_id: Some(payload.user_id as u64),
+                user_id: Some(payload.user_id),
                 quiet_enabled: Some(false),
                 quiet_start_minute: Some(DEFAULT_QUIET_START_MINUTE),
                 quiet_end_minute: Some(DEFAULT_QUIET_END_MINUTE),
@@ -184,7 +184,7 @@ impl crate::proto::gen::services::NotificationPreferenceServiceHandlers
             items: rows
                 .into_iter()
                 .map(|c| NotificationCategoryItem {
-                    id: Some(c.id as u64),
+                    id: Some(c.id),
                     name: Some(c.name),
                 })
                 .collect(),

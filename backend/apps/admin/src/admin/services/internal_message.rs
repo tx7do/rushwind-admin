@@ -22,7 +22,7 @@ fn message_status_to_proto(s: &str) -> i32 {
 
 fn message_proto(r: crate::admin::data::internal_messages::Model) -> InternalMessage {
     InternalMessage {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         title: r.title,
         content: r.content,
         status: r.status.as_deref().map(message_status_to_proto),
@@ -30,15 +30,15 @@ fn message_proto(r: crate::admin::data::internal_messages::Model) -> InternalMes
             .type_column
             .as_deref()
             .map(|s| mapping::internal_message_type_of(s).unwrap_or(0)),
-        sender_id: r.sender_id.map(|v| v as u64),
+        sender_id: r.sender_id,
         sender_name: None,
-        category_id: r.category_id.map(|v| v as u64),
+        category_id: r.category_id,
         category_name: None,
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        tenant_id: r.tenant_id,
         tenant_name: None,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -91,7 +91,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
         let (rows, total) = repo.paged_list(tenant_of(&ctx), &req).await?;
         Ok(ListInternalMessageResponse {
             items: rows.into_iter().map(message_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -104,7 +104,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
             req.query_by,
             crate::proto::internal_message::service::v1::get_internal_message_request::QueryBy
         );
-        let row = crate::admin::data::internal_messages::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::internal_messages::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -118,7 +118,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
         req: UpdateInternalMessageRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::internal_messages::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::internal_messages::Entity::find_by_id(req.id)
             .filter(crate::admin::data::internal_messages::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -152,7 +152,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
             req.query_by,
             crate::proto::internal_message::service::v1::delete_internal_message_request::QueryBy
         );
-        let row = crate::admin::data::internal_messages::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::internal_messages::Entity::find_by_id(id)
             .filter(crate::admin::data::internal_messages::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -187,7 +187,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
             title: Set(req.title.clone()),
             content: Set(Some(req.content.clone())),
             sender_id: Set(Some(payload.user_id)),
-            category_id: Set(req.category_id.map(|v| v as i64)),
+            category_id: Set(req.category_id),
             status: Set(Some("PUBLISHED".into())),
             type_column: Set(Some(type_str.into())),
             created_by: Set(Some(payload.user_id)),
@@ -203,12 +203,9 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
         // tenant fan-out (the broadcast rides the scheduler phase;
         // direct fan-out covers the API contract).
         let recipient_ids: Vec<i64> = if !req.target_user_ids.is_empty() {
-            req.target_user_ids
-                .iter()
-                .map(|v| *v as i64)
-                .collect::<Vec<i64>>()
+            req.target_user_ids.to_vec()
         } else if let Some(uid) = req.recipient_user_id {
-            vec![(uid as i64)]
+            vec![uid]
         } else if req.target_all == Some(true) {
             crate::admin::data::sys_users::Entity::find()
                 .filter(crate::admin::data::sys_users::Column::TenantId.eq(payload.tenant_id))
@@ -238,7 +235,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
                     &self.state.hub,
                     &crate::admin::server::sse::NotificationPayload {
                         id: message.id,
-                        message_id: (message.id as u64 as i64),
+                        message_id: (message.id as i64),
                         recipient_user_id: *uid,
                         title: req.title.clone().unwrap_or_default(),
                         content: req.content.clone(),
@@ -248,7 +245,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
             }
         }
         Ok(SendMessageResponse {
-            message_id: message.id as u64,
+            message_id: message.id,
         })
     }
 
@@ -258,7 +255,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
         req: RevokeMessageRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::internal_messages::Entity::find_by_id(req.message_id as i64)
+        let row = crate::admin::data::internal_messages::Entity::find_by_id(req.message_id)
             .filter(crate::admin::data::internal_messages::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -311,7 +308,7 @@ mod tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: InternalMessage, paths: &[&str]) -> UpdateInternalMessageRequest {
+    fn update_req(id: i64, data: InternalMessage, paths: &[&str]) -> UpdateInternalMessageRequest {
         UpdateInternalMessageRequest {
             id,
             data: Some(data),
@@ -336,7 +333,7 @@ mod tests {
         svc.update_message(
             ctx(1, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 InternalMessage {
                     title: Some("新标题".into()),
                     content: Some("越权内容".into()),
@@ -372,7 +369,7 @@ mod tests {
         svc.update_message(
             ctx(1, 9),
             UpdateInternalMessageRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(InternalMessage {
                     title: Some("换个标题".into()),
                     ..Default::default()
@@ -393,7 +390,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update_message(
             ctx(1, 9),
-            update_req(row.id as u64, InternalMessage::default(), &["content"]),
+            update_req(row.id, InternalMessage::default(), &["content"]),
         )
         .await
         .unwrap();

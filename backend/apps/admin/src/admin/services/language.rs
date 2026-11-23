@@ -14,16 +14,16 @@ use pbjson_types::Empty;
 
 fn language_proto(r: crate::admin::data::sys_languages::Model) -> Language {
     Language {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         language_code: Some(r.language_code),
         language_name: Some(r.language_name),
         native_name: r.native_name,
         is_default: r.is_default,
         is_enabled: r.is_enabled,
         sort_order: r.sort_order,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -64,7 +64,7 @@ impl crate::proto::gen::services::LanguageServiceHandlers for LanguageService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListLanguageResponse {
             items: rows.into_iter().map(language_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -142,7 +142,7 @@ impl crate::proto::gen::services::LanguageServiceHandlers for LanguageService {
         let payload = operator_of(&ctx)?;
         let repo = crate::admin::data::repos::LanguageRepo::new(&self.state.db);
         let mut a: crate::admin::data::sys_languages::ActiveModel =
-            repo.get_by_id(req.id as i64).await?.into();
+            repo.get_by_id(req.id).await?.into();
         if let Some(data) = &req.data {
             let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
             Self::apply_fields(&mut a, data, &mask);
@@ -162,7 +162,7 @@ impl crate::proto::gen::services::LanguageServiceHandlers for LanguageService {
             crate::proto::dict::service::v1::delete_language_request::QueryBy
         );
         crate::admin::data::repos::LanguageRepo::new(&self.state.db)
-            .delete_by_id(id as i64)
+            .delete_by_id(id)
             .await?;
         Ok(Empty {})
     }
@@ -317,7 +317,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdateLanguageRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Language {
                     language_name: Some("中文（简体）".into()),
                     native_name: Some(" evil ".into()),
@@ -384,7 +384,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdateLanguageRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Language {
                     language_name: Some("English".into()),
                     ..Default::default()
@@ -410,7 +410,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdateLanguageRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Language::default()),
                 update_mask: Some(pbjson_types::FieldMask {
                     paths: vec!["native_name".into()],

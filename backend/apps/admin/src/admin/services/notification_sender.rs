@@ -173,12 +173,7 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
     };
     let to_mailbox: Mailbox = match req.target.trim().parse() {
         Ok(m) => m,
-        Err(e) => {
-            return failed(
-                Some(row.id as u64 as i64),
-                format!("email target invalid: {e}"),
-            )
-        }
+        Err(e) => return failed(Some(row.id as i64), format!("email target invalid: {e}")),
     };
     let email = match Message::builder()
         .from(from_mailbox)
@@ -187,12 +182,7 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
         .body(req.content.clone())
     {
         Ok(m) => m,
-        Err(e) => {
-            return failed(
-                Some(row.id as u64 as i64),
-                format!("build mail failed: {e}"),
-            )
-        }
+        Err(e) => return failed(Some(row.id as i64), format!("build mail failed: {e}")),
     };
 
     use lettre::transport::smtp::client::Tls;
@@ -219,7 +209,7 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
         }
         _ => match AsyncSmtpTransport::<lettre::Tokio1Executor>::relay(&host) {
             Ok(b) => b,
-            Err(e) => return failed(Some(row.id as u64 as i64), format!("smtp relay build: {e}")),
+            Err(e) => return failed(Some(row.id as i64), format!("smtp relay build: {e}")),
         },
     };
     builder = builder.tls(tls_mode).port(port);
@@ -230,7 +220,7 @@ async fn send_email(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Outc
 
     match mailer.send(email).await {
         Ok(_) => Outcome::Sent {
-            channel_id: (row.id as u64 as i64),
+            channel_id: (row.id as i64),
         },
         Err(e) => failed(
             Some(row.id),
@@ -553,12 +543,7 @@ async fn send_webhook(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Ou
     // 只追加两个键——先定最终地址再构造请求。
     let mut endpoint = match reqwest::Url::parse(req.target.trim()) {
         Ok(u) => u,
-        Err(e) => {
-            return failed(
-                Some(row.id as u64 as i64),
-                format!("webhook url parse: {e}"),
-            )
-        }
+        Err(e) => return failed(Some(row.id as i64), format!("webhook url parse: {e}")),
     };
     if let Some(query) = &outbound.query {
         for (k, v) in query {
@@ -582,7 +567,7 @@ async fn send_webhook(db: &sea_orm::DatabaseConnection, req: &SendRequest) -> Ou
                 .header("X-Gw-Signature", sig);
         }
     }
-    finish_webhook(row.id as u64 as i64, &style, request.send().await).await
+    finish_webhook(row.id as i64, &style, request.send().await).await
 }
 
 async fn finish_webhook(
@@ -1035,7 +1020,7 @@ pub async fn deliver_once(
     channel_type: &str,
     req: &SendRequest,
     operator_id: i64,
-) -> Result<(u64, Outcome), StatusError> {
+) -> Result<(i64, Outcome), StatusError> {
     use sea_orm::ActiveModelTrait;
     let delivery = crate::admin::data::repos::NotificationDeliveryRepo::new(db)
         .insert(
@@ -1072,7 +1057,7 @@ pub async fn deliver_once(
     if let Err(e) = a.update(db).await {
         eprintln!("[notify] mark result for delivery failed: {e:?}");
     }
-    Ok(((delivery_id as u64), outcome))
+    Ok(((delivery_id), outcome))
 }
 
 #[cfg(test)]

@@ -26,7 +26,7 @@ use crate::proto::monitor_alert::service::v1::MonitorMetric as MetricEnum;
 
 fn rule_proto(r: crate::admin::data::sys_monitor_alert_rules::Model) -> MonitorAlertRule {
     MonitorAlertRule {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         metric: r.metric.as_deref().and_then(mapping::monitor_metric_of),
         op: r.op.as_deref().and_then(mapping::monitor_alert_op_of),
@@ -287,7 +287,7 @@ impl crate::proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertSe
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListMonitorAlertRuleResponse {
             items: rows.into_iter().map(rule_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -297,7 +297,7 @@ impl crate::proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertSe
         req: GetMonitorAlertRuleRequest,
     ) -> Result<MonitorAlertRule, StatusError> {
         let repo = crate::admin::data::repos::MonitorAlertRepo::new(&self.state.db);
-        Ok(rule_proto(repo.get_by_id(req.id as i64).await?))
+        Ok(rule_proto(repo.get_by_id(req.id).await?))
     }
 
     async fn create_monitor_alert_rule(
@@ -332,7 +332,7 @@ impl crate::proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertSe
         let data = require_data(req.data)?;
         validate_alert_rule(&data)?;
         let repo = crate::admin::data::repos::MonitorAlertRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id as i64).await?;
+        let row = repo.get_by_id(req.id).await?;
         let mut a: crate::data::sys_monitor_alert_rules::ActiveModel = row.into();
         // 字段写入统一过 update_mask 白名单门（无掩码即存量全量提交语义）；
         // validate_alert_rule 的载荷级校验保留原位（要求 target/op/threshold
@@ -350,8 +350,8 @@ impl crate::proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertSe
         req: DeleteMonitorAlertRuleRequest,
     ) -> Result<Empty, StatusError> {
         let repo = crate::admin::data::repos::MonitorAlertRepo::new(&self.state.db);
-        repo.get_by_id(req.id as i64).await?;
-        repo.delete_by_id(req.id as i64).await?;
+        repo.get_by_id(req.id).await?;
+        repo.delete_by_id(req.id).await?;
         Ok(Empty {})
     }
 
@@ -379,7 +379,7 @@ impl crate::proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertSe
 
             let Some(value) = Self::metric_value(metric, &server, redis_size) else {
                 outcomes.push(RuleOutcome {
-                    rule_id: rule.id as u64,
+                    rule_id: rule.id,
                     name: rule.name.clone(),
                     firing: rule.last_firing.unwrap_or(false),
                     current_value: None,
@@ -423,7 +423,7 @@ impl crate::proto::gen::services::MonitorAlertServiceHandlers for MonitorAlertSe
             let _ = a.update(&self.state.db).await.map_err(db_err)?;
 
             outcomes.push(RuleOutcome {
-                rule_id: rule.id as u64,
+                rule_id: rule.id,
                 name: rule.name.clone(),
                 firing: breached,
                 current_value: Some(value),
@@ -469,7 +469,7 @@ mod tests {
     }
 
     fn update_req(
-        id: u64,
+        id: i64,
         data: MonitorAlertRule,
         paths: &[&str],
     ) -> UpdateMonitorAlertRuleRequest {
@@ -498,7 +498,7 @@ mod tests {
         svc.update_monitor_alert_rule(
             ctx(0, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 MonitorAlertRule {
                     remark: Some("新备注".into()),
                     threshold: Some(9999.0),
@@ -548,7 +548,7 @@ mod tests {
         svc.update_monitor_alert_rule(
             ctx(0, 9),
             UpdateMonitorAlertRuleRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(MonitorAlertRule {
                     remark: Some("改备注".into()),
                     // 载荷级校验要求 target/op/threshold 在场。
@@ -573,7 +573,7 @@ mod tests {
         svc.update_monitor_alert_rule(
             ctx(0, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 MonitorAlertRule {
                     // 载荷级校验：布尔指标 DB_PING_FAIL 豁免 op/threshold，
                     // target 在场即可；门只选中 op，op 载荷缺 = 显式清列。

@@ -5,7 +5,7 @@
 //! credential is the HMAC itself.
 
 /// oss.MaxUploadSize (pkg/oss/module).
-pub(super) const MAX_UPLOAD_SIZE: usize = 50 * 1024 * 1024;
+pub(crate) const MAX_UPLOAD_SIZE: usize = 50 * 1024 * 1024;
 
 /// The MIME whitelist (pkg/oss/module:19-44): prefixes plus exact
 /// doc types.

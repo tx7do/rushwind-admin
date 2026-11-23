@@ -14,16 +14,16 @@ use crate::modules::template::data::{notices, NoticeRepo};
 
 fn notice_proto(r: notices::Model) -> crate::proto::notice::service::v1::Notice {
     crate::proto::notice::service::v1::Notice {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         title: Some(r.title),
         content: r.content,
         is_published: r.is_published,
         published_at: r.published_at.and_then(crate::admin::state::naive_to_ts),
         sort_order: r.sort_order,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -49,7 +49,7 @@ impl crate::proto::gen::template::services::NoticeServiceHandlers for NoticeServ
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(crate::proto::notice::service::v1::ListNoticeResponse {
             items: rows.into_iter().map(notice_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -59,10 +59,7 @@ impl crate::proto::gen::template::services::NoticeServiceHandlers for NoticeServ
         req: crate::proto::notice::service::v1::GetNoticeRequest,
     ) -> Result<crate::proto::notice::service::v1::Notice, StatusError> {
         let repo = NoticeRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
-        let row = repo
-            .get(req.id as i64)
-            .await?
-            .ok_or_else(|| not_found("notice"))?;
+        let row = repo.get(req.id).await?.ok_or_else(|| not_found("notice"))?;
         Ok(notice_proto(row))
     }
 
@@ -107,7 +104,7 @@ impl crate::proto::gen::template::services::NoticeServiceHandlers for NoticeServ
         let payload = operator_of(&ctx)?;
         // Tenant-scoped fetch: the predicate rides the operator's
         // tenant, mirroring the admin tree's update paths.
-        let row = notices::Entity::find_by_id(req.id as i64)
+        let row = notices::Entity::find_by_id(req.id)
             .filter(notices::Column::TenantId.eq(tenant_of(&ctx)))
             .one(&self.state.db)
             .await
@@ -151,10 +148,7 @@ impl crate::proto::gen::template::services::NoticeServiceHandlers for NoticeServ
         // update path above — a cross-tenant id answers 404, not a
         // foreign-row delete.
         let repo = NoticeRepo::new(&self.state.db, Viewer::from_ctx(&ctx));
-        let row = repo
-            .get(req.id as i64)
-            .await?
-            .ok_or_else(|| not_found("notice"))?;
+        let row = repo.get(req.id).await?.ok_or_else(|| not_found("notice"))?;
         notices::Entity::delete_by_id(row.id)
             .exec(&self.state.db)
             .await

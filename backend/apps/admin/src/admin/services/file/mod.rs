@@ -6,7 +6,7 @@
 //! `oss.yaml` is configured, else the object bytes land on the local
 //! data directory (`./data/files`) with identical metadata semantics.
 
-mod media;
+pub(crate) mod media;
 mod transfer;
 
 pub use media::image_proxy;
@@ -40,7 +40,7 @@ fn provider_to_proto(s: &str) -> i32 {
 
 fn file_proto(r: crate::admin::data::files::Model) -> File {
     File {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         provider: r.provider.as_deref().map(provider_to_proto),
         bucket_name: r.bucket_name,
         file_directory: r.file_directory,
@@ -52,11 +52,11 @@ fn file_proto(r: crate::admin::data::files::Model) -> File {
         size_format: r.size_format,
         link_url: r.link_url,
         content_hash: r.content_hash,
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        tenant_id: r.tenant_id,
         tenant_name: None,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -81,7 +81,7 @@ impl crate::proto::gen::services::FileServiceHandlers for FileService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListFileResponse {
             items: rows.into_iter().map(file_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -94,7 +94,7 @@ impl crate::proto::gen::services::FileServiceHandlers for FileService {
             req.query_by,
             crate::proto::storage::service::v1::get_file_request::QueryBy
         );
-        let row = crate::admin::data::files::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::files::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -139,7 +139,7 @@ impl crate::proto::gen::services::FileServiceHandlers for FileService {
         req: UpdateFileRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::files::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::files::Entity::find_by_id(req.id)
             .filter(crate::admin::data::files::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -166,7 +166,7 @@ impl crate::proto::gen::services::FileServiceHandlers for FileService {
             req.query_by,
             crate::proto::storage::service::v1::delete_file_request::QueryBy
         );
-        let row = crate::admin::data::files::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::files::Entity::find_by_id(id)
             .filter(crate::admin::data::files::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await

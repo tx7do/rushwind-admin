@@ -31,8 +31,8 @@ const REGISTERED_TASK_TYPES: &[&str] = &[
 
 fn task_proto(r: crate::admin::data::sys_tasks::Model) -> Task {
     Task {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         r#type: r
             .type_column
             .as_deref()
@@ -43,9 +43,9 @@ fn task_proto(r: crate::admin::data::sys_tasks::Model) -> Task {
         task_options: None,
         enable: r.enable,
         remark: r.remark,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -108,7 +108,7 @@ impl crate::proto::gen::services::TaskServiceHandlers for TaskService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListTaskResponse {
             items: rows.into_iter().map(task_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -122,7 +122,7 @@ impl crate::proto::gen::services::TaskServiceHandlers for TaskService {
             req.query_by,
             crate::proto::task::service::v1::get_task_request::QueryBy
         );
-        let row = self.load(tid, id as i64).await?;
+        let row = self.load(tid, id).await?;
         Ok(task_proto(row))
     }
 
@@ -204,7 +204,7 @@ impl crate::proto::gen::services::TaskServiceHandlers for TaskService {
         req: UpdateTaskRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = self.load(payload.tenant_id, req.id as i64).await?;
+        let row = self.load(payload.tenant_id, req.id).await?;
         // The fetches the old row first (stale scheduler-entry
         // guard) and backfills type_name when the payload omits it.
         let mut a: crate::admin::data::sys_tasks::ActiveModel = row.into();
@@ -258,7 +258,7 @@ impl crate::proto::gen::services::TaskServiceHandlers for TaskService {
             req.query_by,
             crate::proto::task::service::v1::delete_task_request::QueryBy
         );
-        let row = self.load(payload.tenant_id, id as i64).await?;
+        let row = self.load(payload.tenant_id, id).await?;
         crate::admin::data::sys_tasks::Entity::delete_by_id(row.id)
             .exec(&self.state.db)
             .await

@@ -50,7 +50,7 @@ fn collect_menu_index_docs(rows: Vec<crate::admin::data::sys_menus::Model>) -> V
                 .map(|s| s.to_string())
                 .unwrap_or_else(|| m.name.clone());
             MenuIndexDoc {
-                menu_id: (m.id as u64 as i64),
+                menu_id: m.id,
                 title,
                 route: m.path.unwrap_or_default(),
             }

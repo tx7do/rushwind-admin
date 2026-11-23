@@ -29,6 +29,7 @@ apalis-core = { workspace = true }
 rushwind-transport = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 rushwind-transport-axum = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
 axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query", "json", "matched-path"] }
+http-body-util = "0.1"
 tokio = { workspace = true }
 sea-orm = { workspace = true }
 rushwind-storage-seaorm-migration = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
@@ -68,6 +69,7 @@ async-trait = { workspace = true }
 [dev-dependencies]
 sea-orm = { workspace = true, features = ["sqlx-sqlite"] }
 mini-redis = "0.4"
+tower = { version = "0.5", features = ["util"] }
 
 [build-dependencies]
 biz-proto-build = { path = "../../crates/biz-proto-build" }

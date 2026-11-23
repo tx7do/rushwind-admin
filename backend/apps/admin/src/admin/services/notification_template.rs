@@ -30,7 +30,7 @@ fn template_proto(
     r: crate::admin::data::sys_notification_templates::Model,
 ) -> NotificationTemplate {
     NotificationTemplate {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: r.name,
         code: r.code,
         title_template: r.title_template,
@@ -88,7 +88,7 @@ impl crate::proto::gen::services::NotificationTemplateServiceHandlers
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListNotificationTemplateResponse {
             items: rows.into_iter().map(template_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -161,10 +161,10 @@ impl crate::proto::gen::services::NotificationTemplateServiceHandlers
         let payload = operator_of(&ctx)?;
         let data = require_data(req.data)?;
         let repo = crate::admin::data::repos::NotificationTemplateRepo::new(&self.state.db);
-        let row = repo.get_by_id(req.id as i64).await?;
+        let row = repo.get_by_id(req.id).await?;
         if let Some(code) = data.code.as_deref().filter(|c| !c.is_empty()) {
             if let Some(other) = repo.get_by_code(code).await? {
-                if other.id != req.id as i64 {
+                if other.id != req.id {
                     return Err(status_error("CONFLICT", "template code already exists"));
                 }
             }
@@ -184,8 +184,8 @@ impl crate::proto::gen::services::NotificationTemplateServiceHandlers
         req: DeleteNotificationTemplateRequest,
     ) -> Result<Empty, StatusError> {
         let repo = crate::admin::data::repos::NotificationTemplateRepo::new(&self.state.db);
-        repo.get_by_id(req.id as i64).await?;
-        repo.delete_by_id(req.id as i64).await?;
+        repo.get_by_id(req.id).await?;
+        repo.delete_by_id(req.id).await?;
         Ok(Empty {})
     }
 
@@ -197,7 +197,7 @@ impl crate::proto::gen::services::NotificationTemplateServiceHandlers
         req: RenderNotificationTemplateRequest,
     ) -> Result<RenderNotificationTemplateResponse, StatusError> {
         let repo = crate::admin::data::repos::NotificationTemplateRepo::new(&self.state.db);
-        let tpl = repo.get_by_id(req.id as i64).await?;
+        let tpl = repo.get_by_id(req.id).await?;
         let vars: BTreeMap<String, String> = req.variables.into_iter().collect();
 
         let title = render_template(&tpl.title_template.unwrap_or_default(), &vars)
@@ -296,7 +296,7 @@ mod tests {
     }
 
     fn update_req(
-        id: u64,
+        id: i64,
         data: NotificationTemplate,
         paths: &[&str],
     ) -> UpdateNotificationTemplateRequest {
@@ -323,7 +323,7 @@ mod tests {
         svc.update_notification_template(
             ctx(0, 9),
             update_req(
-                row.id as u64,
+                row.id,
                 NotificationTemplate {
                     name: Some("新模板".into()),
                     remark: Some("越权备注".into()),
@@ -365,7 +365,7 @@ mod tests {
         svc.update_notification_template(
             ctx(0, 9),
             UpdateNotificationTemplateRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(NotificationTemplate {
                     name: Some("改名".into()),
                     ..Default::default()
@@ -385,7 +385,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update_notification_template(
             ctx(0, 9),
-            update_req(row.id as u64, NotificationTemplate::default(), &["remark"]),
+            update_req(row.id, NotificationTemplate::default(), &["remark"]),
         )
         .await
         .unwrap();

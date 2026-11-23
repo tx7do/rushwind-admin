@@ -358,7 +358,7 @@ impl<'a> AiAgentRevisionRepo<'a> {
         let rows = base
             .order_by_desc(rev::Column::CreatedAt)
             .order_by_desc(rev::Column::Id)
-            .offset(((page_no - 1) as u64) * size as u64)
+            .offset((page_no - 1) as u64 * size as u64)
             .limit(size as u64)
             .all(self.db)
             .await

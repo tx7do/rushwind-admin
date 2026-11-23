@@ -57,9 +57,9 @@ impl crate::proto::gen::services::InternalMessageRecipientServiceHandlers
             .map(|r| {
                 let message = r.message_id.and_then(|mid| messages.get(&mid));
                 InternalMessageRecipient {
-                    id: Some(r.id as u64),
-                    recipient_user_id: r.recipient_user_id.map(|v| v as u64),
-                    message_id: r.message_id.map(|v| v as u64),
+                    id: Some(r.id),
+                    recipient_user_id: r.recipient_user_id,
+                    message_id: r.message_id,
                     status: r.status.as_deref().map(recipient_status_to_proto),
                     received_at: r.received_at.and_then(crate::admin::state::naive_to_ts),
                     read_at: r.read_at.and_then(crate::admin::state::naive_to_ts),
@@ -67,18 +67,21 @@ impl crate::proto::gen::services::InternalMessageRecipientServiceHandlers
                     // backfilled message row fills gaps.
                     title: message.and_then(|m| m.title.clone()),
                     content: message.and_then(|m| m.content.clone()),
-                    tenant_id: r.tenant_id.map(|v| v as u64),
+                    tenant_id: r.tenant_id,
                     tenant_name: None,
-                    created_by: r.created_by.map(|v| v as u64),
-                    updated_by: r.updated_by.map(|v| v as u64),
-                    deleted_by: r.deleted_by.map(|v| v as u64),
+                    created_by: r.created_by,
+                    updated_by: r.updated_by,
+                    deleted_by: r.deleted_by,
                     created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
                     updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
                     deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
                 }
             })
             .collect();
-        Ok(ListUserInboxResponse { items, total })
+        Ok(ListUserInboxResponse {
+            items,
+            total: total as i64,
+        })
     }
 
     async fn delete_notification_from_inbox(

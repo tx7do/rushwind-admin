@@ -354,7 +354,7 @@ impl AuthenticationService {
                 .await
                 .map_err(|e| internal_error(format!("db: {e}")))?;
             match tenant {
-                Some(t) => tenant_id = t.id as u64 as i64,
+                Some(t) => tenant_id = t.id,
                 None => {
                     return Err(status_error(
                         "INTERNAL_SERVER_ERROR",

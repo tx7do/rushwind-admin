@@ -85,10 +85,10 @@ async fn role_proto(state: &AppState, r: crate::admin::data::sys_roles::Model) -
         None => None,
     };
     Role {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         code: Some(r.code),
-        parent_id: r.parent_id.map(|v| v as u64),
+        parent_id: r.parent_id,
         parent_name,
         home_path: r.home_path.clone(),
         sort_order: r.sort_order,
@@ -100,14 +100,14 @@ async fn role_proto(state: &AppState, r: crate::admin::data::sys_roles::Model) -
         is_protected: r.is_protected,
         r#type: r.type_column.as_deref().map(type_to_proto),
         data_scope: r.data_scope.as_deref().map(scope_to_proto),
-        permissions: perm_ids.iter().map(|v| *v as u64).collect(),
-        org_units: org_units.iter().map(|v| *v as u64).collect(),
+        permissions: perm_ids.to_vec(),
+        org_units: org_units.to_vec(),
         field_permissions,
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        tenant_id: r.tenant_id,
         tenant_name: None,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -130,8 +130,8 @@ impl RoleService {
     ) {
         crate::set_masked!(req mask, a, name, data.name, |v: &String| v.clone());
         crate::set_masked!(req mask, a, code, data.code, |v: &String| v.clone());
-        crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &u64| Some(
-            *v as i64
+        crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &i64| Some(
+            *v
         ));
         // home_path（默认首页路由，issue #12）晚于分支分叉落地——掩码形态
         // 补位：空串清列/缺省不动与旧 if-let-Some 语义一致。
@@ -192,7 +192,7 @@ impl RoleService {
         &self,
         parent_id: i64,
         tenant_id: i64,
-        want_perms: &[u64],
+        want_perms: &[i64],
     ) -> Result<(), StatusError> {
         if parent_id == 0 {
             return Ok(());
@@ -215,7 +215,7 @@ impl RoleService {
             self.parent_perm_ids(parent_id).await?.into_iter().collect();
         let exceeding = want_perms
             .iter()
-            .filter(|p| !cap_set.contains(&(**p as i64)))
+            .filter(|p| !cap_set.contains(&{ **p }))
             .count();
         if exceeding > 0 {
             return Err(status_error(
@@ -249,7 +249,7 @@ impl RoleService {
                 .await
                 .map_err(db_err)?;
             match parent {
-                Some(p) => current = p.parent_id.unwrap_or(0) as u64 as i64,
+                Some(p) => current = p.parent_id.unwrap_or(0),
                 None => return Ok(()),
             }
         }
@@ -257,14 +257,14 @@ impl RoleService {
     }
 
     /// 本角色现绑定的权限集（Update 侧 effective perms 的库中现值）。
-    async fn own_perm_ids(&self, role_id: i64) -> Result<Vec<u64>, StatusError> {
+    async fn own_perm_ids(&self, role_id: i64) -> Result<Vec<i64>, StatusError> {
         Ok(crate::admin::data::sys_role_permissions::Entity::find()
             .filter(crate::admin::data::sys_role_permissions::Column::RoleId.eq(role_id))
             .all(&self.state.db)
             .await
             .map_err(db_err)?
             .iter()
-            .filter_map(|row| row.permission_id.map(|v| v as u64))
+            .filter_map(|row| row.permission_id)
             .collect())
     }
 
@@ -314,7 +314,7 @@ impl RoleService {
         &self,
         tenant_id: i64,
         role_id: i64,
-        permissions: &[u64],
+        permissions: &[i64],
     ) -> Result<(), StatusError> {
         crate::admin::data::sys_role_permissions::Entity::delete_many()
             .filter(
@@ -329,7 +329,7 @@ impl RoleService {
             crate::admin::data::sys_role_permissions::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 role_id: Set(Some(role_id)),
-                permission_id: Set(Some(*perm as i64)),
+                permission_id: Set(Some(*perm)),
                 effect: Set(Some("ALLOW".into())),
                 status: Set(Some("ON".into())),
                 created_at: Set(Some(crate::admin::data::now())),
@@ -347,7 +347,7 @@ impl RoleService {
         &self,
         tenant_id: i64,
         role_id: i64,
-        units: &[u64],
+        units: &[i64],
     ) -> Result<(), StatusError> {
         crate::admin::data::sys_role_org_units::Entity::delete_many()
             .filter(crate::admin::data::sys_role_org_units::Column::RoleId.eq(role_id))
@@ -358,7 +358,7 @@ impl RoleService {
             crate::admin::data::sys_role_org_units::ActiveModel {
                 tenant_id: Set(Some(tenant_id)),
                 role_id: Set(Some(role_id)),
-                org_unit_id: Set(Some(*unit as i64)),
+                org_unit_id: Set(Some(*unit)),
                 created_at: Set(Some(crate::admin::data::now())),
                 updated_at: Set(Some(crate::admin::data::now())),
                 ..Default::default()
@@ -415,7 +415,10 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
         for r in rows {
             items.push(role_proto(&self.state, r).await);
         }
-        Ok(ListRoleResponse { items, total })
+        Ok(ListRoleResponse {
+            items,
+            total: total as i64,
+        })
     }
 
     async fn get(
@@ -426,7 +429,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
         let tid = tenant_of(&ctx);
         let row = match req.query_by {
             Some(crate::proto::permission::service::v1::get_role_request::QueryBy::Id(id)) => {
-                crate::admin::data::sys_roles::Entity::find_by_id(id as i64)
+                crate::admin::data::sys_roles::Entity::find_by_id(id)
                     .one(&self.state.db)
                     .await
                     .map_err(db_err)?
@@ -475,7 +478,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
         // 父角色与本角色同租户。归属租户以操作者上下文折算（与下方 tenant_id
         // 落库同口径），载荷里的 tenant_id 不可信。
         self.validate_parent_binding(
-            data.parent_id.unwrap_or(0) as i64,
+            data.parent_id.unwrap_or(0),
             payload.tenant_id,
             &data.permissions,
         )
@@ -493,7 +496,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
         Self::apply_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         crate::ensure_default!(a, status, "ON".to_string());
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
-        self.sync_bindings(payload.tenant_id, inserted.id as u64 as i64, &data)
+        self.sync_bindings(payload.tenant_id, inserted.id as i64, &data)
             .await?;
         Ok(Empty {})
     }
@@ -504,7 +507,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
         req: UpdateRoleRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_roles::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_roles::Entity::find_by_id(req.id)
             .filter(crate::admin::data::sys_roles::Column::TenantId.eq(payload.tenant_id))
             .one(&self.state.db)
             .await
@@ -526,17 +529,16 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
             // 父角色绑定校验（权限继承，编辑时校验语义）：本次请求生效的父角色
             // 与权限集分别按"载荷是否声明"取舍——声明了取载荷，未声明取库中
             // 现值（改权限不动父、或换父不动权限，都要重新对齐约束）。
-            let effective_parent = data.parent_id.map(|v| v as i64).unwrap_or(row_parent_id);
+            let effective_parent = data.parent_id.unwrap_or(row_parent_id);
             let effective_perms = if data.permissions.is_empty() {
-                self.own_perm_ids(req.id as i64).await?
+                self.own_perm_ids(req.id).await?
             } else {
                 data.permissions.clone()
             };
             self.validate_parent_binding(effective_parent, payload.tenant_id, &effective_perms)
                 .await?;
             if effective_parent != row_parent_id {
-                self.ensure_no_role_cycle(req.id as i64, effective_parent)
-                    .await?;
+                self.ensure_no_role_cycle(req.id, effective_parent).await?;
             }
             // 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
             // 存量全量提交语义）；保留字校验/父角色绑定校验/环检测在门前
@@ -545,7 +547,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
             Self::apply_fields(&mut a, data, &mask);
             crate::stamp_update!(a, payload.user_id);
             a.update(&self.state.db).await.map_err(db_err)?;
-            self.sync_bindings_update(payload.tenant_id, req.id as i64, data)
+            self.sync_bindings_update(payload.tenant_id, req.id, data)
                 .await?;
         }
         Ok(Empty {})
@@ -561,7 +563,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
             req.query_by,
             crate::proto::permission::service::v1::delete_role_request::QueryBy
         );
-        let row = crate::admin::data::sys_roles::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_roles::Entity::find_by_id(id)
             .filter(crate::admin::data::sys_roles::Column::TenantId.eq(tid))
             .one(&self.state.db)
             .await
@@ -588,7 +590,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
-        crate::admin::data::sys_roles::Entity::delete_by_id(id as i64)
+        crate::admin::data::sys_roles::Entity::delete_by_id(id)
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
@@ -682,7 +684,7 @@ mod update_mask_tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: Role, paths: &[&str]) -> UpdateRoleRequest {
+    fn update_req(id: i64, data: Role, paths: &[&str]) -> UpdateRoleRequest {
         UpdateRoleRequest {
             id,
             data: Some(data),
@@ -708,7 +710,7 @@ mod update_mask_tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Role {
                     name: Some("运营新名".into()),
                     code: Some("ops:evil".into()),
@@ -746,7 +748,7 @@ mod update_mask_tests {
         svc.update(
             ctx(0, 1),
             UpdateRoleRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Role {
                     name: Some("运营新名".into()),
                     ..Default::default()
@@ -767,7 +769,7 @@ mod update_mask_tests {
         // 掩码选中：None 清列。
         svc.update(
             ctx(0, 1),
-            update_req(row.id as u64, Role::default(), &["description"]),
+            update_req(row.id, Role::default(), &["description"]),
         )
         .await
         .unwrap();

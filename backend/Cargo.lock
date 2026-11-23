@@ -28,6 +28,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hmac 0.12.1",
+ "http-body-util",
  "lettre",
  "lol_html",
  "mini-redis",
@@ -63,6 +64,7 @@ dependencies = [
  "sha1 0.10.7",
  "sha2 0.10.9",
  "tokio",
+ "tower",
  "uuid",
 ]
 

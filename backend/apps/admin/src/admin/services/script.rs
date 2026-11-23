@@ -28,7 +28,7 @@ fn language_to_str(v: i32) -> String {
 
 fn script_proto(r: crate::admin::data::sys_scripts::Model) -> Script {
     Script {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         language: r.language.as_deref().map(language_to_proto),
         hook_point: r.hook_point,
@@ -38,9 +38,9 @@ fn script_proto(r: crate::admin::data::sys_scripts::Model) -> Script {
         critical: r.critical,
         version: r.version,
         is_enabled: r.is_enabled,
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -49,8 +49,8 @@ fn script_proto(r: crate::admin::data::sys_scripts::Model) -> Script {
 
 fn script_log_proto(r: crate::admin::data::sys_script_logs::Model) -> ScriptLog {
     ScriptLog {
-        id: Some(r.id as u64),
-        script_id: r.script_id.map(|v| v as u64),
+        id: Some(r.id),
+        script_id: r.script_id,
         script_name: r.script_name,
         language: r.language,
         trigger_type: r.trigger_type,
@@ -103,7 +103,7 @@ impl crate::proto::gen::services::ScriptServiceHandlers for ScriptService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListScriptsResponse {
             items: rows.into_iter().map(script_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -116,7 +116,7 @@ impl crate::proto::gen::services::ScriptServiceHandlers for ScriptService {
             count: crate::admin::data::sys_scripts::Entity::find()
                 .count(&self.state.db)
                 .await
-                .unwrap_or(0),
+                .unwrap_or(0) as i64,
         })
     }
 
@@ -129,7 +129,7 @@ impl crate::proto::gen::services::ScriptServiceHandlers for ScriptService {
             req.query_by,
             crate::proto::script::service::v1::get_script_request::QueryBy
         );
-        let row = crate::admin::data::sys_scripts::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_scripts::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -171,7 +171,7 @@ impl crate::proto::gen::services::ScriptServiceHandlers for ScriptService {
         req: UpdateScriptRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_scripts::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_scripts::Entity::find_by_id(req.id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -265,7 +265,7 @@ impl crate::proto::gen::services::ScriptLogServiceHandlers for ScriptLogService 
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListScriptLogsResponse {
             items: rows.into_iter().map(script_log_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -278,7 +278,7 @@ impl crate::proto::gen::services::ScriptLogServiceHandlers for ScriptLogService 
             count: crate::admin::data::sys_script_logs::Entity::find()
                 .count(&self.state.db)
                 .await
-                .unwrap_or(0),
+                .unwrap_or(0) as i64,
         })
     }
 
@@ -346,7 +346,7 @@ mod tests {
         svc.update(
             me,
             UpdateScriptRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Script {
                     name: Some("审计钩子改".into()),
                     source: Some("return 2".into()),
@@ -417,7 +417,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdateScriptRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Script {
                     name: Some("清理钩子".into()),
                     ..Default::default()
@@ -439,7 +439,7 @@ mod tests {
         svc.update(
             me,
             UpdateScriptRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Script::default()),
                 update_mask: Some(pbjson_types::FieldMask {
                     paths: vec!["description".into(), "source".into()],

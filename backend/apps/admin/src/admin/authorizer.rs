@@ -131,7 +131,7 @@ impl auth::TenantAccessChecker for TenantAccessChecker {
 /// behind the TTL cache. An operator with no roles denies.
 pub struct AccessAuthorizer {
     state: Arc<AppState>,
-    resolve_cache: std::sync::Mutex<std::collections::HashMap<String, (u64, u64, Instant)>>,
+    resolve_cache: std::sync::Mutex<std::collections::HashMap<String, (i64, i64, Instant)>>,
 }
 
 impl AccessAuthorizer {
@@ -145,7 +145,7 @@ impl AccessAuthorizer {
     /// The route → (permission, policy) resolution, cached per
     /// subject/path/method. Best-effort: every miss returns zeros and
     /// leaves the trail's references empty.
-    async fn resolve_cached(&self, subject: &str, path: &str, method: &str) -> (u64, u64) {
+    async fn resolve_cached(&self, subject: &str, path: &str, method: &str) -> (i64, i64) {
         if subject.is_empty() || path.is_empty() || method.is_empty() {
             return (0, 0);
         }
@@ -184,7 +184,7 @@ impl AccessAuthorizer {
         role_code: &str,
         path: &str,
         method: &str,
-    ) -> (u64, u64) {
+    ) -> (i64, i64) {
         let db = &self.state.db;
         // 绑定按端点身份快照裁决（上游 7eb7f9f0 同语义）：与路由闸的
         // (path, method) 键同形，免疫 sys_apis 行删除重建与 id 洗牌——
@@ -226,7 +226,7 @@ impl AccessAuthorizer {
         if !held {
             return (0, 0);
         }
-        (permission_id as u64, 0)
+        (permission_id, 0)
     }
 }
 
@@ -264,8 +264,8 @@ impl auth::AuthorizationEvaluator for AccessAuthorizer {
         let row = sys_policy_evaluation_logs::ActiveModel {
             tenant_id: Set(Some(evaluation.tenant_id)),
             user_id: Set(Some(evaluation.user_id)),
-            permission_id: Set((permission_id != 0).then_some(permission_id as i64)),
-            policy_id: Set((policy_id != 0).then_some(policy_id as i64)),
+            permission_id: Set((permission_id != 0).then_some(permission_id)),
+            policy_id: Set((policy_id != 0).then_some(policy_id)),
             request_path: Set(Some(evaluation.resource.to_owned())),
             request_method: Set(Some(evaluation.action.to_owned())),
             result: Set(Some(allowed)),

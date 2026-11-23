@@ -14,7 +14,7 @@ use pbjson_types::Empty;
 
 fn group_proto(r: crate::admin::data::sys_permission_groups::Model) -> PermissionGroup {
     PermissionGroup {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         name: Some(r.name),
         path: r.path,
         module: r.module,
@@ -24,11 +24,11 @@ fn group_proto(r: crate::admin::data::sys_permission_groups::Model) -> Permissio
             .as_deref()
             .map(crate::admin::state::status_to_proto),
         description: r.description,
-        parent_id: r.parent_id.map(|v| v as u64),
+        parent_id: r.parent_id,
         children: Vec::new(),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -50,7 +50,7 @@ impl crate::proto::gen::services::PermissionGroupServiceHandlers for PermissionG
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListPermissionGroupResponse {
             items: rows.into_iter().map(group_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -65,7 +65,7 @@ impl crate::proto::gen::services::PermissionGroupServiceHandlers for PermissionG
         );
         let repo = crate::admin::data::repos::PermissionGroupRepo::new(&self.state.db);
         let row = repo
-            .find(id as i64)
+            .find(id)
             .await?
             .ok_or_else(|| not_found("permission group"))?;
         Ok(group_proto(row))
@@ -82,7 +82,7 @@ impl crate::proto::gen::services::PermissionGroupServiceHandlers for PermissionG
             name: Set(data.name.unwrap_or_default()),
             module: Set(data.module),
             path: Set(data.path),
-            parent_id: Set(data.parent_id.map(|v| v as i64)),
+            parent_id: Set(data.parent_id),
             description: Set(data.description),
             status: Set(Some("ON".into())),
             sort_order: Set(data.sort_order.or(Some(0))),
@@ -105,7 +105,7 @@ impl crate::proto::gen::services::PermissionGroupServiceHandlers for PermissionG
         let payload = operator_of(&ctx)?;
         let repo = crate::admin::data::repos::PermissionGroupRepo::new(&self.state.db);
         let row = repo
-            .find(req.id as i64)
+            .find(req.id)
             .await?
             .ok_or_else(|| not_found("permission group"))?;
         let mut a: crate::admin::data::sys_permission_groups::ActiveModel = row.into();
@@ -120,8 +120,8 @@ impl crate::proto::gen::services::PermissionGroupServiceHandlers for PermissionG
                 v.clone()
             ));
             crate::set_masked!(opt mask, a, path, data.path, |v: &String| Some(v.clone()));
-            crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &u64| Some(
-                *v as i64
+            crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &i64| Some(
+                *v
             ));
             crate::set_masked!(opt mask, a, description, data.description, |v: &String| Some(
                 v.clone()
@@ -150,7 +150,7 @@ impl crate::proto::gen::services::PermissionGroupServiceHandlers for PermissionG
             crate::proto::permission::service::v1::delete_permission_group_request::QueryBy
         );
         let repo = crate::admin::data::repos::PermissionGroupRepo::new(&self.state.db);
-        repo.delete_by_id(id as i64).await?;
+        repo.delete_by_id(id).await?;
         Ok(Empty {})
     }
 }
@@ -184,7 +184,7 @@ mod tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: PermissionGroup, paths: &[&str]) -> UpdatePermissionGroupRequest {
+    fn update_req(id: i64, data: PermissionGroup, paths: &[&str]) -> UpdatePermissionGroupRequest {
         UpdatePermissionGroupRequest {
             id,
             data: Some(data),
@@ -210,7 +210,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 PermissionGroup {
                     name: Some("权限新组".into()),
                     module: Some("OPM".into()),
@@ -252,7 +252,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdatePermissionGroupRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(PermissionGroup {
                     name: Some("权限新组".into()),
                     ..Default::default()
@@ -273,7 +273,7 @@ mod tests {
         // 掩码选中：None 清列。
         svc.update(
             ctx(0, 1),
-            update_req(row.id as u64, PermissionGroup::default(), &["description"]),
+            update_req(row.id, PermissionGroup::default(), &["description"]),
         )
         .await
         .unwrap();

@@ -70,7 +70,7 @@ fn module_for_component(component: &str) -> Option<String> {
 
 fn menu_proto(r: crate::admin::data::sys_menus::Model) -> Menu {
     Menu {
-        id: Some(r.id as u64),
+        id: Some(r.id),
         status: r
             .status
             .as_deref()
@@ -83,11 +83,11 @@ fn menu_proto(r: crate::admin::data::sys_menus::Model) -> Menu {
         component: r.component,
         meta: r.meta.as_ref().and_then(menu_meta_from_json),
         module: r.module.as_deref().map(module_to_proto),
-        parent_id: r.parent_id.map(|v| v as u64),
+        parent_id: r.parent_id,
         children: Vec::new(),
-        created_by: r.created_by.map(|v| v as u64),
-        updated_by: r.updated_by.map(|v| v as u64),
-        deleted_by: r.deleted_by.map(|v| v as u64),
+        created_by: r.created_by,
+        updated_by: r.updated_by,
+        deleted_by: r.deleted_by,
         created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
@@ -101,7 +101,7 @@ pub struct MenuService {
 impl MenuService {
     /// parent 是否落在 node 的子树内（含环防护——脏环数据收敛返回 false，
     /// 交由 collect_subtree_ids 的 visited 语义兜底）。
-    async fn is_menu_descendant(&self, node: u64, parent: u64) -> Result<bool, StatusError> {
+    async fn is_menu_descendant(&self, node: i64, parent: i64) -> Result<bool, StatusError> {
         let rows = crate::admin::data::sys_menus::Entity::find()
             .all(&self.state.db)
             .await
@@ -109,7 +109,7 @@ impl MenuService {
             .into_iter()
             .map(|m| (m.id, m.parent_id))
             .collect::<Vec<_>>();
-        Ok(crate::admin::data::collect_subtree_ids(&rows, node as i64).contains(&(parent as i64)))
+        Ok(crate::admin::data::collect_subtree_ids(&rows, node).contains(&{ parent }))
     }
 
     /// 字段写入统一过 update_mask 白名单门（字段级更新语义，无掩码即
@@ -140,10 +140,10 @@ impl MenuService {
         crate::set_masked!(opt mask, a, module, data.module, |v: &i32| Some(
             module_to_str(*v)
         ));
-        crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &u64| if *v == 0 {
+        crate::set_masked!(opt mask, a, parent_id, data.parent_id, |v: &i64| if *v == 0 {
             None
         } else {
-            Some(*v as i64)
+            Some(*v)
         });
         // meta 不走 opt 清列形态：掩码只选中点路径子段（meta.title）时
         // touches("meta") 为真但 selects_whole 为假——载荷缺 meta 是
@@ -173,7 +173,7 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
         let (rows, total) = repo.paged_list(&req).await?;
         Ok(ListMenuResponse {
             items: rows.into_iter().map(menu_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -186,7 +186,7 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
             req.query_by,
             crate::proto::permission::service::v1::get_menu_request::QueryBy
         );
-        let row = crate::admin::data::sys_menus::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_menus::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -220,7 +220,7 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
         req: UpdateMenuRequest,
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
-        let row = crate::admin::data::sys_menus::Entity::find_by_id(req.id as i64)
+        let row = crate::admin::data::sys_menus::Entity::find_by_id(req.id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?
@@ -291,7 +291,7 @@ impl crate::proto::gen::services::MenuServiceHandlers for MenuService {
             .into_iter()
             .map(|m| (m.id, m.parent_id))
             .collect::<Vec<_>>();
-        let ids = crate::admin::data::collect_subtree_ids(&rows, id as i64);
+        let ids = crate::admin::data::collect_subtree_ids(&rows, id);
         use sea_orm::TransactionTrait as _;
         let txn = self.state.db.begin().await.map_err(db_err)?;
         crate::admin::data::sys_permission_menus::Entity::delete_many()
@@ -819,7 +819,7 @@ mod tests {
             .unwrap()
     }
 
-    fn update_req(id: u64, data: Menu, paths: &[&str]) -> UpdateMenuRequest {
+    fn update_req(id: i64, data: Menu, paths: &[&str]) -> UpdateMenuRequest {
         UpdateMenuRequest {
             id,
             data: Some(data),
@@ -851,7 +851,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Menu {
                     meta: Some(crate::proto::permission::service::v1::MenuMeta {
                         icon: Some("lucide:layout-dashboard".into()),
@@ -904,7 +904,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Menu {
                     meta: Some(crate::proto::permission::service::v1::MenuMeta::default()),
                     ..Default::default()
@@ -944,7 +944,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Menu {
                     meta: Some(crate::proto::permission::service::v1::MenuMeta {
                         title: Some("新标题".into()),
@@ -986,7 +986,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Menu {
                     meta: Some(crate::proto::permission::service::v1::MenuMeta {
                         title: Some("新".into()),
@@ -1023,7 +1023,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Menu {
                     name: Some("工作台".into()),
                     meta: Some(crate::proto::permission::service::v1::MenuMeta {
@@ -1066,12 +1066,9 @@ mod tests {
         let row = plant(db, "dashboard", "/dashboard", None).await;
         set_meta(db, row.id, serde_json::json!({"title": "保留"})).await;
 
-        svc.update(
-            me,
-            update_req(row.id as u64, Menu::default(), &["meta.title"]),
-        )
-        .await
-        .unwrap();
+        svc.update(me, update_req(row.id, Menu::default(), &["meta.title"]))
+            .await
+            .unwrap();
 
         let meta = row_by_id(db, row.id).await.meta.expect("meta present");
         assert_eq!(
@@ -1278,7 +1275,7 @@ mod tests {
         svc.update(
             me,
             update_req(
-                row.id as u64,
+                row.id,
                 Menu {
                     name: Some("工作台".into()),
                     path: Some("/evil".into()),
@@ -1323,7 +1320,7 @@ mod tests {
         svc.update(
             ctx(0, 1),
             UpdateMenuRequest {
-                id: row.id as u64,
+                id: row.id,
                 data: Some(Menu {
                     name: Some("dashboard".into()),
                     ..Default::default()
@@ -1342,7 +1339,7 @@ mod tests {
         );
 
         // 掩码选中：None 清列。
-        svc.update(me, update_req(row.id as u64, Menu::default(), &["alias"]))
+        svc.update(me, update_req(row.id, Menu::default(), &["alias"]))
             .await
             .unwrap();
         let fresh = row_by_id(db, row.id).await;

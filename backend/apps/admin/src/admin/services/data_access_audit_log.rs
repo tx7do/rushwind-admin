@@ -13,10 +13,10 @@ use crate::proto::pagination::PagingRequest;
 
 fn log_proto(r: crate::admin::data::sys_data_access_audit_logs::Model) -> DataAccessAuditLog {
     DataAccessAuditLog {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         tenant_name: None,
-        user_id: r.user_id.map(|v| v as u64),
+        user_id: r.user_id,
         username: r.username,
         ip_address: r.ip_address,
         request_id: r.request_id,
@@ -62,7 +62,7 @@ impl crate::proto::gen::services::DataAccessAuditLogServiceHandlers for DataAcce
         let (rows, total) = repo.paged_data_access(&req).await?;
         Ok(ListDataAccessAuditLogResponse {
             items: rows.into_iter().map(log_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -75,7 +75,7 @@ impl crate::proto::gen::services::DataAccessAuditLogServiceHandlers for DataAcce
             req.query_by,
             crate::proto::audit::service::v1::get_data_access_audit_log_request::QueryBy
         );
-        let row = crate::admin::data::sys_data_access_audit_logs::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_data_access_audit_logs::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?

@@ -327,7 +327,7 @@ impl MfaServiceHandlers for MfaService {
         // 管理端救援路径：目标用户由 user_id 指定（≠ 本人），仅平台管理员，
         // 用于用户认证器丢失时的救援重置（按 credential_id 精确删，或按
         // method 清空该用户该方法全部因子），留告警日志。
-        let target = req.user_id.map(|v| v as i64).unwrap_or(0);
+        let target = req.user_id.unwrap_or(0);
         if target != 0 && target != uid {
             if payload.is_platform_admin != Some(true) {
                 return Err(status_error(
@@ -338,14 +338,13 @@ impl MfaServiceHandlers for MfaService {
             if let Some(id) = req
                 .credential_id
                 .as_deref()
-                .and_then(|v| v.parse::<u64>().ok())
+                .and_then(|v| v.parse::<i64>().ok())
             {
                 // 凭 credential_id 定位因子行（目标用户可能在任意租户）
-                let factor =
-                    crate::admin::data::sys_user_mfa_factors::Entity::find_by_id(id as i64)
-                        .one(&self.state.db)
-                        .await
-                        .map_err(|e| internal_error(format!("db: {e}")))?;
+                let factor = crate::admin::data::sys_user_mfa_factors::Entity::find_by_id(id)
+                    .one(&self.state.db)
+                    .await
+                    .map_err(|e| internal_error(format!("db: {e}")))?;
                 let factor = match factor {
                     Some(f) if f.user_id == Some(target) => f,
                     _ => return Err(status_error("NOT_FOUND", "mfa credential not found")),
@@ -439,7 +438,7 @@ impl MfaServiceHandlers for MfaService {
         if let Some(id) = req
             .credential_id
             .as_deref()
-            .and_then(|v| v.parse::<u64>().ok())
+            .and_then(|v| v.parse::<i64>().ok())
         {
             delete = delete.filter(crate::admin::data::sys_user_mfa_factors::Column::Id.eq(id));
         }

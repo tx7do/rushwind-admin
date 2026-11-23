@@ -92,13 +92,13 @@ impl AdminPortalService {
         }
         fn attach(
             rows: &[crate::admin::data::sys_menus::Model],
-            parent: Option<u64>,
+            parent: Option<i64>,
         ) -> Vec<MenuRouteItem> {
             rows.iter()
-                .filter(|r| r.parent_id == parent.map(|v| v as i64))
+                .filter(|r| r.parent_id == parent)
                 .map(|r| {
                     let mut node = item(r);
-                    node.children = attach(rows, Some(r.id as u64));
+                    node.children = attach(rows, Some(r.id));
                     node
                 })
                 .collect()

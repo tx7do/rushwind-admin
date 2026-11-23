@@ -170,7 +170,7 @@ impl crate::proto::gen::services::FileTransferServiceHandlers for FileTransferSe
         let row = match &req.selector {
             Some(crate::proto::storage::service::v1::download_file_request::Selector::FileId(
                 id,
-            )) => crate::admin::data::files::Entity::find_by_id(*id as i64)
+            )) => crate::admin::data::files::Entity::find_by_id(*id)
                 .one(&self.state.db)
                 .await
                 .map_err(db_err)?,

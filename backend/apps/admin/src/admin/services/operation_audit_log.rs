@@ -13,10 +13,10 @@ use crate::proto::pagination::PagingRequest;
 
 fn log_proto(r: crate::admin::data::sys_operation_audit_logs::Model) -> OperationAuditLog {
     OperationAuditLog {
-        id: Some(r.id as u64),
-        tenant_id: r.tenant_id.map(|v| v as u64),
+        id: Some(r.id),
+        tenant_id: r.tenant_id,
         tenant_name: None,
-        user_id: r.user_id.map(|v| v as u64),
+        user_id: r.user_id,
         username: r.username,
         resource_type: r.resource_type,
         resource_id: r.resource_id,
@@ -57,7 +57,7 @@ impl crate::proto::gen::services::OperationAuditLogServiceHandlers for Operation
         let (rows, total) = repo.paged_operation(&req).await?;
         Ok(ListOperationAuditLogResponse {
             items: rows.into_iter().map(log_proto).collect(),
-            total,
+            total: total as i64,
         })
     }
 
@@ -70,7 +70,7 @@ impl crate::proto::gen::services::OperationAuditLogServiceHandlers for Operation
             req.query_by,
             crate::proto::audit::service::v1::get_operation_audit_log_request::QueryBy
         );
-        let row = crate::admin::data::sys_operation_audit_logs::Entity::find_by_id(id as i64)
+        let row = crate::admin::data::sys_operation_audit_logs::Entity::find_by_id(id)
             .one(&self.state.db)
             .await
             .map_err(db_err)?

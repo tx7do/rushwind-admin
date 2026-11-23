@@ -60,13 +60,13 @@ impl<'a> OrgUnitRepo<'a> {
 
     /// The direct children of one node — the relocation BFS step
     /// (tenant-blind).
-    pub async fn children_ids(&self, parent_id: i64) -> Result<Vec<u64>, StatusError> {
+    pub async fn children_ids(&self, parent_id: i64) -> Result<Vec<i64>, StatusError> {
         entity::Entity::find()
             .filter(entity::Column::ParentId.eq(parent_id))
             .all(self.db)
             .await
             .map_err(|_| internal_error("query org unit children failed"))
-            .map(|rows| rows.into_iter().map(|r| r.id as u64).collect())
+            .map(|rows| rows.into_iter().map(|r| r.id).collect())
     }
 
     /// The subtree id set under one root (root included) — the
@@ -75,7 +75,7 @@ impl<'a> OrgUnitRepo<'a> {
     /// 子树收集（树形加固，上游 collectTreeIDs 同语义）：内存走查 +
     /// visited 防护——旧递归 CTE 在存量环脏数据上会打转挂死（UNION ALL
     /// 无收敛），环防护让删除正常收敛。
-    pub async fn descendant_ids(&self, root: u64) -> Result<Vec<u64>, StatusError> {
+    pub async fn descendant_ids(&self, root: i64) -> Result<Vec<i64>, StatusError> {
         let rows = crate::admin::data::sys_org_units::Entity::find()
             .all(self.db)
             .await
@@ -83,15 +83,14 @@ impl<'a> OrgUnitRepo<'a> {
             .into_iter()
             .map(|u| (u.id, u.parent_id))
             .collect::<Vec<_>>();
-        Ok(crate::admin::data::collect_subtree_ids(&rows, root as i64)
+        Ok(crate::admin::data::collect_subtree_ids(&rows, root)
             .into_iter()
-            .map(|v| v as u64)
             .collect())
     }
 
     /// Positions still anchored inside a set of org units — the delete
     /// guard counts them.
-    pub async fn count_positions_in(&self, ids: &[u64]) -> Result<u64, StatusError> {
+    pub async fn count_positions_in(&self, ids: &[i64]) -> Result<u64, StatusError> {
         use crate::admin::data::sys_positions;
         use sea_orm::PaginatorTrait;
         sys_positions::Entity::find()
@@ -107,7 +106,7 @@ impl<'a> OrgUnitRepo<'a> {
     pub async fn delete_ids_scoped<C>(
         &self,
         db: &C,
-        ids: &[u64],
+        ids: &[i64],
         scope: Option<i64>,
     ) -> Result<(), StatusError>
     where

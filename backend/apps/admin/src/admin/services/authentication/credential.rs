@@ -81,7 +81,7 @@ impl AuthenticationService {
         tenant_id: i64,
         identifier: &str,
         encrypted_password: &str,
-    ) -> Result<u64, StatusError> {
+    ) -> Result<i64, StatusError> {
         let plain = crate::admin::crypto::decrypt_transfer_password(encrypted_password)
             .map_err(|_| status_error("BAD_REQUEST", "invalid credential format"))?;
 
@@ -131,6 +131,6 @@ impl AuthenticationService {
                 }
             }
         }
-        Ok(cred_user_id as u64)
+        Ok(cred_user_id)
     }
 }
