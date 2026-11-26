@@ -52,6 +52,28 @@ fn position_proto(r: crate::admin::data::sys_positions::Model) -> Position {
     }
 }
 
+/// 组织名回填（参照 enrichRelations 的 OrgUnitName 面；best-effort）。
+async fn bind_org_unit_names(state: &AppState, items: &mut [Position]) {
+    let ids: std::collections::BTreeSet<i64> = items.iter().filter_map(|p| p.org_unit_id).collect();
+    if ids.is_empty() {
+        return;
+    }
+    let orgs: std::collections::HashMap<i64, String> =
+        crate::admin::data::sys_org_units::Entity::find()
+            .filter(crate::admin::data::sys_org_units::Column::Id.is_in(ids))
+            .all(&state.db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|o| (o.id, o.name))
+            .collect();
+    for p in items {
+        if let Some(oid) = p.org_unit_id {
+            p.org_unit_name = orgs.get(&oid).cloned();
+        }
+    }
+}
+
 pub struct PositionService {
     pub state: Arc<AppState>,
 }
@@ -68,8 +90,10 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             crate::admin::data::Viewer::from_ctx(&ctx),
         );
         let (rows, total) = repo.paged_list(&req).await?;
+        let mut items: Vec<Position> = rows.into_iter().map(position_proto).collect();
+        bind_org_unit_names(&self.state, &mut items).await;
         Ok(ListPositionResponse {
-            items: rows.into_iter().map(position_proto).collect(),
+            items,
             total: total as i64,
         })
     }
@@ -88,7 +112,9 @@ impl crate::proto::gen::services::PositionServiceHandlers for PositionService {
             .await
             .map_err(db_err)?
             .ok_or_else(|| not_found("position"))?;
-        Ok(position_proto(row))
+        let mut position = position_proto(row);
+        bind_org_unit_names(&self.state, std::slice::from_mut(&mut position)).await;
+        Ok(position)
     }
 
     async fn create(
@@ -317,5 +343,49 @@ mod tests {
             "masked None explicitly clears the column"
         );
         assert_eq!(fresh.name, "客服一号", "NOT NULL column never clears");
+    }
+
+    /// 组织名回填（参照 enrichRelations 的 OrgUnitName 面）——此前恒 None。
+    #[tokio::test]
+    async fn get_backfills_org_unit_name() {
+        let state = test_state().await;
+        let svc = PositionService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let org = crate::admin::data::sys_org_units::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set("岗位归属部".into()),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+        let row = positions::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set("有归属岗".into()),
+            org_unit_id: Set(Some(org.id)),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        let p = svc
+            .get(
+                ctx(1, 9),
+                GetPositionRequest {
+                    query_by: Some(
+                        crate::proto::identity::service::v1::get_position_request::QueryBy::Id(
+                            row.id,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(p.org_unit_name.as_deref(), Some("岗位归属部"));
     }
 }

@@ -96,6 +96,41 @@ fn org_proto(r: crate::admin::data::sys_org_units::Model) -> OrgUnit {
     }
 }
 
+/// 响应名面回填（参照 enrichRelations：LeaderName/ContactUserName 按
+/// username 回填；树面沿 children 递归——PopulateTree 同语义）。查询
+/// 失败静默放行（参照 `_ = s.enrichRelations(...)` 的 best-effort）。
+async fn bind_user_names(state: &AppState, items: &mut [OrgUnit]) {
+    let ids: std::collections::BTreeSet<i64> = items
+        .iter()
+        .flat_map(|o| [o.leader_id, o.contact_user_id].into_iter().flatten())
+        .collect();
+    if ids.is_empty() {
+        return;
+    }
+    let users: std::collections::HashMap<i64, String> =
+        crate::admin::data::sys_users::Entity::find()
+            .filter(crate::admin::data::sys_users::Column::Id.is_in(ids))
+            .all(&state.db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|u| (u.id, u.username))
+            .collect();
+    fill_user_names(items, &users);
+}
+
+fn fill_user_names(items: &mut [OrgUnit], users: &std::collections::HashMap<i64, String>) {
+    for o in items {
+        if let Some(lid) = o.leader_id {
+            o.leader_name = users.get(&lid).cloned();
+        }
+        if let Some(cid) = o.contact_user_id {
+            o.contact_user_name = users.get(&cid).cloned();
+        }
+        fill_user_names(&mut o.children, users);
+    }
+}
+
 pub struct OrgUnitService {
     pub state: Arc<AppState>,
 }
@@ -230,8 +265,10 @@ impl crate::proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
         let tid = tenant_of(&ctx);
         let repo = crate::admin::data::repos::OrgUnitRepo::new(&self.state.db);
         let (rows, total) = repo.paged_list(tid, &req).await?;
+        let mut items: Vec<OrgUnit> = rows.into_iter().map(org_proto).collect();
+        bind_user_names(&self.state, &mut items).await;
         Ok(ListOrgUnitResponse {
-            items: rows.into_iter().map(org_proto).collect(),
+            items,
             total: total as i64,
         })
     }
@@ -251,7 +288,9 @@ impl crate::proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
             .find_scoped(id, scope)
             .await?
             .ok_or_else(|| not_found("org unit"))?;
-        Ok(org_proto(row))
+        let mut org = org_proto(row);
+        bind_user_names(&self.state, std::slice::from_mut(&mut org)).await;
+        Ok(org)
     }
 
     async fn create(
@@ -574,5 +613,59 @@ mod tests {
             "masked None explicitly clears the column"
         );
         assert_eq!(fresh.name, "改名", "NOT NULL column never clears");
+    }
+
+    /// 名称回填（参照 enrichRelations）：LeaderName/ContactUserName 按
+    /// username 回填——此前恒 None。
+    #[tokio::test]
+    async fn get_backfills_leader_and_contact_names() {
+        let state = test_state().await;
+        let svc = OrgUnitService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let leader = crate::admin::data::sys_users::ActiveModel {
+            tenant_id: Set(Some(1)),
+            username: Set("orgboss".into()),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+        let contact = crate::admin::data::sys_users::ActiveModel {
+            tenant_id: Set(Some(1)),
+            username: Set("orgfront".into()),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+        let row = orgs::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set("名面部".into()),
+            leader_id: Set(Some(leader.id)),
+            contact_user_id: Set(Some(contact.id)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        let org = svc
+            .get(
+                ctx(1, 9),
+                GetOrgUnitRequest {
+                    query_by: Some(
+                        crate::proto::identity::service::v1::get_org_unit_request::QueryBy::Id(
+                            row.id,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(org.leader_name.as_deref(), Some("orgboss"));
+        assert_eq!(org.contact_user_name.as_deref(), Some("orgfront"));
     }
 }

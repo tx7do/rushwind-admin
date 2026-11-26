@@ -81,6 +81,30 @@ fn tenant_proto(r: crate::admin::data::sys_tenants::Model) -> Tenant {
     }
 }
 
+/// 管理员名回填（参照 enrichRelations 的 AdminUserName 面，username
+/// 形态；best-effort）。回收站面（ListDeletedTenants）参照不回填，保持裸。
+async fn bind_admin_user_names(state: &AppState, items: &mut [Tenant]) {
+    let ids: std::collections::BTreeSet<i64> =
+        items.iter().filter_map(|t| t.admin_user_id).collect();
+    if ids.is_empty() {
+        return;
+    }
+    let users: std::collections::HashMap<i64, String> =
+        crate::admin::data::sys_users::Entity::find()
+            .filter(crate::admin::data::sys_users::Column::Id.is_in(ids))
+            .all(&state.db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|u| (u.id, u.username))
+            .collect();
+    for t in items {
+        if let Some(uid) = t.admin_user_id {
+            t.admin_user_name = users.get(&uid).cloned();
+        }
+    }
+}
+
 pub struct TenantService {
     pub state: Arc<AppState>,
 }
@@ -338,8 +362,10 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
         self.require_platform_admin(&ctx, "tenant list").await?;
         let repo = crate::admin::data::repos::TenantRepo::new(&self.state.db);
         let (rows, total) = repo.paged_list(&req).await?;
+        let mut items: Vec<Tenant> = rows.into_iter().map(tenant_proto).collect();
+        bind_admin_user_names(&self.state, &mut items).await;
         Ok(ListTenantResponse {
-            items: rows.into_iter().map(tenant_proto).collect(),
+            items,
             total: total as i64,
         })
     }
@@ -355,7 +381,9 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
             return Err(status_error("BAD_REQUEST", "query_by required"));
         };
         let row = self.find(query).await?.ok_or_else(|| not_found("tenant"))?;
-        Ok(tenant_proto(row))
+        let mut tenant = tenant_proto(row);
+        bind_admin_user_names(&self.state, std::slice::from_mut(&mut tenant)).await;
+        Ok(tenant)
     }
 
     async fn create(
@@ -1243,5 +1271,50 @@ mod tests {
         )
         .await
         .unwrap();
+    }
+
+    /// 管理员名回填（参照 enrichRelations 的 AdminUserName 面）；回收站
+    /// 列表（ListDeletedTenants）参照不回填，保持裸。
+    #[tokio::test]
+    async fn get_backfills_admin_user_name() {
+        use sea_orm::Set;
+        let state = test_state().await;
+        let svc = TenantService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let admin = crate::admin::data::sys_users::ActiveModel {
+            tenant_id: Set(Some(0)),
+            username: Set("tenantboss".into()),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+        let row = crate::admin::data::sys_tenants::ActiveModel {
+            name: Set("有名租户".into()),
+            code: Set("named-tenant".into()),
+            admin_user_id: Set(Some(admin.id)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        let t = svc
+            .get(
+                admin_ctx(),
+                crate::proto::identity::service::v1::GetTenantRequest {
+                    view_mask: None,
+                    query_by: Some(
+                        crate::proto::identity::service::v1::get_tenant_request::QueryBy::Id(
+                            row.id,
+                        ),
+                    ),
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(t.admin_user_name.as_deref(), Some("tenantboss"));
     }
 }

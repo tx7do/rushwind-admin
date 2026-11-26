@@ -45,6 +45,28 @@ fn message_proto(r: crate::admin::data::internal_messages::Model) -> InternalMes
     }
 }
 
+/// 分类名回填（参照 enrichRelations 的 CategoryName 面；best-effort）。
+async fn bind_category_names(state: &AppState, items: &mut [InternalMessage]) {
+    let ids: std::collections::BTreeSet<i64> = items.iter().filter_map(|m| m.category_id).collect();
+    if ids.is_empty() {
+        return;
+    }
+    let categories: std::collections::HashMap<i64, String> =
+        crate::admin::data::internal_message_categories::Entity::find()
+            .filter(crate::admin::data::internal_message_categories::Column::Id.is_in(ids))
+            .all(&state.db)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|c| (c.id, c.name))
+            .collect();
+    for m in items {
+        if let Some(cid) = m.category_id {
+            m.category_name = categories.get(&cid).cloned();
+        }
+    }
+}
+
 pub struct InternalMessageService {
     pub state: Arc<AppState>,
 }
@@ -89,8 +111,10 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
     ) -> Result<ListInternalMessageResponse, StatusError> {
         let repo = crate::admin::data::repos::InternalMessageRepo::new(&self.state.db);
         let (rows, total) = repo.paged_list(tenant_of(&ctx), &req).await?;
+        let mut items: Vec<InternalMessage> = rows.into_iter().map(message_proto).collect();
+        bind_category_names(&self.state, &mut items).await;
         Ok(ListInternalMessageResponse {
-            items: rows.into_iter().map(message_proto).collect(),
+            items,
             total: total as i64,
         })
     }
@@ -109,7 +133,9 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
             .await
             .map_err(db_err)?
             .ok_or_else(|| not_found("internal message"))?;
-        Ok(message_proto(row))
+        let mut message = message_proto(row);
+        bind_category_names(&self.state, std::slice::from_mut(&mut message)).await;
+        Ok(message)
     }
 
     async fn update_message(
@@ -399,5 +425,50 @@ mod tests {
             fresh.content.is_none(),
             "masked None explicitly clears the column"
         );
+    }
+
+    /// 分类名回填（参照 enrichRelations 的 CategoryName 面）——此前恒 None。
+    #[tokio::test]
+    async fn get_message_backfills_category_name() {
+        let state = test_state().await;
+        let svc = InternalMessageService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let category = crate::admin::data::internal_message_categories::ActiveModel {
+            name: Set("通知类".into()),
+            code: Set("notice".into()),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+        let row = messages::ActiveModel {
+            tenant_id: Set(Some(1)),
+            title: Set(Some("带分类".into())),
+            content: Set(Some("正文".into())),
+            status: Set(Some("PUBLISHED".into())),
+            category_id: Set(Some(category.id)),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        let m = svc
+            .get_message(
+                ctx(1, 9),
+                crate::proto::internal_message::service::v1::GetInternalMessageRequest {
+                    view_mask: None,
+                    query_by: Some(
+                        crate::proto::internal_message::service::v1::get_internal_message_request::QueryBy::Id(
+                            row.id,
+                        ),
+                    ),
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(m.category_name.as_deref(), Some("通知类"));
     }
 }

@@ -84,6 +84,16 @@ async fn role_proto(state: &AppState, r: crate::admin::data::sys_roles::Model) -
             .map(|p| p.name),
         None => None,
     };
+    // 租户名回填（参照 enrichRelations 的 TenantName 面；best-effort）。
+    let tenant_name = match r.tenant_id {
+        Some(tid) if tid > 0 => crate::admin::data::sys_tenants::Entity::find_by_id(tid)
+            .one(&state.db)
+            .await
+            .ok()
+            .flatten()
+            .map(|t| t.name),
+        _ => None,
+    };
     Role {
         id: Some(r.id),
         name: Some(r.name),
@@ -104,7 +114,7 @@ async fn role_proto(state: &AppState, r: crate::admin::data::sys_roles::Model) -
         org_units: org_units.to_vec(),
         field_permissions,
         tenant_id: r.tenant_id,
-        tenant_name: None,
+        tenant_name,
         created_by: r.created_by,
         updated_by: r.updated_by,
         deleted_by: r.deleted_by,
@@ -779,5 +789,51 @@ mod update_mask_tests {
             "masked None explicitly clears the column"
         );
         assert_eq!(fresh.name, "运营新名", "req column untouched by None");
+    }
+
+    /// 租户名回填（参照 enrichRelations 的 TenantName 面）——此前恒 None。
+    #[tokio::test]
+    async fn get_backfills_tenant_name() {
+        use crate::proto::gen::services::RoleServiceHandlers as _;
+        use crate::testsupport::{ctx, test_state};
+        let state = test_state().await;
+        let svc = RoleService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let tenant = crate::admin::data::sys_tenants::ActiveModel {
+            name: Set("租户甲".into()),
+            code: Set("tenant-a".into()),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+        let role = crate::admin::data::sys_roles::ActiveModel {
+            tenant_id: Set(Some(tenant.id)),
+            name: Set("角色甲".into()),
+            code: Set("tenant:role-a".into()),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        let r = svc
+            .get(
+                ctx(tenant.id, 9),
+                crate::proto::permission::service::v1::GetRoleRequest {
+                    query_by: Some(
+                        crate::proto::permission::service::v1::get_role_request::QueryBy::Id(
+                            role.id,
+                        ),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(r.tenant_name.as_deref(), Some("租户甲"));
     }
 }
