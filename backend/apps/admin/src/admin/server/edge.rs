@@ -113,6 +113,17 @@ fn body_decision(content_length: Option<u64>, token_ok: bool) -> BodyDecision {
     }
 }
 
+/// GET/HEAD/OPTIONS 不携带请求体语义：Content-Length 缺席是常态而非
+/// chunked 信号。守卫对这些方法免认证判定、按免鉴权小上限放行——此前
+/// 无声明长度一律要令牌，无 body 的免鉴权 GET（验证码/openapi/图片代理）
+/// 全被 401 打死（线上探针实证）。参照基座守卫本就只判 413 不做认证
+/// （Go 侧 bodyless GET 的 ContentLength 是 0，恒过声明闸）。
+fn bodyless_method(method: &axum::http::Method) -> bool {
+    method == axum::http::Method::GET
+        || method == axum::http::Method::HEAD
+        || method == axum::http::Method::OPTIONS
+}
+
 /// The whole-site body guard (upstream 522d7ec9d 同语义): mounted
 /// OUTSIDE every route (outermost of the edge stack, above the audit
 /// layer), so the 413/401 verdicts land before the generated codec
@@ -134,6 +145,8 @@ async fn body_guard(
     let verdict = match content_length {
         // Declared oversized: the verdict needs no token check.
         Some(len) if len > MAX_REQUEST_BODY => body_decision(Some(len), false),
+        // Bodyless methods with no declared length: nothing to guard.
+        None if bodyless_method(req.method()) => BodyDecision::Limit(MAX_UNAUTH_BODY),
         // Oversized-or-unknown: the token decides.
         _ => {
             let bearer = rushwind_http_binding::ctx::bearer_token(req.headers());
@@ -363,6 +376,38 @@ mod body_guard_tests {
             .oneshot(builder.body(Body::from(body)).unwrap())
             .await
             .unwrap()
+    }
+
+    /// 无 body 的免鉴权 GET（验证码/openapi 形态）：无 Content-Length、
+    /// 无令牌，必须放行——此前长度未知一律要令牌，登录页第一跳就被
+    /// 401 打死（线上探针实证的回归面）。
+    #[tokio::test]
+    async fn bodyless_get_without_token_passes_the_guard() {
+        let auth: Arc<dyn rushwind_authn::Authenticator> = Arc::new(NoAuth);
+        let checker: Arc<dyn auth::AccessTokenChecker + 'static> = Arc::new(ProbeChecker);
+        let app = axum::Router::new()
+            .route(
+                "/probe",
+                axum::routing::get(|| async { axum::Json(serde_json::json!({"ok": true})) }),
+            )
+            .layer(axum::middleware::from_fn(
+                move |req: axum::extract::Request, next: axum::middleware::Next| {
+                    let auth = Arc::clone(&auth);
+                    let checker = Arc::clone(&checker);
+                    async move { body_guard(auth, checker, req, next).await }
+                },
+            ));
+        let resp = app
+            .oneshot(
+                Request::builder()
+                    .method("GET")
+                    .uri("/probe")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
     }
 
     #[test]
