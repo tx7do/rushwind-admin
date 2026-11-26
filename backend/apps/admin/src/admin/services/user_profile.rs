@@ -14,7 +14,7 @@ use crate::proto::identity::service::v1::{
 };
 use pbjson_types::Empty;
 
-use crate::admin::services::user::{load_user, user_to_proto};
+use crate::admin::services::user::{load_user, user_to_proto, UserBindings};
 use crate::admin::state::{internal_error, status_error, AppState};
 
 pub struct UserProfileService {
@@ -131,7 +131,7 @@ impl UserProfileServiceHandlers for UserProfileService {
     ) -> Result<User, crate::admin::state::StatusError> {
         let payload = crate::admin::state::operator_of(&ctx)?;
         let (user, codes) = load_user(&self.state, payload.user_id).await?;
-        let mut proto_user = user_to_proto(user, codes);
+        let mut proto_user = user_to_proto(user, UserBindings::roles_only(codes));
 
         // 默认首页（issue #12 按角色设定默认菜单能力）：用户多角色都可能配了
         // home_path，按角色的 sort_order（同序按 id）升序取第一个非空者——

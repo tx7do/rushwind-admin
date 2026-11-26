@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use sea_orm::{ActiveModelTrait, Set};
+use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 use crate::admin::mapping;
 use crate::admin::state::{
@@ -412,13 +412,23 @@ impl crate::proto::gen::services::OrgUnitServiceHandlers for OrgUnitService {
         }
         // The delete itself: one transaction, the viewer scope riding
         // the statement (cross-tenant rows inside a mixed subtree
-        // survive).
+        // survive). The user-org bindings anchored inside the subtree
+        // ride along (wipe keys on org_unit_id only — the subtree ids
+        // may span tenants).
         let txn = {
             use sea_orm::TransactionTrait as _;
             self.state.db.begin()
         }
         .await
         .map_err(|_| internal_error("start transaction failed"))?;
+        let clean_bindings = crate::admin::data::sys_user_org_units::Entity::delete_many()
+            .filter(crate::admin::data::sys_user_org_units::Column::OrgUnitId.is_in(&ids))
+            .exec(&txn)
+            .await;
+        if let Err(e) = clean_bindings {
+            let _ = txn.rollback().await;
+            return Err(internal_error(format!("db: {e}")));
+        }
         match repo.delete_ids_scoped(&txn, &ids, scope).await {
             Ok(()) => {
                 txn.commit()

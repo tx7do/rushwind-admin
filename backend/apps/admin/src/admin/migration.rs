@@ -29,6 +29,7 @@ struct EntityMigrations {
     ai: EntityTablesMigration,
     bi_revisions: EntityTablesMigration,
     ai_agent_revisions: EntityTablesMigration,
+    user_relations: EntityTablesMigration,
 }
 
 impl EntityMigrations {
@@ -116,6 +117,12 @@ impl EntityMigrations {
         let ai_agent_revisions = EntityTables::new("m20251105_000015_ai_agent_revisions", backend)
             .table::<data::sys_ai_agent_revisions::Entity>()
             .build();
+        // 用户-组织/岗位关联表：实体晚于 init 落库（存量环境按新迁移补建，
+        // fresh 库依序全跑）。
+        let user_relations = EntityTables::new("m20261126_000001_user_relations", backend)
+            .table::<data::sys_user_org_units::Entity>()
+            .table::<data::sys_user_positions::Entity>()
+            .build();
         Self {
             init,
             notification,
@@ -126,6 +133,7 @@ impl EntityMigrations {
             ai,
             bi_revisions,
             ai_agent_revisions,
+            user_relations,
         }
     }
 
@@ -142,6 +150,7 @@ impl EntityMigrations {
             self.ai,
             self.bi_revisions,
             self.ai_agent_revisions,
+            self.user_relations,
         ]
     }
 }
@@ -158,6 +167,7 @@ impl MigratorTrait for Migrator {
             ai,
             bi_revisions,
             ai_agent_revisions,
+            user_relations,
         } = EntityMigrations::new(DatabaseBackend::Postgres);
         vec![
             Box::new(init),
@@ -183,6 +193,7 @@ impl MigratorTrait for Migrator {
             Box::new(IdWidenU64),
             Box::new(PermissionGroupCode),
             Box::new(AiSearchIndexUtcTime),
+            Box::new(user_relations),
         ]
     }
 }
@@ -1176,7 +1187,7 @@ mod tests {
     use super::*;
     use crate::testsupport::mem_db;
 
-    /// sqlite 测试面：九个实体派生迁移依序 up 成功，且 keyset 表全部在场。
+    /// sqlite 测试面：十个实体派生迁移依序 up 成功，且 keyset 表全部在场。
     /// 实体表本就是当前全量列的来源——这一测同时验证 35 张表在 sqlite
     /// 类型面自洽（Unsigned→signed、Enum→text、Json→text 的框架映射）。
     #[tokio::test]
@@ -1189,14 +1200,14 @@ mod tests {
         let applied = <SqliteTestMigrator as MigratorTrait>::get_applied_migrations(&db)
             .await
             .expect("applied list");
-        assert_eq!(applied.len(), 9);
+        assert_eq!(applied.len(), 10);
         assert_eq!(
             applied[0].name(),
             "m20250915_000001_init",
             "the init migration carries the entity catalog"
         );
 
-        // 每个迁移期的代表表（清单九段各抽一；表名以实体声明为准——
+        // 每个迁移期的代表表（清单十段各抽一；表名以实体声明为准——
         // notification/monitor/bi-revision 段不带 sys_ 前缀）。
         for table in [
             "sys_users",
@@ -1208,6 +1219,8 @@ mod tests {
             "sys_ai_providers",
             "sys_bi_dashboard_revisions",
             "sys_ai_agent_revisions",
+            "sys_user_org_units",
+            "sys_user_positions",
         ] {
             let hit = db
                 .query_one_raw(sea_orm::Statement::from_string(
@@ -1231,6 +1244,6 @@ mod tests {
         let applied = <SqliteTestMigrator as MigratorTrait>::get_applied_migrations(&db)
             .await
             .expect("applied list");
-        assert_eq!(applied.len(), 9, "re-up must not duplicate tracker rows");
+        assert_eq!(applied.len(), 10, "re-up must not duplicate tracker rows");
     }
 }

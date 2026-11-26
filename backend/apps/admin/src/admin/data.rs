@@ -29,7 +29,8 @@ pub use bi::bi_dashboards;
 pub use dict::{sys_dict_entries, sys_dict_entry_i18n, sys_dict_types, sys_languages};
 pub use identity::{
     sys_org_units, sys_plan_modules, sys_plan_quotas, sys_plans, sys_positions, sys_tenants,
-    sys_user_credentials, sys_user_mfa_factors, sys_user_roles, sys_users,
+    sys_user_credentials, sys_user_mfa_factors, sys_user_org_units, sys_user_positions,
+    sys_user_roles, sys_users,
 };
 pub use message::{internal_message_categories, internal_message_recipients, internal_messages};
 pub use monitor::sys_monitor_alert_rules;

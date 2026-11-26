@@ -10,7 +10,7 @@
 // crate — so the repositories' `fetch_paged(db, base, req)` call sites
 // compile unchanged.
 
-pub use rushwind_storage_seaorm_support::paging::{column_kind, fetch_paged, Kind};
+pub use rushwind_storage_seaorm_support::paging::{column_kind, fetch_paged, Kind, PagingInput};
 
 /// The frozen kind oracle: the hand-written name lists the runtime
 /// table replaced. Each listed column's runtime classification must
@@ -154,6 +154,8 @@ mod kind_oracle {
         check!(crate::admin::data::sys_tenants::Entity);
         check!(crate::admin::data::sys_user_credentials::Entity);
         check!(crate::admin::data::sys_user_mfa_factors::Entity);
+        check!(crate::admin::data::sys_user_org_units::Entity);
+        check!(crate::admin::data::sys_user_positions::Entity);
         check!(crate::admin::data::sys_user_roles::Entity);
         check!(crate::admin::data::sys_users::Entity);
     }

@@ -16,7 +16,7 @@ use pbjson_types::Empty;
 use crate::admin::state::{internal_error, AppState};
 
 use super::menu::menu_meta_from_json;
-use super::user::{load_user, user_to_proto};
+use super::user::{load_user, user_to_proto, UserBindings};
 
 pub struct AdminPortalService {
     pub state: Arc<AppState>,
@@ -179,7 +179,7 @@ impl AdminPortalServiceHandlers for AdminPortalService {
         let (user, role_codes) = load_user(&self.state, payload.user_id).await?;
         let rows = self.permitted_menus(payload.user_id).await?;
         let codes = self.permission_codes(payload.user_id).await?;
-        let _ = user_to_proto(user, role_codes);
+        let _ = user_to_proto(user, UserBindings::roles_only(role_codes));
         Ok(InitialContextResponse {
             menus: Self::build_route_tree(&rows),
             permissions: codes,

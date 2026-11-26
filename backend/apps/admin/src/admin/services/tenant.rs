@@ -273,6 +273,8 @@ impl TenantService {
             };
         }
         wipe!(sys_user_roles);
+        wipe!(sys_user_org_units);
+        wipe!(sys_user_positions);
         wipe!(sys_user_credentials);
         wipe!(sys_user_mfa_factors);
         wipe!(sys_roles);

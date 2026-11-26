@@ -7,7 +7,8 @@ use std::sync::Arc;
 
 use sea_orm::sea_query::Condition;
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder, Set,
+    TransactionTrait,
 };
 
 use crate::admin::data::repos::UserRepo;
@@ -179,6 +180,123 @@ impl UserService {
         Ok(())
     }
 
+    /// 组织单元绑定（create/update 共用，delete-then-insert 整组重建）。
+    /// 空列表 = 本次不动绑定（既不清也不建）；非空 = 清后全量重建，行全部
+    /// status=ACTIVE / is_primary=true / assigned_at=start_at=now。
+    async fn sync_org_units<C>(
+        db: &C,
+        tenant_id: i64,
+        user_id: i64,
+        org_unit_ids: &[i64],
+        operator_id: i64,
+    ) -> Result<(), StatusError>
+    where
+        C: sea_orm::ConnectionTrait,
+    {
+        let unique: Vec<i64> = org_unit_ids
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        if unique.is_empty() {
+            return Ok(());
+        }
+        crate::admin::data::sys_user_org_units::Entity::delete_many()
+            .filter(
+                Condition::all()
+                    .add(crate::admin::data::sys_user_org_units::Column::TenantId.eq(tenant_id))
+                    .add(crate::admin::data::sys_user_org_units::Column::UserId.eq(user_id)),
+            )
+            .exec(db)
+            .await
+            .map_err(db_err)?;
+        let now = crate::admin::data::now();
+        for org_unit_id in &unique {
+            crate::admin::data::sys_user_org_units::ActiveModel {
+                tenant_id: Set(Some(tenant_id)),
+                user_id: Set(Some(user_id)),
+                org_unit_id: Set(Some(*org_unit_id)),
+                is_primary: Set(Some(true)),
+                status: Set(Some("ACTIVE".into())),
+                assigned_at: Set(Some(now)),
+                start_at: Set(Some(now)),
+                created_by: Set(Some(operator_id)),
+                created_at: Set(Some(now)),
+                updated_at: Set(Some(now)),
+                ..Default::default()
+            }
+            .insert(db)
+            .await
+            .map_err(db_err)?;
+        }
+        Ok(())
+    }
+
+    /// 岗位绑定（组织单元同款 delete-then-insert 语义）。
+    async fn sync_positions<C>(
+        db: &C,
+        tenant_id: i64,
+        user_id: i64,
+        position_ids: &[i64],
+        operator_id: i64,
+    ) -> Result<(), StatusError>
+    where
+        C: sea_orm::ConnectionTrait,
+    {
+        let unique: Vec<i64> = position_ids
+            .iter()
+            .copied()
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        if unique.is_empty() {
+            return Ok(());
+        }
+        crate::admin::data::sys_user_positions::Entity::delete_many()
+            .filter(
+                Condition::all()
+                    .add(crate::admin::data::sys_user_positions::Column::TenantId.eq(tenant_id))
+                    .add(crate::admin::data::sys_user_positions::Column::UserId.eq(user_id)),
+            )
+            .exec(db)
+            .await
+            .map_err(db_err)?;
+        let now = crate::admin::data::now();
+        for position_id in &unique {
+            crate::admin::data::sys_user_positions::ActiveModel {
+                tenant_id: Set(Some(tenant_id)),
+                user_id: Set(Some(user_id)),
+                position_id: Set(Some(*position_id)),
+                is_primary: Set(Some(true)),
+                status: Set(Some("ACTIVE".into())),
+                assigned_at: Set(Some(now)),
+                start_at: Set(Some(now)),
+                created_by: Set(Some(operator_id)),
+                created_at: Set(Some(now)),
+                updated_at: Set(Some(now)),
+                ..Default::default()
+            }
+            .insert(db)
+            .await
+            .map_err(db_err)?;
+        }
+        Ok(())
+    }
+
+    /// 关联 id 收集：单值并入复数集（>0 才收、重复去重）——参照的
+    /// CreateWithTx/Update 收集语义（RoleId/OrgUnitId/PositionId 任一在
+    /// mask 内即该类关联参与本次更新）。
+    fn merge_relation_ids(plural: &[i64], singular: Option<i64>) -> Vec<i64> {
+        let mut ids = plural.to_vec();
+        if let Some(id) = singular.filter(|v| *v > 0) {
+            if !ids.contains(&id) {
+                ids.push(id);
+            }
+        }
+        ids
+    }
+
     /// 字段写入统一过 update_mask 白名单门（字段级更新语义）：create 等
     /// 非掩码入口传 [`crate::fieldmask::FieldMask::unmasked`]，即存量全量
     /// 提交语义；update 传请求掩码，只有选中字段可动。
@@ -253,11 +371,9 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
     ) -> Result<ListUserResponse, StatusError> {
         let tid = tenant_of(&ctx);
         let (rows, total) = self.repo(&ctx).paged_list(tid, &req).await?;
+        let items = load_user_views(&self.state, rows).await?;
         Ok(ListUserResponse {
-            items: rows
-                .into_iter()
-                .map(|u| user_to_proto(u, Vec::new()))
-                .collect(),
+            items,
             total: total as i64,
         })
     }
@@ -293,8 +409,8 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             None => None,
         }
         .ok_or_else(|| not_found("user"))?;
-        let (_, codes) = load_user(&self.state, row.id).await?;
-        Ok(user_to_proto(row, codes))
+        let mut view = load_user_views(&self.state, vec![row]).await?;
+        view.pop().ok_or_else(|| not_found("user"))
     }
 
     async fn create(
@@ -325,7 +441,11 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         };
         Self::apply_user_fields(&mut a, &data, &crate::fieldmask::FieldMask::unmasked());
         crate::ensure_default!(a, status, "NORMAL".to_string());
-        // 单事务：用户行 + 凭证 + 角色绑定原子落库——凭证/角色任一步失败
+        // 单值并入复数集（单值 >0 才收）。
+        let role_ids = Self::merge_relation_ids(&data.role_ids, data.role_id);
+        let org_unit_ids = Self::merge_relation_ids(&data.org_unit_ids, data.org_unit_id);
+        let position_ids = Self::merge_relation_ids(&data.position_ids, data.position_id);
+        // 单事务：用户行 + 凭证 + 角色/组织/岗位绑定原子落库——任一步失败
         // 即整体回滚，不再留下"提示错误但用户已创建"的半创建行。
         let txn = self.state.db.begin().await.map_err(db_err)?;
         let inserted = a.insert(&txn).await.map_err(db_err)?;
@@ -337,7 +457,23 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             req.password.as_deref(),
         )
         .await?;
-        Self::sync_roles(&txn, payload.tenant_id, inserted.id, &data.role_ids).await?;
+        Self::sync_roles(&txn, payload.tenant_id, inserted.id, &role_ids).await?;
+        Self::sync_org_units(
+            &txn,
+            payload.tenant_id,
+            inserted.id,
+            &org_unit_ids,
+            payload.user_id,
+        )
+        .await?;
+        Self::sync_positions(
+            &txn,
+            payload.tenant_id,
+            inserted.id,
+            &position_ids,
+            payload.user_id,
+        )
+        .await?;
         txn.commit().await.map_err(db_err)?;
         Ok(Empty {})
     }
@@ -362,15 +498,54 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         let txn = self.state.db.begin().await.map_err(db_err)?;
         if let Some(data) = &req.data {
             // update_mask 白名单门（字段级更新语义）：无掩码 = 存量全量
-            // 提交语义；有掩码只有选中字段可动。角色绑定与密码凭据是
-            // 子资源写，保留原有触发条件不进门。
+            // 提交语义；有掩码只有选中字段可动。密码凭据是子资源写，
+            // 保留原有触发条件不进门。
             let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
             Self::apply_user_fields(&mut a, data, &mask);
             crate::stamp_update!(a, payload.user_id);
-            a.update(&txn).await.map_err(db_err)?;
-            if !data.role_ids.is_empty() {
-                Self::sync_roles(&txn, payload.tenant_id, req.id, &data.role_ids).await?;
+            // 纯关系更新（掩码只选 *_ids，无标量列变化）合法：空 SET 的
+            // RecordNotUpdated 不算错，放行到下面的关联重建。
+            if let Err(e) = a.update(&txn).await {
+                if !matches!(e, sea_orm::DbErr::RecordNotUpdated) {
+                    return Err(db_err(e));
+                }
             }
+            // 关联（角色/组织/岗位）重建 = delete-then-insert 整组替换，
+            // 只在对应字段确属本次更新范围（掩码选中或无掩码全量）时才
+            // 收集——窄掩码的部分更新载荷里即便带了旧值也不得清空既有
+            // 绑定。空集 = 本次不动绑定；非空 = 清后重建。
+            let role_ids = if mask.touches("role_ids") || mask.touches("role_id") {
+                Self::merge_relation_ids(&data.role_ids, data.role_id)
+            } else {
+                Vec::new()
+            };
+            let org_unit_ids = if mask.touches("org_unit_ids") || mask.touches("org_unit_id") {
+                Self::merge_relation_ids(&data.org_unit_ids, data.org_unit_id)
+            } else {
+                Vec::new()
+            };
+            let position_ids = if mask.touches("position_ids") || mask.touches("position_id") {
+                Self::merge_relation_ids(&data.position_ids, data.position_id)
+            } else {
+                Vec::new()
+            };
+            Self::sync_roles(&txn, payload.tenant_id, req.id, &role_ids).await?;
+            Self::sync_org_units(
+                &txn,
+                payload.tenant_id,
+                req.id,
+                &org_unit_ids,
+                payload.user_id,
+            )
+            .await?;
+            Self::sync_positions(
+                &txn,
+                payload.tenant_id,
+                req.id,
+                &position_ids,
+                payload.user_id,
+            )
+            .await?;
         }
         if req.password.as_deref().is_some_and(|v| !v.is_empty()) {
             Self::upsert_credential(
@@ -421,7 +596,7 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
         if !is_platform && row_tid != payload.tenant_id {
             return Err(not_found("user"));
         }
-        // 单事务：凭证 + 角色绑定 + 用户行原子清除。
+        // 单事务：凭证 + 角色/组织/岗位绑定 + 用户行原子清除。
         let txn = self.state.db.begin().await.map_err(db_err)?;
         crate::admin::data::sys_user_credentials::Entity::delete_many()
             .filter(
@@ -434,6 +609,16 @@ impl crate::proto::gen::services::UserServiceHandlers for UserService {
             .map_err(db_err)?;
         crate::admin::data::sys_user_roles::Entity::delete_many()
             .filter(crate::admin::data::sys_user_roles::Column::UserId.eq(id))
+            .exec(&txn)
+            .await
+            .map_err(db_err)?;
+        crate::admin::data::sys_user_org_units::Entity::delete_many()
+            .filter(crate::admin::data::sys_user_org_units::Column::UserId.eq(id))
+            .exec(&txn)
+            .await
+            .map_err(db_err)?;
+        crate::admin::data::sys_user_positions::Entity::delete_many()
+            .filter(crate::admin::data::sys_user_positions::Column::UserId.eq(id))
             .exec(&txn)
             .await
             .map_err(db_err)?;
@@ -577,12 +762,51 @@ pub(crate) async fn load_user(
     Ok((user, codes))
 }
 
-/// User row → proto User (the identity fields; role codes ride the
-/// `roles` list).
+/// 用户响应的绑定面：绑定 id 集 + 名称/编码回填（用户视图装配的产物）。
+pub(crate) struct UserBindings {
+    pub role_ids: Vec<i64>,
+    pub role_codes: Vec<String>,
+    pub role_names: Vec<String>,
+    pub org_unit_ids: Vec<i64>,
+    pub org_unit_names: Vec<String>,
+    pub position_ids: Vec<i64>,
+    pub position_names: Vec<String>,
+    pub tenant_name: Option<String>,
+}
+
+impl UserBindings {
+    /// 仅角色编码面（portal/profile 视图沿用既有线形态，组织/岗位留空）。
+    pub(crate) fn roles_only(codes: Vec<String>) -> Self {
+        Self {
+            role_ids: Vec::new(),
+            role_codes: codes,
+            role_names: Vec::new(),
+            org_unit_ids: Vec::new(),
+            org_unit_names: Vec::new(),
+            position_ids: Vec::new(),
+            position_names: Vec::new(),
+            tenant_name: None,
+        }
+    }
+}
+
+/// User row → proto User (the identity fields; the binding ids ride their
+/// `*_ids` lists, names ride the `*_names` lists, role codes the `roles`
+/// list).
 pub(crate) fn user_to_proto(
     user: crate::admin::data::sys_users::Model,
-    role_codes: Vec<String>,
+    bindings: UserBindings,
 ) -> User {
+    let UserBindings {
+        role_ids,
+        role_codes,
+        role_names,
+        org_unit_ids,
+        org_unit_names,
+        position_ids,
+        position_names,
+        tenant_name,
+    } = bindings;
     User {
         home_path: None,
         id: Some(user.id),
@@ -617,21 +841,177 @@ pub(crate) fn user_to_proto(
         created_at: user.created_at.and_then(crate::admin::state::naive_to_ts),
         updated_at: user.updated_at.and_then(crate::admin::state::naive_to_ts),
         deleted_at: user.deleted_at.and_then(crate::admin::state::naive_to_ts),
-        tenant_name: None,
+        tenant_name,
         org_unit_id: None,
-        org_unit_ids: Vec::new(),
+        org_unit_ids,
         org_unit_name: None,
-        org_unit_names: Vec::new(),
+        org_unit_names,
         position_id: None,
-        position_ids: Vec::new(),
+        position_ids,
         position_name: None,
-        position_names: Vec::new(),
+        position_names,
         role_id: None,
-        role_ids: Vec::new(),
+        role_ids,
         roles: role_codes,
-        role_names: Vec::new(),
+        role_names,
         remark: user.remark,
     }
+}
+
+/// 用户视图装配：绑定 id 集（角色/组织/岗位）按用户批量加载，名称与编码
+/// 按去重后的 id 集各一把查回——Get 单条与 List 批量共用（对位参照的
+/// enrichRelations 聚合面：列表把 N+1 压平成关系 3 查 + 名称 4 查）。
+pub(crate) async fn load_user_views(
+    state: &Arc<AppState>,
+    rows: Vec<crate::admin::data::sys_users::Model>,
+) -> Result<Vec<User>, StatusError> {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let user_ids: Vec<i64> = rows.iter().map(|r| r.id).collect();
+    let mut role_of: BTreeMap<i64, Vec<i64>> = BTreeMap::new();
+    let mut org_of: BTreeMap<i64, Vec<i64>> = BTreeMap::new();
+    let mut pos_of: BTreeMap<i64, Vec<i64>> = BTreeMap::new();
+    if !user_ids.is_empty() {
+        let role_rows = crate::admin::data::sys_user_roles::Entity::find()
+            .filter(crate::admin::data::sys_user_roles::Column::UserId.is_in(&user_ids))
+            .order_by_asc(crate::admin::data::sys_user_roles::Column::Id)
+            .all(&state.db)
+            .await
+            .map_err(db_err)?;
+        for r in role_rows
+            .into_iter()
+            .filter_map(|r| match (r.user_id, r.role_id) {
+                (Some(u), Some(v)) => Some((u, v)),
+                _ => None,
+            })
+        {
+            role_of.entry(r.0).or_default().push(r.1);
+        }
+        let org_rows = crate::admin::data::sys_user_org_units::Entity::find()
+            .filter(crate::admin::data::sys_user_org_units::Column::UserId.is_in(&user_ids))
+            .order_by_asc(crate::admin::data::sys_user_org_units::Column::Id)
+            .all(&state.db)
+            .await
+            .map_err(db_err)?;
+        for r in org_rows
+            .into_iter()
+            .filter_map(|r| match (r.user_id, r.org_unit_id) {
+                (Some(u), Some(v)) => Some((u, v)),
+                _ => None,
+            })
+        {
+            org_of.entry(r.0).or_default().push(r.1);
+        }
+        let pos_rows = crate::admin::data::sys_user_positions::Entity::find()
+            .filter(crate::admin::data::sys_user_positions::Column::UserId.is_in(&user_ids))
+            .order_by_asc(crate::admin::data::sys_user_positions::Column::Id)
+            .all(&state.db)
+            .await
+            .map_err(db_err)?;
+        for r in pos_rows
+            .into_iter()
+            .filter_map(|r| match (r.user_id, r.position_id) {
+                (Some(u), Some(v)) => Some((u, v)),
+                _ => None,
+            })
+        {
+            pos_of.entry(r.0).or_default().push(r.1);
+        }
+    }
+
+    // 名称/编码回填：各面涉及 id 去重后按 id IN 一把查回（绑定 id 引用
+    // 已删除行时名字静默缺席，与参照一致）。
+    let role_ids: BTreeSet<i64> = role_of.values().flatten().copied().collect();
+    let roles: BTreeMap<i64, (String, String)> = if role_ids.is_empty() {
+        BTreeMap::new()
+    } else {
+        crate::admin::data::sys_roles::Entity::find()
+            .filter(crate::admin::data::sys_roles::Column::Id.is_in(role_ids))
+            .all(&state.db)
+            .await
+            .map_err(db_err)?
+            .into_iter()
+            .map(|r| (r.id, (r.name, r.code)))
+            .collect()
+    };
+    let org_ids: BTreeSet<i64> = org_of.values().flatten().copied().collect();
+    let orgs: BTreeMap<i64, String> = if org_ids.is_empty() {
+        BTreeMap::new()
+    } else {
+        crate::admin::data::sys_org_units::Entity::find()
+            .filter(crate::admin::data::sys_org_units::Column::Id.is_in(org_ids))
+            .all(&state.db)
+            .await
+            .map_err(db_err)?
+            .into_iter()
+            .map(|r| (r.id, r.name))
+            .collect()
+    };
+    let pos_ids: BTreeSet<i64> = pos_of.values().flatten().copied().collect();
+    let positions: BTreeMap<i64, String> = if pos_ids.is_empty() {
+        BTreeMap::new()
+    } else {
+        crate::admin::data::sys_positions::Entity::find()
+            .filter(crate::admin::data::sys_positions::Column::Id.is_in(pos_ids))
+            .all(&state.db)
+            .await
+            .map_err(db_err)?
+            .into_iter()
+            .map(|r| (r.id, r.name))
+            .collect()
+    };
+    let tenant_ids: BTreeSet<i64> = rows.iter().filter_map(|r| r.tenant_id).collect();
+    let tenants: BTreeMap<i64, String> = if tenant_ids.is_empty() {
+        BTreeMap::new()
+    } else {
+        crate::admin::data::sys_tenants::Entity::find()
+            .filter(crate::admin::data::sys_tenants::Column::Id.is_in(tenant_ids))
+            .all(&state.db)
+            .await
+            .map_err(db_err)?
+            .into_iter()
+            .map(|r| (r.id, r.name))
+            .collect()
+    };
+
+    Ok(rows
+        .into_iter()
+        .map(|user| {
+            let role_ids = role_of.remove(&user.id).unwrap_or_default();
+            let role_codes: Vec<String> = role_ids
+                .iter()
+                .filter_map(|id| roles.get(id).map(|(_, code)| code.clone()))
+                .collect();
+            let role_names: Vec<String> = role_ids
+                .iter()
+                .filter_map(|id| roles.get(id).map(|(name, _)| name.clone()))
+                .collect();
+            let org_unit_ids = org_of.remove(&user.id).unwrap_or_default();
+            let org_unit_names: Vec<String> = org_unit_ids
+                .iter()
+                .filter_map(|id| orgs.get(id).cloned())
+                .collect();
+            let position_ids = pos_of.remove(&user.id).unwrap_or_default();
+            let position_names: Vec<String> = position_ids
+                .iter()
+                .filter_map(|id| positions.get(id).cloned())
+                .collect();
+            let tenant_name = user.tenant_id.and_then(|tid| tenants.get(&tid).cloned());
+            user_to_proto(
+                user,
+                UserBindings {
+                    role_ids,
+                    role_codes,
+                    role_names,
+                    org_unit_ids,
+                    org_unit_names,
+                    position_ids,
+                    position_names,
+                    tenant_name,
+                },
+            )
+        })
+        .collect())
 }
 
 #[cfg(test)]
@@ -1009,5 +1389,370 @@ mod tests {
         .insert(db)
         .await
         .unwrap();
+    }
+
+    async fn plant_org(
+        db: &sea_orm::DatabaseConnection,
+        tenant_id: i64,
+        name: &str,
+    ) -> crate::admin::data::sys_org_units::Model {
+        crate::admin::data::sys_org_units::ActiveModel {
+            tenant_id: Set(Some(tenant_id)),
+            name: Set(name.into()),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn plant_position(
+        db: &sea_orm::DatabaseConnection,
+        tenant_id: i64,
+        name: &str,
+    ) -> crate::admin::data::sys_positions::Model {
+        crate::admin::data::sys_positions::ActiveModel {
+            tenant_id: Set(Some(tenant_id)),
+            name: Set(name.into()),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap()
+    }
+
+    async fn org_bindings_of(db: &sea_orm::DatabaseConnection, user_id: i64) -> Vec<i64> {
+        crate::admin::data::sys_user_org_units::Entity::find()
+            .filter(crate::admin::data::sys_user_org_units::Column::UserId.eq(user_id))
+            .all(db)
+            .await
+            .unwrap()
+            .iter()
+            .filter_map(|r| r.org_unit_id)
+            .collect()
+    }
+
+    async fn position_bindings_of(db: &sea_orm::DatabaseConnection, user_id: i64) -> Vec<i64> {
+        crate::admin::data::sys_user_positions::Entity::find()
+            .filter(crate::admin::data::sys_user_positions::Column::UserId.eq(user_id))
+            .all(db)
+            .await
+            .unwrap()
+            .iter()
+            .filter_map(|r| r.position_id)
+            .collect()
+    }
+
+    /// create：载荷里的 orgUnitIds/positionIds 落绑定表（此前整类关联被
+    /// 静默丢弃——用户-组织关联从未持久化），单值 orgUnitId 并入复数集。
+    #[tokio::test]
+    async fn create_persists_org_and_position_bindings() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let org_a = plant_org(db, 1, "总部").await;
+        let org_b = plant_org(db, 1, "研发部").await;
+        let position = plant_position(db, 1, "工程师").await;
+
+        svc.create(
+            ctx(1, 9),
+            CreateUserRequest {
+                data: Some(User {
+                    username: Some("alice".into()),
+                    org_unit_ids: vec![org_a.id],
+                    org_unit_id: Some(org_b.id),
+                    position_ids: vec![position.id],
+                    ..Default::default()
+                }),
+                password: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq("alice"))
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+        let mut orgs = org_bindings_of(db, user.id).await;
+        orgs.sort();
+        assert_eq!(orgs, vec![org_a.id, org_b.id], "singular merged into set");
+        assert_eq!(position_bindings_of(db, user.id).await, vec![position.id]);
+    }
+
+    /// get：绑定 id 集与名称面（orgUnitNames/positionNames/roleIds/roles/
+    /// roleNames）随响应回填——此前 org/position 域恒空。
+    #[tokio::test]
+    async fn get_backfills_binding_ids_and_names() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let org = plant_org(db, 1, "财务部").await;
+        let position = plant_position(db, 1, "主管").await;
+        let role = crate::admin::data::sys_roles::ActiveModel {
+            tenant_id: Set(Some(1)),
+            name: Set("会计角色".into()),
+            code: Set("tenant:accountant".into()),
+            status: Set(Some("ON".into())),
+            ..Default::default()
+        }
+        .insert(db)
+        .await
+        .unwrap();
+
+        svc.create(
+            ctx(1, 9),
+            CreateUserRequest {
+                data: Some(User {
+                    username: Some("carol".into()),
+                    org_unit_ids: vec![org.id],
+                    position_ids: vec![position.id],
+                    role_ids: vec![role.id],
+                    ..Default::default()
+                }),
+                password: None,
+            },
+        )
+        .await
+        .unwrap();
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq("carol"))
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+
+        let u = svc
+            .get(
+                ctx(1, 9),
+                GetUserRequest {
+                    query_by: Some(
+                        crate::proto::identity::service::v1::get_user_request::QueryBy::Id(user.id),
+                    ),
+                    ..Default::default()
+                },
+            )
+            .await
+            .unwrap();
+        assert_eq!(u.org_unit_ids, vec![org.id]);
+        assert_eq!(u.org_unit_names, vec!["财务部".to_string()]);
+        assert_eq!(u.position_ids, vec![position.id]);
+        assert_eq!(u.position_names, vec!["主管".to_string()]);
+        assert_eq!(u.role_ids, vec![role.id]);
+        assert_eq!(u.roles, vec!["tenant:accountant".to_string()]);
+        assert_eq!(u.role_names, vec!["会计角色".to_string()]);
+    }
+
+    /// 窄掩码的部分更新：载荷里带空 orgUnitIds 不得清空既有绑定
+    /// （关联重建只在对应字段确属本次更新范围时收集）。
+    #[tokio::test]
+    async fn narrow_mask_update_keeps_existing_bindings() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let org = plant_org(db, 1, "运营部").await;
+        svc.create(
+            ctx(1, 9),
+            CreateUserRequest {
+                data: Some(User {
+                    username: Some("dave".into()),
+                    org_unit_ids: vec![org.id],
+                    ..Default::default()
+                }),
+                password: None,
+            },
+        )
+        .await
+        .unwrap();
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq("dave"))
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+
+        svc.update(
+            ctx(1, 9),
+            update_req(
+                user.id,
+                User {
+                    nickname: Some("新昵称".into()),
+                    org_unit_ids: vec![], // 编辑抽屉的全量表单形态：旧值/空值随载荷
+                    ..Default::default()
+                },
+                &["nickname"],
+            ),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            org_bindings_of(db, user.id).await,
+            vec![org.id],
+            "narrow mask must not clobber bindings"
+        );
+    }
+
+    /// 掩码选中 org_unit_ids：非空列表 = 整组替换；空列表 = 本次不动
+    /// （参照 AssignUserOrgUnits 的空集早退——空数组不清空既有绑定）。
+    #[tokio::test]
+    async fn masked_org_update_replaces_or_keeps_set() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let org_a = plant_org(db, 1, "A").await;
+        let org_b = plant_org(db, 1, "B").await;
+        svc.create(
+            ctx(1, 9),
+            CreateUserRequest {
+                data: Some(User {
+                    username: Some("erin".into()),
+                    org_unit_ids: vec![org_a.id],
+                    ..Default::default()
+                }),
+                password: None,
+            },
+        )
+        .await
+        .unwrap();
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq("erin"))
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+
+        // 非空替换。
+        svc.update(
+            ctx(1, 9),
+            update_req(
+                user.id,
+                User {
+                    org_unit_ids: vec![org_b.id],
+                    ..Default::default()
+                },
+                &["org_unit_ids"],
+            ),
+        )
+        .await
+        .unwrap();
+        assert_eq!(org_bindings_of(db, user.id).await, vec![org_b.id]);
+
+        // 空列表 = 不动（不清空）。
+        svc.update(
+            ctx(1, 9),
+            update_req(
+                user.id,
+                User {
+                    org_unit_ids: vec![],
+                    ..Default::default()
+                },
+                &["org_unit_ids"],
+            ),
+        )
+        .await
+        .unwrap();
+        assert_eq!(org_bindings_of(db, user.id).await, vec![org_b.id]);
+    }
+
+    /// delete：凭证 + 角色/组织/岗位绑定 + 用户行一起清（参照
+    /// removeUserRelations 三面全清）。
+    #[tokio::test]
+    async fn delete_cleans_all_relation_rows() {
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let org = plant_org(db, 1, "临时部").await;
+        let position = plant_position(db, 1, "临时岗").await;
+        svc.create(
+            ctx(1, 9),
+            CreateUserRequest {
+                data: Some(User {
+                    username: Some("frank".into()),
+                    org_unit_ids: vec![org.id],
+                    position_ids: vec![position.id],
+                    ..Default::default()
+                }),
+                password: None,
+            },
+        )
+        .await
+        .unwrap();
+        let user = users::Entity::find()
+            .filter(users::Column::Username.eq("frank"))
+            .one(db)
+            .await
+            .unwrap()
+            .unwrap();
+
+        svc.delete(
+            ctx(1, 9),
+            DeleteUserRequest {
+                query_by: Some(
+                    crate::proto::identity::service::v1::delete_user_request::QueryBy::Id(user.id),
+                ),
+            },
+        )
+        .await
+        .unwrap();
+        assert!(
+            org_bindings_of(db, user.id).await.is_empty(),
+            "org bindings wiped with the user"
+        );
+        assert!(
+            position_bindings_of(db, user.id).await.is_empty(),
+            "position bindings wiped with the user"
+        );
+    }
+
+    /// 分页 query 关系键过滤：org_unit_id 命中绑定该组织的用户；键从通用
+    /// 过滤管线摘除（此前该键直接落列绑定拼出不存在的列）。
+    #[tokio::test]
+    async fn list_filters_users_by_org_unit_query_key() {
+        use crate::proto::pagination::paging_request::FilteringType;
+        let state = test_state().await;
+        let svc = UserService {
+            state: state.clone(),
+        };
+        let db = &state.db;
+        let org = plant_org(db, 1, "命中部").await;
+        plant(db, "gina").await;
+        svc.create(
+            ctx(1, 9),
+            CreateUserRequest {
+                data: Some(User {
+                    username: Some("hunter".into()),
+                    org_unit_ids: vec![org.id],
+                    ..Default::default()
+                }),
+                password: None,
+            },
+        )
+        .await
+        .unwrap();
+
+        let req = PagingRequest {
+            filtering_type: Some(FilteringType::Query(r#"{"org_unit_id":"1"}"#.into())),
+            ..Default::default()
+        };
+        let resp = svc.list(ctx(1, 9), req).await.unwrap();
+        let names: Vec<String> = resp
+            .items
+            .iter()
+            .filter_map(|u| u.username.clone())
+            .collect();
+        assert_eq!(names, vec!["hunter".to_string()]);
+        assert_eq!(resp.total, 1);
     }
 }

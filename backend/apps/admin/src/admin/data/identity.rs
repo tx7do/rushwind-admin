@@ -154,6 +154,73 @@ pub mod sys_user_roles {
 
     impl ActiveModelBehavior for ActiveModel {}
 }
+pub mod sys_user_org_units {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "sys_user_org_units")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
+        pub org_unit_id: Option<i64>,
+        /// 冗余岗位列（随组织带入的岗位上下文，可空）。
+        pub position_id: Option<i64>,
+        pub start_at: Option<chrono::NaiveDateTime>,
+        pub end_at: Option<chrono::NaiveDateTime>,
+        pub assigned_at: Option<chrono::NaiveDateTime>,
+        pub assigned_by: Option<i64>,
+        #[sea_orm(default_value = false)]
+        pub is_primary: Option<bool>,
+        /// enum(ACTIVE,PENDING,INACTIVE,SUSPENDED,EXPIRED) default ACTIVE.
+        pub status: Option<String>,
+        pub remark: Option<String>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
+        pub created_at: Option<chrono::NaiveDateTime>,
+        pub updated_at: Option<chrono::NaiveDateTime>,
+        pub deleted_at: Option<chrono::NaiveDateTime>,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
+}
+pub mod sys_user_positions {
+    use sea_orm::entity::prelude::*;
+
+    #[derive(Clone, Debug, PartialEq, DeriveEntityModel)]
+    #[sea_orm(table_name = "sys_user_positions")]
+    pub struct Model {
+        #[sea_orm(primary_key)]
+        pub id: i64,
+        pub tenant_id: Option<i64>,
+        pub user_id: Option<i64>,
+        pub position_id: Option<i64>,
+        pub is_primary: Option<bool>,
+        pub start_at: Option<chrono::NaiveDateTime>,
+        pub end_at: Option<chrono::NaiveDateTime>,
+        pub assigned_at: Option<chrono::NaiveDateTime>,
+        pub assigned_by: Option<i64>,
+        /// enum(PROBATION,ACTIVE,LEAVE,TERMINATED,EXPIRED) default ACTIVE.
+        pub status: Option<String>,
+        pub remark: Option<String>,
+        pub created_by: Option<i64>,
+        pub updated_by: Option<i64>,
+        pub deleted_by: Option<i64>,
+        pub created_at: Option<chrono::NaiveDateTime>,
+        pub updated_at: Option<chrono::NaiveDateTime>,
+        pub deleted_at: Option<chrono::NaiveDateTime>,
+    }
+
+    #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+    pub enum Relation {}
+
+    impl ActiveModelBehavior for ActiveModel {}
+}
 pub mod sys_org_units {
     use sea_orm::entity::prelude::*;
 
