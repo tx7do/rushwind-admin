@@ -129,9 +129,8 @@ impl EntityMigrations {
         }
     }
 
-    /// 清单扁平化（迁移序）。唯一消费方是 sqlite 测试面——
-    /// prod 的 Migrator 直接按字段取用。
-    #[cfg(test)]
+    /// 清单扁平化（迁移序）。消费方是两个 sqlite 测试面（单元测试的
+    /// 受限形态与集成测试的 pub 形态）——prod 的 Migrator 直接按字段取用。
     fn into_vec(self) -> Vec<EntityTablesMigration> {
         vec![
             self.init,
@@ -192,6 +191,28 @@ impl MigratorTrait for Migrator {
 /// sea-orm-migration 同一套追踪表 + up/幂等机制。
 #[cfg(test)]
 pub(crate) struct SqliteTestMigrator;
+
+/// 同一清单的集成测试可达形态：`#[cfg(test)]` 项对 tests/ 下的集成
+/// 测试不可见（那只随 lib 单元测试构建），全路由级集成测试从这个
+/// 非 cfg 门入口建库。
+pub struct SqliteIntegrationMigrator;
+
+impl MigratorTrait for SqliteIntegrationMigrator {
+    fn migrations() -> Vec<Box<dyn MigrationTrait>> {
+        EntityMigrations::new(DatabaseBackend::Sqlite)
+            .into_vec()
+            .into_iter()
+            .map(|m| Box::new(m) as Box<dyn MigrationTrait>)
+            .collect()
+    }
+}
+
+/// 为集成测试建全量实体表（文件形 sqlite 连接即池共享同一库）。
+pub async fn sqlite_integration_schema(db: &sea_orm::DatabaseConnection) {
+    SqliteIntegrationMigrator::up(db, None)
+        .await
+        .expect("sqlite integration schema up");
+}
 
 #[cfg(test)]
 impl MigratorTrait for SqliteTestMigrator {
@@ -285,16 +306,26 @@ pub async fn run(db: &sea_orm::DatabaseConnection) -> Result<(), String> {
         if applied.len() as u32 >= total {
             return Ok(());
         }
+        let before: Vec<String> = applied.iter().map(|m| m.name().to_string()).collect();
         Migrator::up(db, Some(1)).await.map_err(|e| {
-            eprintln!("[migrate] failed right after {last_applied}");
+            tracing::error!(target: "rushwind.admin.migrate", "migrate failed right after {last_applied}");
             format!("schema migrate: {e}")
         })?;
         let applied = <Migrator as MigratorTrait>::get_applied_migrations(db)
             .await
             .map_err(|e| format!("schema migrate list: {e}"))?;
-        if let Some(latest) = applied.iter().map(|m| m.name().to_string()).max() {
-            eprintln!("[migrate] applied {latest}");
-            last_applied = latest;
+        // up(Some(1)) applies the OLDEST pending migration — the set
+        // diff names it exactly. (max-by-name would print whichever
+        // applied row sorts last lexicographically, which is not the
+        // one this step ran: the failure anchor would then point the
+        // operator at the wrong DDL.)
+        if let Some(applied_now) = applied
+            .iter()
+            .map(|m| m.name().to_string())
+            .find(|name| !before.contains(name))
+        {
+            tracing::info!(target: "rushwind.admin.migrate", "applied {applied_now}");
+            last_applied = applied_now;
         }
     }
     Ok(())
@@ -413,7 +444,7 @@ impl MigrationTrait for AiChunkVectorColumn {
             .await
             .map(|r| r.is_some())
             .unwrap_or(false);
-        eprintln!("[migrate] pg_extension vector present = {has_vector}");
+        tracing::info!(target: "rushwind.admin.migrate", "pg_extension vector present = {has_vector}");
         if !has_vector {
             return Ok(());
         }

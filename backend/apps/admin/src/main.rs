@@ -30,15 +30,45 @@ const SERVER_YAML: &str = include_str!("../assets/server.yaml");
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // The observability substrate, first of all: the framework layers
+    // only EMIT tracing events — the per-request access lines
+    // (rushwind.http: method/path/request_id/status/latency), the
+    // panic reports (rushwind.panic), the lifecycle terminal
+    // (rushwind.bootstrap) — and never install a subscriber. Without
+    // this, every event lands in a no-op and the deployment is blind:
+    // a failing dependency shows up as silent 10-second timeouts with
+    // no line anywhere. `RUST_LOG` wins when set; the `info` default
+    // keeps access lines, warns and errors visible everywhere (turn
+    // statement/redis detail up per-target, e.g.
+    // `RUST_LOG=info,sqlx=debug`).
+    //
+    // The writer is NON-BLOCKING on purpose: fmt's default writes
+    // stdout synchronously, and a deployment that pipes stdout
+    // somewhere nobody drains turns every log line into a worker
+    // thread parked forever — the exact "process alive, everything
+    // silent" jam. The appender's background thread owns the pipe;
+    // emitters never block. ANSI is off so log files stay greppable.
+    let (log_writer, log_guard) = tracing_appender::non_blocking(std::io::stdout());
+    tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_writer(log_writer)
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+        )
+        .init();
+    // The worker guard must outlive every emit — main runs for the
+    // process lifetime, so the binding here is the lifetime.
+    let _log_guard = log_guard;
+
     let cfg = Config::load()?;
     // P3 hardening (the dev-key warning): the dev private key still
     // answering password envelopes means anyone holding this repo can
     // decrypt them — production must override
     // RUSHWIND_PASSWORD_RSA_PRIVATE_KEY.
-    // (emitted raw: the log subsystem initializes inside the bootstrap)
     if admin::crypto::using_dev_password_private_key() {
-        eprintln!(
-            "⚠️  RUSHWIND_PASSWORD_RSA_PRIVATE_KEY 未配置，口令传输解密仍在使用内置开发私钥，生产环境必须替换"
+        tracing::warn!(
+            "RUSHWIND_PASSWORD_RSA_PRIVATE_KEY 未配置，口令传输解密仍在使用内置开发私钥，生产环境必须替换"
         );
     }
     let public_pem: &[u8] = match &cfg.jwt_public_key {
@@ -93,8 +123,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let booted = assembler.build().await?;
     // The lifecycle owns the OS-signal shutdown path internally; the
-    // external signal here stays unfired.
+    // external signal here stays unfired. run_logged keeps the
+    // terminal outcome visible: a non-cooperative end (panicked
+    // server, teardown timeout, failed bind) lands one error line
+    // under rushwind.bootstrap, while raise-time panics already reach
+    // rushwind.panic through the hook the assembly's panic_reporting
+    // toggle plugged.
     let external = StopSignal::new();
-    booted.app.run(external).await?;
+    booted.run_logged(external).await?;
     Ok(())
 }

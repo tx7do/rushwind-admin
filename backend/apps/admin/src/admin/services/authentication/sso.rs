@@ -335,8 +335,11 @@ impl AuthenticationService {
                 ev.trim().to_ascii_lowercase().as_str(),
                 "true" | "1" | "yes"
             ) {
-                eprintln!(
-                    "[sso] login: email [{email}] not verified at IdP (email_verified={ev:?}), rejected"
+                tracing::warn!(
+                    target: "rushwind.admin.sso",
+                    email,
+                    email_verified = ?ev,
+                    "sso login rejected: email not verified at IdP"
                 );
                 return Err(status_error(
                     "UNAUTHORIZED",

@@ -305,9 +305,11 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
         let (clean, fields) = match super::print_generate::sanitize_generated_template(&extracted) {
             Ok(ok) => ok,
             Err(err) => {
-                eprintln!(
-                    "[print-generate] rejected: {err}; raw={}",
-                    super::print_generate::truncate_for_log(&completion.content)
+                tracing::warn!(
+                    target: "rushwind.admin.print",
+                    error = %err,
+                    raw = %super::print_generate::truncate_for_log(&completion.content),
+                    "print-generate rejected"
                 );
                 return Err(status_error("BAD_REQUEST", err));
             }
@@ -328,7 +330,7 @@ impl crate::proto::gen::services::PrintTemplateServiceHandlers for PrintTemplate
                 })
                 .await
             {
-                eprintln!("[print-generate] record usage failed: {e:?}");
+                tracing::warn!(target: "rushwind.admin.print", error = ?e, "print-generate record usage failed");
             }
         }
 

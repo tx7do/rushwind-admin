@@ -248,9 +248,11 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             )
             .await
         {
-            eprintln!(
-                "[bi-revision] snapshot before update dashboard {} failed: {serr:?}",
-                req.id
+            tracing::warn!(
+                target: "rushwind.admin.bi_revision",
+                dashboard_id = req.id,
+                error = ?serr,
+                "snapshot before update dashboard failed"
             );
         }
         Ok(Empty {})
@@ -420,8 +422,11 @@ impl crate::proto::gen::services::BiDashboardServiceHandlers for BiDashboardServ
             )
             .await
         {
-            eprintln!(
-                "[bi-revision] snapshot before restore dashboard {dashboard_id} failed: {serr:?}"
+            tracing::warn!(
+                target: "rushwind.admin.bi_revision",
+                dashboard_id,
+                error = ?serr,
+                "snapshot before restore dashboard failed"
             );
         }
 

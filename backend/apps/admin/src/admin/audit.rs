@@ -376,8 +376,8 @@ pub async fn run(
             }
             .insert(&db)
             .await;
-            if row.is_err() {
-                eprintln!("[audit] login log insert failed");
+            if let Err(e) = row {
+                tracing::warn!(target: "rushwind.admin.audit", error = %e, "login audit insert failed (best-effort skipped)");
             }
         }
 
@@ -411,8 +411,8 @@ pub async fn run(
             }
             .insert(&db)
             .await;
-            if row.is_err() {
-                eprintln!("[audit] api log insert failed");
+            if let Err(e) = row {
+                tracing::warn!(target: "rushwind.admin.audit", error = %e, "api audit insert failed (best-effort skipped)");
             }
         }
 
@@ -465,8 +465,8 @@ pub async fn run(
                 }
                 .insert(&db)
                 .await;
-                if row.is_err() {
-                    eprintln!("[audit] operation log insert failed");
+                if let Err(e) = row {
+                    tracing::warn!(target: "rushwind.admin.audit", error = %e, "operation audit insert failed (best-effort skipped)");
                 }
             }
 
@@ -488,8 +488,8 @@ pub async fn run(
                 }
                 .insert(&db)
                 .await;
-                if row.is_err() {
-                    eprintln!("[audit] permission log insert failed");
+                if let Err(e) = row {
+                    tracing::warn!(target: "rushwind.admin.audit", error = %e, "permission audit insert failed (best-effort skipped)");
                 }
             }
         }

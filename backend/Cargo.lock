@@ -49,6 +49,7 @@ dependencies = [
  "rushwind-oss",
  "rushwind-oss-local",
  "rushwind-oss-s3",
+ "rushwind-panic",
  "rushwind-redact",
  "rushwind-storage-seaorm-migration",
  "rushwind-storage-seaorm-support",
@@ -65,6 +66,9 @@ dependencies = [
  "sha2 0.10.9",
  "tokio",
  "tower",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber 0.3.23",
  "uuid",
 ]
 
@@ -1061,6 +1065,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f97d3416d5337d15c4b0d78c8c91df922ca143f57ec20e2d1c188333047ef04"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "crossbeam-channel"
+version = "0.5.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98b0cc327b5bc766e7fda9c9260cc0fa81b43a8e240440422dff70788e3f9ef1"
+dependencies = [
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -2793,6 +2806,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "nu-ansi-term"
+version = "0.50.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
+dependencies = [
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.4.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3862,8 +3884,9 @@ dependencies = [
 [[package]]
 name = "rushwind-ai"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
+ "futures-core",
  "serde",
  "serde_json",
 ]
@@ -3871,7 +3894,7 @@ dependencies = [
 [[package]]
 name = "rushwind-apalis-postgres"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "apalis-core",
  "chrono",
@@ -3886,7 +3909,7 @@ dependencies = [
 [[package]]
 name = "rushwind-authn"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "rushwind-transport",
  "serde_json",
@@ -3895,7 +3918,7 @@ dependencies = [
 [[package]]
 name = "rushwind-authn-gate"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "async-trait",
  "axum",
@@ -3908,7 +3931,7 @@ dependencies = [
 [[package]]
 name = "rushwind-authn-jwt"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "jsonwebtoken",
  "rushwind-authn",
@@ -3918,7 +3941,7 @@ dependencies = [
 [[package]]
 name = "rushwind-authz"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "serde",
  "serde_json",
@@ -3927,7 +3950,7 @@ dependencies = [
 [[package]]
 name = "rushwind-bootstrap"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "axum",
  "getrandom 0.4.3",
@@ -3940,8 +3963,10 @@ dependencies = [
  "rushwind-config",
  "rushwind-core",
  "rushwind-http",
+ "rushwind-lock",
  "rushwind-metrics",
  "rushwind-oss",
+ "rushwind-panic",
  "rushwind-ratelimit",
  "rushwind-registry",
  "rushwind-script",
@@ -3950,16 +3975,19 @@ dependencies = [
  "rushwind-transport",
  "rushwind-transport-axum",
  "rushwind-transport-cron",
+ "rushwind-vector",
  "serde",
  "serde_json",
  "serde_yaml",
+ "tracing",
 ]
 
 [[package]]
 name = "rushwind-broker"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
+ "rushwind-panic",
  "rushwind-transport",
  "serde",
  "serde_json",
@@ -3969,7 +3997,7 @@ dependencies = [
 [[package]]
 name = "rushwind-cache"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "rushwind-transport",
  "tokio",
@@ -3978,7 +4006,7 @@ dependencies = [
 [[package]]
 name = "rushwind-circuitbreaker"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "rushwind-transport",
  "tokio",
@@ -3987,7 +4015,7 @@ dependencies = [
 [[package]]
 name = "rushwind-config"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "futures",
 ]
@@ -3995,7 +4023,7 @@ dependencies = [
 [[package]]
 name = "rushwind-core"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "futures",
  "rushwind-transport",
@@ -4005,7 +4033,7 @@ dependencies = [
 [[package]]
 name = "rushwind-gen-http"
 version = "0.1.0"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "heck 0.5.0",
  "prost-reflect",
@@ -4014,13 +4042,14 @@ dependencies = [
 [[package]]
 name = "rushwind-http"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "axum",
  "futures",
  "getrandom 0.4.3",
  "rushwind-authn",
  "rushwind-authz",
+ "rushwind-panic",
  "rushwind-storage",
  "serde",
  "serde_json",
@@ -4032,7 +4061,7 @@ dependencies = [
 [[package]]
 name = "rushwind-http-binding"
 version = "0.1.0"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -4046,14 +4075,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rushwind-lock"
+version = "0.0.1"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
+
+[[package]]
 name = "rushwind-metrics"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 
 [[package]]
 name = "rushwind-oss"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "rushwind-transport",
  "serde",
@@ -4063,7 +4097,7 @@ dependencies = [
 [[package]]
 name = "rushwind-oss-local"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "rushwind-oss",
  "tokio",
@@ -4072,7 +4106,7 @@ dependencies = [
 [[package]]
 name = "rushwind-oss-s3"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "reqwest",
  "rushwind-oss",
@@ -4084,9 +4118,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rushwind-panic"
+version = "0.0.1"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
+dependencies = [
+ "tracing",
+]
+
+[[package]]
 name = "rushwind-ratelimit"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "rushwind-transport",
  "tokio",
@@ -4095,7 +4137,7 @@ dependencies = [
 [[package]]
 name = "rushwind-redact"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "prost-reflect",
 ]
@@ -4103,7 +4145,7 @@ dependencies = [
 [[package]]
 name = "rushwind-registry"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "rushwind-transport",
  "serde",
@@ -4113,7 +4155,7 @@ dependencies = [
 [[package]]
 name = "rushwind-script"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "futures",
  "tokio",
@@ -4122,12 +4164,12 @@ dependencies = [
 [[package]]
 name = "rushwind-storage"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 
 [[package]]
 name = "rushwind-storage-axum"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "axum",
  "rushwind-storage",
@@ -4138,7 +4180,7 @@ dependencies = [
 [[package]]
 name = "rushwind-storage-proto"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "pbjson",
  "pbjson-build",
@@ -4154,7 +4196,7 @@ dependencies = [
 [[package]]
 name = "rushwind-storage-seaorm-migration"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "sea-orm",
  "sea-orm-migration",
@@ -4163,7 +4205,7 @@ dependencies = [
 [[package]]
 name = "rushwind-storage-seaorm-support"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "chrono",
  "pbjson-types",
@@ -4176,7 +4218,7 @@ dependencies = [
 [[package]]
 name = "rushwind-transport"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "tokio-util",
 ]
@@ -4184,7 +4226,7 @@ dependencies = [
 [[package]]
 name = "rushwind-transport-axum"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "axum",
  "rushwind-transport",
@@ -4194,7 +4236,7 @@ dependencies = [
 [[package]]
 name = "rushwind-transport-cron"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "chrono",
  "futures",
@@ -4205,7 +4247,7 @@ dependencies = [
 [[package]]
 name = "rushwind-transport-sse"
 version = "0.0.1"
-source = "git+https://github.com/tx7do/rushwind?rev=08fbfcd#08fbfcd59eb60acdf381794041e09bfbd18cbac7"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 dependencies = [
  "axum",
  "futures",
@@ -4218,6 +4260,11 @@ dependencies = [
  "tokio",
  "uuid",
 ]
+
+[[package]]
+name = "rushwind-vector"
+version = "0.0.1"
+source = "git+https://github.com/tx7do/rushwind?rev=3f14461#3f14461e5745801fb48c4c6b9901539f10eddaa8"
 
 [[package]]
 name = "rust-utils"
@@ -5133,6 +5180,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "13c2bddecc57b384dee18652358fb23172facb8a2c51ccc10d74c157bdea3292"
 
 [[package]]
+name = "symlink"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a7973cce6668464ea31f176d85b13c7ab3bba2cb3b77a2ed26abd7801688010a"
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5478,6 +5531,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-appender"
+version = "0.2.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "050686193eb999b4bb3bc2acfa891a13da00f79734704c4b8b4ef1a10b368a3c"
+dependencies = [
+ "crossbeam-channel",
+ "symlink",
+ "thiserror 2.0.21",
+ "time",
+ "tracing-subscriber 0.3.23",
+]
+
+[[package]]
 name = "tracing-attributes"
 version = "0.1.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5520,6 +5586,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "tracing-log"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee855f1f400bd0e5c02d150ae5de3840039a3f54b025156404e34c23c03f47c3"
+dependencies = [
+ "log",
+ "once_cell",
+ "tracing-core",
+]
+
+[[package]]
 name = "tracing-serde"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5547,7 +5624,7 @@ dependencies = [
  "thread_local",
  "tracing",
  "tracing-core",
- "tracing-log",
+ "tracing-log 0.1.4",
  "tracing-serde",
 ]
 
@@ -5558,12 +5635,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb7f578e5945fb242538965c2d0b04418d38ec25c79d160cd279bf0731c8d319"
 dependencies = [
  "matchers 0.2.0",
+ "nu-ansi-term",
  "once_cell",
  "regex-automata 0.4.18",
  "sharded-slab",
+ "smallvec",
  "thread_local",
  "tracing",
  "tracing-core",
+ "tracing-log 0.2.0",
 ]
 
 [[package]]

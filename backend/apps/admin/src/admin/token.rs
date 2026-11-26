@@ -247,17 +247,33 @@ impl TokenStore {
             .map_err(|e| format!("redis add access token: {e}"))
     }
 
-    /// IsValidAccessToken — exact stored-token compare.
+    /// IsValidAccessToken — exact stored-token compare. A redis error
+    /// reads as "invalid" (fail-closed) but must announce itself: this
+    /// line is the difference between "your session expired" and "the
+    /// session store is down" on the wire.
     pub async fn is_valid_access_token(&self, uid: i64, jti: &str, token: &str) -> bool {
         let mut conn = self.redis.clone();
-        let stored: Option<String> = conn.get(at_key(CLIENT_TYPE_ADMIN, uid, jti)).await.ok();
+        let stored: Option<String> = match conn.get(at_key(CLIENT_TYPE_ADMIN, uid, jti)).await {
+            Ok(stored) => stored,
+            Err(e) => {
+                tracing::warn!(target: "rushwind.admin.redis", error = %e, "session whitelist read failed (fail-closed)");
+                None
+            }
+        };
         stored.as_deref() == Some(token)
     }
 
-    /// IsBlockedAccessToken — EXISTS on bl:{jti}.
+    /// IsBlockedAccessToken — EXISTS on bl:{jti}. Redis trouble reads
+    /// as "not blocked" (fail-open) but announces itself.
     pub async fn is_blocked_access_token(&self, jti: &str) -> bool {
         let mut conn = self.redis.clone();
-        conn.exists::<_, bool>(bl_key(jti)).await.unwrap_or(false)
+        match conn.exists::<_, bool>(bl_key(jti)).await {
+            Ok(blocked) => blocked,
+            Err(e) => {
+                tracing::warn!(target: "rushwind.admin.redis", error = %e, "blacklist check failed (fail-open)");
+                false
+            }
+        }
     }
 
     /// IsExistRefreshToken — the refresh whitelist row for (uid, token).

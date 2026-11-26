@@ -19,13 +19,19 @@ fn fail_keys(ip: &str, username: &str) -> Vec<String> {
     keys
 }
 
-/// IsLocked — the pre-login gate (no counter increment).
+/// IsLocked — the pre-login gate (no counter increment). Redis
+/// trouble reads as "not locked" (fail-open) but announces itself:
+/// the lockout face going silent and the store being down must be
+/// distinguishable from the log.
 pub async fn is_locked(redis: &ConnectionManager, ip: &str, username: &str) -> bool {
     let mut conn = redis.clone();
     for key in fail_keys(ip, username) {
         let count: Option<i64> = match conn.get(&key).await {
             Ok(v) => v,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::warn!(target: "rushwind.admin.redis", error = %e, key, "lockout counter read failed (fail-open)");
+                continue;
+            }
         };
         if count.unwrap_or(0) >= LOGIN_FAIL_THRESHOLD {
             return true;
@@ -35,7 +41,10 @@ pub async fn is_locked(redis: &ConnectionManager, ip: &str, username: &str) -> b
 }
 
 /// CheckAndIncr — called on login failure; returns whether either
-/// dimension has hit the lockout threshold.
+/// dimension has hit the lockout threshold. (No failure line here on
+/// purpose: the Lua face is untestable on the mini-redis test face —
+/// every test login would warn. The pre-login read above carries the
+/// store-down signal; the lockout gate itself re-checks.)
 pub async fn check_and_incr(redis: &ConnectionManager, ip: &str, username: &str) -> bool {
     let mut conn = redis.clone();
     let script = redis::Script::new(
@@ -113,7 +122,10 @@ pub async fn captcha_required(
     for key in captcha_fail_keys(ip, username) {
         let count: Option<i64> = match conn.get(&key).await {
             Ok(v) => v,
-            Err(_) => continue,
+            Err(e) => {
+                tracing::warn!(target: "rushwind.admin.redis", error = %e, key, "captcha counter read failed (fail-open)");
+                continue;
+            }
         };
         if count.unwrap_or(0) >= threshold {
             return true;

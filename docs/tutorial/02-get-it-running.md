@@ -177,7 +177,7 @@ cargo run -p admin
 6. **种子**（`seed/mod.rs`）—— 固定顺序：语言（7 条，zh-CN 默认）→ 平台参数（3 个密码策略键）→ 角色（`platform:admin` / `template:tenant:manager`）→ 权限组（5）→ 权限点（5，角色授权按 code 动态解析）→ 菜单（30 条固定 ID）→ 通知规则（4 条事件路由）→ 内置 BI 模板（1 条）→ 平台管理员（`admin` / `Abcd@1234`）→ 启动期接口同步（把打进二进制的 OpenAPI 端点清单按 `(path, method)` MERGE 进 `sys_apis`）→ 16 张以固定 id 播种的表做序列对齐（否则首个 API 侧 INSERT 撞主键）。**全幂等**：每段先查计数，非空即跳过。
 7. **任务队列句柄** —— `TaskQueue::new(&cfg.database_source, "default")`：worker 与 cron 生产者共用同一 Postgres 队列存储，业务模块直接复用。
 8. **装配器组装** —— `Bootstrap::from_yaml_str(SERVER_YAML)`，`.route_pack("admin-surface", rest::pack(...))` + `.route_pack("business-surface", template::pack(...))`（同一 http server、同一 edge、同一审计层），`.cron_job(...)` × 3，`.server_factory("admin-sse", ...)` + `.server_factory("admin-tasks", ...)`。
-9. **`build().await` → `app.run()`** —— 生命周期持有 OS 信号关停路径；四个 transport 就绪后进入监听，此刻起 24–50 秒的等待结束。
+9. **`build().await` → `app.run_logged()`** —— 装配同时插上进程级 panic reporter（`panic_reporting` 节，缺省开）；生命周期持有 OS 信号关停路径；四个 transport 就绪后进入监听，此刻起 24–50 秒的等待结束。运行期任何 panic 走 `rushwind.panic` 一行日志（HTTP panic 附请求身份），非协作终态（panic/超时/绑定失败）另有 `rushwind.bootstrap` 一行。
 
 典型报错 → 处置速查：
 

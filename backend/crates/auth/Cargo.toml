@@ -12,8 +12,8 @@ workspace = true
 
 [dependencies]
 async-trait = { workspace = true }
-rushwind-authn = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
-rushwind-authn-gate = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
-rushwind-http-binding = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-authn = { git = "https://github.com/tx7do/rushwind", rev = "3f14461" }
+rushwind-authn-gate = { git = "https://github.com/tx7do/rushwind", rev = "3f14461" }
+rushwind-http-binding = { git = "https://github.com/tx7do/rushwind", rev = "3f14461" }
 axum = { version = "0.8", default-features = false, features = ["matched-path"] }
 serde_json = { workspace = true }

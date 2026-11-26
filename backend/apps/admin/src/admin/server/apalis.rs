@@ -112,17 +112,17 @@ impl ApalisServer {
                     t.status = Set(Some("EXPIRED".into()));
                     let _ = t.update(db).await;
                 }
-                eprintln!("[scheduler] tenant_expiry_scan: {count} expired");
+                tracing::info!(target: "rushwind.admin.scheduler", count, "tenant_expiry_scan finished");
             }
             "audit_log_archive" => {
-                eprintln!(
-                    "[scheduler] audit_log_archive: retention export skipped (no archive dir)"
-                );
+                tracing::info!(target: "rushwind.admin.scheduler", "audit_log_archive: retention export skipped (no archive dir)");
             }
             "backup" | "broadcast_message" | "script_task" => {
-                eprintln!("[scheduler] {type_name} fired with payload {payload}");
+                tracing::info!(target: "rushwind.admin.scheduler", type_name, payload = %payload, "stub executor fired");
             }
-            other => eprintln!("[scheduler] unknown task type {other}"),
+            other => {
+                tracing::warn!(target: "rushwind.admin.scheduler", task_type = other, "unknown task type")
+            }
         }
     }
 }
@@ -158,7 +158,7 @@ impl Server for ApalisServer {
                                     true
                                 }
                                 Err(e) => {
-                                    eprintln!("[scheduler] job decode failed: {e}");
+                                    tracing::warn!(target: "rushwind.admin.scheduler", error = %e, "job decode failed");
                                     false
                                 }
                             };
@@ -182,7 +182,7 @@ impl Server for ApalisServer {
                         }
                         Some(Ok(None)) | None => break,
                         Some(Err(e)) => {
-                            eprintln!("[scheduler] poll error: {e}");
+                            tracing::warn!(target: "rushwind.admin.scheduler", error = %e, "queue poll error");
                         }
                     }
                 }
@@ -287,7 +287,7 @@ pub fn cron_jobs(
                         continue;
                     };
                     let Ok(spec) = CronSpec::parse(s) else {
-                        eprintln!("[scheduler] invalid cron spec '{s}' for {}", row.type_name);
+                        tracing::warn!(target: "rushwind.admin.scheduler", spec = s, task_type = row.type_name, "invalid cron spec");
                         continue;
                     };
                     if !spec.matches(now) || fired.contains(&row.type_name) {

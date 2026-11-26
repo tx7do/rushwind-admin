@@ -57,9 +57,17 @@ sea-orm = { version = "2.0", default-features = false, features = [
 redis = { version = "1", default-features = false, features = ["tokio-comp", "connection-manager", "script"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time", "net"] }
 futures-util = "0.3"
+# 全流程感知的底座：框架各层（access 行 rushwind.http、panic 汇报
+# rushwind.panic、生命周期终态 rushwind.bootstrap）只发 tracing 事件，
+# 订阅者是应用的事——没有它整个部署是盲的。
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# 非阻塞写：fmt 默认同步写 stdout——部署把 stdout 接了不排水的管道时，
+# 每一行日志都可能永久 park 一个 worker 线程，最终全灭成"卡阻"。
+tracing-appender = "0.2"
 # 任务队列：apalis Postgres 后端 + worker runtime 门面。
-rushwind-transport-cron = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
-rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-transport-cron = { git = "https://github.com/tx7do/rushwind", rev = "3f14461" }
+rushwind-apalis-postgres = { git = "https://github.com/tx7do/rushwind", rev = "3f14461" }
 apalis-core = { version = "0.7", features = ["json", "sleep"] }
 bcrypt = "0.15"
 aes = "0.8"

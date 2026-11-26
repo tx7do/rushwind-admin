@@ -337,9 +337,11 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
                 .create(pre_tenant, req.id, pre_graph, "SAVE", payload.user_id)
                 .await
             {
-                eprintln!(
-                    "[ai-revision] snapshot before update agent app {} failed: {serr:?}",
-                    req.id
+                tracing::warn!(
+                    target: "rushwind.admin.ai_revision",
+                    app_id = req.id,
+                    error = ?serr,
+                    "snapshot before update agent app failed"
                 );
             }
         }
@@ -588,7 +590,7 @@ impl crate::proto::gen::services::AiAgentServiceHandlers for AiAgentService {
             )
             .await
         {
-            eprintln!("[ai-revision] snapshot before restore agent app {app_id} failed: {serr:?}");
+            tracing::warn!(target: "rushwind.admin.ai_revision", app_id, error = ?serr, "snapshot before restore agent app failed");
         }
 
         // 写回走普通更新（无 CAS——恢复是明确的人为决定，以快照为准整份覆盖）

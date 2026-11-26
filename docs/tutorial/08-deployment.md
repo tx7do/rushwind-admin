@@ -28,6 +28,12 @@
 app:
   name: admin            # 进程名
   version: 0.1.0
+# 进程级 panic 汇报：装配期插上默认 reporter，守卫随装配生命周期卸下。
+# 省略本节同为开启——显式落节只为让运维找得到这个开关。
+panic_reporting:
+  enabled: true          # panic 打一行 target 为 rushwind.panic 的 tracing 日志；
+                         # HTTP panic 附请求身份（request_id/method/path），任务投递附消息标识。
+                         # 生命周期终态（panic/超时/绑定失败）另有 rushwind.bootstrap 一行。
 servers:
   - kind: http           # transport ①：REST 主服务
     bind: ":7788"
@@ -95,6 +101,7 @@ loader（`config.rs` + `crypto.rs`）认的键就这 12 个，**生产必改**�
 | `RUSHWIND_CAPTCHA_REQUIRED_FAILURES` | 渐进式验证码阈值：同一 ip+用户名登录失败达此次数后要求验证码（**限定 1–4**，越界收敛） | 3 | 可调 |
 | `RUSHWIND_PASSWORD_RSA_PRIVATE_KEY` | 口令传输信封的 RSA 私钥（PEM，单行 `\n` 转义可注入） | 仓内开发私钥 | **必改**（§5） |
 | `RUSHWIND_CRYPTO_KEY` | `enc:` 静密钥（MFA secret 落库的 AES-256-GCM） | 未设=明文存储 | **必改** |
+| `RUST_LOG` | tracing 过滤器（**标准 tracing 语法，非 RUSHWIND_ 前缀**）。缺省 `info`：每请求一行 access 日志（`rushwind.http`：method/path/request_id/status/latency）+ warn/error 全量；每条 SQL 语句也在此级别可见（`sqlx::query`），嫌噪可 `RUST_LOG=info,sqlx=off`；深挖单层用 `RUST_LOG=info,sqlx=debug,rushwind.admin.redis=debug` | `info` | 按需 |
 
 三处边界要知情：
 

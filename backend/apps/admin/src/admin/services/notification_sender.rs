@@ -1055,7 +1055,7 @@ pub async fn deliver_once(
     }
     a.updated_at = Set(Some(crate::admin::data::now()));
     if let Err(e) = a.update(db).await {
-        eprintln!("[notify] mark result for delivery failed: {e:?}");
+        tracing::warn!(target: "rushwind.admin.notify", error = ?e, "mark result for delivery failed");
     }
     Ok(((delivery_id), outcome))
 }

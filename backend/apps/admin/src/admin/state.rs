@@ -53,7 +53,12 @@ impl AppState {
         let mut opts = ConnectOptions::new(cfg.database_source.clone());
         opts.max_connections(25)
             .min_connections(25)
-            .connect_timeout(std::time::Duration::from_secs(10));
+            .connect_timeout(std::time::Duration::from_secs(10))
+            // Every statement surfaces under `sqlx::query` at debug —
+            // `RUST_LOG=info,sqlx=debug` turns the database face from
+            // a silent dependency into a narrated one (a failing
+            // query then names itself, its table, and its SQL).
+            .sqlx_logging(true);
         let db = Database::connect(opts)
             .await
             .map_err(|e| format!("postgres connect: {e}"))?;
@@ -138,17 +143,43 @@ impl AppState {
 }
 
 /// The error envelope helper: reason → the admin error table's HTTP
-/// status (`StatusError::new`) and the `<Reason>` literal.
+/// status (`StatusError::new`) and the `<Reason>` literal. Every error
+/// envelope in the app funnels through here, so this is the one point
+/// where failures announce themselves: ≥500 lands a warn line (a
+/// server-side fault — the thing an operator greps for), a 4xx lands
+/// a debug line (expected client errors: wrong passwords, missing
+/// params — visible when a filter asks, not noise otherwise).
 pub fn status_error(
     reason: &'static str,
     message: impl Into<String>,
 ) -> rushwind_http_binding::envelope::StatusError {
     let status = crate::proto::tables::error_status("admin.service.v1", reason).unwrap_or(500);
+    let message = message.into();
+    if status >= 500 {
+        tracing::warn!(
+            target: "rushwind.admin.error",
+            status, reason, message,
+            "error envelope raised"
+        );
+    } else {
+        tracing::debug!(
+            target: "rushwind.admin.error",
+            status, reason, message,
+            "error envelope raised"
+        );
+    }
     rushwind_http_binding::envelope::StatusError::new(status, reason, message)
 }
 
 /// The Unknown branch: 500 + empty reason.
 pub fn internal_error(message: impl Into<String>) -> rushwind_http_binding::envelope::StatusError {
+    let message = message.into();
+    tracing::warn!(
+        target: "rushwind.admin.error",
+        status = 500,
+        message,
+        "error envelope raised (no reason)"
+    );
     rushwind_http_binding::envelope::StatusError::new(500, "", message)
 }
 

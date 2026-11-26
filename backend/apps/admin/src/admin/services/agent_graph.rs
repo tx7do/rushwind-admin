@@ -1136,7 +1136,7 @@ mod tests {
         }))
         .unwrap();
         let d = &g.nodes[0].data;
-        println!("probe data = {d}");
+        tracing::debug!(target: "rushwind.admin.agent_graph", probe_data = %d, "node probe result");
         assert_eq!(data_u32(d, "baseId"), 7, "probe: {d}");
     }
 

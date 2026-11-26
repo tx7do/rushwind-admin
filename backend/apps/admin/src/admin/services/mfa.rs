@@ -393,7 +393,7 @@ impl MfaServiceHandlers for MfaService {
                     .await
                     .map_err(|e| internal_error(format!("db: {e}")))?;
             }
-            eprintln!("[mfa] admin [{uid}] reset mfa for user [{target}]");
+            tracing::info!(target: "rushwind.admin.mfa", admin_uid = uid, target_uid = target, "admin reset mfa for user");
             return Ok(pbjson_types::Empty {});
         }
 

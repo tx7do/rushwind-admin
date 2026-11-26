@@ -17,4 +17,4 @@ prost = { workspace = true }
 prost-types = { workspace = true }
 prost-build = { workspace = true }
 pbjson-build = { workspace = true }
-rushwind-gen-http = { git = "https://github.com/tx7do/rushwind", rev = "08fbfcd" }
+rushwind-gen-http = { git = "https://github.com/tx7do/rushwind", rev = "3f14461" }

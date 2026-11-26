@@ -8,6 +8,11 @@
 app:
   name: admin
   version: 0.1.0
+# 进程级 panic 汇报：装配期插上默认 reporter（tracing 目标
+# rushwind.panic），守卫随装配生命周期卸下。省略本节同为开启——
+# 显式落节只为让运维找得到这个开关。
+panic_reporting:
+  enabled: true
 servers:
   - kind: http
     bind: ":7788"
