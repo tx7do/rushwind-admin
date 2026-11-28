@@ -34,9 +34,9 @@ pub mod sys_roles {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -64,9 +64,9 @@ pub mod sys_role_permissions {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -90,7 +90,7 @@ pub mod sys_role_metadata {
         #[sea_orm(default_value = 1)]
         pub template_version: Option<i32>,
         pub last_synced_version: Option<i32>,
-        pub last_synced_at: Option<chrono::NaiveDateTime>,
+        pub last_synced_at: Option<DateTimeWithTimeZone>,
         /// enum(AUTO,MANUAL,BLOCKED) default AUTO.
         pub sync_policy: Option<String>,
         /// enum(PLATFORM,TENANT) default TENANT.
@@ -100,9 +100,9 @@ pub mod sys_role_metadata {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -127,9 +127,9 @@ pub mod sys_permissions {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -161,9 +161,9 @@ pub mod sys_permission_groups {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -190,9 +190,9 @@ pub mod sys_permission_apis {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -216,9 +216,9 @@ pub mod sys_permission_menus {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -255,9 +255,9 @@ pub mod sys_menus {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -288,9 +288,9 @@ pub mod sys_apis {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -312,9 +312,9 @@ pub mod sys_role_org_units {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -337,9 +337,9 @@ pub mod sys_role_field_permissions {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

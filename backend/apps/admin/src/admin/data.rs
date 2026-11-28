@@ -62,9 +62,10 @@ pub mod repos;
 
 /// Wall clock for timestamp columns — always UTC.
 ///
-/// The columns are naive by type, and the protojson bridge
-/// (`naive_to_ts`) reads them as UTC wall time: writing UTC here keeps
-/// the wire face truthful regardless of the host timezone.
-pub fn now() -> chrono::NaiveDateTime {
-    chrono::Utc::now().naive_utc()
-}
+/// The columns are timestamptz (the type itself carries the instant and
+/// acts as the tz-level safety net), and the protojson bridge
+/// (`datetime_to_ts`) reads them instant-preservingly: writing UTC here
+/// keeps the wire face truthful regardless of the host timezone. This is
+/// the framework's clock, re-exported — every deployment stamps columns
+/// through the same single source.
+pub use rushwind_storage_seaorm_support::time::now;

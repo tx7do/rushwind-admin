@@ -39,9 +39,9 @@ fn message_proto(r: crate::admin::data::internal_messages::Model) -> InternalMes
         created_by: r.created_by,
         updated_by: r.updated_by,
         deleted_by: r.deleted_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -244,7 +244,7 @@ impl crate::proto::gen::services::InternalMessageServiceHandlers for InternalMes
         } else {
             Vec::new()
         };
-        let received_at = crate::admin::state::naive_to_ts(crate::admin::data::now());
+        let received_at = crate::admin::state::datetime_to_ts(crate::admin::data::now());
         for chunk in recipient_ids.chunks(1000) {
             self.insert_recipients(
                 payload.tenant_id,

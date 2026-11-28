@@ -19,7 +19,7 @@ fn log_proto(r: crate::admin::data::sys_ai_usage_logs::Model) -> AiUsageLog {
         completion_tokens: r.completion_tokens,
         total_tokens: r.total_tokens,
         duration_ms: r.duration_ms,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

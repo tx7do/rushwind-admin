@@ -32,8 +32,8 @@ fn app_proto(r: crate::admin::data::sys_ai_agent_apps::Model) -> AiAgentApp {
         enabled: r.enabled,
         created_by: r.created_by,
         updated_by: r.updated_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -54,7 +54,7 @@ fn run_proto(r: crate::admin::data::sys_ai_agent_runs::Model) -> AiAgentRun {
         completion_tokens: r.completion_tokens,
         total_tokens: r.total_tokens,
         duration_ms: r.duration_ms,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -251,7 +251,7 @@ fn rev_proto(r: crate::admin::data::sys_ai_agent_revisions::Model) -> AiAgentRev
         graph: r.graph,
         source: r.source,
         created_by: r.created_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

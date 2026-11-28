@@ -20,13 +20,15 @@ fn conv_proto(r: crate::admin::data::sys_ai_conversations::Model) -> AiConversat
         title: r.title,
         provider_id: r.provider_id,
         user_id: Some(r.user_id),
-        last_message_at: r.last_message_at.and_then(crate::admin::state::naive_to_ts),
+        last_message_at: r
+            .last_message_at
+            .and_then(crate::admin::state::datetime_to_ts),
         created_by: r.created_by,
         updated_by: r.updated_by,
         deleted_by: r.deleted_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

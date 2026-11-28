@@ -243,7 +243,7 @@ impl crate::proto::gen::services::FileTransferServiceHandlers for FileTransferSe
             size: bytes.len() as i64,
             checksum: row.content_hash.clone().unwrap_or_default(),
             storage_path,
-            updated_at: row.updated_at.and_then(crate::admin::state::naive_to_ts),
+            updated_at: row.updated_at.and_then(crate::admin::state::datetime_to_ts),
             content: Some(
                 crate::proto::storage::service::v1::download_file_response::Content::File(bytes),
             ),

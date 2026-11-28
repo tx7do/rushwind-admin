@@ -174,8 +174,8 @@ impl MfaServiceHandlers for MfaService {
                 method: 0, // MfaMethod::TOTP
                 display: f.display_name.clone().unwrap_or_else(|| "TOTP".into()),
                 enabled: f.status.as_deref() == Some("ENABLED"),
-                created_at: f.created_at.and_then(crate::admin::state::naive_to_ts),
-                last_used_at: f.last_used_at.and_then(crate::admin::state::naive_to_ts),
+                created_at: f.created_at.and_then(crate::admin::state::datetime_to_ts),
+                last_used_at: f.last_used_at.and_then(crate::admin::state::datetime_to_ts),
             });
         }
         Ok(GetMfaStatusResponse {
@@ -200,8 +200,8 @@ impl MfaServiceHandlers for MfaService {
                 method: 0,
                 display: f.display_name.clone().unwrap_or_else(|| "TOTP".into()),
                 enabled: f.status.as_deref() == Some("ENABLED"),
-                created_at: f.created_at.and_then(crate::admin::state::naive_to_ts),
-                last_used_at: f.last_used_at.and_then(crate::admin::state::naive_to_ts),
+                created_at: f.created_at.and_then(crate::admin::state::datetime_to_ts),
+                last_used_at: f.last_used_at.and_then(crate::admin::state::datetime_to_ts),
             });
         }
         Ok(ListEnrolledMethodsResponse { items })
@@ -250,7 +250,9 @@ impl MfaServiceHandlers for MfaService {
         .await;
         let expires_at = chrono::Utc::now() + chrono::Duration::seconds(ENROLL_TTL as i64);
         Ok(StartEnrollMethodResponse {
-            expires_at: Some(crate::admin::state::naive_to_ts(expires_at.naive_utc()).unwrap()),
+            expires_at: Some(
+                crate::admin::state::datetime_to_ts(expires_at.fixed_offset()).unwrap(),
+            ),
             operation_id: op_id,
             result: Some(start_enroll_method_response::Result::Totp(TotpResult {
                 secret,

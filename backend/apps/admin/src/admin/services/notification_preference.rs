@@ -45,7 +45,7 @@ fn pref_proto(
         quiet_start_minute: r.quiet_start_minute,
         quiet_end_minute: r.quiet_end_minute,
         muted_category_ids: muted.unwrap_or_default(),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

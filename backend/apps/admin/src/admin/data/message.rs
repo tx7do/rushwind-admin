@@ -21,9 +21,9 @@ pub mod internal_messages {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -51,9 +51,9 @@ pub mod internal_message_categories {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -74,14 +74,14 @@ pub mod internal_message_recipients {
         pub recipient_user_id: Option<i64>,
         /// enum(SENT,RECEIVED,READ,REVOKED,DELETED) default SENT.
         pub status: Option<String>,
-        pub received_at: Option<chrono::NaiveDateTime>,
-        pub read_at: Option<chrono::NaiveDateTime>,
+        pub received_at: Option<DateTimeWithTimeZone>,
+        pub read_at: Option<DateTimeWithTimeZone>,
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

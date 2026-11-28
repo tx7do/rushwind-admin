@@ -194,6 +194,7 @@ impl MigratorTrait for Migrator {
             Box::new(PermissionGroupCode),
             Box::new(AiSearchIndexUtcTime),
             Box::new(user_relations),
+            Box::new(TimestamptzColumns),
         ]
     }
 }
@@ -521,13 +522,13 @@ impl MigrationTrait for AiSearchIndexTable {
     }
 }
 
-/// 语义检索索引表的时间列归一（时钟统一 UTC 轮）：建表期 DDL 曾把
-/// created_at 声明成 TIMESTAMPTZ——全库实体列族是 naive timestamp（按
-/// UTC 墙钟写入/读出，见 `data::now` 与 `naive_to_ts`），这张手写表
-/// 对齐同一列族；默认值 `NOW() AT TIME ZONE 'UTC'` 与 Postgres 会话
-/// 时区脱钩。存量库按 information_schema 门控转换（USING 已按 UTC 墙
-/// 钟解释原 timestamptz 值）；表缺席（vector 扩展缺席时建表迁移跳过）
-/// 或列已是 timestamp 时安静跳过，可重复执行。
+/// 语义检索索引表的时间列归一（时钟统一 UTC 轮的历史一页）：建表期
+/// DDL 曾把 created_at 声明成 TIMESTAMPTZ，而彼时全库实体列族是 naive
+/// timestamp，这张手写表被拉回 naive 对齐列族。该方向已被 2026-11-28
+/// 轮整体反转（存储列族现为 timestamptz，本表的 naive 值由
+/// `m20261128_000001_timestamptz_columns` 幂等翻回 timestamptz 并修
+/// 默认值）；迁移留史不改——fresh 库此表按建表 DDL 落 naive 后由该
+/// 迁移统一翻转。存量库按 information_schema 门控跳过，可重复执行。
 struct AiSearchIndexUtcTime;
 
 impl MigrationName for AiSearchIndexUtcTime {
@@ -1178,6 +1179,70 @@ impl MigrationTrait for IdWidenU64 {
 
     async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
         // 加宽不回退：u64 契约是前进方向。
+        Ok(())
+    }
+}
+
+/// 存储列翻转 naive timestamp → timestamptz（2026-11-28，时钟统一 UTC
+/// 轮的存储层修订）：列类型本身携带瞬间与偏移，是程序层写错时的
+/// tz 级冗余防线——naive 列一旦写错无法还原真实时间。实体列族已整体
+/// 改 `DateTimeWithTimeZone`，本迁移把存量库仍为 naive 的列全部拉齐：
+/// `USING col AT TIME ZONE 'UTC'` 把 UTC 墙钟解释为瞬间，与既有读取
+/// 约定逐字节同瞬间，wire 面零漂移。naive 风味默认值（`NOW() AT TIME
+/// ZONE 'UTC'`）一并改 `now()`。information_schema 驱动、可重复执行：
+/// fresh 库实体表生而 timestamptz，本迁移零命中幂等通过。教义：今后
+/// 新增时间列一律 timestamptz（§4.5）。
+struct TimestamptzColumns;
+
+impl MigrationName for TimestamptzColumns {
+    fn name(&self) -> &str {
+        "m20261128_000001_timestamptz_columns"
+    }
+}
+
+#[async_trait::async_trait]
+impl MigrationTrait for TimestamptzColumns {
+    async fn up(&self, manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        if manager.get_database_backend() != DatabaseBackend::Postgres {
+            return Ok(());
+        }
+        let conn = manager.get_connection();
+        let rows = conn
+            .query_all_raw(sea_orm::Statement::from_string(
+                DatabaseBackend::Postgres,
+                "SELECT table_name, column_name, column_default \
+                 FROM information_schema.columns \
+                 WHERE table_schema = current_schema() \
+                   AND data_type = 'timestamp without time zone' \
+                 ORDER BY table_name, column_name",
+            ))
+            .await?;
+        for row in &rows {
+            let table: String = row.try_get("", "table_name")?;
+            let column: String = row.try_get("", "column_name")?;
+            let default: Option<String> = row.try_get("", "column_default")?;
+            conn.execute_unprepared(&format!(
+                "ALTER TABLE \"{table}\" ALTER COLUMN \"{column}\" TYPE timestamptz \
+                 USING \"{column}\" AT TIME ZONE 'UTC'"
+            ))
+            .await?;
+            // naive 风味默认值翻列后会话时区隐转，统一换 now()（本身
+            // 返回 timestamptz，与会话时区脱钩）。
+            if default
+                .as_deref()
+                .is_some_and(|d| d.contains("AT TIME ZONE"))
+            {
+                conn.execute_unprepared(&format!(
+                    "ALTER TABLE \"{table}\" ALTER COLUMN \"{column}\" SET DEFAULT now()"
+                ))
+                .await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn down(&self, _manager: &SchemaManager) -> Result<(), sea_orm::DbErr> {
+        // 翻转不回退：timestamptz 是前进方向（naive 侧无防线可言）。
         Ok(())
     }
 }

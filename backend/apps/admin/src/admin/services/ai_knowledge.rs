@@ -47,9 +47,9 @@ fn base_proto(r: crate::admin::data::sys_ai_knowledge_bases::Model) -> AiKnowled
         created_by: None,
         updated_by: None,
         deleted_by: None,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -63,7 +63,7 @@ fn doc_proto(r: crate::admin::data::sys_ai_docs::Model) -> AiDoc {
         error_message: r.error_message,
         user_id: r.user_id,
         tenant_id: r.tenant_id,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

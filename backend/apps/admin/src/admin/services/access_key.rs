@@ -44,15 +44,17 @@ impl AccessKeyService {
             } else {
                 1
             }),
-            expires_at: row.expires_at.and_then(crate::admin::state::naive_to_ts),
-            last_used_at: row.last_used_at.and_then(crate::admin::state::naive_to_ts),
+            expires_at: row.expires_at.and_then(crate::admin::state::datetime_to_ts),
+            last_used_at: row
+                .last_used_at
+                .and_then(crate::admin::state::datetime_to_ts),
             tenant_id: row.tenant_id,
             created_by: row.created_by,
             updated_by: row.updated_by,
             deleted_by: row.deleted_by,
-            created_at: row.created_at.and_then(crate::admin::state::naive_to_ts),
-            updated_at: row.updated_at.and_then(crate::admin::state::naive_to_ts),
-            deleted_at: row.deleted_at.and_then(crate::admin::state::naive_to_ts),
+            created_at: row.created_at.and_then(crate::admin::state::datetime_to_ts),
+            updated_at: row.updated_at.and_then(crate::admin::state::datetime_to_ts),
+            deleted_at: row.deleted_at.and_then(crate::admin::state::datetime_to_ts),
         }
     }
 }
@@ -119,7 +121,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
             secret_hash: Set(crate::admin::crypto::sha256_hex(secret.as_bytes())),
             expires_at: Set(data
                 .expires_at
-                .and_then(|t| crate::admin::state::ts_to_naive(&t))),
+                .and_then(|t| crate::admin::state::ts_to_datetime(&t))),
             status: Set(Some("ON".into())),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::admin::data::now())),
@@ -156,7 +158,7 @@ impl AccessKeyServiceHandlers for AccessKeyService {
             let mask = crate::fieldmask::FieldMask::from(req.update_mask.as_ref());
             crate::set_masked!(req mask, active, name, data.name, |v: &String| v.clone());
             crate::set_masked!(opt mask, active, expires_at, data.expires_at, |v: &pbjson_types::Timestamp| {
-                crate::state::ts_to_naive(v)
+                crate::state::ts_to_datetime(v)
             });
             crate::set_masked!(opt mask, active, status, data.status, |v: &i32| Some(
                 if *v == 0 { "OFF".into() } else { "ON".into() }

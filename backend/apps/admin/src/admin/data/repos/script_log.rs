@@ -40,7 +40,10 @@ impl<'a> ScriptLogRepo<'a> {
     }
 
     /// Purge: before-timestamp or everything.
-    pub async fn purge(&self, before: Option<chrono::NaiveDateTime>) -> Result<u64, StatusError> {
+    pub async fn purge(
+        &self,
+        before: Option<sea_orm::prelude::DateTimeWithTimeZone>,
+    ) -> Result<u64, StatusError> {
         let mut query = sys_script_logs::Entity::delete_many();
         if let Some(cutoff) = before {
             query = query.filter(sys_script_logs::Column::CreatedAt.lt(cutoff));

@@ -30,7 +30,7 @@ fn msg_proto(r: crate::admin::data::sys_ai_messages::Model) -> AiMessage {
         created_by: None,
         updated_by: None,
         deleted_by: None,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
         updated_at: None,
         deleted_at: None,
     }

@@ -61,8 +61,8 @@ impl crate::proto::gen::services::InternalMessageRecipientServiceHandlers
                     recipient_user_id: r.recipient_user_id,
                     message_id: r.message_id,
                     status: r.status.as_deref().map(recipient_status_to_proto),
-                    received_at: r.received_at.and_then(crate::admin::state::naive_to_ts),
-                    read_at: r.read_at.and_then(crate::admin::state::naive_to_ts),
+                    received_at: r.received_at.and_then(crate::admin::state::datetime_to_ts),
+                    read_at: r.read_at.and_then(crate::admin::state::datetime_to_ts),
                     // Denormalized title/content copied at send time; the
                     // backfilled message row fills gaps.
                     title: message.and_then(|m| m.title.clone()),
@@ -72,9 +72,9 @@ impl crate::proto::gen::services::InternalMessageRecipientServiceHandlers
                     created_by: r.created_by,
                     updated_by: r.updated_by,
                     deleted_by: r.deleted_by,
-                    created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-                    updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-                    deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+                    created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+                    updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+                    deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
                 }
             })
             .collect();

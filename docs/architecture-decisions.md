@@ -145,7 +145,7 @@ apps/admin            二进制：features 选域，逐域四行装配
 2. **重构轮与功能轮永不并行**——同一时段主线只允许一种性质的波次。
 3. **合并跨目录挪移的分支时，modify-vs-delete 禁止按"目录已删除"整体裁决**——必须逐文件确认语义已迁移至新路径，未迁移项显式登记为"放弃"并留档。
 4. **全量上游同步前必跑差分回归**（sync-protos.sh 头部既有此建议），同步后对照 §2.3 的投影面退役政策。
-5. **时钟统一 UTC**——存储列是 naive timestamp（无时区），唯一时钟源 `data::now()` 返回 UTC 墙钟，wire 桥 `naive_to_ts` 按 UTC 解释：三层在同一时区对齐，wire 时刻与部署环境的时区脱钩。新增时间源头禁用 `Local::now`；登录策略 TIME 窗、cron 规格与出站时间串同样按 UTC 书写与判定。
+5. **时钟统一 UTC**——存储列是 **timestamptz**（列类型携带瞬间与偏移，是程序层写错时的 tz 级冗余防线），唯一时钟源 `data::now()`（即框架 `rushwind-storage-seaorm-support::time::now` 的 re-export）返回 UTC 瞬间，wire 桥 `datetime_to_ts`/`ts_to_datetime` 保瞬间换型：三层在同一时区对齐，wire 时刻与部署环境的时区脱钩。新增时间源头禁用 `Local::now`；新增时间列一律 timestamptz；登录策略 TIME 窗、cron 规格与出站时间串同样按 UTC 书写与判定。Redis 会话面的 `login_at` 字符串是有意保留的 naive 形态（非 DB 列，无冗余可言）。
 
 ---
 
@@ -165,3 +165,4 @@ apps/admin            二进制：features 选域，逐域四行装配
 | 2026-11-20 | 本文档第三路审计勘误：apalis 移出根 re-export 清单、§1.2 补 5 项模板实际消费的稳定入口、i_* 定性修订（上游已携带投影层，"fork 创作"表述作废）、迁移成本 203→86 文件 | ✅ 完成 |
 | 2026-11-20 | 时钟统一 UTC：唯一时钟源 `data::now()` = `Utc::now().naive_utc()`；登录策略 TIME 窗改按 UTC 判定；会话 `login_at`/渠道测试邮件时间串随钟改 UTC；sys_ai_search_index 时间列归一 naive timestamp（`AT TIME ZONE 'UTC'` 默认值 + 存量门控迁移）——wire 时刻与部署时区脱钩（§4.5） | ✅ 完成 |
 | 2026-11-23 | 同步基座 vintage af495eb8a..7d98aade4（2026-11-18..22）：**契约 int64 定版整体接受**（上游 fc48f5b7a 波段，proto 镜像此前滞留 uint64 时代；全仓 430 处 u64 桥接 cast 收敛，实体 i64 与契约对齐）；全站请求体护栏落 edge 最外层（413/401 分层判定先于任何 body 读取，上游 522d7ec9d 同语义）。**分歧保留**：上游导出/格式化改走进程本地时区（a2b177220），本仓 §4.5 UTC 惯例不随——wire 时刻仍 UTC；`quota_value`/`file.size` 上游保留 uint64，契约照抄、Rust 侧桥接；`redis_cache.db_size` 上游漏转，按 fork 偏差定版 int64（与 notice 面同步对齐）；`TOO_MANY_ATTEMPTS=1161` fork 增补重钉清单时保留 | ✅ 完成 |
+| 2026-11-28 | 存储列翻转 naive timestamp → **timestamptz**（§4.5 存储层修订，2026-11-20 决策的列类型部分反转；wire 面 UTC 裁定不变）：列类型本身携带瞬间与偏移——程序层写错时数据库至少留有 tz 级冗余可对账，naive 列写错则无法还原真实时间。实体列族整体改 `DateTimeWithTimeZone`，`data::now()` 换框架钟 re-export，桥换 `datetime_to_ts`/`ts_to_datetime`（保瞬间），存量库经 `m20261128_000001_timestamptz_columns` 按 `AT TIME ZONE 'UTC'` 幂等翻转（与既有读取约定同瞬间，wire 零漂移）；教义新增：时间列一律 timestamptz。顺带修复：`task_monitor` 对 apalis 队列表（生而 TIMESTAMPTZ）的 naive 解码一直被 sqlx OID 兼容检查拒绝、`.ok()` 吞错致巡检时间戳恒空 | ✅ 完成 |

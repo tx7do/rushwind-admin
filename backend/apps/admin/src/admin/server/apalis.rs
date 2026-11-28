@@ -290,7 +290,7 @@ pub fn cron_jobs(
                         tracing::warn!(target: "rushwind.admin.scheduler", spec = s, task_type = row.type_name, "invalid cron spec");
                         continue;
                     };
-                    if !spec.matches(now) || fired.contains(&row.type_name) {
+                    if !spec.matches(now.naive_utc()) || fired.contains(&row.type_name) {
                         continue;
                     }
                     fired.push(row.type_name.clone());

@@ -38,8 +38,8 @@ fn delivery_proto(
         attempts: r.attempts,
         created_by: r.created_by,
         updated_by: r.updated_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

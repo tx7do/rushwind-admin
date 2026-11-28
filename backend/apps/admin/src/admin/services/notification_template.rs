@@ -37,8 +37,8 @@ fn template_proto(
         content_template: r.content_template,
         is_enabled: r.is_enabled,
         remark: r.remark,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

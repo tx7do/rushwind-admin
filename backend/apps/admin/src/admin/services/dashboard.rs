@@ -16,6 +16,15 @@ pub struct DashboardService {
     pub state: Arc<AppState>,
 }
 
+/// 今日 UTC 午夜（− offset 天）的瞬间：审计面的日界过滤统一走 instant
+/// 数学——naive 墙钟值绑 timestamptz 列会被 PG 按会话时区隐转。
+fn utc_midnight(offset_days: i64) -> sea_orm::prelude::DateTimeWithTimeZone {
+    use chrono::Timelike as _;
+    let now = crate::admin::data::now();
+    now - chrono::Duration::days(offset_days)
+        - chrono::Duration::seconds(i64::from(now.time().num_seconds_from_midnight()))
+}
+
 #[async_trait::async_trait]
 impl crate::proto::gen::services::DashboardServiceHandlers for DashboardService {
     async fn get_overview(
@@ -31,11 +40,9 @@ impl crate::proto::gen::services::DashboardServiceHandlers for DashboardService 
             .count(&self.state.db)
             .await
             .unwrap_or(0) as u32;
-        let today = crate::admin::data::now().date();
         let today_login_count = crate::admin::data::sys_login_audit_logs::Entity::find()
             .filter(
-                crate::admin::data::sys_login_audit_logs::Column::CreatedAt
-                    .gte(today.and_hms_opt(0, 0, 0)),
+                crate::admin::data::sys_login_audit_logs::Column::CreatedAt.gte(utc_midnight(0)),
             )
             .count(&self.state.db)
             .await
@@ -43,7 +50,7 @@ impl crate::proto::gen::services::DashboardServiceHandlers for DashboardService 
         let today_operation_count = crate::admin::data::sys_operation_audit_logs::Entity::find()
             .filter(
                 crate::admin::data::sys_operation_audit_logs::Column::CreatedAt
-                    .gte(today.and_hms_opt(0, 0, 0)),
+                    .gte(utc_midnight(0)),
             )
             .count(&self.state.db)
             .await
@@ -64,8 +71,7 @@ impl crate::proto::gen::services::DashboardServiceHandlers for DashboardService 
         let days = req.days.unwrap_or(7).clamp(1, 90) as i64;
         let rows = crate::admin::data::sys_login_audit_logs::Entity::find()
             .filter(
-                crate::admin::data::sys_login_audit_logs::Column::CreatedAt
-                    .gte(crate::admin::data::now().date() - chrono::Duration::days(days)),
+                crate::admin::data::sys_login_audit_logs::Column::CreatedAt.gte(utc_midnight(days)),
             )
             .all(&self.state.db)
             .await
@@ -73,13 +79,13 @@ impl crate::proto::gen::services::DashboardServiceHandlers for DashboardService 
         let mut buckets: std::collections::BTreeMap<String, u32> =
             std::collections::BTreeMap::new();
         for offset in (0..days).rev() {
-            let date =
-                (crate::admin::data::now().date() - chrono::Duration::days(offset)).to_string();
+            let date = (crate::admin::data::now().date_naive() - chrono::Duration::days(offset))
+                .to_string();
             buckets.insert(date, 0);
         }
         for row in rows {
             if let Some(created) = row.created_at {
-                let key = created.date().to_string();
+                let key = created.date_naive().to_string();
                 if let Some(count) = buckets.get_mut(&key) {
                     *count += 1;
                 }

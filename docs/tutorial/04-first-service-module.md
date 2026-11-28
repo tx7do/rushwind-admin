@@ -86,9 +86,9 @@ pub mod sys_languages {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -203,9 +203,9 @@ fn language_proto(r: crate::admin::data::sys_languages::Model) -> Language {
         created_by: r.created_by.map(|v| v as u64),
         updated_by: r.updated_by.map(|v| v as u64),
         deleted_by: r.deleted_by.map(|v| v as u64),
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -217,8 +217,8 @@ pub struct LanguageService {
 要点：
 
 - **服务是薄层**：一个服务一个 struct，只有 `state: Arc<AppState>` 一个字段（配置、连接池、Redis、JWT 引擎、令牌库都挂在 state 上）；
-- **entity → proto 映射是显式函数**：逐字段转换，`i64 → u64` 换乘、时间戳 `Option<NaiveDateTime> → prost_types::Timestamp`（`naive_to_ts`）。漏字段不报错，是静默零值——新增字段时两个类型都要动（这是模式化骨架最大的坑）；
-- **时间是全链 UTC**：存储列是 naive 类型（不带时区），出站桥 `naive_to_ts` 按 UTC 墙钟解释、入站桥 `ts_to_naive` 落回 UTC 墙钟，写入侧只有一个时钟源 `crate::admin::data::now()`（= `Utc::now().naive_utc()`）。列里存的是 UTC 墙钟，wire 上永远是真时刻，与服务器跑在什么时区无关。新增时间字段一律走这个钟——`Local::now()` 在本仓没有容身之处（登录策略 TIME 窗、cron 规格、出站时间串同理，全按 UTC 书写/判定，权威约定见 architecture-decisions §4.5）；
+- **entity → proto 映射是显式函数**：逐字段转换，`i64 → u64` 换乘、时间戳 `Option<DateTimeWithTimeZone> → prost_types::Timestamp`（`datetime_to_ts`）。漏字段不报错，是静默零值——新增字段时两个类型都要动（这是模式化骨架最大的坑）；
+- **时间是全链 UTC**：存储列是 **timestamptz**（`DateTimeWithTimeZone`——列类型本身携带瞬间与偏移，程序层写错时数据库至少留有 tz 级冗余可对账），出站桥 `datetime_to_ts` 与入站桥 `ts_to_datetime` 都是保瞬间换型，写入侧只有一个时钟源 `crate::admin::data::now()`（框架 `time::now` 的 re-export，UTC 瞬间）。wire 上永远是真时刻，与服务器跑在什么时区无关。新增时间字段一律 timestamptz + 走这个钟——`Local::now()` 在本仓没有容身之处（登录策略 TIME 窗、cron 规格、出站时间串同理，全按 UTC 书写/判定，权威约定见 architecture-decisions §4.5）；
 - **id 的 64 位换乘**：数据库 `i64`，wire `uint64`。protojson 把 64 位整数编码为**字符串**（见 §4），所以前端拿到的 id 永远是 `"1"` 这样的字符串，直接参与下一次请求的 `{id}` 路径变量即可。
 
 ### 3.2 六个 handler 逐个看

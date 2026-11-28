@@ -20,15 +20,15 @@ pub mod notices {
         pub content: Option<String>,
         #[sea_orm(default_value = false)]
         pub is_published: Option<bool>,
-        pub published_at: Option<chrono::NaiveDateTime>,
+        pub published_at: Option<DateTimeWithTimeZone>,
         #[sea_orm(default_value = 0)]
         pub sort_order: Option<u32>,
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

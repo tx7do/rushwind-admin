@@ -9,6 +9,7 @@
 
 use std::sync::Arc;
 
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{ActiveModelTrait, Set};
 
 use crate::admin::mapping;
@@ -41,8 +42,10 @@ fn rule_proto(r: crate::admin::data::sys_monitor_alert_rules::Model) -> MonitorA
         remark: r.remark,
         last_firing: r.last_firing,
         last_value: r.last_value,
-        last_alerted_at: r.last_alerted_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
+        last_alerted_at: r
+            .last_alerted_at
+            .and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -266,7 +269,7 @@ fn read_proc_self_status() -> (Option<f64>, Option<f64>) {
 }
 
 /// 冷却判定：持续越限重发以 last_alerted_at 为锚。
-fn cooldown_elapsed(last_alerted_at: Option<chrono::NaiveDateTime>, minutes: u32) -> bool {
+fn cooldown_elapsed(last_alerted_at: Option<DateTimeWithTimeZone>, minutes: u32) -> bool {
     match last_alerted_at {
         None => true,
         Some(t) => {

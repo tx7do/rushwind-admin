@@ -40,9 +40,9 @@ pub mod bi_dashboards {
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -76,8 +76,8 @@ pub mod bi_dashboard_revisions {
         #[sea_orm(default_value = "SAVE")]
         pub source: Option<String>,
         pub created_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

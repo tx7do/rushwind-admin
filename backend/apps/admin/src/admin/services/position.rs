@@ -41,14 +41,14 @@ fn position_proto(r: crate::admin::data::sys_positions::Model) -> Position {
         org_unit_name: None,
         reports_to_position_id: r.reports_to_position_id,
         reports_to_position_name: None,
-        start_at: r.start_at.and_then(crate::admin::state::naive_to_ts),
-        end_at: r.end_at.and_then(crate::admin::state::naive_to_ts),
+        start_at: r.start_at.and_then(crate::admin::state::datetime_to_ts),
+        end_at: r.end_at.and_then(crate::admin::state::datetime_to_ts),
         created_by: r.created_by,
         updated_by: r.updated_by,
         deleted_by: r.deleted_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

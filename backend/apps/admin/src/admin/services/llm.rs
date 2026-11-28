@@ -150,11 +150,11 @@ pub async fn check_token_quota(
         return Ok(());
     }
     let month_start = crate::admin::data::now()
-        .date()
+        .date_naive()
         .with_day(1)
-        .unwrap_or_default()
-        .and_hms_opt(0, 0, 0)
-        .unwrap_or_default();
+        .and_then(|d| d.and_hms_opt(0, 0, 0))
+        .map(|dt| dt.and_utc().fixed_offset())
+        .unwrap_or_else(crate::admin::data::now);
     let used = repo
         .sum_tokens_by_tenant_since(tenant_id, month_start)
         .await?;

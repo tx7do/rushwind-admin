@@ -55,7 +55,7 @@ fn log_proto(r: crate::admin::data::sys_login_audit_logs::Model) -> LoginAuditLo
             .unwrap_or_default(),
         log_hash: r.log_hash,
         signature: r.signature,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

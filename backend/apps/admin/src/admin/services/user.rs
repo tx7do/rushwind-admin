@@ -357,7 +357,7 @@ impl UserService {
             }
         ));
         crate::set_masked!(opt mask, a, locked_until, data.locked_until, |v: &pbjson_types::Timestamp| {
-            crate::state::ts_to_naive(v)
+            crate::state::ts_to_datetime(v)
         });
     }
 }
@@ -828,19 +828,27 @@ pub(crate) fn user_to_proto(
         description: user.description,
         last_login_at: user
             .last_login_at
-            .and_then(crate::admin::state::naive_to_ts),
+            .and_then(crate::admin::state::datetime_to_ts),
         last_login_ip: user.last_login_ip,
         status: user
             .status
             .as_deref()
             .map(|s| mapping::user_status_of(s).unwrap_or(0)),
-        locked_until: user.locked_until.and_then(crate::admin::state::naive_to_ts),
+        locked_until: user
+            .locked_until
+            .and_then(crate::admin::state::datetime_to_ts),
         created_by: user.created_by,
         updated_by: user.updated_by,
         deleted_by: user.deleted_by,
-        created_at: user.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: user.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: user.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: user
+            .created_at
+            .and_then(crate::admin::state::datetime_to_ts),
+        updated_at: user
+            .updated_at
+            .and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: user
+            .deleted_at
+            .and_then(crate::admin::state::datetime_to_ts),
         tenant_name,
         org_unit_id: None,
         org_unit_ids,

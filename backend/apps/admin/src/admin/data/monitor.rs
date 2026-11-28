@@ -28,13 +28,13 @@ pub mod sys_monitor_alert_rules {
         #[sea_orm(default_value = false)]
         pub last_firing: Option<bool>,
         pub last_value: Option<f64>,
-        pub last_alerted_at: Option<chrono::NaiveDateTime>,
+        pub last_alerted_at: Option<DateTimeWithTimeZone>,
         pub created_by: Option<i64>,
         pub updated_by: Option<i64>,
         pub deleted_by: Option<i64>,
-        pub created_at: Option<chrono::NaiveDateTime>,
-        pub updated_at: Option<chrono::NaiveDateTime>,
-        pub deleted_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
+        pub updated_at: Option<DateTimeWithTimeZone>,
+        pub deleted_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -30,7 +30,7 @@ fn log_proto(r: crate::admin::data::sys_policy_evaluation_logs::Model) -> Policy
         evaluation_context: r.evaluation_context,
         log_hash: r.log_hash,
         signature: r.signature,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 

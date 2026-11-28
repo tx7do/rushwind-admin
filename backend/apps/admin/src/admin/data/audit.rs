@@ -37,7 +37,7 @@ pub mod sys_api_audit_logs {
         pub response: Option<String>,
         pub log_hash: Option<String>,
         pub signature: Option<Vec<u8>>,
-        pub created_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -77,7 +77,7 @@ pub mod sys_operation_audit_logs {
         pub device_info: Option<Json>,
         pub log_hash: Option<String>,
         pub signature: Option<Vec<u8>>,
-        pub created_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -119,7 +119,7 @@ pub mod sys_login_audit_logs {
         pub risk_factors: Option<Json>,
         pub log_hash: Option<String>,
         pub signature: Option<Vec<u8>>,
-        pub created_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -164,7 +164,7 @@ pub mod sys_data_access_audit_logs {
         pub db_user: Option<String>,
         pub log_hash: Option<String>,
         pub signature: Option<Vec<u8>>,
-        pub created_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -197,7 +197,7 @@ pub mod sys_permission_audit_logs {
         pub reason: Option<String>,
         pub log_hash: Option<String>,
         pub signature: Option<Vec<u8>>,
-        pub created_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -228,7 +228,7 @@ pub mod sys_policy_evaluation_logs {
         pub evaluation_context: Option<String>,
         pub log_hash: Option<String>,
         pub signature: Option<Vec<u8>>,
-        pub created_at: Option<chrono::NaiveDateTime>,
+        pub created_at: Option<DateTimeWithTimeZone>,
     }
 
     #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

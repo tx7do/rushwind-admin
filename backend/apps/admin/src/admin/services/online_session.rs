@@ -20,6 +20,9 @@ fn session_visible(meta: &SessionMeta, platform: bool, tenant_id: i64) -> bool {
 }
 
 fn session_proto(jti: &str, uid: i64, meta: &SessionMeta, current_uid: i64) -> OnlineSession {
+    // Redis 会话面是本仓仅存的 naive 时间形态：会话元数据里存的
+    // login_at 是 UTC 墙钟字符串（无时区冗余可言，非 DB 列），写入侧
+    // 未动以免在途会话解析断裂；按 UTC 解释为瞬间出站。
     let login_at = chrono::NaiveDateTime::parse_from_str(&meta.login_at, "%Y-%m-%d %H:%M:%S%.f")
         .or_else(|_| chrono::NaiveDateTime::parse_from_str(&meta.login_at, "%Y-%m-%d %H:%M:%S"))
         .ok()

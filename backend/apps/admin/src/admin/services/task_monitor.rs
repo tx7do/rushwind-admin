@@ -10,6 +10,7 @@
 
 use std::sync::Arc;
 
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::{ConnectionTrait, DatabaseConnection, DbErr, Statement};
 
 use crate::admin::state::{internal_error, AppState, StatusError};
@@ -27,8 +28,8 @@ pub struct TaskMonitorService {
     pub state: Arc<AppState>,
 }
 
-fn ts(t: chrono::NaiveDateTime) -> Option<pbjson_types::Timestamp> {
-    crate::admin::state::naive_to_ts(t)
+fn ts(t: DateTimeWithTimeZone) -> Option<pbjson_types::Timestamp> {
+    crate::admin::state::datetime_to_ts(t)
 }
 
 /// 下一次触发点：从 now 起逐分钟前扫（调度粒度即分钟；最长扫一天）。
@@ -76,7 +77,9 @@ impl crate::proto::gen::services::TaskMonitorServiceHandlers for TaskMonitorServ
             schedules.push(SystemTaskScheduleEntry {
                 task_type: name.to_string(),
                 cron_spec: spec_str.to_string(),
-                next_enqueue_at: ts(next_enqueue(&spec, now)),
+                next_enqueue_at: ts(next_enqueue(&spec, now.naive_utc())
+                    .and_utc()
+                    .fixed_offset()),
                 prev_enqueue_at: None, // below, from the queue table
             });
         }
@@ -97,10 +100,13 @@ impl crate::proto::gen::services::TaskMonitorServiceHandlers for TaskMonitorServ
                  FROM rushwind_apalis_jobs GROUP BY 1",
             )
             .await?;
-        let mut prev: Vec<(String, Option<chrono::NaiveDateTime>)> = Vec::new();
+        // 队列表时间列生而 TIMESTAMPTZ（框架建表 DDL）——解码必须用
+        // timestamptz 类型，naive 类型会被 sqlx 的 OID 兼容检查拒掉
+        //（此前 naive 解码一直被 .ok() 吞成 None，巡检时间戳恒空）。
+        let mut prev: Vec<(String, Option<DateTimeWithTimeZone>)> = Vec::new();
         for row in &prev_rows {
             let name: String = row.try_get("", "task_type").unwrap_or_default();
-            let at: Option<chrono::NaiveDateTime> = row.try_get("", "last_at").ok();
+            let at: Option<DateTimeWithTimeZone> = row.try_get("", "last_at").ok();
             prev.push((name, at));
         }
         for entry in &mut schedules {
@@ -183,7 +189,7 @@ impl crate::proto::gen::services::TaskMonitorServiceHandlers for TaskMonitorServ
                 state,
                 last_error: row.try_get("", "last_error").unwrap_or_default(),
                 last_failed_at: row
-                    .try_get::<Option<chrono::NaiveDateTime>>("", "updated_at")
+                    .try_get::<Option<DateTimeWithTimeZone>>("", "updated_at")
                     .ok()
                     .flatten()
                     .and_then(ts),
@@ -193,7 +199,7 @@ impl crate::proto::gen::services::TaskMonitorServiceHandlers for TaskMonitorServ
                 next_process_at: if is_archived {
                     None
                 } else {
-                    row.try_get::<Option<chrono::NaiveDateTime>>("", "run_at")
+                    row.try_get::<Option<DateTimeWithTimeZone>>("", "run_at")
                         .ok()
                         .flatten()
                         .and_then(ts)

@@ -1,5 +1,6 @@
 //! AI repos — provider（tenant 面）与 usage-log（platform 台账只读）。
 
+use sea_orm::prelude::DateTimeWithTimeZone;
 use sea_orm::ColumnTrait;
 use sea_orm::Condition;
 use sea_orm::DatabaseConnection;
@@ -124,15 +125,15 @@ impl<'a> AiUsageLogRepo<'a> {
         crate::admin::paging::fetch_paged(self.db, usage::Entity::find(), req).await
     }
 
-    /// 当月（本地时区）用量汇总：tokens 与调用次数。
+    /// 当月（UTC 墙钟）用量汇总：tokens 与调用次数。
     pub async fn month_summary(&self) -> Result<(u32, u32), StatusError> {
         use chrono::Datelike as _;
         let month_start = crate::admin::data::now()
-            .date()
+            .date_naive()
             .with_day(1)
-            .unwrap_or_default()
-            .and_hms_opt(0, 0, 0)
-            .unwrap_or_default();
+            .and_then(|d| d.and_hms_opt(0, 0, 0))
+            .map(|dt| dt.and_utc().fixed_offset())
+            .unwrap_or_else(crate::admin::data::now);
         let row = usage::Entity::find()
             .filter(usage::Column::CreatedAt.gte(month_start))
             .select_only()
@@ -181,7 +182,7 @@ impl<'a> AiUsageLogRepo<'a> {
     pub async fn sum_tokens_by_tenant_since(
         &self,
         tenant_id: i64,
-        month_start: chrono::NaiveDateTime,
+        month_start: DateTimeWithTimeZone,
     ) -> Result<u32, StatusError> {
         let row = usage::Entity::find()
             .filter(usage::Column::CreatedAt.gte(month_start))

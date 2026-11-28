@@ -230,5 +230,7 @@ pub fn require_data<T>(data: Option<T>) -> Result<T, StatusError> {
 
 // The entity-time ↔ proto-Timestamp conversions live in the framework
 // bridge crate; re-exported so the mappers' paths stay put (the
-// roundtrip is pinned by the crate's own suite).
-pub use rushwind_storage_seaorm_support::time::{naive_to_ts, ts_to_naive};
+// roundtrip is pinned by the crate's own suite). The timestamptz pair
+// serves every entity column; `naive_to_ts` remains solely for the
+// redis session-meta face, whose stored strings are UTC wall clocks.
+pub use rushwind_storage_seaorm_support::time::{datetime_to_ts, naive_to_ts, ts_to_datetime};

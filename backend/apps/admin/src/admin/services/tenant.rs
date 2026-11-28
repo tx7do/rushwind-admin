@@ -64,9 +64,13 @@ fn tenant_proto(r: crate::admin::data::sys_tenants::Model) -> Tenant {
         remark: r.remark,
         admin_user_id: r.admin_user_id,
         admin_user_name: None,
-        subscription_at: r.subscription_at.and_then(crate::admin::state::naive_to_ts),
-        unsubscribe_at: r.unsubscribe_at.and_then(crate::admin::state::naive_to_ts),
-        expired_at: r.expired_at.and_then(crate::admin::state::naive_to_ts),
+        subscription_at: r
+            .subscription_at
+            .and_then(crate::admin::state::datetime_to_ts),
+        unsubscribe_at: r
+            .unsubscribe_at
+            .and_then(crate::admin::state::datetime_to_ts),
+        expired_at: r.expired_at.and_then(crate::admin::state::datetime_to_ts),
         subscription_plan: r.subscription_plan,
         plan_id: r.plan_id,
         member_count: None,
@@ -75,9 +79,9 @@ fn tenant_proto(r: crate::admin::data::sys_tenants::Model) -> Tenant {
         created_by: r.created_by,
         updated_by: r.updated_by,
         deleted_by: r.deleted_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -168,7 +172,7 @@ impl TenantService {
             expired_at: Set(tenant_data
                 .expired_at
                 .as_ref()
-                .and_then(crate::admin::state::ts_to_naive)),
+                .and_then(crate::admin::state::ts_to_datetime)),
             plan_id: Set(tenant_data.plan_id),
             created_by: Set(Some(operator_id)),
             created_at: Set(Some(crate::admin::data::now())),
@@ -431,7 +435,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
             expired_at: Set(data
                 .expired_at
                 .as_ref()
-                .and_then(crate::admin::state::ts_to_naive)),
+                .and_then(crate::admin::state::ts_to_datetime)),
             plan_id: Set(data.plan_id),
             created_by: Set(Some(payload.user_id)),
             created_at: Set(Some(crate::admin::data::now())),
@@ -496,7 +500,7 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
                 *v
             ));
             crate::set_masked!(opt mask, a, expired_at, data.expired_at, |v: &pbjson_types::Timestamp| {
-                crate::state::ts_to_naive(v)
+                crate::state::ts_to_datetime(v)
             });
         }
         a.updated_at = Set(Some(crate::admin::data::now()));

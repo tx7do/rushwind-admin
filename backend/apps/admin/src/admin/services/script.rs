@@ -41,9 +41,9 @@ fn script_proto(r: crate::admin::data::sys_scripts::Model) -> Script {
         created_by: r.created_by,
         updated_by: r.updated_by,
         deleted_by: r.deleted_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -59,7 +59,7 @@ fn script_log_proto(r: crate::admin::data::sys_script_logs::Model) -> ScriptLog 
         success: r.success,
         duration_ms: r.duration_ms,
         error: r.error,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
     }
 }
 
@@ -289,7 +289,7 @@ impl crate::proto::gen::services::ScriptLogServiceHandlers for ScriptLogService 
     ) -> Result<PurgeScriptLogsResponse, StatusError> {
         let mut query = crate::admin::data::sys_script_logs::Entity::delete_many();
         if let Some(before) = &req.before {
-            if let Some(cutoff) = crate::admin::state::ts_to_naive(before) {
+            if let Some(cutoff) = crate::admin::state::ts_to_datetime(before) {
                 query =
                     query.filter(crate::admin::data::sys_script_logs::Column::CreatedAt.lt(cutoff));
             }

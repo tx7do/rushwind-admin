@@ -85,13 +85,13 @@ fn org_proto(r: crate::admin::data::sys_org_units::Model) -> OrgUnit {
         created_by: r.created_by,
         updated_by: r.updated_by,
         deleted_by: r.deleted_by,
-        created_at: r.created_at.and_then(crate::admin::state::naive_to_ts),
-        updated_at: r.updated_at.and_then(crate::admin::state::naive_to_ts),
-        deleted_at: r.deleted_at.and_then(crate::admin::state::naive_to_ts),
+        created_at: r.created_at.and_then(crate::admin::state::datetime_to_ts),
+        updated_at: r.updated_at.and_then(crate::admin::state::datetime_to_ts),
+        deleted_at: r.deleted_at.and_then(crate::admin::state::datetime_to_ts),
         latitude: r.latitude,
         longitude: r.longitude,
-        start_at: r.start_at.and_then(crate::admin::state::naive_to_ts),
-        end_at: r.end_at.and_then(crate::admin::state::naive_to_ts),
+        start_at: r.start_at.and_then(crate::admin::state::datetime_to_ts),
+        end_at: r.end_at.and_then(crate::admin::state::datetime_to_ts),
         legal_entity_org_id: r.legal_entity_org_id,
     }
 }
@@ -204,10 +204,10 @@ impl OrgUnitService {
         crate::set_masked!(opt mask, a, latitude, data.latitude, |v: &f64| Some(*v));
         crate::set_masked!(opt mask, a, longitude, data.longitude, |v: &f64| Some(*v));
         crate::set_masked!(opt mask, a, start_at, data.start_at, |v: &pbjson_types::Timestamp| {
-            crate::state::ts_to_naive(v)
+            crate::state::ts_to_datetime(v)
         });
         crate::set_masked!(opt mask, a, end_at, data.end_at, |v: &pbjson_types::Timestamp| {
-            crate::state::ts_to_naive(v)
+            crate::state::ts_to_datetime(v)
         });
         crate::set_masked!(opt mask, a, contact_user_id, data.contact_user_id, |v: &i64| Some(
             *v
