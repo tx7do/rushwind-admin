@@ -23,6 +23,10 @@ pub struct AppState {
     /// The object-storage engines, one per content bucket, present when
     /// `oss.yaml` carries a MinIO section.
     pub oss: Option<OssBuckets>,
+    /// The configured authz engine (`auth.yaml authz.type`) plus its
+    /// policy snapshot; `None` kind = the gate's authorization stage is
+    /// absent.
+    pub authz: Arc<crate::admin::authorizer::PolicyAuthorizer>,
 }
 
 /// The five content buckets the file service routes objects into, all
@@ -130,6 +134,9 @@ impl AppState {
         };
 
         Ok(Self {
+            authz: Arc::new(crate::admin::authorizer::PolicyAuthorizer::new(
+                cfg.authz_kind,
+            )),
             cfg,
             db,
             redis: redis_conn,

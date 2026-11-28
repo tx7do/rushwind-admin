@@ -23,10 +23,10 @@ use admin::state::AppState;
 use rushwind_bootstrap::Bootstrap;
 use rushwind_transport::StopSignal;
 
-/// The server assembly document, compiled into the binary: the http
-/// server carries BOTH route packs (the edge's CORS policy and the
-/// request budget wrap them identically).
-const SERVER_YAML: &str = include_str!("../assets/server.yaml");
+/// The server assembly document, read from the config directory at
+/// startup (`configs/server.yaml` — nothing embedded): the http server
+/// carries BOTH route packs (the edge's CORS policy and the request
+/// budget wrap them identically).
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -71,15 +71,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "RUSHWIND_PASSWORD_RSA_PRIVATE_KEY 未配置，口令传输解密仍在使用内置开发私钥，生产环境必须替换"
         );
     }
-    let public_pem: &[u8] = match &cfg.jwt_public_key {
-        Some(pem) => pem.as_bytes(),
-        None => include_bytes!("../assets/jwt_public_key.pem"),
+    // The verification key: auth.yaml / the env override, else the
+    // optional fallback file in the config directory (nothing is
+    // embedded — a deployment without either starts with a clear error).
+    let public_pem: Vec<u8> = match &cfg.jwt_public_key {
+        Some(pem) => pem.clone().into_bytes(),
+        None => admin::config::read_optional_config_file("jwt_public_key.pem")
+            .ok_or(
+                "jwt public key missing: set auth.yaml public_key, \
+                 RUSHWIND_AUTH_JWT_PUBLIC_KEY, or place jwt_public_key.pem in the config directory",
+            )?
+            .into_bytes(),
     };
     let verifier = rushwind_authn_jwt::JwtAuthenticator::new(
         rushwind_authn_jwt::JwtOptions::new()
             .with_algorithm("RS256")
             .map_err(|e| format!("jwt algorithm: {e:?}"))?
-            .with_rsa_public_key_from_pem(public_pem)
+            .with_rsa_public_key_from_pem(&public_pem)
             .map_err(|e| format!("jwt public key: {e:?}"))?,
     );
     let authenticator: Arc<dyn rushwind_authn::Authenticator> = Arc::new(verifier);
@@ -96,6 +104,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // the admin seeds' roles existing, so admin seeds go first.
     admin::seed::run(&state).await?;
     template::seed::run(&state).await?;
+    // The authz engines' first policy snapshot — the reference resets
+    // at server-construction end, best-effort (a failed load logs and
+    // continues; the engines then judge the empty snapshot, which
+    // denies fail-closed until the next reset).
+    admin::authorizer::reset_policies(&state).await;
 
     // The shared task-queue storage handle: the worker (a factory
     // transport below) claims and executes; the periodic wildcard
@@ -106,7 +119,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "default",
     )?);
 
-    let mut assembler = Bootstrap::from_yaml_str(SERVER_YAML)?
+    let server_yaml = admin::config::read_config_file("server.yaml")?;
+    let mut assembler = Bootstrap::from_yaml_str(&server_yaml)?
         .route_pack("admin-surface", rest::pack(Arc::clone(&state)))
         // The business surface rides the same http server and edge —
         // one more line per module pack.

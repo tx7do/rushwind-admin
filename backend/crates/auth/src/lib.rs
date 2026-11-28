@@ -9,13 +9,14 @@
 //! → `TenantAccessChecker` (tenant status / expiry read-only / plan
 //! module whitelist — tenant members only, platform admins skip) →
 //! `AuthorizationEvaluator` (per-role evaluation with the audit
-//! trail). Failures render the four-field status envelope: reason
-//! `UNAUTHORIZED` for every credential failure (message pinned by the
-//! framework's failure classes), reason `FORBIDDEN` with the check's
-//! own message for the two later stages. Success inserts the claim bag
-//! into the request extensions — the request-context injection —
-//! consumed by the glue into the per-request
-//! [`rushwind_http_binding::ctx::RequestContext`].
+//! trail; optional — a deployment whose configured engine kind drops
+//! the stage runs the two earlier ones alone). Failures render the
+//! four-field status envelope: reason `UNAUTHORIZED` for every
+//! credential failure (message pinned by the framework's failure
+//! classes), reason `FORBIDDEN` with the check's own message for the
+//! two later stages. Success inserts the claim bag into the request
+//! extensions — the request-context injection — consumed by the glue
+//! into the per-request [`rushwind_http_binding::ctx::RequestContext`].
 
 use std::sync::Arc;
 
@@ -64,22 +65,38 @@ pub struct AuthzEvaluation<'a> {
     pub trace_id: &'a str,
 }
 
+/// The authorization point's failure shapes — each maps to its own
+/// envelope: the two denials are FORBIDDEN with the reference's fixed
+/// texts, an engine fault is the raw error the reference's middleware
+/// returns (kratos renders it the unknown-error 500 face, empty
+/// reason).
+pub enum AuthzRejection {
+    /// No subject in the claims — `missing authz subject`.
+    MissingSubject,
+    /// Every subject denied — `unauthorized access`.
+    Unauthorized,
+    /// The engine itself failed; carries its error text.
+    Engine(String),
+}
+
 /// The authorization point: evaluates the request against the policy
-/// engine and records the evaluation trail. `Err` carries the exact
-/// FORBIDDEN envelope text.
+/// engine and records the evaluation trail.
 #[async_trait]
 pub trait AuthorizationEvaluator: Send + Sync {
-    async fn authorize(&self, evaluation: AuthzEvaluation<'_>) -> Result<(), String>;
+    async fn authorize(&self, evaluation: AuthzEvaluation<'_>) -> Result<(), AuthzRejection>;
 }
 
 /// The gate middleware body: the framework session stage, then the
-/// tenant and authorization stages, pass through with the claims
+/// tenant stage, then the authorization stage — `None` when the
+/// configured engine kind drops the stage (`zanzibar`, or the authz
+/// section missing: the reference answers a nil engine and the
+/// middleware is not installed at all) — pass through with the claims
 /// injected, or render the envelope.
 pub async fn auth_gate(
     auth: Arc<dyn Authenticator>,
     checker: Arc<dyn AccessTokenChecker + 'static>,
     tenant_checker: Arc<dyn TenantAccessChecker + 'static>,
-    authorizer: Arc<dyn AuthorizationEvaluator + 'static>,
+    authorizer: Option<Arc<dyn AuthorizationEvaluator + 'static>>,
     mut req: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> axum::response::Response {
@@ -166,18 +183,29 @@ pub async fn auth_gate(
     }
 
     // The authorization stage: one evaluation per role, the
-    // first permitting role wins.
-    let evaluation = AuthzEvaluation {
-        user_id: claims.0.get("uid").and_then(|v| v.as_i64()).unwrap_or(0),
-        tenant_id,
-        roles: &roles,
-        action: &method,
-        resource: &path,
-        ip: &ip,
-        trace_id: &trace_id,
-    };
-    if let Err(message) = authorizer.authorize(evaluation).await {
-        return rushwind_http_binding::envelope::error_response(forbidden(&message));
+    // first permitting role wins. Absent (engine kind dropped the
+    // stage) — the request rides on the earlier stages alone.
+    if let Some(authorizer) = authorizer.as_ref() {
+        let evaluation = AuthzEvaluation {
+            user_id: claims.0.get("uid").and_then(|v| v.as_i64()).unwrap_or(0),
+            tenant_id,
+            roles: &roles,
+            action: &method,
+            resource: &path,
+            ip: &ip,
+            trace_id: &trace_id,
+        };
+        if let Err(rejection) = authorizer.authorize(evaluation).await {
+            return rushwind_http_binding::envelope::error_response(match rejection {
+                AuthzRejection::MissingSubject => forbidden("missing authz subject"),
+                AuthzRejection::Unauthorized => forbidden("unauthorized access"),
+                // The reference returns the raw engine error; kratos's
+                // unknown-error face is 500 with the empty reason.
+                AuthzRejection::Engine(message) => {
+                    rushwind_http_binding::envelope::StatusError::new(500, "", message)
+                }
+            });
+        }
     }
 
     if let Some(effective) = impersonated {

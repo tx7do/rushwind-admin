@@ -202,9 +202,14 @@ pub fn make_wrap(
     let tenant_checker = Arc::new(crate::admin::authorizer::TenantAccessChecker(Arc::clone(
         state,
     ))) as Arc<dyn auth::TenantAccessChecker + 'static>;
-    let authorizer = Arc::new(crate::admin::authorizer::AccessAuthorizer::new(Arc::clone(
-        state,
-    ))) as Arc<dyn auth::AuthorizationEvaluator + 'static>;
+    // The authorization stage rides only when a configured engine kind
+    // exists — `None` (section missing / `zanzibar`) drops the stage
+    // the way the reference's nil engine drops its middleware.
+    let authorizer: Option<Arc<dyn auth::AuthorizationEvaluator + 'static>> =
+        state.cfg.authz_kind.map(|_| {
+            Arc::new(crate::admin::authorizer::AccessAuthorizer::new(state))
+                as Arc<dyn auth::AuthorizationEvaluator + 'static>
+        });
 
     move |mr: MethodRouter, wire: &RouteWire, gated: bool| -> MethodRouter {
         let mut out = mr;
@@ -212,12 +217,12 @@ pub fn make_wrap(
             let auth = Arc::clone(&authenticator);
             let checker = Arc::clone(&checker);
             let tenant_checker = Arc::clone(&tenant_checker);
-            let authorizer = Arc::clone(&authorizer);
+            let authorizer = authorizer.clone();
             let gate = axum::middleware::from_fn(move |req, next| {
                 let auth = Arc::clone(&auth);
                 let checker = Arc::clone(&checker);
                 let tenant_checker = Arc::clone(&tenant_checker);
-                let authorizer = Arc::clone(&authorizer);
+                let authorizer = authorizer.clone();
                 async move { auth_gate(auth, checker, tenant_checker, authorizer, req, next).await }
             });
             out = out.layer(gate);

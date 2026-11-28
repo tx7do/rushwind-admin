@@ -28,7 +28,7 @@ include!("auth_free.rs");
 // the entry reads as one flat surface (and `repo_shell!`'s `$crate`
 // targets resolve: the macro bodies name `crate::proto`, `crate::data`,
 // `crate::state`, `crate::paging`).
-pub use admin::{config, crypto, data, migration, paging, seed, server, state};
+pub use admin::{authorizer, config, crypto, data, migration, paging, seed, server, state};
 
 // The field-level update gate and its test fixture, root-re-exported so
 // the (synced) handler and test bodies keep naming `crate::fieldmask`

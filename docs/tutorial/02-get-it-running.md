@@ -60,15 +60,15 @@ docker run -d --name rw-redis -p 6379:6379 redis:7 redis-server --requirepass "*
 docker run -d --name rw-minio -p 9000:9000 -e MINIO_ROOT_USER=root -e MINIO_ROOT_PASSWORD=*Abcd123456 minio/minio server /data
 ```
 
-三个容器的凭据刻意与内嵌 yaml 烤死的值逐字一致（PG 密码 `*Abcd123456`、库名 `rushwind_admin`；Redis 密码 `*Abcd123456`；MinIO `root` / `*Abcd123456`）——这样后文的环境变量覆盖只有地址是"新信息"，其余凭照旧。注意 Redis 的 `--requirepass` 不能省：内嵌配置带密码，redis 客户端按密码发 AUTH，无密码的 Redis 会答 WRONGPASS/NOAUTH 形态的错误。
+三个容器的凭据刻意与仓内 yaml 的默认值逐字一致（PG 密码 `*Abcd123456`、库名 `rushwind_admin`；Redis 密码 `*Abcd123456`；MinIO `root` / `*Abcd123456`）——这样后文的环境变量覆盖只有地址是"新信息"，其余凭照旧。注意 Redis 的 `--requirepass` 不能省：配置带密码，redis 客户端按密码发 AUTH，无密码的 Redis 会答 WRONGPASS/NOAUTH 形态的错误。
 
 > ⚠ **Windows + Docker Desktop 的 IPv6 陷阱**：Docker 的 IPv6 回环端口代理可能挂死——`::1:5432` 超时而 `127.0.0.1:5432` 瞬通。下面给后端的环境变量一律写 `127.0.0.1`，不要写 `localhost`（Rust/tokio 解析 `localhost` 会优先走 `::1`，表现为连接池超时的假象）。
 
-### 2.1 凭据对照表：容器 ↔ 内嵌配置
+### 2.1 凭据对照表：容器 ↔ 仓内配置
 
-后端的中间件地址烤在 `apps/admin/assets/{data,oss}.yaml` 里，指向**容器主机名**（`postgres:5432` / `redis:6379` / `minio:9000`）——那是容器内互联的名字，本机直跑解析不到，所以必须用环境变量覆盖地址（§3）。逐项对照：
+后端的中间件地址写在 `apps/admin/configs/{data,oss}.yaml` 里（运行时读盘，见 §3.1），指向**容器主机名**（`postgres:5432` / `redis:6379` / `minio:9000`）——那是容器内互联的名字，本机直跑解析不到，所以必须用环境变量覆盖地址（§3）。逐项对照：
 
-| 中间件 | 容器（yaml 烤死值） | 本机直跑覆盖 | 凭据（两边一致） |
+| 中间件 | 容器（yaml 默认值） | 本机直跑覆盖 | 凭据（两边一致） |
 |---|---|---|---|
 | PostgreSQL | `host=postgres port=5432 dbname=rushwind_admin` | `RUSHWIND_DATABASE_SOURCE=postgres://...@127.0.0.1:5432/rushwind_admin` | `postgres` / `*Abcd123456` |
 | Redis | `redis:6379` | `RUSHWIND_REDIS_ADDR=127.0.0.1:6379` | 密码 `*Abcd123456` |
@@ -86,7 +86,7 @@ cargo run -p admin        # 二进制 admin，监听 REST :7788 + SSE :7789（�
 ```
 
 - 首次构建需数分钟；**启动到监听约 24–50 秒属正常**——启动序列包含迁移（61 张表：admin 面 60 张 + fork 面 1 张，`database.migrate` 门开启时）和种子数据（内置菜单、权限点、平台参数、默认语言、平台管理员）。
-- 配置内嵌在 `apps/admin/assets/`（`server.yaml` / `auth.yaml` / `data.yaml` / `oss.yaml`），其中中间件地址指向容器主机名（`postgres:5432` 等）——**本机直跑必须用环境变量覆盖**：
+- 配置在 `apps/admin/configs/`（`server.yaml` / `auth.yaml` / `data.yaml` / `oss.yaml`，**运行时读盘**，不编进二进制），其中中间件地址指向容器主机名（`postgres:5432` 等）——**本机直跑必须用环境变量覆盖**：
 
 ```bash
 export RUSHWIND_DATABASE_SOURCE="postgres://postgres:*Abcd123456@127.0.0.1:5432/rushwind_admin?sslmode=disable"
@@ -100,9 +100,14 @@ cargo run -p admin
 
 ### 3.1 配置四 yaml 逐键注解
 
-四份 yaml 经 `include_str!` 编进二进制（`config.rs` / `main.rs`），改它们要重新编译。逐文件逐段：
+四份 yaml 都在磁盘上读，**改文件+重启即生效，无需重新编译**。配置目录的解析顺序：
 
-**`server.yaml` —— 装配文档（生命周期驱动，`main.rs` 的 `SERVER_YAML`）**
+1. `RUSHWIND_CONFIG_DIR` —— **设了就权威**：该目录没有 `data.yaml` 直接启动失败（不会悄悄回落到别处）；
+2. 未设时，第一个含 `data.yaml` 的候选者胜：`./configs`（部署形态：在 configs 旁起二进制）→ `./apps/admin/configs`（仓内 cwd）→ `<exe>/configs`（二进制旁带 configs）→ 从可执行文件逐级向上的 `apps/admin/configs`（cargo 开发布局自动命中 `target/debug → backend/apps/admin/configs`）。
+
+全部候选都落空时启动失败并列出试过的路径。逐文件逐段：
+
+**`server.yaml` —— 装配文档（生命周期驱动，`main.rs` 读盘传给装配器）**
 
 | 段 | 键 | 含义 |
 |---|---|---|
@@ -169,9 +174,9 @@ cargo run -p admin
 
 `main.rs` 从上到下是一条固定序列，每步的失败形态都值得提前认识——报错文本即锚点：
 
-1. **`Config::load()`** —— 解析三份内嵌 yaml（data/auth/oss）。失败形态：`parse data.yaml: ...`（配置损坏，重编译前先查 yaml 语法）。server.yaml 不在这里解析——它由装配器消费（第 8 步）。
+1. **`Config::load()`** —— 从配置目录读盘并解析三份 yaml（data/auth/oss；`oss.yaml` 可缺省，缺省=不启用对象存储）。失败形态：`config directory not found: ...`（目录没解析到，报错会列出全部候选）、`read config file ...`、`parse data.yaml: ...`（文件损坏）。server.yaml 不在这里解析——它由装配器消费（第 8 步）。
 2. **口令信封私钥检查** —— `using_dev_password_private_key()` 为真时向 stderr 打一行警告："RUSHWIND_PASSWORD_RSA_PRIVATE_KEY 未配置，口令传输解密仍在使用内置开发私钥"。本地开发**这是正常输出不是故障**；生产必须配置。
-3. **JWT 验签引擎** —— 公钥取 `RUSHWIND_AUTH_JWT_PUBLIC_KEY` 或 auth.yaml，缺省再退到随仓 `assets/jwt_public_key.pem`；算法钉 RS256。失败形态：`jwt public key: ...`（PEM 损坏）。
+3. **JWT 验签引擎** —— 公钥取 `RUSHWIND_AUTH_JWT_PUBLIC_KEY` 或 auth.yaml，缺省再退到配置目录的 `jwt_public_key.pem`（可选文件，三者皆无则启动即退并点名）；算法钉 RS256。失败形态：`jwt public key: ...`（PEM 损坏）。
 4. **`AppState::connect`**（`state.rs`）—— 依序：Postgres 连接池（25/25、10s 超时）→ Redis 连接管理器 → RS256 签发引擎（私钥来自 auth.yaml 或 env，**缺失即退**）→ `TokenStore`（Redis 会话存储，带两个有效期）→ 可选的五桶 OSS 引擎。失败形态逐字对应：`postgres connect: <sqlx 错误>`（中间件没起/端口错/凭据错/没写 127.0.0.1）、`redis connect: <错误>`（地址/密码不一致——§2 的 `--requirepass`）、`auth.yaml private_key missing (RS256 minting requires it)`。
 5. **迁移链**（`database.migrate` 门开时，`migration.rs`）—— 先 admin 链（`Migrator`：9 个实体派生段 + 13 个手写 DDL 迁移，60 张表），再 template 链（fork 面 1 张表）。执行是**逐步应用**（每次一个迁移），成功打 `[migrate] applied <迁移名>`；失败打 `[migrate] failed right after <上一个成功的迁移名>` 并以 `schema migrate: <错误>` 退出——PG 的 Query Error 只给事务内行号，这两行日志是定位哪个迁移哪条 DDL 的关键。已迁过的库直接跳过（迁移追踪表挡住重放，幂等）。
 6. **种子**（`seed/mod.rs`）—— 固定顺序：语言（7 条，zh-CN 默认）→ 平台参数（3 个密码策略键）→ 角色（`platform:admin` / `template:tenant:manager`）→ 权限组（5）→ 权限点（5，角色授权按 code 动态解析）→ 菜单（30 条固定 ID）→ 通知规则（4 条事件路由）→ 内置 BI 模板（1 条）→ 平台管理员（`admin` / `Abcd@1234`）→ 启动期接口同步（把打进二进制的 OpenAPI 端点清单按 `(path, method)` MERGE 进 `sys_apis`）→ 16 张以固定 id 播种的表做序列对齐（否则首个 API 侧 INSERT 撞主键）。**全幂等**：每段先查计数，非空即跳过。
@@ -197,7 +202,7 @@ cargo run -p admin
 curl -s http://127.0.0.1:7788/admin/v1/users
 #   {"code":401,"reason":"UNAUTHORIZED","message":"missing bearer token",...}
 
-# 2) 内嵌 OpenAPI 规格（文档端点三件套均免鉴权）
+# 2) OpenAPI 规格（契约构建产物，内嵌；文档端点三件套均免鉴权）
 curl -s -o /dev/null -w "%{http_code} %{size_download}\n" http://127.0.0.1:7788/q/openapi.yaml
 ```
 
@@ -277,7 +282,7 @@ bash apps/admin/api/sync-protos.sh --check     # 契约同步校验门（与 CI 
 
 - 构建自足：框架依赖走 Git 钉版，只有 buf 必须自备；
 - Windows 两条前置：`AWS_LC_SYS_PREBUILT_NASM=1`（aws-lc-sys 无 NASM 构建）与地址写 `127.0.0.1`（IPv6 陷阱）；
-- 中间件三件：PG / Redis 缺一启动即退，MinIO 缺省时对象存储面不启用、服务照常起（文件服务落本地磁盘镜像）；本机直跑用 `RUSHWIND_*` 环境变量覆盖，凭据与内嵌 yaml 逐字一致；
+- 中间件三件：PG / Redis 缺一启动即退，MinIO 缺省时对象存储面不启用、服务照常起（文件服务落本地磁盘镜像）；本机直跑用 `RUSHWIND_*` 环境变量覆盖，凭据与仓内 yaml 默认值逐字一致；
 - 配置四 yaml 是装配/存储/认证/对象存储四面的声明源（编译进二进制，改动要重编译），环境变量按"env > yaml > 代码默认"覆盖；
 - 启动序列 = 配置 → 验签引擎 → 连接 → 迁移（admin 60 表 + fork 1 表，幂等可重放）→ 种子（幂等）→ 四个 transport，首启 24–50 秒是正常节奏；
 - 验证三件：门控路由 401 信封、`/q/openapi.yaml` 200、`:7789/events` 无令牌 401 探活；

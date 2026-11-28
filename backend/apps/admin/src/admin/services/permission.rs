@@ -910,6 +910,7 @@ impl crate::proto::gen::services::PermissionServiceHandlers for PermissionServic
             .map_err(db_err)?;
         }
         bind_api_rows(&self.state.db, perm.id as i64, &data.api_ids).await?;
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 
@@ -979,6 +980,7 @@ impl crate::proto::gen::services::PermissionServiceHandlers for PermissionServic
                 bind_api_rows(&self.state.db, req.id, &data.api_ids).await?;
             }
         }
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 
@@ -1011,6 +1013,7 @@ impl crate::proto::gen::services::PermissionServiceHandlers for PermissionServic
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 
@@ -1021,6 +1024,7 @@ impl crate::proto::gen::services::PermissionServiceHandlers for PermissionServic
     ) -> Result<Empty, StatusError> {
         let payload = operator_of(&ctx)?;
         self.sync_from_sources(payload.user_id).await?;
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 }

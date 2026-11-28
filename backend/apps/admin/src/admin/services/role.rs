@@ -508,6 +508,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
         let inserted = a.insert(&self.state.db).await.map_err(db_err)?;
         self.sync_bindings(payload.tenant_id, inserted.id as i64, &data)
             .await?;
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 
@@ -560,6 +561,9 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
             self.sync_bindings_update(payload.tenant_id, req.id, data)
                 .await?;
         }
+        // 参照 Edit 的 ResetPolicies 在 update_mask 分支外：即便本次只改
+        // 标量（无绑定重建），角色行本身也是策略装载的键源，重载一致。
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 
@@ -604,6 +608,7 @@ impl crate::proto::gen::services::RoleServiceHandlers for RoleService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 }

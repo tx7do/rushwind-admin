@@ -213,8 +213,8 @@ cd backend
 cargo run -p admin   # binary admin, serving REST :7788 (plus the business-module surfaces in-process)
 ```
 
-- On startup it connects to PostgreSQL and Redis. Configuration lives in `backend/apps/admin/assets/` (`auth.yaml` / `data.yaml` / `oss.yaml`)
-- `assets/jwt_public_key.pem` and the key embedded in `auth.yaml` are **demo keys** — replace them before any production deployment
+- On startup it connects to PostgreSQL and Redis. Configuration lives in `backend/apps/admin/configs/` (read from disk at startup) (`auth.yaml` / `data.yaml` / `oss.yaml`)
+- `configs/jwt_public_key.pem` and the key in `auth.yaml` are **demo keys** — replace them before any production deployment
 - Startup sequence: migrations → seed → REST (:7788) + SSE (:7789, `/events`) + task worker + cron, four transports in one lifecycle
 
 ### Contract Sync

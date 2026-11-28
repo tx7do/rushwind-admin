@@ -213,8 +213,8 @@ cd backend
 cargo run -p admin   # 二进制 admin，监听 REST :7788（+ 业务模块面同进程）
 ```
 
-- 启动时连接 PostgreSQL 与 Redis，配置位于 `backend/apps/admin/assets/`（`auth.yaml` / `data.yaml` / `oss.yaml`）
-- `assets/jwt_public_key.pem` 与 `auth.yaml` 内嵌密钥为**演示密钥**，生产部署必须更换
+- 启动时连接 PostgreSQL 与 Redis，配置位于 `backend/apps/admin/configs/`（运行时读盘，改完重启即生效）（`auth.yaml` / `data.yaml` / `oss.yaml`）
+- `configs/jwt_public_key.pem` 与 `auth.yaml` 内的密钥为**演示密钥**，生产部署必须更换
 - 启动序列：迁移 → 种子 → REST（:7788）+ SSE（:7789，`/events`）+ 任务 worker + cron 四个 transport 一并起
 
 ### 契约同步

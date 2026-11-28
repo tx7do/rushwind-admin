@@ -143,7 +143,7 @@ async fn no_single_request_wedges_the_service() {
     let run_stop = stop.clone();
     let run = tokio::spawn(async move { booted.app.run(run_stop).await });
 
-    let client = reqwest::Client::new();
+    let client = test_client();
     wait_ready(&client, port).await;
 
     // The probe face: the auth-free login route (resolved from the
@@ -230,7 +230,7 @@ async fn no_single_request_wedges_the_service() {
         }
 
         for (label, build) in attacks {
-            let fresh = reqwest::Client::new();
+            let fresh = test_client();
             let request = build(&fresh);
             let started = std::time::Instant::now();
             let outcome = tokio::time::timeout(DEADLINE, request.send()).await;
@@ -343,7 +343,16 @@ async fn no_single_request_wedges_the_service() {
     // prove the guard rejected before reading. What must never happen
     // is the deadline elapsing: that would be the wedge itself.
     match oversized {
-        Ok(resp) => assert_eq!(resp.status(), 401, "the body guard's pre-read verdict"),
+        Ok(resp) => {
+            // Self-describing pin: a mismatch names the face that
+            // answered (status + reason) instead of a bare code pair.
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            assert_eq!(
+                status, 401,
+                "the body guard's pre-read verdict (body: {body})"
+            );
+        }
         Err(_) => eprintln!(
             "[freeze-hunter]   oversized rejection observed mid-write (transport closed early)"
         ),
@@ -398,6 +407,18 @@ fn substitute_path_vars(template: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("/")
+}
+
+/// The test client: `no_proxy` is not optional here — the host shells of
+/// this project carry `HTTP_PROXY=127.0.0.1:7890` (the dev proxy), and
+/// reqwest honors the env by default: localhost requests then ride the
+/// proxy, which intermittently answers 502 instead of the edge (the
+/// observed flake). Every client the tests build must bypass it.
+fn test_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .expect("test client")
 }
 
 /// An ephemeral port for the hunter's assembly.
@@ -487,8 +508,13 @@ async fn harness_state() -> (Arc<AppState>, String) {
             access_token_expires_secs: 3600,
             refresh_token_expires_secs: 86_400,
             captcha_required_failures: 3,
+            // noop 档：猎手电池的放行面与部署默认一致。
+            authz_kind: Some(admin::config::AuthzKind::Noop),
             oss: None,
         },
+        authz: Arc::new(admin::admin::authorizer::PolicyAuthorizer::new(Some(
+            admin::config::AuthzKind::Noop,
+        ))),
         db,
         redis: redis.clone(),
         authenticator: Arc::new(jwt()),

@@ -1,17 +1,20 @@
-//! Config loading — parses the embedded yaml defaults
-//! (`assets/data.yaml`, `assets/auth.yaml`, `assets/oss.yaml`,
-//! compiled into the binary) with the same env overrides
+//! Config loading — parses the runtime yaml files (`configs/data.yaml`,
+//! `configs/auth.yaml`, `configs/oss.yaml`) with the same env overrides
 //! (`RUSHWIND_AUTH_JWT_*`,
 //! plus `RUSHWIND_DATABASE_SOURCE` / `RUSHWIND_REDIS_ADDR` / `RUSHWIND_REDIS_PASSWORD`
 //! for out-of-container runs). The server assembly document
-//! (`assets/server.yaml`) belongs to the lifecycle assembler.
+//! (`configs/server.yaml`) belongs to the lifecycle assembler; the
+//! OpenAPI spec (`configs/openapi.yaml`) to the docs/SyncApis face.
+//!
+//! The yaml files are NOT embedded: every one is read from disk at
+//! startup, so operators edit configs in place and restart. The
+//! directory resolves through [`config_dir`].
+
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use rushwind_bootstrap::DurationWire;
 use serde::Deserialize;
-
-const DATA_YAML: &str = include_str!("../../assets/data.yaml");
-const AUTH_YAML: &str = include_str!("../../assets/auth.yaml");
-const OSS_YAML: &str = include_str!("../../assets/oss.yaml");
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -31,8 +34,37 @@ pub struct Config {
     /// 达此次数后，后续登录要求验证码（缺失/错误即 CAPTCHA_REQUIRED /
     /// CAPTCHA_INVALID）。默认 3，锁定阈值（5）之下。
     pub captcha_required_failures: i64,
+    /// The authz engine selector (auth.yaml `authz.type`) — the gate's
+    /// authorization-stage choice. `None` = the stage is ABSENT (no
+    /// evaluation, no trail): the section missing entirely, or
+    /// `zanzibar` (the reference's unimplemented engine answers nil,
+    /// which drops the middleware).
+    pub authz_kind: Option<AuthzKind>,
     #[allow(dead_code)]
     pub oss: Option<OssConfig>,
+}
+
+/// The authz engine kind (`authz.type`): `noop` permits every subject
+/// (the default deployment), `casbin`/`opa` evaluate the loaded
+/// role→endpoint policy snapshot. Unknown spellings fall to `Noop` —
+/// the reference's switch default arm.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AuthzKind {
+    Noop,
+    Casbin,
+    Opa,
+}
+
+impl AuthzKind {
+    /// The engine name the audit trail's `engine=` face and the
+    /// evaluation context carry.
+    pub fn engine_name(self) -> &'static str {
+        match self {
+            AuthzKind::Noop => "noop",
+            AuthzKind::Casbin => "casbin",
+            AuthzKind::Opa => "opa",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -79,6 +111,29 @@ struct RedisSection {
 #[derive(Debug, Deserialize)]
 struct AuthFile {
     authn: Option<AuthnSection>,
+    authz: Option<AuthzSection>,
+}
+
+/// auth.yaml `authz:` — only `type` decides; the casbin/opa/zanzibar
+/// sub-sections are config-face parity (serde drops the unknown keys).
+#[derive(Debug, Default, Deserialize)]
+struct AuthzSection {
+    #[serde(default, rename = "type")]
+    kind: String,
+}
+
+/// The section → engine mapping, the reference's switch verbatim: the
+/// section missing → stage absent (cfg nil, engine nil, middleware
+/// dropped); `""`/`noop`/unknown → noop (the default arm); casbin/opa →
+/// their engines; `zanzibar` → the unimplemented engine answers nil →
+/// stage absent.
+fn authz_kind_of(section: Option<AuthzSection>) -> Option<AuthzKind> {
+    match section?.kind.as_str() {
+        "casbin" => Some(AuthzKind::Casbin),
+        "opa" => Some(AuthzKind::Opa),
+        "zanzibar" => None,
+        _ => Some(AuthzKind::Noop),
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -132,17 +187,33 @@ struct MinioSection {
 }
 
 impl Config {
-    /// Loads the vendored yaml files with env overrides applied.
+    /// Loads the runtime yaml files with env overrides applied.
     pub fn load() -> Result<Self, String> {
-        let data: DataFile =
-            serde_yaml::from_str(DATA_YAML).map_err(|e| format!("parse data.yaml: {e}"))?;
-        let auth: AuthFile =
-            serde_yaml::from_str(AUTH_YAML).map_err(|e| format!("parse auth.yaml: {e}"))?;
-        let oss: OssFile = serde_yaml::from_str(OSS_YAML).unwrap_or(OssFile { oss: None });
+        let data: DataFile = serde_yaml::from_str(&read_config_file("data.yaml")?)
+            .map_err(|e| format!("parse data.yaml: {e}"))?;
+        let auth: AuthFile = serde_yaml::from_str(&read_config_file("auth.yaml")?)
+            .map_err(|e| format!("parse auth.yaml: {e}"))?;
+        // Optional: a deployment without object storage simply omits the
+        // file; a present-but-malformed file is an error (fail-closed,
+        // no silent storage loss).
+        let oss: OssFile = match read_optional_config_file("oss.yaml") {
+            Some(text) => {
+                serde_yaml::from_str(&text).map_err(|e| format!("parse oss.yaml: {e}"))?
+            }
+            None => OssFile { oss: None },
+        };
 
         let data_section = data.data.unwrap_or_default();
         let database = data_section.database.unwrap_or_default();
         let redis_section = data_section.redis.unwrap_or_default();
+        // The authz engine knob: auth.yaml by default, the env override
+        // for deployments that flip engines without editing the file
+        // (same spelling rules — empty/unknown → noop, zanzibar → the
+        // stage absent).
+        let authz_kind = match env_non_empty("RUSHWIND_AUTHZ_TYPE") {
+            Some(kind) => authz_kind_of(Some(AuthzSection { kind })),
+            None => authz_kind_of(auth.authz),
+        };
         let jwt = auth.authn.and_then(|a| a.jwt).unwrap_or(JwtSection {
             method: "HS256".into(),
             key: String::new(),
@@ -192,6 +263,7 @@ impl Config {
             ),
             access_token_expires_secs,
             captcha_required_failures,
+            authz_kind,
             refresh_token_expires_secs,
             oss: (!minio.endpoint.is_empty()).then_some(OssConfig {
                 endpoint: minio.endpoint,
@@ -202,6 +274,115 @@ impl Config {
                 use_ssl: minio.use_ssl,
             }),
         })
+    }
+}
+
+// ─────────────────────── the runtime config directory ───────────────────────
+
+/// The configuration directory: every runtime document (`data.yaml`,
+/// `auth.yaml`, `server.yaml`, the optional `oss.yaml` /
+/// `jwt_public_key.pem`) lives here, ON DISK — nothing is compiled into
+/// the binary. Resolution:
+///
+/// 1. `RUSHWIND_CONFIG_DIR` — **authoritative**: when set it is used
+///    as-is, and a missing `data.yaml` there is a startup error (no
+///    silent fallback: an operator who points at the wrong directory
+///    must hear about it, never run on some other config);
+/// 2. otherwise the first candidate that carries `data.yaml` wins:
+///    `./configs` (deployment: run beside the configs dir),
+///    `./apps/admin/configs` (repo cwd),
+///    `<exe_dir>/configs` (a binary shipped with a sibling configs/),
+///    `<ancestor>/apps/admin/configs` for the executable's ancestors —
+///    the cargo dev layout (`target/debug/admin.exe` → `backend/apps/admin/configs`).
+///
+/// A miss lists every candidate it tried: the failure names itself
+/// instead of guessing.
+pub fn config_dir() -> Result<&'static Path, String> {
+    static RESOLVED: OnceLock<Result<PathBuf, String>> = OnceLock::new();
+    match RESOLVED.get_or_init(resolve_config_dir) {
+        Ok(dir) => Ok(dir.as_path()),
+        Err(error) => Err(error.clone()),
+    }
+}
+
+fn resolve_config_dir() -> Result<PathBuf, String> {
+    let override_dir = env_non_empty("RUSHWIND_CONFIG_DIR").map(PathBuf::from);
+    let cwd = std::env::current_dir().ok();
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(Path::to_path_buf));
+    resolve_dir(override_dir.as_deref(), cwd.as_deref(), exe_dir.as_deref())
+}
+
+/// The pure resolution behind [`config_dir`] — `override_dir` is the
+/// explicit `RUSHWIND_CONFIG_DIR` (authoritative when set), `cwd` and
+/// `exe_dir` feed the deployment and cargo-dev candidates. Split out so
+/// the authority rule and the candidate order are unit-testable without
+/// process globals.
+fn resolve_dir(
+    override_dir: Option<&Path>,
+    cwd: Option<&Path>,
+    exe_dir: Option<&Path>,
+) -> Result<PathBuf, String> {
+    // The explicit override is authoritative — validated, never
+    // bypassed.
+    if let Some(dir) = override_dir {
+        if dir.join("data.yaml").is_file() {
+            return Ok(dir.to_path_buf());
+        }
+        return Err(format!(
+            "RUSHWIND_CONFIG_DIR={} carries no data.yaml — point it at the directory \
+             holding data.yaml / auth.yaml / server.yaml",
+            dir.display()
+        ));
+    }
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Some(cwd) = cwd {
+        candidates.push(cwd.join("configs"));
+        candidates.push(cwd.join("apps/admin/configs"));
+    }
+    if let Some(exe_dir) = exe_dir {
+        candidates.push(exe_dir.join("configs"));
+        for ancestor in exe_dir.ancestors().skip(1).take(5) {
+            candidates.push(ancestor.join("apps/admin/configs"));
+        }
+    }
+    for candidate in &candidates {
+        if candidate.join("data.yaml").is_file() {
+            return Ok(candidate.clone());
+        }
+    }
+    Err(format!(
+        "config directory not found: no candidate carries data.yaml — tried {}. \
+         Set RUSHWIND_CONFIG_DIR to the directory holding data.yaml / auth.yaml / server.yaml.",
+        candidates
+            .iter()
+            .map(|p| p.display().to_string())
+            .collect::<Vec<_>>()
+            .join(", ")
+    ))
+}
+
+/// Reads a required config file from [`config_dir`]. The error carries
+/// the file, the directory, and the underlying io failure.
+pub fn read_config_file(name: &str) -> Result<String, String> {
+    let dir = config_dir()?;
+    let path = dir.join(name);
+    std::fs::read_to_string(&path).map_err(|e| format!("read config file {}: {e}", path.display()))
+}
+
+/// Reads an optional config file: `None` when the file is absent, a
+/// warn line (and `None`) when it is present but unreadable.
+pub fn read_optional_config_file(name: &str) -> Option<String> {
+    let dir = config_dir().ok()?;
+    let path = dir.join(name);
+    match std::fs::read_to_string(&path) {
+        Ok(text) => Some(text),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            tracing::warn!(target: "rushwind.admin.config", %error, path = %path.display(), "optional config file unreadable");
+            None
+        }
     }
 }
 
@@ -242,8 +423,135 @@ fn non_empty(v: String) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{env_bool, env_int, env_non_empty, env_non_empty_or, env_string};
+    use super::{
+        authz_kind_of, env_bool, env_int, env_non_empty, env_non_empty_or, env_string, resolve_dir,
+        AuthFile, AuthzKind,
+    };
     use std::env::{remove_var, set_var};
+    use std::path::Path;
+
+    /// 配置目录解析：显式 override 权威（指错目录=报错，绝不静默回落到
+    /// 别的候选——运维改 A 目录却跑 B 目录是事故面）；未设时按候选链
+    /// 取第一个带 data.yaml 者，含 cargo 开发布局（exe 向上找
+    /// apps/admin/configs）。
+    #[test]
+    fn config_dir_resolution_prefers_override_and_walks_the_dev_layout() {
+        let root = std::env::temp_dir().join(format!(
+            "rw_cfg_probe_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        // The explicit dir: authoritative when it carries data.yaml …
+        let explicit = root.join("explicit");
+        std::fs::create_dir_all(&explicit).expect("mkdir explicit");
+        std::fs::write(explicit.join("data.yaml"), "data: {}\n").expect("write data.yaml");
+        assert_eq!(
+            resolve_dir(Some(&explicit), None, None).expect("explicit dir wins"),
+            explicit
+        );
+        // … and a hard error when it does not (no fallback to the other
+        // candidates, whatever they contain).
+        let empty = root.join("empty");
+        std::fs::create_dir_all(&empty).expect("mkdir empty");
+        let error = resolve_dir(Some(&empty), None, None).expect_err("empty override fails");
+        assert!(error.contains("RUSHWIND_CONFIG_DIR"), "{error}");
+        assert!(error.contains("data.yaml"), "{error}");
+
+        // No override: the repo dev layout — an exe under
+        // <root>/target/debug finds <root>/apps/admin/configs.
+        let dev_configs = root.join("apps/admin/configs");
+        std::fs::create_dir_all(&dev_configs).expect("mkdir dev configs");
+        std::fs::write(dev_configs.join("data.yaml"), "data: {}\n").expect("write dev data.yaml");
+        let exe_dir = root.join("target/debug");
+        std::fs::create_dir_all(&exe_dir).expect("mkdir exe dir");
+        assert_eq!(
+            resolve_dir(None, Some(&root), Some(&exe_dir)).expect("dev layout found"),
+            dev_configs
+        );
+        // A sibling configs/ next to the binary wins (deployment shape)
+        // when the cwd carries nothing — the cwd candidates come first,
+        // so this case pins a cwd without a configs tree.
+        let bare_cwd = root.join("bare");
+        std::fs::create_dir_all(&bare_cwd).expect("mkdir bare cwd");
+        let sibling = exe_dir.join("configs");
+        std::fs::create_dir_all(&sibling).expect("mkdir sibling configs");
+        std::fs::write(sibling.join("data.yaml"), "data: {}\n").expect("write sibling data.yaml");
+        assert_eq!(
+            resolve_dir(None, Some(&bare_cwd), Some(&exe_dir)).expect("sibling wins"),
+            sibling
+        );
+
+        // Nothing anywhere (a SECOND fresh tree, so the first root's
+        // apps/admin/configs is not reachable through the ancestor
+        // walk): the error lists every candidate.
+        let bare_root = std::env::temp_dir().join(format!(
+            "rw_cfg_bare_{}_{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .expect("clock")
+                .as_nanos()
+        ));
+        let bare_exe = bare_root.join("none/debug");
+        std::fs::create_dir_all(&bare_exe).expect("mkdir bare exe");
+        let error = resolve_dir(None, Some(&bare_root), Some(Path::new(&bare_exe)))
+            .expect_err("no candidates");
+        assert!(error.contains("config directory not found"), "{error}");
+        assert!(error.contains("apps/admin/configs"), "{error}");
+        let _ = std::fs::remove_dir_all(&bare_root);
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// auth.yaml `authz.type` → 引擎档：缺节/`zanzibar` = 阶段缺席，
+    /// `""`/`noop`/未知拼写 = noop（参照 switch 的 default 臂），
+    /// casbin/opa 各归其档。
+    #[test]
+    fn authz_section_maps_to_engine_kinds() {
+        // The full auth.yaml document shape (`authn:` sibling included),
+        // the section taken off the parsed file — the exact path the
+        // loader walks.
+        let section = |yaml: &str| -> Option<super::AuthzSection> {
+            let file: AuthFile = serde_yaml::from_str(yaml).expect("parse auth.yaml");
+            file.authz
+        };
+        assert_eq!(authz_kind_of(None), None);
+        assert_eq!(
+            authz_kind_of(section("authz: { type: \"noop\" }")),
+            Some(AuthzKind::Noop)
+        );
+        assert_eq!(
+            authz_kind_of(section("authz: { type: \"\" }")),
+            Some(AuthzKind::Noop)
+        );
+        assert_eq!(
+            authz_kind_of(section("authz: { type: \"casbin\" }")),
+            Some(AuthzKind::Casbin)
+        );
+        assert_eq!(
+            authz_kind_of(section("authz: { type: \"opa\" }")),
+            Some(AuthzKind::Opa)
+        );
+        assert_eq!(
+            authz_kind_of(section("authz: { type: \"zanzibar\" }")),
+            None
+        );
+        assert_eq!(
+            authz_kind_of(section("authz: { type: \"what-else\" }")),
+            Some(AuthzKind::Noop)
+        );
+        // The vendored deployment face: the noop spelling, plus the
+        // empty engine sub-sections the serde face drops.
+        assert_eq!(
+            authz_kind_of(section(
+                "authz:\n  type: \"noop\" # casbin, opa, zanzibar, noop\n  casbin:\n  opa:\n"
+            )),
+            Some(AuthzKind::Noop)
+        );
+    }
 
     // Unique names so parallel tests never collide on the shared
     // environment.

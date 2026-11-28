@@ -313,6 +313,7 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
         .insert(&self.state.db)
         .await
         .map_err(db_err)?;
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 
@@ -349,6 +350,7 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
         }
         crate::stamp_update!(a, payload.user_id);
         a.update(&self.state.db).await.map_err(db_err)?;
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 
@@ -398,6 +400,7 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
             .exec(&self.state.db)
             .await
             .map_err(db_err)?;
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 
@@ -422,6 +425,9 @@ impl crate::proto::gen::services::ApiServiceHandlers for ApiService {
             Err(_) => {
                 let _ = txn.rollback().await;
             }
+        }
+        if result.is_ok() {
+            crate::admin::authorizer::reset_policies(&self.state).await;
         }
         result.map(|_| Empty {})
     }
@@ -462,8 +468,8 @@ pub(crate) struct DerivedApiRow {
     pub module_description: Option<String>,
 }
 
-/// 派生端点清单：解析打进二进制的 OpenAPI 文档（不含 id）——(path, method)
-/// 即身份。启动期同步与 SyncApis RPC 共用。
+/// 派生端点清单：解析内嵌的 OpenAPI 文档（契约构建产物，不含 id）——
+/// (path, method) 即身份。启动期同步与 SyncApis RPC 共用。
 pub(crate) fn derived_api_rows() -> Result<Vec<DerivedApiRow>, String> {
     let doc: serde_yaml::Value = serde_yaml::from_str(crate::admin::assets::OPENAPI_DATA)
         .map_err(|e| format!("openapi parse: {e}"))?;

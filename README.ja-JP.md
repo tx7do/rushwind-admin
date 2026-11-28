@@ -213,8 +213,8 @@ cd backend
 cargo run -p admin   # バイナリ admin、REST :7788 で待受（ビジネスモジュール面も同一プロセス）
 ```
 
-- 起動時に PostgreSQL と Redis に接続します。設定は `backend/apps/admin/assets/`（`auth.yaml` / `data.yaml` / `oss.yaml`）
-- `assets/jwt_public_key.pem` と `auth.yaml` 埋め込み鍵は**デモ用鍵**です。本番導入時は必ず交換してください
+- 起動時に PostgreSQL と Redis に接続します。設定は `backend/apps/admin/configs/`（起動時にディスクから読み込み）（`auth.yaml` / `data.yaml` / `oss.yaml`）
+- `configs/jwt_public_key.pem` と `auth.yaml` 内の鍵は**デモ用鍵**です。本番導入時は必ず交換してください
 - 起動シーケンス：マイグレーション → シード → REST（:7788）+ SSE（:7789、`/events`）+ タスクワーカー + cron の 4 transport を同一ライフサイクルで起動
 
 ### 契約同期

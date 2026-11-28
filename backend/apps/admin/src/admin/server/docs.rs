@@ -1,5 +1,7 @@
 //! Docs server — serves the API documentation surface over the embedded
-//! OpenAPI document:
+//! OpenAPI document (a contract-build artifact, embedded like the
+//! reference's `go:embed` of the same file — the runtime *config*
+//! yamls live on disk):
 //!
 //! * `/q/openapi.yaml` — the raw protoc-gen-openapi spec (YAML);
 //! * `/q/swagger-ui` — Swagger UI reading that spec;

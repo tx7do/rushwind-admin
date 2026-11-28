@@ -28,6 +28,17 @@ use rushwind_bootstrap::{Bootstrap, BootstrapError, RouteInput, RouteSurface};
 use rushwind_panic::{PanicReport, PanicReporter};
 use rushwind_transport::StopSignal;
 
+/// The test client: `no_proxy` is not optional here — the host shells
+/// of this project carry `HTTP_PROXY=127.0.0.1:7890` (the dev proxy),
+/// and reqwest honors the env by default: localhost requests then ride
+/// the proxy, which intermittently answers 502 instead of the edge.
+fn test_client() -> reqwest::Client {
+    reqwest::Client::builder()
+        .no_proxy()
+        .build()
+        .expect("test client")
+}
+
 /// Collects every delivered report behind a lock — `report` runs on
 /// the delivery worker thread and must be quick; the assertions read
 /// the Vec from the test task afterwards.
@@ -119,7 +130,7 @@ async fn boot(
 async fn wait_ready(port: u16) {
     let url = format!("http://127.0.0.1:{port}/ping");
     for _ in 0..100 {
-        if let Ok(resp) = reqwest::get(&url).await {
+        if let Ok(resp) = test_client().get(&url).send().await {
             if resp.status() == 200 {
                 return;
             }
@@ -157,7 +168,9 @@ async fn a_panicking_handler_answers_500_with_the_report_and_stays_alive() {
     let (port, stop, run) = boot(marker).await;
 
     // ---- the simulated 500 ----
-    let resp = reqwest::get(format!("http://127.0.0.1:{port}/panic"))
+    let resp = test_client()
+        .get(format!("http://127.0.0.1:{port}/panic"))
+        .send()
         .await
         .expect("the panicking request answers (recovery, not a dead connection)");
     assert_eq!(resp.status(), 500);
@@ -194,7 +207,9 @@ async fn a_panicking_handler_answers_500_with_the_report_and_stays_alive() {
     // ---- the liveness probe: the 500 did not wedge the service ----
     let ping = tokio::time::timeout(
         std::time::Duration::from_secs(5),
-        reqwest::get(format!("http://127.0.0.1:{port}/ping")),
+        test_client()
+            .get(format!("http://127.0.0.1:{port}/ping"))
+            .send(),
     )
     .await
     .expect("the probe answers within the deadline — the service did not wedge")
@@ -211,7 +226,9 @@ async fn a_business_500_without_panic_leaves_no_panic_report() {
     let _guard = rushwind_panic::plug(Arc::new(sink.clone()));
     let (port, stop, run) = boot("boom: unused marker (panic-sim-b)").await;
 
-    let resp = reqwest::get(format!("http://127.0.0.1:{port}/biz-500"))
+    let resp = test_client()
+        .get(format!("http://127.0.0.1:{port}/biz-500"))
+        .send()
         .await
         .expect("the business-500 request answers");
     assert_eq!(resp.status(), 500);
@@ -232,7 +249,9 @@ async fn a_business_500_without_panic_leaves_no_panic_report() {
         );
     }
 
-    let ping = reqwest::get(format!("http://127.0.0.1:{port}/ping"))
+    let ping = test_client()
+        .get(format!("http://127.0.0.1:{port}/ping"))
+        .send()
         .await
         .expect("the service still answers after the business 500");
     assert_eq!(ping.status(), 200);

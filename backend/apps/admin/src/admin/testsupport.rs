@@ -70,10 +70,15 @@ pub(crate) async fn test_state() -> Arc<AppState> {
         access_token_expires_secs: 3600,
         refresh_token_expires_secs: 86_400,
         captcha_required_failures: 3,
+        // 默认 noop 档：既有服务测试面全部不依赖策略装载，恒放行语义不变。
+        authz_kind: Some(crate::config::AuthzKind::Noop),
         oss: None,
     };
     Arc::new(AppState {
         cfg,
+        authz: Arc::new(crate::admin::authorizer::PolicyAuthorizer::new(Some(
+            crate::admin::config::AuthzKind::Noop,
+        ))),
         db,
         redis: redis.clone(),
         authenticator: Arc::new(FakeAuthenticator),

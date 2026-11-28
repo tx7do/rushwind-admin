@@ -2,17 +2,26 @@
 
 > 前置：[02 从零跑起来](./02-get-it-running.md)。读完你会知道：配置怎么组织、每个键什么语义、密钥怎么换（runbook 级）、启动序列是什么、上线前要过哪些**可执行的**检查。
 
-## 1. 配置模型：内嵌 + 环境覆盖
+## 1. 配置模型：运行时可编辑文件 + 环境覆盖
 
-服务配置内嵌在二进制里（`apps/admin/assets/`，`include_str!` 编译期打包），启动时环境变量**优先**覆盖——单二进制即可部署，改配置不用改文件：
+配置是**磁盘上的文件**，启动时读入（`apps/admin/configs/`，随二进制一起投递），环境变量**优先**覆盖——改配置不需要重新编译，改完重启即生效：
 
-| 文件 | 内容 | 读取处 |
-|---|---|---|
-| `server.yaml` | 装配文档（见 §2） | `main.rs` 的 `include_str!` |
-| `auth.yaml` | 鉴权面：JWT 算法与双钥、authz 引擎类型 | `config.rs` |
-| `data.yaml` | PostgreSQL 连接、Redis 连接、迁移开关 | `config.rs` |
-| `oss.yaml` | MinIO endpoint / 桶凭据 / 上传下载 host | `config.rs` |
-| `jwt_public_key.pem` | 校验公钥兜底（auth.yaml 未配 public_key 时用） | `main.rs` 的 `include_bytes!` |
+| 文件 | 内容 | 读取处 | 必需性 |
+|---|---|---|---|
+| `server.yaml` | 装配文档（见 §2） | `main.rs` 读盘交给装配器 | **必需** |
+| `auth.yaml` | 鉴权面：JWT 算法与双钥、authz 引擎类型 | `config.rs` | **必需** |
+| `data.yaml` | PostgreSQL 连接、Redis 连接、迁移开关 | `config.rs` | **必需** |
+| `oss.yaml` | MinIO endpoint / 桶凭据 / 上传下载 host | `config.rs` | 可选（缺省=不启用对象存储；**存在但损坏=启动失败**） |
+| `jwt_public_key.pem` | 校验公钥兜底（auth.yaml 未配 public_key 时用） | `main.rs` 读盘 | 可选（三者皆无才失败） |
+
+**配置目录的解析**（`config::config_dir`）：
+
+1. `RUSHWIND_CONFIG_DIR` —— **设了就权威**：该目录缺 `data.yaml` 直接启动失败（不会悄悄回落到别处——避免"我改了 A 目录，进程读的是 B 目录"）；
+2. 未设时按序找第一个含 `data.yaml` 的：`./configs` → `./apps/admin/configs` → `<exe>/configs` → 可执行文件逐级向上的 `apps/admin/configs`（cargo 开发布局）。
+
+全部落空时启动失败并**列出全部候选路径**。部署形态：把 `configs/` 与二进制一起投递（同目录、或上一级、或用 `RUSHWIND_CONFIG_DIR` 指过去）。
+
+> 唯一的例外是 `apps/admin/assets/openapi.yaml`（API 文档规格）：它是契约构建产物、不是运维可编辑配置，编译期嵌入（与参照 `go:embed` 同一做法），`/q/openapi.yaml` 与启动期 `sync_apis` 都读这份内嵌文本。
 
 覆盖的优先级语义有个三级结构，值得背下来：
 
@@ -96,6 +105,7 @@ loader（`config.rs` + `crypto.rs`）认的键就这 12 个，**生产必改**�
 | `RUSHWIND_OSS_ENDPOINT` | MinIO endpoint（宿主侧跑容器时用它指到发布端口，不落网络别名） | yaml `minio:9000` | 按拓扑 |
 | `RUSHWIND_AUTH_JWT_PRIVATE_KEY` | RS256 签发私钥（PEM 全文注入，覆盖 auth.yaml） | auth.yaml 演示钥 | **必改**（§5） |
 | `RUSHWIND_AUTH_JWT_PUBLIC_KEY` | RS256 校验公钥（同上；不设则用 auth.yaml / 兜底 pem 文件） | 演示钥 | **必改**（§5） |
+| `RUSHWIND_AUTHZ_TYPE` | authz 引擎档：`noop` / `casbin` / `opa` / `zanzibar`（空串/未知拼写按 `noop`，`zanzibar` 与缺节一样摘下授权阶段） | yaml `authz.type`（部署默认 `noop`） | 要执行级细粒度授权时设 `opa`（语义见[第 5 章 §3.1](./05-permission-model.md)） |
 | `RUSHWIND_ACCESS_TOKEN_EXPIRES_SECS` | access 令牌秒数 | yaml 5400（代码兜底 900） | 按安全策略 |
 | `RUSHWIND_REFRESH_TOKEN_EXPIRES_SECS` | refresh 令牌秒数 | yaml 43200（代码兜底 7 天） | 按安全策略 |
 | `RUSHWIND_CAPTCHA_REQUIRED_FAILURES` | 渐进式验证码阈值：同一 ip+用户名登录失败达此次数后要求验证码（**限定 1–4**，越界收敛） | 3 | 可调 |
@@ -105,7 +115,7 @@ loader（`config.rs` + `crypto.rs`）认的键就这 12 个，**生产必改**�
 
 三处边界要知情：
 
-- **MinIO 的 access_key / secret_key 没有 env 覆盖键**——只能改 `oss.yaml` 后重建镜像（或挂载替换该文件）；只有 endpoint 有 `RUSHWIND_OSS_ENDPOINT`；
+- **MinIO 的 access_key / secret_key 没有 env 覆盖键**——只能改 `oss.yaml` 后**重新编译**（配置是编译期嵌入的，容器里挂载替换该文件无效，见 §1）；只有 endpoint 有 `RUSHWIND_OSS_ENDPOINT`；
 - `RUSHWIND_CAPTCHA_REQUIRED_FAILURES` 的合法域是 1–4：`clamp(1, 4)` 会把 0 和 100 都收敛进界，不报错；
 - 换 JWT 私钥 = 全员下线（旧 access token 全部验签失败）——轮换窗口要选维护时段。
 
@@ -130,7 +140,7 @@ Config::load（yaml + env）→ 开发私钥告警检查 → JWT 校验引擎（
 
 ### 5.1 JWT 双钥（RS256）
 
-`auth.yaml` 内嵌的 JWT 双钥是**演示密钥**，随源码公开，生产必须更换：
+仓内 `configs/auth.yaml` 的 JWT 双钥是**演示密钥**，随源码公开，生产必须更换：
 
 ```bash
 openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out jwt_private_key.pem
@@ -288,7 +298,7 @@ location /events {
 
 ## 10. 本章小结
 
-- 单二进制 + 内嵌配置 + 环境覆盖，部署面收敛到一份装配文档；优先级是"代码默认 < yaml < env"，布尔只认 true/1，密钥类空值不覆盖；
+- 运行时可编辑配置（`configs/`，改完重启即生效；`RUSHWIND_CONFIG_DIR` 权威指定）+ 环境覆盖，部署面收敛到一份装配文档；优先级是"代码默认 < yaml < env"，布尔只认 true/1，密钥类空值不覆盖；
 - 演示密钥是随源码公开的，上线检查单第一项永远是换钥——JWT 双钥、口令信封私钥（带启动告警自检）、MFA 静密钥三把一起换；
 - 四 transport 形态决定了网关配置的两处特殊点：SSE 长连接（:7789，禁缓冲）与 Cookie 透传（`x-forwarded-proto`）；
 - 任务系统的 `backup` 与 `audit_log_archive` 都是"面已接线、执行器占位"——真实的备份与归档落 DB 侧工具，别被任务页的存在感骗了。

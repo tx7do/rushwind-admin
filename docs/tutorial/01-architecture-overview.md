@@ -16,7 +16,8 @@ rushwind-admin/
 │           ├── src/admin/      59 个挂载服务面 + 数据层 + 路由边 + 审计（上行同步落点）
 │           ├── src/modules/    fork 业务模块（copy-rename template 起步）
 │           ├── src/proto/      契约面（构建期生成：类型/池/gen 各 face）
-│           └── assets/         内嵌配置（server.yaml / auth.yaml / …）
+│           ├── configs/        运行时配置（server.yaml / auth.yaml / data.yaml / oss.yaml）
+│           └── assets/         内嵌契约产物（openapi.yaml）
 │   （testbed/ 与 apps/ 平级：差分回归台架 compose + admin-diff 全量路由 sweep）
 ├── frontend/admin/             三套前端同步快照（react / vue-element / vue-vben）
 └── docs/                       本文档体系（教程层 + 参考层，见 [docs/README.md](../README.md)）
@@ -121,7 +122,7 @@ rust-utils = { git = "https://github.com/tx7do/rust-utils", rev = "05000a8", fea
   │  VITE_PROXY='[["/admin", "http://127.0.0.1:7788/"]]'——vite 按 /admin 前缀
   │  转发到 7788，不做 rewrite（后端路由自带前缀），避免开发态跨域
   ▼
-RushWind 装配层（rushwind-bootstrap，由 apps/admin/assets/server.yaml 驱动）
+RushWind 装配层（rushwind-bootstrap，由 apps/admin/configs/server.yaml 驱动）
   │  edge：gorilla 兼容的 CORS 层 + 10s 请求预算
   ▼
 REST transport（axum，:7788）

@@ -657,6 +657,9 @@ impl crate::proto::gen::services::TenantServiceHandlers for TenantService {
             return Err(e);
         }
         txn.commit().await.map_err(db_err)?;
+        // 参照 CreateTenantWithAdminUser 的 defer（提交成功后 `_ =` 静默）：
+        // 该路径会复制模板角色的权限绑定，策略装载面随新租户变化。
+        crate::admin::authorizer::reset_policies(&self.state).await;
         Ok(Empty {})
     }
 

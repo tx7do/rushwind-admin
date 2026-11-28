@@ -50,7 +50,7 @@ next.run(req).await
 
 ### 2.1 签发与生命周期
 
-RS256 双钥（`auth.yaml` 内嵌演示钥，生产必换，见[第 8 章](./08-deployment.md)）。时效分层：`auth.yaml` 的 `access_token_expires: 5400s`（1.5h）、`refresh_token_expires: 43200s`（12h）优先生效；两处都不配置时代码默认是 900s / 7 天（`config.rs`，环境变量 `RUSHWIND_ACCESS_TOKEN_EXPIRES_SECS` / `RUSHWIND_REFRESH_TOKEN_EXPIRES_SECS` 可覆盖）。
+RS256 双钥（`configs/auth.yaml` 随仓演示钥，生产必换，见[第 8 章](./08-deployment.md)）。时效分层：`auth.yaml` 的 `access_token_expires: 5400s`（1.5h）、`refresh_token_expires: 43200s`（12h）优先生效；两处都不配置时代码默认是 900s / 7 天（`config.rs`，环境变量 `RUSHWIND_ACCESS_TOKEN_EXPIRES_SECS` / `RUSHWIND_REFRESH_TOKEN_EXPIRES_SECS` 可覆盖）。
 
 令牌对由 `token_issue.rs::issue_token_pair` 铸造：`to_access_claims` / `to_refresh_claims` 各造一份声明包，`jwt.create_identity` 分别签名，随后 `add_token_pair` 把两串令牌写进 Redis 白名单（`at:`/`rt:` 双键、各按自己的 TTL 过期）。**jti 是每对令牌的会话身份证**——UUIDv7 的 32 位十六进制连写（`new_jwt_id`），Redis 键、会话元组、吊销操作全按它寻址。
 
@@ -103,20 +103,45 @@ Set-Cookie: refresh_exp=<unix 秒>;    Path=/;                     Max-Age=43200
 
 ## 3. 授权评估（authz）
 
-引擎可插拔（`auth.yaml` 的 `authz.type`，当前 `noop`），装配在 `apps/admin/src/admin/authorizer.rs`。评估入口三件事：**判定、反查、留痕**。
+引擎可插拔（`auth.yaml` 的 `authz.type`），装配在 `apps/admin/src/admin/authorizer.rs`。评估入口三件事：**判定、反查、留痕**。
 
-### 3.1 判定：逐角色短路
+### 3.1 引擎选择与策略装载
+
+`authz.type` 四档语义（与配置缺失的兜底）：
+
+| 配置 | 引擎 | 判定语义 |
+| --- | --- | --- |
+| 省略 `authz:` 节 | 无（阶段缺席） | 授权阶段不挂载，前两个阶段照跑 |
+| `noop` / 空串 / 未知拼写 | noop | 每个 subject 恒放行（部署默认） |
+| `casbin` | casbin（restfull-with-role 模型） | 角色→端点策略快照，keyMatch2 路径 + 方法正则 + 域子句 |
+| `opa` | opa（内装 `rbac.rego` 的语义） | 角色→端点策略快照，(pattern, method) 双精确相等 |
+| `zanzibar` | 无（未实现） | 同"省略"：阶段缺席 |
+
+策略快照的装载源与反查链同根：全量角色（跳过空码与 `template:` 前缀）→ `sys_role_permissions` 的 permission_id 集 → `sys_permission_apis` 的 `(endpoint_path, endpoint_method)` 绑定快照。**绑定点就是授权点**——端点身份用 `(path, method)` 文本对裁决，`sys_apis` 删除重建、id 洗牌都不影响策略有效性（与 §3.3 反查链同一条数据教义）。
+
+重载时机：进程启动（种子之后一次）+ 全部授权面变更点——`ApiService`/`PermissionService`/`RoleService` 的 Create/Update/Delete、`SyncApis`/`SyncPermissions`、租户开通（`CreateTenantWithAdminUser`，复制模板角色绑定）。重载失败只记 warn 不拦业务请求；快照保持上一次的可用面（首载失败则空快照，两档真引擎对空快照一律拒绝——fail-closed）。
+
+> casbin 档的一个如实说明：策略行的域取角色租户 id（`strconv.FormatInt(tenant_id)` 同款），而请求域在本系统恒为通配 `*`（claims 从不携带 project），`keyMatch("*", "0")` 为假——域子句恒不命中，casbin 档在装载面下**全部拒绝**。这是机制的真实形状（参照的同一份模型与同一份数据得出同一结论），不是移植偏差；要启用执行级细粒度授权，用 `opa` 档（路径模板两侧同形，`{id}` 精确相等即命中）。
+
+### 3.2 判定：逐角色短路
 
 ```rust
-let Some(subject) = evaluation.roles.first() else {
-    return Err("missing authz subject".to_string());     // 403 文案
-};
-let allowed = true;                                       // noop 引擎放行每个 subject
+if evaluation.roles.is_empty() {
+    return Err(AuthzRejection::MissingSubject);        // 403 missing authz subject
+}
+for subject in evaluation.roles {
+    match self.authz.evaluate(subject, evaluation.action, evaluation.resource) {
+        Ok(true)  => return Ok(()),                    // 首允即短
+        Ok(false) => continue,                         // 换下一个角色
+        Err(error) => return Err(AuthzRejection::Engine(error)), // 引擎故障：raw 错误（500）
+    }
+}
+Err(AuthzRejection::Unauthorized)                      // 403 unauthorized access
 ```
 
-按角色逐个评估、首允即短；无角色（`roc` 空）直接 403 `missing authz subject`。noop 引擎放行一切，所以"有任意角色"就能过授权阶段——**真正的细粒度约束在租户闸门与数据层**，角色权限当前主要作为权限点资产与前端可见性存在。
+逐角色评估、首允即短。noop 档下"有任意角色"就能过授权阶段——此时真正的约束在租户闸门与数据层；`opa` 档下角色必须名下持有该端点。三种拒绝形态各有信封：`missing authz subject` 与 `unauthorized access` 都是 403（文案固定），引擎故障是空 reason 的 500（参照把引擎原始错误交给框架，落 Unknown 面）。
 
-### 3.2 反查链：从路由模板到角色持权
+### 3.3 反查链：从路由模板到角色持权
 
 `resolve_permission_policy` 把 `(角色编码, 路径模板, method)` 反查成 `(permission_id, policy_id)`，三跳全在 DB：
 
@@ -134,19 +159,19 @@ sys_role_permissions（role_id + permission_id 联查）
 - **绑定按端点身份快照裁决，起跳就在 `sys_permission_apis`**：裁决键是 `(endpoint_path, endpoint_method)` 文本对（与租户路由闸查 `sys_apis` 的键同形），`api_id` 列仅历史兼容——上游 7eb7f9f0 同语义，免疫 `sys_apis` 行删除重建与 id 洗牌；`sys_apis` 本身只在租户闸门那一步查（[第 6 章](./06-multi-tenant-isolation.md)），反查链不经过它；
 - **策略引用恒空**：本 schema 无策略表，`(permission_id, 0)` 的第二位永远是 0（trail 里的 `policy_id` 相应为 NULL）。
 
-### 3.3 60s TTL 缓存与失效时机
+### 3.4 60s TTL 缓存与失效时机
 
 反查结果按 `{subject}|{path}|{METHOD}` 键缓存在进程内 `HashMap`：
 
 - **TTL 60s**（`RESOLVE_TTL`）：权限数据变更（改角色绑定）最多 60s 后反映到反查结果——**没有主动失效**，写侧不清缓存，纯粹靠 TTL 自然过期；
 - **容量上限 1024**（`RESOLVE_CACHE_CAP`）：每次插入顺手 `retain` 掉过期条目；上限时的插入回收最快过期的条目——不同 subject 的长跑不会撑爆 map；
-- 缓存只影响 trail 的 permission_id 引用，**不影响判定结果**（noop 引擎恒放行）。
+- 缓存只影响 trail 的 permission_id 引用，**不影响判定结果**（判定走策略快照，重载时机见 §3.1）。
 
-### 3.4 留痕：sys_policy_evaluation_logs
+### 3.5 留痕：sys_policy_evaluation_logs
 
-每次评估落一行：tenant_id/user_id、permission_id/policy_id（反查命中才填）、request_path/request_method、result、effect_details（引擎名、subject、耗时 ms）、ip、trace_id（`traceparent` 的 trace id 或 `X-Request-Id`）、evaluation_context（JSON 上下文）。排障时按 trace_id 追每一次判定的输赢。**留痕写入失败不拦请求**（`let _ = insert`）——观测面永远不让位于可用性。
+**每次尝试落一行**（多角色用户在首个许可角色之前，每个被拒角色各留一行）：tenant_id/user_id、permission_id/policy_id（反查命中才填）、request_path/request_method、result、effect_details（引擎名、subject、耗时 ms、`allowed`/`denied`/`error: …` 三分支）、ip、trace_id（`traceparent` 的 trace id 或 `X-Request-Id`）、evaluation_context（引擎、subject、动作、资源与操作者归属的 JSON 快照）。排障时按 trace_id 追每一次判定的输赢。**留痕写入失败不拦请求**（`let _ = insert`）——观测面永远不让位于可用性。无角色（`roc` 空）在评估之前就 403，不留痕。
 
-### 3.5 角色继承（父子角色）
+### 3.6 角色继承（父子角色）
 
 `sys_roles.parent_id` 允许角色成树，约束全部在**编辑边界**（`services/role.rs`），运行时零开销：
 
@@ -224,7 +249,7 @@ admin:login:captcha:user:{user}    admin:login:fail:user:{user}
 2. **权限点落表**：`sys_permissions` 建 `sys:user:export` 权限行（归属权限组）；
 3. **权限—接口绑定**：`sys_permission_apis` 写绑定行——`endpoint_path = /admin/v1/users/export`、`endpoint_method = POST`（**快照列是裁决键**，与路由模板逐字一致）；
 4. **角色绑定**：目标角色在 `sys_role_permissions` 绑上该权限；角色—菜单授权把按钮节点授给角色；
-5. **前端生效**：下次登录（或刷新令牌——refresh 会重算权威）`ListPermissionCode` 返回的权限码集里出现 `sys:user:export`，按钮可见；接口侧 authz 反查链（§3.2）能从 `(path, method)` 反查到持有它的角色。
+5. **前端生效**：下次登录（或刷新令牌——refresh 会重算权威）`ListPermissionCode` 返回的权限码集里出现 `sys:user:export`，按钮可见；接口侧 authz 反查链（§3.3）能从 `(path, method)` 反查到持有它的角色。
 
 排障口诀：按钮不显示查第 4/5 步（角色绑定 + 重新登录）；接口 403 查第 3 步（端点快照拼写）与租户闸门（[第 6 章](./06-multi-tenant-isolation.md)的 Api 表注册）；60s 内改完权限不生效属正常（TTL 缓存）。
 
